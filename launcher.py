@@ -9,7 +9,7 @@ import ctypes, datetime, hashlib, json, os, py_compile, re, shutil, smtplib, ssl
 import subprocess, tempfile, threading, traceback, zipfile  # noqa: F401,E401
 import urllib.request, urllib.parse  # noqa: F401,E401
 import email.message  # noqa: F401
-import tkinter, tkinter.ttk, tkinter.filedialog, tkinter.messagebox, tkinter.scrolledtext  # noqa: F401,E401
+import tkinter, tkinter.ttk, tkinter.font, tkinter.filedialog, tkinter.messagebox, tkinter.scrolledtext  # noqa: F401,E401
 import pdfplumber  # noqa: F401
 import pytesseract  # noqa: F401
 from PIL import Image, ImageGrab, ImageTk, ImageOps, ImageFilter  # noqa: F401
