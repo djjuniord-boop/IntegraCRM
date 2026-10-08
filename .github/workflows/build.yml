@@ -56,17 +56,21 @@ jobs:
           Copy-Item release/* .
 
       - name: Zrzuty ekranu (kontrola wyglądu)
+        continue-on-error: true
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force shots | Out-Null
           $env:INTEGRA_SHOT = (Resolve-Path shots).Path
-          Start-Process -FilePath pkg/IntegraCRM/IntegraCRM.exe -Wait
+          $p = Start-Process -FilePath pkg/IntegraCRM/IntegraCRM.exe -PassThru
+          if (-not $p.WaitForExit(90000)) { Stop-Process -Id $p.Id -Force; Write-Host "timeout" }
           Get-ChildItem shots
+          if (Test-Path shots/error.txt) { Get-Content shots/error.txt }
+          $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
       - uses: actions/upload-artifact@v4
         with:
           name: zrzuty
-          path: shots/*.png
+          path: shots/*
 
       - uses: actions/upload-artifact@v4
         with:

@@ -244,6 +244,16 @@ class App(tk.Tk):
         self.after(900, lambda: self.check_updates(manual=False))
 
     def _screenshots(self, out_dir):
+        try:
+            self._screenshots_inner(out_dir)
+        except Exception:
+            import traceback
+            with open(f"{out_dir}/error.txt", "w", encoding="utf-8") as fh:
+                fh.write(traceback.format_exc())
+        finally:
+            os._exit(0)
+
+    def _screenshots_inner(self, out_dir):
         from PIL import ImageGrab
 
         def grab(win, name):
@@ -264,7 +274,6 @@ class App(tk.Tk):
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
-        self.destroy()
 
     def _style(self):
         s = ttk.Style(self)
