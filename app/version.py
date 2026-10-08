@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.3"
+VERSION = "0.8.4"
 RELEASED = "2026-10-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,13 @@ RELEASED = "2026-10-08"
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.8.4",
+        "date": "2026-10-08",
+        "changes": [
+            "Stary adres aktualizacji (Dysk Google) usuwany z ustawień – pole puste oznacza GitHub",
+        ],
+    },
     {
         "version": "0.8.3",
         "date": "2026-10-08",

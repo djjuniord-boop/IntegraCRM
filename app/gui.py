@@ -52,6 +52,17 @@ def load_config() -> dict:
     return cfg
 
 
+def migrate_config() -> None:
+    """Usuwa stare źródło aktualizacji (Dysk Google) – od 0.8.3 domyślnie GitHub."""
+    try:
+        cfg = load_config()
+        if "drive.google.com" in (cfg.get("update_source") or ""):
+            cfg["update_source"] = ""
+            save_config(cfg)
+    except Exception:
+        pass
+
+
 def save_config(cfg: dict) -> None:
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
     paths.CONFIG_PATH.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -181,6 +192,9 @@ class SettingsDialog(tk.Toplevel):
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
+        tk.Label(body, text="puste = GitHub (zalecane)", bg=SURFACE, fg=MUTED, font=f.small).grid(
+            row=r[0], column=1, sticky="w", padx=12)
+        r[0] += 1
 
         hint = ("Hasło aplikacji to 16 znaków z konta Google (nie zwykłe hasło do Gmaila):\n"
                 "Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji.\n"
@@ -225,6 +239,7 @@ class SettingsDialog(tk.Toplevel):
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
+        migrate_config()
         self.fonts = Fonts(self)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
         self.geometry("980x800")
