@@ -58,7 +58,10 @@ def save_config(cfg: dict) -> None:
 
 
 def update_source(cfg: dict) -> str:
-    return (cfg.get("update_source") or "").strip() or DEFAULT_UPDATE_SOURCE
+    src = (cfg.get("update_source") or "").strip()
+    if "drive.google.com" in src:   # stare źródło (Dysk Google) – od 0.8.3 aktualizacje są na GitHubie
+        src = ""
+    return src or DEFAULT_UPDATE_SOURCE
 
 
 # ---------- elementy interfejsu ----------

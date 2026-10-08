@@ -1,13 +1,20 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.2"
+VERSION = "0.8.3"
 RELEASED = "2026-10-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
-DEFAULT_UPDATE_SOURCE = ""
+DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.8.3",
+        "date": "2026-10-08",
+        "changes": [
+            "Aktualizacje pobierane automatycznie z GitHuba (bez ręcznego podmieniania plików na Dysku)",
+        ],
+    },
     {
         "version": "0.8.2",
         "date": "2026-10-08",
