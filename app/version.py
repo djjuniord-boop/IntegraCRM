@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.7.0"
+VERSION = "0.8.0"
 RELEASED = "2026-10-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,16 @@ RELEASED = "2026-10-08"
 DEFAULT_UPDATE_SOURCE = ""
 
 CHANGELOG = [
+    {
+        "version": "0.8.0",
+        "date": "2026-10-08",
+        "changes": [
+            "Wersja IntegraCRM.exe – nie wymaga instalowania Pythona ani uprawnień administratora",
+            "Tesseract OCR dołączony do paczki .exe (folder tesseract)",
+            "Przygotuj.bat najpierw sprawdza, co jest już zainstalowane",
+            "Paczka startowa bez danych autora – każdy wpisuje własny e-mail i odbiorców",
+        ],
+    },
     {
         "version": "0.7.0",
         "date": "2026-10-08",

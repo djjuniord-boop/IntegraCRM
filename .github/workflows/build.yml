@@ -1,0 +1,77 @@
+name: Zbuduj IntegraCRM.exe
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Biblioteki
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r app/requirements.txt pyinstaller
+
+      - name: Tesseract OCR
+        run: choco install tesseract -y --no-progress
+
+      - name: Wersja
+        id: ver
+        shell: pwsh
+        run: |
+          $v = (Select-String -Path app/version.py -Pattern 'VERSION = "([^"]+)"').Matches[0].Groups[1].Value
+          "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: PyInstaller
+        run: pyinstaller --noconfirm --windowed --name IntegraCRM --collect-all pdfplumber --collect-all pdfminer launcher.py
+
+      - name: Paczka
+        shell: pwsh
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          $out = "pkg/IntegraCRM"
+          New-Item -ItemType Directory -Force $out | Out-Null
+          Copy-Item -Recurse dist/IntegraCRM/* $out
+          Copy-Item -Recurse app $out/app
+          Copy-Item -Recurse data $out/data
+          Copy-Item Przywroc-poprzednia.bat, README.md $out
+          $tess = "C:\Program Files\Tesseract-OCR"
+          New-Item -ItemType Directory -Force $out/tesseract/tessdata | Out-Null
+          Copy-Item "$tess\*.exe", "$tess\*.dll" $out/tesseract
+          Copy-Item "$tess\tessdata\eng.traineddata", "$tess\tessdata\osd.traineddata" $out/tesseract/tessdata
+          Get-ChildItem -Recurse -Directory -Filter __pycache__ $out | Remove-Item -Recurse -Force
+          Compress-Archive -Path $out -DestinationPath "IntegraCRM-$v-exe.zip"
+          python tools/publish.py
+          Copy-Item release/* .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: IntegraCRM-${{ steps.ver.outputs.version }}
+          path: |
+            IntegraCRM-*-exe.zip
+            integra-*.zip
+            version.json
+
+      - name: Wydanie (Releases)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $v = "${{ steps.ver.outputs.version }}"
+          gh release view "v$v" 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            gh release upload "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --clobber
+          } else {
+            gh release create "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
+          }

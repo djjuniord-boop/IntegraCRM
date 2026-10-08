@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+runtime/
+release/
+build/
+dist/
+pkg/
+*.spec
+*.zip
+data/backup/
+data/error.log
+data/skip_version.txt
+data/python_path.txt
