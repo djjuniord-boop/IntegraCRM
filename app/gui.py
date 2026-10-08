@@ -415,9 +415,9 @@ class App(tk.Tk):
         self.mail_body = tk.Text(right, height=6, font=f.body, bg=SURFACE, fg=INK, relief="flat",
                                  wrap="word", highlightthickness=1, highlightbackground=LINE,
                                  highlightcolor=RED, padx=8, pady=6)
-        self.mail_body.pack(fill="both", expand=True)
         self.btn_send = FlatButton(right, "Wyślij maila", self.send_mail, "dark", f.btn, 18, 8)
-        self.btn_send.pack(anchor="e", pady=(10, 0))
+        self.btn_send.pack(side="bottom", anchor="e", pady=(10, 0))   # zawsze widoczny
+        self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
 
     def _build_help(self, page):
