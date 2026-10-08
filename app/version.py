@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.1"
+VERSION = "0.8.2"
 RELEASED = "2026-10-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,13 @@ RELEASED = "2026-10-08"
 DEFAULT_UPDATE_SOURCE = ""
 
 CHANGELOG = [
+    {
+        "version": "0.8.2",
+        "date": "2026-10-08",
+        "changes": [
+            "Naprawa: program nie uruchamiał się w pierwszej kompilacji IntegraCRM.exe 0.8.0 (brak modułu tkinter.font)",
+        ],
+    },
     {
         "version": "0.8.1",
         "date": "2026-10-08",

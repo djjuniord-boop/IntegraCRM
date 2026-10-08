@@ -7,7 +7,10 @@ import json
 import os
 import threading
 import tkinter as tk
-import tkinter.font as tkfont
+try:
+    import tkinter.font as tkfont
+except ImportError:   # starsze IntegraCRM.exe nie mają tego modułu
+    tkfont = None
 from tkinter import filedialog, messagebox, ttk
 
 import extract
@@ -61,7 +64,7 @@ def update_source(cfg: dict) -> str:
 # ---------- elementy interfejsu ----------
 class Fonts:
     def __init__(self, root):
-        fams = set(tkfont.families(root))
+        fams = set(tkfont.families(root)) if tkfont else set(root.tk.splitlist(root.tk.call("font", "families")))
         base = next((f for f in ("Poppins", "Segoe UI", "Helvetica") if f in fams), "TkDefaultFont")
         self.family = base
         self.body = (base, 10)
