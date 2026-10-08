@@ -16,6 +16,8 @@ CHANGELOG = [
             "Tesseract OCR dołączony do paczki .exe (folder tesseract)",
             "Przygotuj.bat najpierw sprawdza, co jest już zainstalowane",
             "Paczka startowa bez danych autora – każdy wpisuje własny e-mail i odbiorców",
+            "Nowy wygląd w barwach Latex Serwis: logo, czerwono-czarne przyciski, karty kroków, "
+            "wyraźny wynik i lista brakujących numerów",
         ],
     },
     {
