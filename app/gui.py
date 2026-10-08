@@ -221,8 +221,8 @@ class App(tk.Tk):
         super().__init__()
         self.fonts = Fonts(self)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
-        self.geometry("980x860")
-        self.minsize(860, 720)
+        self.geometry("980x800")
+        self.minsize(860, 680)
         self.configure(bg=BG)
         set_icon(self)
         self._style()
@@ -352,7 +352,7 @@ class App(tk.Tk):
         step_badge(h, 1, f).pack(side="left")
         tk.Label(h, text="Raport z Integra 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
         self.pdf_box = tk.Label(c1, text="Nie wybrano pliku", bg=BG, fg=MUTED, font=f.body, anchor="w",
-                                padx=12, pady=22, cursor="hand2")
+                                padx=12, pady=16, cursor="hand2")
         self.pdf_box.pack(fill="x", pady=(12, 10))
         self.pdf_box.bind("<Button-1>", lambda e: self.pick_pdf())
         FlatButton(c1, "Wybierz PDF", self.pick_pdf, "dark", f.body, 14, 6).pack(anchor="w")
@@ -396,7 +396,7 @@ class App(tk.Tk):
         self.chips = tk.Frame(left, bg=SURFACE)
         self.chips.pack(fill="x", pady=(8, 6))
         tk.Label(left, text="Szczegóły", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
-        self.log = tk.Text(left, height=8, font=f.mono, bg=BG, fg=INK, relief="flat", wrap="word",
+        self.log = tk.Text(left, height=4, font=f.mono, bg=BG, fg=INK, relief="flat", wrap="word",
                            padx=8, pady=6)
         self.log.pack(fill="both", expand=True)
 
@@ -412,7 +412,7 @@ class App(tk.Tk):
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
         tk.Label(right, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
                  font=f.small).pack(anchor="w", pady=(8, 2))
-        self.mail_body = tk.Text(right, height=10, font=f.body, bg=SURFACE, fg=INK, relief="flat",
+        self.mail_body = tk.Text(right, height=6, font=f.body, bg=SURFACE, fg=INK, relief="flat",
                                  wrap="word", highlightthickness=1, highlightbackground=LINE,
                                  highlightcolor=RED, padx=8, pady=6)
         self.mail_body.pack(fill="both", expand=True)
