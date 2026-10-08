@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.0"
+VERSION = "0.8.1"
 RELEASED = "2026-10-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,13 @@ RELEASED = "2026-10-08"
 DEFAULT_UPDATE_SOURCE = ""
 
 CHANGELOG = [
+    {
+        "version": "0.8.1",
+        "date": "2026-10-08",
+        "changes": [
+            "Szybsze sprawdzanie – odczyt wycinka z CRM wykonywany równolegle (kilka razy krócej)",
+        ],
+    },
     {
         "version": "0.8.0",
         "date": "2026-10-08",

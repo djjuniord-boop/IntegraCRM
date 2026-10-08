@@ -47,16 +47,24 @@ def ocr_variants(img_or_path, tesseract_cmd: str | None = None, lang: str = "eng
     wyniki, z których zwykle któryś jest poprawny dla każdego numeru."""
     from PIL import Image, ImageOps
 
+    import os
+    from concurrent.futures import ThreadPoolExecutor
+
     pt = _tess(tesseract_cmd)
     base = Image.open(img_or_path) if isinstance(img_or_path, (str, Path)) else img_or_path
     base = base.convert("L")
-    texts = []
-    for width, psm in ((2000, 6), (2000, 4), (1800, 6), (1800, 4), (2200, 6), (2200, 4)):
+    os.environ.setdefault("OMP_THREAD_LIMIT", "1")   # każdy przebieg na 1 rdzeniu – razem równolegle
+
+    def one(variant):
+        width, psm = variant
         k = width / base.width
         img = base.resize((int(base.width * k), int(base.height * k)), Image.LANCZOS)
         img = ImageOps.autocontrast(img)
-        texts.append(pt.image_to_string(img, lang=lang, config=f"--psm {psm}"))
-    return texts
+        return pt.image_to_string(img, lang=lang, config=f"--psm {psm}")
+
+    variants = ((2000, 6), (2000, 4), (1800, 6), (1800, 4), (2200, 6), (2200, 4))
+    with ThreadPoolExecutor(max_workers=min(6, os.cpu_count() or 2)) as ex:
+        return list(ex.map(one, variants))   # kolejność zachowana – pierwszy = główny
 
 
 def image_from_clipboard():
