@@ -61,7 +61,16 @@ def run(pdf_path, crm_image, tesseract_cmd=None, log=lambda s: None) -> dict:
 
     # Porównanie: dokładne trafienia ze wszystkich przebiegów, „podobne” tylko z głównego
     exact = {plates.normalize(p) for p in crm}
-    rest = [p for p in integra if plates.normalize(p) not in exact]
+    rest, autofix = [], []
+    for p in integra:
+        if plates.normalize(p) in exact:
+            continue
+        hit = next((c for c in crm if plates.ocr_equal(p, c)), None)
+        if hit:   # ten sam numer, tylko przekręcony przez OCR (np. 9↔S) – nie zgłaszamy
+            autofix.append((p, hit))
+            log(f"  dopasowano mimo błędu odczytu: {p} (na wycinku: {hit})")
+        else:
+            rest.append(p)
     missing, uncertain = plates.compare(rest, crm_main)
-    r.update(missing=missing, uncertain=uncertain)
+    r.update(missing=missing, uncertain=uncertain, autofix=autofix)
     return r

@@ -128,3 +128,18 @@ def _dist_le1(a: str, b: str) -> bool:
     while i < len(s) and s[i] == l[i]:
         i += 1
     return s[i:] == l[i + 1:]
+
+
+# Pary znaków, które OCR typowo myli na zrzutach ekranu (w obie strony).
+_CONFUSABLE = {frozenset(x) for x in (
+    "0O", "0Q", "0D", "OD", "OQ", "9O", "90", "9S", "5S", "1I", "1L", "1T", "IL", "8B", "2Z", "6G", "7Z")}
+
+
+def ocr_equal(a: str, b: str, max_diff: int = 2) -> bool:
+    """True, jeśli numery różnią się tylko znakami typowo mylonymi przez OCR
+    (np. WE9LF81 / WESLF81). Wtedy to ten sam numer, a nie brak w CRM."""
+    a, b = normalize(a), normalize(b)
+    if len(a) != len(b) or len(a) < 5:
+        return False
+    diff = [(x, y) for x, y in zip(a, b) if x != y]
+    return 0 < len(diff) <= max_diff and all(frozenset(d) in _CONFUSABLE for d in diff)

@@ -30,6 +30,7 @@ def run(folder: str) -> int:
         integra, crm, missing, uncertain = a["integra"], a["crm"], a["missing"], a["uncertain"]
         res["layout_ok"] = a["layout_ok"]
         res["warnings"] = a["warnings"]
+        res["autofix"] = a.get("autofix", [])
         subj, body = mailer.compose(missing, uncertain)
         exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
@@ -47,7 +48,8 @@ def run(folder: str) -> int:
         subj2, body2 = mailer.compose(missing, uncertain, history.reported())
         res["mail_marks_reported"] = "zgłaszany już" in body2
         res["ok"] = (sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
-                     and sorted(integra) == sorted(exp["integra"]) and not a["warnings"] and res["vault_encrypted"]
+                     and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
+                     and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1
                      and res["reported"] == sorted(missing) and res["mail_marks_reported"])
     except Exception:

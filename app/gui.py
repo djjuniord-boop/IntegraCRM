@@ -910,6 +910,10 @@ class App(tk.Tk):
                 self.say(f"Historia: nie zapisano ({e})")
             self.ui(self.set_chips, missing, uncertain)
             wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
+            fixed = res.get("autofix", [])
+            if fixed:
+                wtxt = (f"\nℹ  {len(fixed)} numer(y) dopasowano mimo błędu odczytu wycinka: "
+                        + ", ".join(f"{a} (odczyt: {b})" for a, b in fixed)) + wtxt
             if not missing and not uncertain:
                 self.ui(self.set_banner, "warn" if warn else "ok",
                         f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")

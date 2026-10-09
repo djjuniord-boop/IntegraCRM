@@ -11,9 +11,10 @@ from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4
 from reportlab.pdfgen import canvas
 
-INTEGRA = ["DW12345", "DWR6372L", "WE7A071", "KT2277E", "DX7806F", "D4DDY", "DW3M448", "PO9AB12"]
+INTEGRA = ["DW12345", "DWR6372L", "WE7A071", "KT2277E", "DX7806F", "D4DDY", "DW3M448", "PO9AB12", "WE9LF81"]
 MISSING = ["DW3M448", "PO9AB12"]           # są w Integrze, nie ma ich w CRM
-CRM = [p for p in INTEGRA if p not in MISSING] + ["DW77777", "WR4567A"]
+# WE9LF81 „przekręcony” jak przez OCR (9→S) – program ma go uznać za ten sam numer
+CRM = [("WESLF81" if p == "WE9LF81" else p) for p in INTEGRA if p not in MISSING] + ["DW77777", "WR4567A"]
 
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
