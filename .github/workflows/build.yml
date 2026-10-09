@@ -62,6 +62,7 @@ jobs:
           New-Item -ItemType Directory -Force $dir | Out-Null
           Copy-Item -Recurse pkg/IntegraCRM/* $dir
           $fx = "C:\Testy\Użytkownik Łódź\dane"
+          $env:PYTHONIOENCODING = "utf-8"
           python tools/make_fixtures.py $fx
           $env:TEMP = "C:\Testy\Użytkownik Łódź\temp"; $env:TMP = $env:TEMP
           New-Item -ItemType Directory -Force $env:TEMP | Out-Null
