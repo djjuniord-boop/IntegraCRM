@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.10.0"
+VERSION = "0.10.1"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,16 @@ RELEASED = "2026-10-09"
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.10.1",
+        "date": "2026-10-09",
+        "changes": [
+            "Kliknięcie brakującego numeru kopiuje go do schowka, przycisk „Kopiuj wszystkie”",
+            "Szczegóły odczytu w osobnym, dużym oknie",
+            "Treść maila: przycisk „Powiększ” – edycja w dużym oknie",
+            "Okno programu otwiera się na pełnym ekranie",
+        ],
+    },
     {
         "version": "0.10.0",
         "date": "2026-10-09",

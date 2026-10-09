@@ -284,7 +284,11 @@ class App(tk.Tk):
         migrate_config()
         self.fonts = Fonts(self)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
-        self.geometry("980x800")
+        self.geometry("1000x820")
+        try:
+            self.state("zoomed")   # Windows: pełny ekran roboczy – więcej miejsca na wynik i mail
+        except tk.TclError:
+            pass
         self.minsize(860, 680)
         self.configure(bg=BG)
         set_icon(self)
@@ -364,6 +368,10 @@ class App(tk.Tk):
         self.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
         self.btn_send.set_enabled(True)
         grab(self, "2-wynik")
+        mw = self.edit_mail_big()
+        mw.attributes("-topmost", True)
+        grab(mw, "6-mail-duzy")
+        mw.destroy()
         self.show_tab("help")
         grab(self, "3-pomoc")
         self.show_tab("hist")
@@ -537,13 +545,21 @@ class App(tk.Tk):
         # lewa kolumna – numery
         left = card(bottom, padx=14, pady=12)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        tk.Label(left, text="Brakuje w CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w")
+        lh = tk.Frame(left, bg=SURFACE)
+        lh.pack(fill="x")
+        tk.Label(lh, text="Brakuje w CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
+        self.btn_copy_all = FlatButton(lh, "Kopiuj wszystkie", self.copy_all, "ghost", f.small, 10, 4)
+        self.btn_copy_all.pack(side="right")
+        tk.Label(left, text="Kliknij numer, aby go skopiować", bg=SURFACE, fg=MUTED, font=f.small
+                 ).pack(anchor="w", pady=(2, 0))
         self.chips = tk.Frame(left, bg=SURFACE)
-        self.chips.pack(fill="x", pady=(8, 6))
-        tk.Label(left, text="Szczegóły", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
-        self.log = tk.Text(left, height=4, font=f.mono, bg=BG, fg=INK, relief="flat", wrap="word",
-                           padx=8, pady=6)
-        self.log.pack(fill="both", expand=True)
+        self.chips.pack(fill="x", pady=(6, 6))
+        self.copy_info = tk.Label(left, text="", bg=SURFACE, fg=OK, font=f.small)
+        self.copy_info.pack(anchor="w")
+        FlatButton(left, "Szczegóły odczytu…", self.show_details, "ghost", f.small, 10, 4
+                   ).pack(side="bottom", anchor="w", pady=(6, 0))
+        # pełny dziennik w osobnym, dużym oknie (tutaj tylko przechowywany)
+        self.log = tk.Text(self, font=f.mono)
 
         # prawa kolumna – mail
         right = card(bottom, padx=14, pady=12)
@@ -555,9 +571,12 @@ class App(tk.Tk):
         tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(10, 2))
         self.subject = tk.StringVar()
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
-        tk.Label(right, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
-                 font=f.small).pack(anchor="w", pady=(8, 2))
-        self.mail_body = tk.Text(right, height=6, font=f.body, bg=SURFACE, fg=INK, relief="flat",
+        th = tk.Frame(right, bg=SURFACE)
+        th.pack(fill="x", pady=(8, 2))
+        tk.Label(th, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
+                 font=f.small).pack(side="left")
+        FlatButton(th, "⤢  Powiększ", self.edit_mail_big, "ghost", f.small, 10, 3).pack(side="right")
+        self.mail_body = tk.Text(right, height=8, font=f.body, bg=SURFACE, fg=INK, relief="flat",
                                  wrap="word", highlightthickness=1, highlightbackground=LINE,
                                  highlightcolor=RED, padx=8, pady=6)
         self.btn_send = FlatButton(right, "Wyślij maila", self.send_mail, "dark", f.btn, 18, 8)
@@ -616,6 +635,65 @@ class App(tk.Tk):
         bg, fg = colors[kind]
         self.banner.config(text=text, bg=bg, fg=fg)
 
+    def copy_text(self, text, info=None):
+        self.clipboard_clear()
+        self.clipboard_append(text)
+        self.copy_info.config(text=info or f"✔ Skopiowano: {text}")
+        self.after(3000, lambda: self.copy_info.config(text=""))
+
+    def copy_all(self):
+        if not self.result or not (self.result[0] or self.result[1]):
+            self.copy_info.config(text="Nie ma numerów do skopiowania.")
+            return
+        allp = list(self.result[0]) + [a for a, _ in self.result[1]]
+        self.copy_text("\n".join(allp), f"✔ Skopiowano {len(allp)} numer(y) – każdy w osobnej linii")
+
+    def _text_window(self, title, content, editable=False, on_save=None):
+        f = self.fonts
+        w = tk.Toplevel(self)
+        w.title(title)
+        w.geometry("900x620")
+        w.configure(bg=SURFACE)
+        w.transient(self)
+        set_icon(w)
+        tk.Frame(w, bg=RED, height=4).pack(fill="x")
+        bar = tk.Frame(w, bg=SURFACE, padx=14, pady=10)
+        bar.pack(side="bottom", fill="x")
+        box = tk.Frame(w, bg=SURFACE, padx=14, pady=10)
+        box.pack(fill="both", expand=True)
+        t = tk.Text(box, font=f.mono if not editable else (f.family, 11), wrap="word", bg=SURFACE, fg=INK,
+                    relief="flat", highlightthickness=1, highlightbackground=LINE, padx=10, pady=8)
+        sb = ttk.Scrollbar(box, command=t.yview)
+        t.config(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        t.pack(fill="both", expand=True)
+        t.insert("1.0", content)
+        if not editable:
+            t.config(state="disabled")
+        FlatButton(bar, "Kopiuj całość", lambda: self.copy_text(t.get("1.0", "end").strip(), "✔ Skopiowano tekst"),
+                   "ghost", f.body, 12, 5).pack(side="left")
+        if editable:
+            def save():
+                on_save(t.get("1.0", "end").strip())
+                w.destroy()
+            FlatButton(bar, "Zapisz zmiany", save, "primary", f.label, 16, 5).pack(side="right")
+            FlatButton(bar, "Anuluj", w.destroy, "ghost", f.body, 12, 5).pack(side="right", padx=8)
+        else:
+            FlatButton(bar, "Zamknij", w.destroy, "dark", f.body, 14, 5).pack(side="right")
+        t.focus_set()
+        return w
+
+    def show_details(self):
+        content = self.log.get("1.0", "end").strip() or "Brak szczegółów – najpierw kliknij „Sprawdź”."
+        self._text_window("Szczegóły odczytu", content)
+
+    def edit_mail_big(self):
+        def save(txt):
+            self.mail_body.delete("1.0", "end")
+            self.mail_body.insert("1.0", txt)
+        return self._text_window(f"Treść maila – {self.subject.get() or 'bez tematu'}",
+                          self.mail_body.get("1.0", "end").strip(), editable=True, on_save=save)
+
     def set_chips(self, missing, uncertain):
         for w in self.chips.winfo_children():
             w.destroy()
@@ -630,7 +708,12 @@ class App(tk.Tk):
         for p in missing:
             cell = tk.Frame(wrap, bg=SURFACE)
             cell.grid(row=col // 3, column=col % 3, padx=(0, 6), pady=3, sticky="w")
-            tk.Label(cell, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4).pack(anchor="w")
+            chip = tk.Label(cell, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4,
+                            cursor="hand2")
+            chip.pack(anchor="w")
+            chip.bind("<Button-1>", lambda e, v=p: self.copy_text(v))
+            chip.bind("<Enter>", lambda e, w=chip: w.config(bg=RED_DARK))
+            chip.bind("<Leave>", lambda e, w=chip: w.config(bg=RED))
             if p in reg:
                 tk.Label(cell, text=f"zgłoszony {reg[p]}", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
             col += 1
@@ -638,8 +721,10 @@ class App(tk.Tk):
             tk.Label(self.chips, text="Do weryfikacji (podobny numer w CRM):", bg=SURFACE, fg=WARN,
                      font=f.small).pack(anchor="w", pady=(8, 2))
             for a, b in uncertain:
-                tk.Label(self.chips, text=f"{a}  ≈  {b}", bg=WARN_BG, fg=WARN, font=f.label, padx=8, pady=3
-                         ).pack(anchor="w", pady=2)
+                u = tk.Label(self.chips, text=f"{a}  ≈  {b}", bg=WARN_BG, fg=WARN, font=f.label, padx=8, pady=3,
+                             cursor="hand2")
+                u.pack(anchor="w", pady=2)
+                u.bind("<Button-1>", lambda e, v=a: self.copy_text(v))
 
     # ---------- aktualizacje ----------
     def set_update_status(self, text):
