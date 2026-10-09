@@ -398,7 +398,7 @@ class App(tk.Tk):
     # ---------- układ ----------
     def _build(self):
         f = self.fonts
-        head = tk.Frame(self, bg=SURFACE, padx=22, pady=12)
+        head = tk.Frame(self, bg=SURFACE, padx=22, pady=8)
         head.pack(fill="x")
         logo_ok = False
         try:
@@ -430,7 +430,7 @@ class App(tk.Tk):
             b.pack(side="left")
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
-            self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=16)
+            self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
         self._build_main(self.pages["main"])
         self._build_help(self.pages["help"])
         self._build_history(self.pages["hist"])
@@ -498,28 +498,28 @@ class App(tk.Tk):
         steps.columnconfigure(1, weight=1, uniform="s")
 
         # krok 1 – PDF
-        c1 = card(steps, padx=16, pady=14)
+        c1 = card(steps, padx=14, pady=10)
         c1.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
         h = tk.Frame(c1, bg=SURFACE)
         h.pack(fill="x")
         step_badge(h, 1, f).pack(side="left")
         tk.Label(h, text="Raport z Integra 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
         self.pdf_box = tk.Label(c1, text="Przeciągnij tutaj plik PDF\nalbo kliknij, aby wybrać", bg=BG, fg=MUTED, font=f.body, anchor="w",
-                                padx=12, pady=10, cursor="hand2", justify="center")
-        self.pdf_box.pack(fill="x", pady=(12, 10))
+                                padx=12, pady=6, cursor="hand2", justify="center")
+        self.pdf_box.pack(fill="x", pady=(8, 8))
         self.pdf_box.bind("<Button-1>", lambda e: self.pick_pdf())
         FlatButton(c1, "Wybierz PDF", self.pick_pdf, "dark", f.body, 14, 6).pack(anchor="w")
 
         # krok 2 – CRM
-        c2 = card(steps, padx=16, pady=14)
+        c2 = card(steps, padx=14, pady=10)
         c2.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         h = tk.Frame(c2, bg=SURFACE)
         h.pack(fill="x")
         step_badge(h, 2, f).pack(side="left")
         tk.Label(h, text="Wycinek z CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
         self.preview = tk.Label(c2, text="Kliknij tutaj lub naciśnij Ctrl+V\npo zrobieniu wycinka (Win+Shift+S)",
-                                bg=BG, fg=MUTED, font=f.body, pady=14, cursor="hand2", justify="center")
-        self.preview.pack(fill="x", pady=(12, 10))
+                                bg=BG, fg=MUTED, font=f.body, pady=6, cursor="hand2", justify="center")
+        self.preview.pack(fill="x", pady=(8, 8))
         self.preview.bind("<Button-1>", lambda e: self.paste())
         r = tk.Frame(c2, bg=SURFACE)
         r.pack(fill="x")
@@ -527,24 +527,26 @@ class App(tk.Tk):
         FlatButton(r, "Z pliku…", self.pick_img, "ghost", f.body, 12, 6).pack(side="left", padx=8)
 
         # krok 3 – sprawdź
-        self.btn_check = FlatButton(page, "SPRAWDŹ", self.check, "primary", f.big, 18, 12)
-        self.btn_check.pack(fill="x", pady=(16, 12))
+        self.btn_check = FlatButton(page, "SPRAWDŹ", self.check, "primary", f.big, 18, 8)
+        self.btn_check.pack(fill="x", pady=(10, 8))
 
         # wynik
         self.banner = tk.Label(page, text="Wybierz PDF i wklej wycinek z CRM, potem kliknij „Sprawdź”.",
-                               bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=12,
+                               bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
                                highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
         self.banner.pack(fill="x")
 
         bottom = tk.Frame(page, bg=BG)
-        bottom.pack(fill="both", expand=True, pady=(12, 0))
+        bottom.pack(fill="both", expand=True, pady=(8, 0))
         bottom.columnconfigure(0, weight=2, uniform="b")
         bottom.columnconfigure(1, weight=3, uniform="b")
         bottom.rowconfigure(0, weight=1)
 
         # lewa kolumna – numery
-        left = card(bottom, padx=14, pady=12)
+        left = card(bottom, padx=14, pady=10)
         left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
+        FlatButton(left, "Szczegóły odczytu…", self.show_details, "ghost", f.small, 10, 4
+                   ).pack(side="bottom", anchor="w", pady=(6, 0))
         lh = tk.Frame(left, bg=SURFACE)
         lh.pack(fill="x")
         tk.Label(lh, text="Brakuje w CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
@@ -556,19 +558,17 @@ class App(tk.Tk):
         self.chips.pack(fill="x", pady=(6, 6))
         self.copy_info = tk.Label(left, text="", bg=SURFACE, fg=OK, font=f.small)
         self.copy_info.pack(anchor="w")
-        FlatButton(left, "Szczegóły odczytu…", self.show_details, "ghost", f.small, 10, 4
-                   ).pack(side="bottom", anchor="w", pady=(6, 0))
         # pełny dziennik w osobnym, dużym oknie (tutaj tylko przechowywany)
         self.log = tk.Text(self, font=f.mono)
 
         # prawa kolumna – mail
-        right = card(bottom, padx=14, pady=12)
+        right = card(bottom, padx=14, pady=10)
         right.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
         hr = tk.Frame(right, bg=SURFACE)
         hr.pack(fill="x")
         step_badge(hr, 3, f).pack(side="left")
         tk.Label(hr, text="Mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(10, 2))
+        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
         self.subject = tk.StringVar()
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
         th = tk.Frame(right, bg=SURFACE)
@@ -580,7 +580,7 @@ class App(tk.Tk):
                                  wrap="word", highlightthickness=1, highlightbackground=LINE,
                                  highlightcolor=RED, padx=8, pady=6)
         self.btn_send = FlatButton(right, "Wyślij maila", self.send_mail, "dark", f.btn, 18, 8)
-        self.btn_send.pack(side="bottom", anchor="e", pady=(10, 0))   # zawsze widoczny
+        self.btn_send.pack(side="bottom", anchor="e", pady=(8, 0))   # zawsze widoczny
         self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
 
