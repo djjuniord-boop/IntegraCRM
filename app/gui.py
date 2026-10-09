@@ -34,6 +34,10 @@ except Exception:   # pragma: no cover
         protect = staticmethod(lambda x: x)
         unprotect = staticmethod(lambda x: "" if (x or "").startswith("dpapi:") else (x or ""))
 try:
+    import stats
+except Exception:   # pragma: no cover
+    stats = None
+try:
     import dnd
 except Exception:   # pragma: no cover
     dnd = None
@@ -56,7 +60,13 @@ DEFAULTS = {
     "update_source": "",       # puste = DEFAULT_UPDATE_SOURCE z version.py
     "cc_self": True,           # kopia (DW) wysyłanego maila do nadawcy
     "sender_name": "",         # nazwa nadawcy widoczna u odbiorcy (puste = domyślna)
+    "stats_enabled": True,     # anonimowe statystyki użycia (tylko liczby)
 }
+
+STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
+              "rodzaj zdarzenia (uruchomienie, sprawdzenie, wysłany mail, błąd) i same liczby "
+              "(ile numerów, ile braków, czas sprawdzenia). Nie wysyła numerów rejestracyjnych, adresów e-mail, "
+              "haseł, nazw plików ani treści maili. Można to wyłączyć w Ustawieniach.")
 
 HELP_STEPS = [
     ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
@@ -233,6 +243,10 @@ class SettingsDialog(tk.Toplevel):
         ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
         r[0] += 1
+        self.v_stats = tk.BooleanVar(value=bool(cfg.get("stats_enabled", True)))
+        ttk.Checkbutton(body, text="Wysyłaj anonimowe statystyki użycia (tylko liczby)", variable=self.v_stats
+                        ).grid(row=r[0], column=1, sticky="w", padx=12, pady=(6, 0))
+        r[0] += 1
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
@@ -262,6 +276,7 @@ class SettingsDialog(tk.Toplevel):
             "update_source": self.v_upd.get().strip(),
             "cc_self": bool(self.v_cc.get()),
             "sender_name": self.v_name.get().strip(),
+            "stats_enabled": bool(self.v_stats.get()),
         }
 
     def save(self):
@@ -315,6 +330,7 @@ class App(tk.Tk):
         if not (_c["gmail_user"] and _c["gmail_app_password"]):
             self.after(400, lambda: SettingsDialog(self))
         self.after(900, lambda: self.check_updates(manual=False))
+        self._stat("start")
 
     def _screenshots(self, out_dir):
         try:
@@ -603,6 +619,8 @@ class App(tk.Tk):
         self.btn_update.pack(side="left")
         FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
 
+        tk.Label(top, text="Prywatność: " + STATS_INFO, bg=SURFACE, fg=MUTED, font=f.small,
+                 wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
         how = card(page, padx=18, pady=14)
         how.pack(fill="x", pady=12)
         tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 8))
@@ -800,6 +818,13 @@ class App(tk.Tk):
             return
         self._restart()
 
+    def _stat(self, name, **values):
+        if stats is not None:
+            try:
+                stats.event(name, load_config(), **values)
+            except Exception:
+                pass
+
     def _on_ctrl_v(self, event):
         # w polach tekstowych (temat, treść maila) Ctrl+V ma wklejać tekst, nie obraz
         if isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
@@ -886,7 +911,13 @@ class App(tk.Tk):
     def _check_work(self):
         try:
             tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
+            import time as _t
+            _t0 = _t.time()
             res = analyze.run(self.pdf_path.get(), self.crm_img, tess, self.say)
+            self._stat("check", n_integra=len(res["integra"]), n_crm=len(res["crm_main"]),
+                       n_missing=len(res["missing"]), n_uncertain=len(res["uncertain"]),
+                       n_autofix=len(res.get("autofix", [])), n_warnings=len(res["warnings"]),
+                       seconds=round(_t.time() - _t0, 1))
             integra, crm, crm_main = res["integra"], res["crm"], res["crm_main"]
             warn = res["warnings"]
 
@@ -941,6 +972,7 @@ class App(tk.Tk):
                     "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”." + wtxt)
         except Exception as e:
             self.say(f"Błąd: {e}")
+            self._stat("error", error=type(e).__name__)
             self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
@@ -964,6 +996,7 @@ class App(tk.Tk):
             try:
                 if history is None:
                     raise RuntimeError
+                self._stat("mail_sent", n_recipients=len(cfg["recipients"]))
                 history.mark_sent(self.hist_index if self.hist_index is not None else -1, cfg["recipients"],
                                   list(self.result[0]) + [a for a, _ in self.result[1]])
                 self.refresh_history()

@@ -1,13 +1,24 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.10.3"
+VERSION = "0.11.0"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
+# Adres odbioru anonimowych statystyk (Google Apps Script). Puste = zdarzenia czekają w kolejce.
+STATS_URL = ""
+
 CHANGELOG = [
+    {
+        "version": "0.11.0",
+        "date": "2026-10-09",
+        "changes": [
+            "Anonimowe statystyki użycia (tylko liczby: uruchomienia, sprawdzenia, maile, błędy) – "
+            "bez numerów, adresów e-mail i haseł; do wyłączenia w Ustawieniach",
+        ],
+    },
     {
         "version": "0.10.3",
         "date": "2026-10-09",
