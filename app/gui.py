@@ -349,8 +349,11 @@ class App(tk.Tk):
             fh.write(f"enable={self.dnd_ok}\n")
         if self.dnd_ok:
             self._simulate_drop(r"C:\Raporty\Integra zakończone 09.10.pdf")
-            for _ in range(20):
+            import time
+            t_end = time.time() + 1.5
+            while time.time() < t_end:
                 self.update()
+                time.sleep(0.05)
         grab(self, "1-kontrola")
         with open(f"{out_dir}/dnd.txt", "a", encoding="utf-8") as fh:
             fh.write(f"pdf_after_drop={self.pdf_path.get()}\n")
