@@ -22,7 +22,7 @@ ID_FILE = paths.DATA_DIR / "statystyki_id.txt"
 QUEUE = paths.DATA_DIR / "statystyki_kolejka.jsonl"
 MAX_QUEUE = 500
 ALLOWED = {"n_integra", "n_crm", "n_missing", "n_uncertain", "n_autofix", "n_warnings", "seconds",
-           "n_recipients", "error"}
+           "n_recipients", "error", "where", "detail"}
 _lock = threading.Lock()
 
 
@@ -56,9 +56,9 @@ def event(name: str, cfg: dict, **values) -> None:
         for k, val in values.items():
             if k not in ALLOWED:
                 continue
-            if k == "error":
+            if k in ("error", "where", "detail"):
                 if isinstance(val, str):
-                    rec[k] = val[:60]
+                    rec[k] = val[:300 if k == "detail" else 60]
             elif isinstance(val, (int, float)) and not isinstance(val, bool):
                 rec[k] = val
         with _lock:
@@ -101,3 +101,26 @@ def flush() -> int:
         except OSError:
             pass
         return len(batch)
+
+
+def _trace(exc) -> str:
+    """Ślad błędu bez treści komunikatu: tylko pliki programu, numery linii i nazwy funkcji.
+    (Treść komunikatu może zawierać numery rejestracyjne, ścieżki czy adresy – nie jest wysyłana.)"""
+    import os
+    import traceback
+    parts = []
+    for fr in traceback.extract_tb(exc.__traceback__):
+        name = os.path.basename(fr.filename)
+        if name.endswith(".py"):
+            parts.append(f"{name}:{fr.lineno} {fr.name}")
+    return " > ".join(parts[-6:])
+
+
+def report_exception(exc, where: str, cfg: dict, wait: bool = False) -> None:
+    """Zgłasza błąd: rodzaj (np. SMTPAuthenticationError), miejsce (np. „wysyłka maila”) i ślad w kodzie."""
+    try:
+        event("error", cfg, error=type(exc).__name__, where=where, detail=_trace(exc))
+        if wait:
+            flush()
+    except Exception:
+        pass

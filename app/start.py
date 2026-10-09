@@ -12,7 +12,15 @@ def main():
     try:
         import gui
         gui.main()
-    except Exception:
+    except Exception as exc:
+        try:   # zgłoszenie błędu startu (bez treści komunikatu), zanim program się zamknie
+            import json as _j
+            import stats
+            cfg_p = APP.parent / "data" / "config.json"
+            cfg = _j.loads(cfg_p.read_text(encoding="utf-8")) if cfg_p.exists() else {}
+            stats.report_exception(exc, "start programu", cfg, wait=True)
+        except Exception:
+            pass
         log = APP.parent / "data" / "error.log"
         try:
             log.parent.mkdir(parents=True, exist_ok=True)

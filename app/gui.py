@@ -767,6 +767,8 @@ class App(tk.Tk):
             m, newer = updater.check(src)
             self.after(0, self._update_checked, m, newer, manual, None)
         except Exception as e:
+            if manual:
+                self._report(e, "sprawdzanie aktualizacji")
             self.after(0, self._update_checked, None, False, manual, e)
 
     def _update_checked(self, m, newer, manual, err):
@@ -792,6 +794,7 @@ class App(tk.Tk):
             updater.apply(m)
             self.after(0, self._restart)
         except Exception as e:
+            self._report(e, "instalacja aktualizacji")
             self.after(0, self._apply_failed, e)
 
     def _restart(self):
@@ -814,9 +817,34 @@ class App(tk.Tk):
         try:
             updater.rollback(pin=True)
         except Exception as e:
+            self._report(e, "przywracanie wersji")
             messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{e}")
             return
         self._restart()
+
+    def _report(self, exc, where):
+        if stats is not None:
+            try:
+                stats.report_exception(exc, where, load_config())
+            except Exception:
+                pass
+
+    def report_callback_exception(self, exc, val, tb):
+        """Nieobsłużony błąd w oknie: zapis do data/error.log, zgłoszenie i komunikat zamiast cichej awarii."""
+        import datetime
+        import traceback
+        try:
+            paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+            with open(paths.LOG_PATH, "a", encoding="utf-8") as f:
+                f.write(f"\n[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}]\n"
+                        + "".join(traceback.format_exception(exc, val, tb)))
+        except OSError:
+            pass
+        self._report(val, "okno programu")
+        try:
+            messagebox.showerror("Błąd", f"Wystąpił nieoczekiwany błąd:\n{val}\n\nZostał zapisany i zgłoszony autorowi.")
+        except Exception:
+            pass
 
     def _stat(self, name, **values):
         if stats is not None:
@@ -972,7 +1000,7 @@ class App(tk.Tk):
                     "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”." + wtxt)
         except Exception as e:
             self.say(f"Błąd: {e}")
-            self._stat("error", error=type(e).__name__)
+            self._report(e, "sprawdzanie")
             self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
@@ -1004,6 +1032,7 @@ class App(tk.Tk):
                 pass
             self.btn_send.set_enabled(False, "Wysłano ✔")
         except Exception as e:
+            self._report(e, "wysyłka maila")
             self.set_banner("bad", f"✖  Nie udało się wysłać: {e}")
 
 

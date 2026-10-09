@@ -12,7 +12,8 @@
  * Skrypt tylko DOPISUJE wiersze w ustalonym formacie – nikt z zewnątrz nie może niczego odczytać ani zmienić.
  */
 var COLS = ['czas_utc', 'instalacja', 'wersja', 'zdarzenie', 'n_integra', 'n_crm', 'n_missing',
-            'n_uncertain', 'n_autofix', 'n_warnings', 'seconds', 'n_recipients', 'error'];
+            'n_uncertain', 'n_autofix', 'n_warnings', 'seconds', 'n_recipients', 'error',
+            'gdzie', 'szczegoly'];
 var EVENTS = {start: 1, check: 1, mail_sent: 1, error: 1};
 
 function doPost(e) {
@@ -23,13 +24,14 @@ function doPost(e) {
     events.forEach(function (ev) {
       if (!EVENTS[ev.event] || !/^[0-9a-f]{12}$/.test(String(ev.id))) return;   // tylko poprawne wpisy
       rows.push(COLS.map(function (c) {
-        var k = {czas_utc: 'ts', instalacja: 'id', wersja: 'v', zdarzenie: 'event'}[c] || c;
+        var k = {czas_utc: 'ts', instalacja: 'id', wersja: 'v', zdarzenie: 'event',
+                 gdzie: 'where', szczegoly: 'detail'}[c] || c;
         var v = ev[k];
         if (v === undefined || v === null) return '';
         if (c === 'czas_utc') return new Date(v);
         if (typeof v === 'number') return v;
         // apostrof = zapis jako tekst (inaczej Arkusze zamieniają wersję „0.11.1” na datę)
-        return "'" + String(v).substring(0, 60);
+        return "'" + String(v).substring(0, c === 'szczegoly' ? 300 : 60);
       }));
     });
     if (rows.length) {
@@ -50,6 +52,9 @@ function arkusz_() {
     sh.appendRow(COLS);
     sh.setFrozenRows(1);
     sh.getRange('C:C').setNumberFormat('@');
+  }
+  if (sh.getLastColumn() < COLS.length) {   // starszy arkusz – dopisz nowe nagłówki
+    sh.getRange(1, 1, 1, COLS.length).setValues([COLS]);
   }
   return sh;
 }
@@ -92,6 +97,11 @@ function przygotuj() {
   p.getRange('E16').setFormula(
     '=IFERROR(QUERY(' + z + 'A2:D, "select C, count(B) where A >= date \'"&TEXT(TODAY()-30,"yyyy-mm-dd")&"\' ' +
     'group by C order by C desc label C \'Wersja\', count(B) \'Zdarzenia\'", 0), "brak danych")');
+  p.getRange('A30').setValue('Ostatnie błędy (20 najnowszych)');
+  p.getRange('A31').setFormula(
+    '=IFERROR(QUERY(' + z + 'A2:O, "select A, C, M, N, O where D = \'error\' order by A desc limit 20 ' +
+    'label A \'Kiedy (UTC)\', C \'Wersja\', M \'Błąd\', N \'Gdzie\', O \'Ślad w kodzie\'", 0), "brak błędów")');
+  p.getRange('A30').setFontWeight('bold');
   p.getRange('A1').setFontWeight('bold').setFontSize(14);
   p.getRange('A15').setFontWeight('bold');
   p.getRange('E15').setFontWeight('bold');
