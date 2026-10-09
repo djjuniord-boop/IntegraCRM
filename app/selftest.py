@@ -41,6 +41,7 @@ def run(folder: str) -> int:
         import vault
         enc = vault.protect("abcd efgh ijkl mnop")
         res["vault_encrypted"] = enc.startswith(vault.PREFIX) or os.name != "nt"
+        res["vault_error"] = getattr(vault, "LAST_ERROR", "")
         res["vault_roundtrip"] = vault.unprotect(enc) == "abcd efgh ijkl mnop"
         i = history.add_check("test.pdf", len(integra), len(crm), missing, uncertain)
         history.mark_sent(i, ["test@example.com"], missing)

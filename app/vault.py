@@ -10,29 +10,33 @@ import os
 PREFIX = "dpapi:"
 
 
-def _blob(data: bytes):
-    import ctypes
-    from ctypes import wintypes
-
-    class BLOB(ctypes.Structure):
-        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.POINTER(ctypes.c_char))]
-
-    buf = ctypes.create_string_buffer(data, len(data))
-    return BLOB, BLOB(len(data), ctypes.cast(buf, ctypes.POINTER(ctypes.c_char))), buf
+LAST_ERROR = ""
 
 
 def _call(fn_name: str, data: bytes) -> bytes:
     import ctypes
-    BLOB, src, _keep = _blob(data)
+    from ctypes import wintypes
+
+    class BLOB(ctypes.Structure):
+        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.c_void_p)]
+
+    crypt32, kernel32 = ctypes.windll.crypt32, ctypes.windll.kernel32
+    fn = getattr(crypt32, fn_name)
+    fn.argtypes = [ctypes.POINTER(BLOB), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
+                   ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(BLOB)]
+    fn.restype = wintypes.BOOL
+    kernel32.LocalFree.argtypes = [ctypes.c_void_p]
+    kernel32.LocalFree.restype = ctypes.c_void_p
+
+    buf = ctypes.create_string_buffer(data, len(data))
+    src = BLOB(len(data), ctypes.cast(buf, ctypes.c_void_p))
     out = BLOB()
-    fn = getattr(ctypes.windll.crypt32, fn_name)
-    ok = fn(ctypes.byref(src), None, None, None, None, 0x01, ctypes.byref(out))  # UI_FORBIDDEN
-    if not ok:
-        raise OSError(f"{fn_name} nie powiodło się")
+    if not fn(ctypes.byref(src), None, None, None, None, 0x01, ctypes.byref(out)):  # UI_FORBIDDEN
+        raise OSError(f"{fn_name}: błąd {ctypes.GetLastError()}")
     try:
         return ctypes.string_at(out.pbData, out.cbData)
     finally:
-        ctypes.windll.kernel32.LocalFree(out.pbData)
+        kernel32.LocalFree(out.pbData)
 
 
 def protect(plain: str) -> str:
@@ -41,7 +45,9 @@ def protect(plain: str) -> str:
     try:
         enc = _call("CryptProtectData", plain.encode("utf-8"))
         return PREFIX + base64.b64encode(enc).decode("ascii")
-    except Exception:
+    except Exception as e:
+        global LAST_ERROR
+        LAST_ERROR = repr(e)
         return plain
 
 
