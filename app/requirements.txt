@@ -1,3 +1,6 @@
 pdfplumber
 pytesseract
 Pillow
+openpyxl
+pypdf
+matplotlib

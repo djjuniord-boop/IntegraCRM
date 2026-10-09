@@ -47,7 +47,15 @@ def run(folder: str) -> int:
         res["reported"] = sorted(history.reported())
         subj2, body2 = mailer.compose(missing, uncertain, history.reported())
         res["mail_marks_reported"] = "zgłaszany już" in body2
-        res["ok"] = (sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        # kalkulator marży: biblioteki i wykres (matplotlib) w wersji .exe
+        from marza import runner
+        res["marza_missing"] = runner.deps_ok()
+        import marza.silnik_wroclaw as _sw
+        import marza.silnik_opole as _so  # noqa: F401
+        import marza.podglad_wroclaw as _pw  # noqa: F401
+        png = _sw._generuj_wykres_png("Październik 2026", 300000, 120000, 2026, 10, holidays=set(), log_lines=[])
+        res["marza_chart_bytes"] = len(png or b"")
+        res["ok"] = (res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1

@@ -14,7 +14,7 @@
 var COLS = ['czas_utc', 'instalacja', 'wersja', 'zdarzenie', 'n_integra', 'n_crm', 'n_missing',
             'n_uncertain', 'n_autofix', 'n_warnings', 'seconds', 'n_recipients', 'error',
             'gdzie', 'szczegoly'];
-var EVENTS = {start: 1, check: 1, mail_sent: 1, error: 1};
+var EVENTS = {start: 1, check: 1, mail_sent: 1, error: 1, marza: 1};
 
 function doPost(e) {
   try {

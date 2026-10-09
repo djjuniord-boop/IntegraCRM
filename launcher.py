@@ -8,7 +8,12 @@ dzięki czemu aktualizacje podmieniają tylko małe pliki .py – bez przebudowy
 import ctypes, ctypes.wintypes, datetime, hashlib, json, os, py_compile, re, shutil, smtplib, ssl  # noqa: F401,E401
 import subprocess, tempfile, threading, traceback, zipfile, csv, base64, concurrent.futures  # noqa: F401,E401
 import urllib.request, urllib.parse  # noqa: F401,E401
-import email.message  # noqa: F401
+import email.message, email.mime.multipart, email.mime.text, email.mime.image, email.utils  # noqa: F401,E401
+import calendar, glob, io, contextlib, importlib, copy  # noqa: F401,E401
+import openpyxl, pypdf, numpy  # noqa: F401,E401
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot, matplotlib.patches, matplotlib.colors, matplotlib.patheffects  # noqa: F401,E401
 import tkinter, tkinter.ttk, tkinter.font, tkinter.filedialog, tkinter.messagebox, tkinter.scrolledtext  # noqa: F401,E401
 import pdfplumber  # noqa: F401
 import pytesseract  # noqa: F401

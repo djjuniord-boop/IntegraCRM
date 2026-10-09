@@ -61,6 +61,8 @@ DEFAULTS = {
     "cc_self": True,           # kopia (DW) wysyłanego maila do nadawcy
     "sender_name": "",         # nazwa nadawcy widoczna u odbiorcy (puste = domyślna)
     "stats_enabled": True,     # anonimowe statystyki użycia (tylko liczby)
+    "marza_enabled": False,    # zakładka MARŻA (kalkulator marży Wrocław + Opole) – tylko dla właściciela
+    "marza_folder": "",        # folder „LATEX Wyniki”
 }
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -247,6 +249,11 @@ class SettingsDialog(tk.Toplevel):
         ttk.Checkbutton(body, text="Wysyłaj anonimowe statystyki użycia (tylko liczby)", variable=self.v_stats
                         ).grid(row=r[0], column=1, sticky="w", padx=12, pady=(6, 0))
         r[0] += 1
+        section("Kalkulator marży")
+        self.v_marza = tk.BooleanVar(value=bool(cfg.get("marza_enabled", False)))
+        ttk.Checkbutton(body, text="Pokaż zakładkę MARŻA (Wrocław + Opole)", variable=self.v_marza
+                        ).grid(row=r[0], column=1, sticky="w", padx=12)
+        r[0] += 1
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
@@ -277,11 +284,17 @@ class SettingsDialog(tk.Toplevel):
             "cc_self": bool(self.v_cc.get()),
             "sender_name": self.v_name.get().strip(),
             "stats_enabled": bool(self.v_stats.get()),
+            "marza_enabled": bool(self.v_marza.get()),
+            "marza_folder": load_config().get("marza_folder", ""),
         }
 
     def save(self):
-        save_config(self.collect())
+        before = bool(load_config().get("marza_enabled", False))
+        cfg = self.collect()
+        save_config(cfg)
         self.destroy()
+        if cfg["marza_enabled"] != before:
+            messagebox.showinfo("Ustawienia", "Zmiana zakładki MARŻA będzie widoczna po ponownym uruchomieniu programu.")
 
     def test(self):
         cfg = self.collect()
@@ -396,6 +409,9 @@ class App(tk.Tk):
         grab(self, "3-pomoc")
         self.show_tab("hist")
         grab(self, "5-historia")
+        if "marza" in self.pages:
+            self.show_tab("marza")
+            grab(self, "7-marza")
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
@@ -444,7 +460,12 @@ class App(tk.Tk):
         self.pages, self.tab_btns = {}, {}
         holder = tk.Frame(self, bg=BG)
         holder.pack(fill="both", expand=True)
-        for key, label in (("main", "KONTROLA"), ("hist", "HISTORIA"), ("help", "POMOC I WERSJE")):
+        tab_list = [("main", "KONTROLA"), ("hist", "HISTORIA")]
+        if load_config().get("marza_enabled") or os.environ.get("INTEGRA_SHOT"):
+            tab_list.append(("marza", "MARŻA"))
+        tab_list.append(("help", "POMOC I WERSJE"))
+        self.current_tab = "main"
+        for key, label in tab_list:
             b = tk.Label(tabs, text=label, bg=BLACK, fg="#BBBBBB", font=f.label, padx=20, pady=9,
                          cursor="hand2")
             b.pack(side="left")
@@ -454,6 +475,8 @@ class App(tk.Tk):
         self._build_main(self.pages["main"])
         self._build_help(self.pages["help"])
         self._build_history(self.pages["hist"])
+        if "marza" in self.pages:
+            self._build_marza(self.pages["marza"])
         self.show_tab("main")
 
     def _build_history(self, page):
@@ -503,10 +526,176 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
 
+    # ---------- MARŻA ----------
+    def _build_marza(self, page):
+        f = self.fonts
+        self.marza_busy = False
+        top = card(page, padx=16, pady=12)
+        top.pack(fill="x")
+        h = tk.Frame(top, bg=SURFACE)
+        h.pack(fill="x")
+        tk.Label(h, text="Kalkulator marży – Wrocław + Opole", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
+        FlatButton(h, "Zmień folder…", self.marza_pick_folder, "ghost", f.small, 10, 4).pack(side="right")
+        self.marza_folder_lbl = tk.Label(top, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left")
+        self.marza_folder_lbl.pack(fill="x", pady=(4, 8))
+        links = tk.Frame(top, bg=SURFACE)
+        links.pack(anchor="w")
+        for txt, rel in (("Kalkulator Wrocław", ("Wrocław", "kalkulator_marzy_Wroclaw.xlsx")),
+                         ("Kalkulator Opole", ("Opole", "kalkulator_marzy_Opole.xlsx")),
+                         ("Folder LATEX Wyniki", ())):
+            FlatButton(links, txt, lambda r=rel: self.marza_open(*r), "ghost", f.small, 10, 4).pack(side="left", padx=(0, 8))
+
+        drop = card(page, padx=16, pady=12)
+        drop.pack(fill="x", pady=10)
+        tk.Label(drop, text="Raporty sprzedaży z Integry („Raport sprzedaży towarów i usług”, od 1. dnia miesiąca)",
+                 bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
+        self.marza_drop = tk.Label(drop, text="Przeciągnij tutaj PDF-y z Wrocławia i Opola albo kliknij, aby wybrać\n"
+                                   "(oddział jest rozpoznawany z treści raportu)",
+                                   bg=BG, fg=MUTED, font=f.body, pady=10, cursor="hand2", justify="center")
+        self.marza_drop.pack(fill="x", pady=(8, 6))
+        self.marza_drop.bind("<Button-1>", lambda e: self.marza_pick_files())
+        self.marza_pending = tk.Label(drop, text="", bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left")
+        self.marza_pending.pack(fill="x")
+
+        self.btn_marza = FlatButton(page, "AKTUALIZUJ WSZYSTKO", self.marza_run, "primary", f.big, 18, 8)
+        self.btn_marza.pack(fill="x", pady=(0, 8))
+        self.marza_banner = tk.Label(page, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
+                                     highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
+        self.marza_banner.pack(fill="x")
+        out = card(page, padx=10, pady=8)
+        out.pack(fill="both", expand=True, pady=(8, 0))
+        self.marza_log = tk.Text(out, font=f.mono, bg=SURFACE, fg=INK, relief="flat", wrap="word", height=8)
+        sb = ttk.Scrollbar(out, command=self.marza_log.yview)
+        self.marza_log.config(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self.marza_log.pack(fill="both", expand=True)
+        self.marza_refresh()
+
+    def _marza_root(self):
+        return load_config().get("marza_folder", "")
+
+    def marza_refresh(self):
+        from marza import runner
+        root = self._marza_root()
+        prob = runner.check_folder(root)
+        self.marza_folder_lbl.config(text=(f"Folder: {root}" if not prob else "⚠ " + prob),
+                                     fg=MUTED if not prob else WARN)
+        missing = runner.deps_ok()
+        if missing:
+            self.marza_set_banner("warn", f"⚠ Ta wersja IntegraCRM.exe nie ma bibliotek: {missing}. "
+                                  "Pobierz najnowszą paczkę .exe z GitHuba.")
+        elif prob:
+            self.marza_set_banner("warn", "⚠ Wskaż folder „LATEX Wyniki” (przycisk „Zmień folder…”).")
+        else:
+            self.marza_set_banner("idle", "Dodaj raporty i kliknij „AKTUALIZUJ WSZYSTKO”. "
+                                  "Bez nowych raportów odświeżony zostanie tylko podgląd dla handlowców.")
+        pend = runner.pending(root) if not prob else []
+        self.marza_pending.config(text=("Czekają na przeliczenie: " + ", ".join(pend)) if pend else "Brak raportów w kolejce.")
+
+    def marza_set_banner(self, kind, text):
+        colors = {"idle": (SURFACE, MUTED), "ok": (OK_BG, OK), "warn": (WARN_BG, WARN),
+                  "bad": (ERR_BG, RED_DARK), "busy": (SURFACE, INK)}
+        bg, fg = colors[kind]
+        self.marza_banner.config(text=text, bg=bg, fg=fg)
+
+    def marza_pick_folder(self):
+        d = filedialog.askdirectory(title="Wskaż folder „LATEX Wyniki”")
+        if d:
+            cfg = load_config()
+            cfg["marza_folder"] = d
+            save_config(cfg)
+            self.marza_refresh()
+
+    def marza_open(self, *rel):
+        root = self._marza_root()
+        if not root:
+            return
+        path = os.path.join(root, *rel)
+        try:
+            os.startfile(path)
+        except Exception as e:
+            messagebox.showinfo("Otwórz", f"{path}\n\n{e}")
+
+    def marza_pick_files(self):
+        fs = filedialog.askopenfilenames(filetypes=[("PDF", "*.pdf")])
+        if fs:
+            self.marza_add(list(fs))
+
+    def marza_add(self, files):
+        from marza import runner
+        root = self._marza_root()
+        prob = runner.check_folder(root)
+        if prob:
+            messagebox.showwarning("MARŻA", prob)
+            return
+        added = runner.add_reports(root, files)
+        self.marza_refresh()
+        if added:
+            self.marza_set_banner("idle", f"Dodano {len(added)} raport(y). Kliknij „AKTUALIZUJ WSZYSTKO”.")
+
+    def marza_run(self):
+        from marza import runner
+        if self.marza_busy:
+            return
+        root = self._marza_root()
+        prob = runner.check_folder(root) or (("Brak bibliotek: " + runner.deps_ok()) if runner.deps_ok() else "")
+        if prob:
+            messagebox.showwarning("MARŻA", prob)
+            return
+        self.marza_busy = True
+        self.btn_marza.set_enabled(False, "AKTUALIZUJĘ…")
+        self.marza_log.delete("1.0", "end")
+        self.marza_set_banner("busy", "Trwa aktualizacja… (rozdzielanie raportów, kalkulatory, podgląd, e-maile)")
+        threading.Thread(target=self._marza_work, args=(root,), daemon=True).start()
+
+    def _marza_ask(self, question):
+        """Pytanie z wątku roboczego – odpowiedź z okna."""
+        ev, box = threading.Event(), {}
+
+        def _q():
+            box["a"] = messagebox.askyesno("MARŻA – potwierdzenie", question + "\n\nZapisać mimo to?")
+            ev.set()
+        self.after(0, _q)
+        ev.wait()
+        return box.get("a", False)
+
+    def _marza_work(self, root):
+        from marza import runner
+
+        def logline(line):
+            self.after(0, lambda l=line: (self.marza_log.insert("end", l + "\n"), self.marza_log.see("end")))
+        try:
+            res = runner.run_all(root, load_config(), log=logline, ask=self._marza_ask)
+            n = sum(res.get("counts", {}).values())
+            self._stat("marza", n_integra=n)
+            if res["ok"]:
+                self.after(0, self.marza_set_banner, "ok", f"✔  Gotowe – przetworzono raportów: {n}. Szczegóły poniżej.")
+            else:
+                self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj podsumowanie poniżej.")
+        except Exception as e:
+            self._report(e, "kalkulator marży")
+            self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
+        finally:
+            def done():
+                self.marza_busy = False
+                self.btn_marza.set_enabled(True, "AKTUALIZUJ WSZYSTKO")
+                self.marza_pending.config(text="")
+                try:
+                    self.marza_refresh_pending_only()
+                except Exception:
+                    pass
+            self.after(0, done)
+
+    def marza_refresh_pending_only(self):
+        from marza import runner
+        pend = runner.pending(self._marza_root())
+        self.marza_pending.config(text=("Czekają na przeliczenie: " + ", ".join(pend)) if pend else "Brak raportów w kolejce.")
+
     def show_tab(self, key):
         for k, p in self.pages.items():
             p.pack_forget()
             self.tab_btns[k].config(fg="#BBBBBB", bg=BLACK)
+        self.current_tab = key
         self.pages[key].pack(fill="both", expand=True)
         self.tab_btns[key].config(fg="white", bg=RED)
 
@@ -872,7 +1061,10 @@ class App(tk.Tk):
         self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
 
     def on_drop(self, files):
-        """Upuszczone pliki: PDF → krok 1, obraz → krok 2."""
+        """Upuszczone pliki: PDF → krok 1, obraz → krok 2 (na zakładce MARŻA – raporty marży)."""
+        if getattr(self, "current_tab", "") == "marza":
+            self.marza_add(files)
+            return
         used = False
         for fp in files:
             low = fp.lower()
