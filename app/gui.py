@@ -569,7 +569,26 @@ class App(tk.Tk):
         self.marza_log.config(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
         self.marza_log.pack(fill="both", expand=True)
+        self._marza_autodetect()
         self.marza_refresh()
+
+    def _marza_autodetect(self):
+        """Jeśli folder nie jest ustawiony, szuka „LATEX Wyniki” w typowych miejscach."""
+        if self._marza_root():
+            return
+        home = os.path.expanduser("~")
+        bases = [os.path.join(home, x) for x in ("Desktop", "Pulpit", "Documents", "Dokumenty", "Downloads",
+                                                   os.path.join("OneDrive", "Desktop"),
+                                                   os.path.join("OneDrive", "Pulpit"), "")]
+        bases += [r"G:\Mój dysk", r"G:\My Drive", "C:\\", "D:\\"]
+        from marza import runner
+        for b in bases:
+            cand = os.path.join(b, "LATEX Wyniki")
+            if os.path.isdir(cand) and not runner.check_folder(cand):
+                cfg = load_config()
+                cfg["marza_folder"] = cand
+                save_config(cfg)
+                return
 
     def _marza_root(self):
         return load_config().get("marza_folder", "")
@@ -609,7 +628,11 @@ class App(tk.Tk):
     def marza_open(self, *rel):
         root = self._marza_root()
         if not root:
-            return
+            if messagebox.askyesno("MARŻA", "Nie wskazano jeszcze folderu „LATEX Wyniki”.\n\nWskazać go teraz?"):
+                self.marza_pick_folder()
+            root = self._marza_root()
+            if not root:
+                return
         path = os.path.join(root, *rel)
         try:
             os.startfile(path)
