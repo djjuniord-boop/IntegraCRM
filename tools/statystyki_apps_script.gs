@@ -55,6 +55,11 @@ function arkusz_() {
 /** Uruchom raz: tworzy arkusze „Zdarzenia” i „Podsumowanie” z gotowymi wzorami. */
 function przygotuj() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
+  // Wzory są zapisane w składni angielskiej (przecinki). W arkuszu z polskimi ustawieniami
+  // wpisujemy je przy ustawieniach en_US, a potem przywracamy poprzednie – Arkusze same je przetłumaczą.
+  var locale = ss.getSpreadsheetLocale();
+  ss.setSpreadsheetLocale('en_US');
+  SpreadsheetApp.flush();
   arkusz_();
   var p = ss.getSheetByName('Podsumowanie') || ss.insertSheet('Podsumowanie', 0);
   p.clear();
@@ -88,4 +93,6 @@ function przygotuj() {
   p.getRange('A15').setFontWeight('bold');
   p.getRange('E15').setFontWeight('bold');
   p.setColumnWidth(1, 320);
+  SpreadsheetApp.flush();
+  ss.setSpreadsheetLocale(locale);
 }
