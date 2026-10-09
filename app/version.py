@@ -1,13 +1,24 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.4"
-RELEASED = "2026-10-08"
+VERSION = "0.8.5"
+RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.8.5",
+        "date": "2026-10-09",
+        "changes": [
+            "Naprawa: odczyt wycinka (OCR) nie działał, gdy nazwa użytkownika Windows ma polskie znaki "
+            "(np. C:\\Users\\Użytkownik)",
+            "Naprawa: Ctrl+V w temacie i treści maila wkleja tekst (wcześniej próbował wkleić obraz)",
+            "Uszkodzony plik ustawień nie blokuje już uruchomienia programu",
+            "Każda wersja jest automatycznie testowana na Windows przed publikacją",
+        ],
+    },
     {
         "version": "0.8.4",
         "date": "2026-10-08",

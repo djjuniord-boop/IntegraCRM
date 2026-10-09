@@ -48,7 +48,13 @@ HELP_STEPS = [
 def load_config() -> dict:
     cfg = dict(DEFAULTS)
     if paths.CONFIG_PATH.exists():
-        cfg.update(json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8")))
+        try:
+            cfg.update(json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8")))
+        except (ValueError, OSError):   # uszkodzony plik – zachowaj kopię i pracuj na domyślnych
+            try:
+                paths.CONFIG_PATH.replace(paths.CONFIG_PATH.with_suffix(".bad.json"))
+            except OSError:
+                pass
     return cfg
 
 
@@ -253,8 +259,8 @@ class App(tk.Tk):
         self._logo = None
         self.result = None
         self._build()
-        self.bind("<Control-v>", lambda e: self.paste())
-        self.bind("<Control-V>", lambda e: self.paste())
+        self.bind("<Control-v>", self._on_ctrl_v)
+        self.bind("<Control-V>", self._on_ctrl_v)
         shot = os.environ.get("INTEGRA_SHOT")   # tryb zrzutów ekranu (kontrola wyglądu w GitHub Actions)
         if shot:
             self.after(2500, self._screenshots, shot)
@@ -582,6 +588,13 @@ class App(tk.Tk):
             messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{e}")
             return
         self._restart()
+
+    def _on_ctrl_v(self, event):
+        # w polach tekstowych (temat, treść maila) Ctrl+V ma wklejać tekst, nie obraz
+        if isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
+            return None
+        self.paste()
+        return "break"
 
     # ---------- pliki / schowek ----------
     def pick_pdf(self):
