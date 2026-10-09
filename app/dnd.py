@@ -7,6 +7,7 @@ import os
 WM_DROPFILES = 0x0233
 GWLP_WNDPROC = -4
 _keep = []   # referencje do callbacków, żeby nie zebrał ich garbage collector
+_queue = []  # upuszczone pliki czekające na obsłużenie w pętli Tk
 
 
 def enable(widget, on_files) -> bool:
@@ -43,7 +44,7 @@ def enable(widget, on_files) -> bool:
                         shell32.DragQueryFileW(wp, i, buf, size)
                         files.append(buf.value)
                     shell32.DragFinish(wp)
-                    widget.after(0, on_files, files)
+                    _queue.append(files)   # bez wywołań Tk w tej funkcji – odbiera je _poll
                 except Exception:
                     pass
                 return 0
@@ -55,6 +56,15 @@ def enable(widget, on_files) -> bool:
         if not old[0]:
             return False
         shell32.DragAcceptFiles(hwnd, True)
+
+        def _poll():
+            while _queue:
+                try:
+                    on_files(_queue.pop(0))
+                except Exception:
+                    pass
+            widget.after(150, _poll)
+        widget.after(150, _poll)
         return True
     except Exception:
         return False
