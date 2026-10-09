@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.10.2"
+VERSION = "0.10.3"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,13 @@ RELEASED = "2026-10-09"
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.10.3",
+        "date": "2026-10-09",
+        "changes": [
+            "Nazwa nadawcy maila (domyślnie „Kontrola eksportu – Latex Serwis”) – do zmiany w Ustawieniach",
+        ],
+    },
     {
         "version": "0.10.2",
         "date": "2026-10-09",

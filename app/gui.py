@@ -55,6 +55,7 @@ DEFAULTS = {
     "tesseract_cmd": "",       # puste = automatycznie (folder programu / Program Files)
     "update_source": "",       # puste = DEFAULT_UPDATE_SOURCE z version.py
     "cc_self": True,           # kopia (DW) wysyłanego maila do nadawcy
+    "sender_name": "",         # nazwa nadawcy widoczna u odbiorcy (puste = domyślna)
 }
 
 HELP_STEPS = [
@@ -218,6 +219,8 @@ class SettingsDialog(tk.Toplevel):
             return e
 
         section("Poczta")
+        self.v_name = tk.StringVar(value=cfg.get("sender_name") or mailer.DEFAULT_SENDER)
+        row("Nazwa nadawcy", self.v_name)
         row("Twój Gmail (nadawca)", self.v_user)
         self.pass_entry = row("Hasło aplikacji Google", self.v_pass, show="•")
         self.show = tk.BooleanVar()
@@ -258,6 +261,7 @@ class SettingsDialog(tk.Toplevel):
             "tesseract_cmd": self.v_tess.get().strip(),
             "update_source": self.v_upd.get().strip(),
             "cc_self": bool(self.v_cc.get()),
+            "sender_name": self.v_name.get().strip(),
         }
 
     def save(self):

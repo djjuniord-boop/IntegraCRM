@@ -3,8 +3,11 @@ import smtplib
 import ssl
 from datetime import datetime
 from email.message import EmailMessage
+from email.utils import formataddr
 
 from version import VERSION
+
+DEFAULT_SENDER = "Kontrola eksportu – Latex Serwis"
 
 
 def compose(missing: list[str], uncertain: list[tuple[str, str]], reported: dict | None = None) -> tuple[str, str]:
@@ -32,7 +35,8 @@ def compose(missing: list[str], uncertain: list[tuple[str, str]], reported: dict
 def send(subject: str, body: str, cfg: dict) -> None:
     msg = EmailMessage()
     msg["Subject"] = subject
-    msg["From"] = cfg["gmail_user"]
+    name = (cfg.get("sender_name") or DEFAULT_SENDER).strip()
+    msg["From"] = formataddr((name, cfg["gmail_user"])) if name else cfg["gmail_user"]
     msg["To"] = ", ".join(cfg["recipients"])
     if cfg.get("cc_self", True) and cfg["gmail_user"] not in cfg["recipients"]:
         msg["Cc"] = cfg["gmail_user"]
