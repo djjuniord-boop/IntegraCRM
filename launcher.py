@@ -5,7 +5,7 @@ dzięki czemu aktualizacje podmieniają tylko małe pliki .py – bez przebudowy
 """
 # Importy poniżej nie są tu używane – są po to, żeby PyInstaller dołączył do .exe
 # wszystkie moduły, których potrzebuje kod w app\.
-import ctypes, datetime, hashlib, json, os, py_compile, re, shutil, smtplib, ssl  # noqa: F401,E401
+import ctypes, ctypes.wintypes, datetime, hashlib, json, os, py_compile, re, shutil, smtplib, ssl  # noqa: F401,E401
 import subprocess, tempfile, threading, traceback, zipfile, csv, base64, concurrent.futures  # noqa: F401,E401
 import urllib.request, urllib.parse  # noqa: F401,E401
 import email.message  # noqa: F401

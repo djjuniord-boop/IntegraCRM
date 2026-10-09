@@ -15,20 +15,19 @@ def enable(widget, on_files) -> bool:
         return False
     try:
         import ctypes
-        from ctypes import wintypes
 
         user32, shell32 = ctypes.windll.user32, ctypes.windll.shell32
         LRESULT = ctypes.c_ssize_t
-        WNDPROC = ctypes.WINFUNCTYPE(LRESULT, wintypes.HWND, wintypes.UINT, wintypes.WPARAM, wintypes.LPARAM)
+        WNDPROC = ctypes.WINFUNCTYPE(LRESULT, ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t)
         user32.CallWindowProcW.restype = LRESULT
-        user32.CallWindowProcW.argtypes = [ctypes.c_void_p, wintypes.HWND, wintypes.UINT,
-                                           wintypes.WPARAM, wintypes.LPARAM]
+        user32.CallWindowProcW.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_uint,
+                                           ctypes.c_size_t, ctypes.c_ssize_t]
         setter = getattr(user32, "SetWindowLongPtrW", None) or user32.SetWindowLongW
         setter.restype = ctypes.c_void_p
-        setter.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_void_p]
-        shell32.DragQueryFileW.argtypes = [wintypes.HANDLE, wintypes.UINT, wintypes.LPWSTR, wintypes.UINT]
-        shell32.DragQueryFileW.restype = wintypes.UINT
-        shell32.DragFinish.argtypes = [wintypes.HANDLE]
+        setter.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_void_p]
+        shell32.DragQueryFileW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_wchar_p, ctypes.c_uint]
+        shell32.DragQueryFileW.restype = ctypes.c_uint
+        shell32.DragFinish.argtypes = [ctypes.c_void_p]
 
         hwnd = widget.winfo_id()
         old = [None]

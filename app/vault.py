@@ -15,16 +15,15 @@ LAST_ERROR = ""
 
 def _call(fn_name: str, data: bytes) -> bytes:
     import ctypes
-    from ctypes import wintypes
 
     class BLOB(ctypes.Structure):
-        _fields_ = [("cbData", wintypes.DWORD), ("pbData", ctypes.c_void_p)]
+        _fields_ = [("cbData", ctypes.c_uint32), ("pbData", ctypes.c_void_p)]
 
     crypt32, kernel32 = ctypes.windll.crypt32, ctypes.windll.kernel32
     fn = getattr(crypt32, fn_name)
     fn.argtypes = [ctypes.POINTER(BLOB), ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p,
-                   ctypes.c_void_p, wintypes.DWORD, ctypes.POINTER(BLOB)]
-    fn.restype = wintypes.BOOL
+                   ctypes.c_void_p, ctypes.c_uint32, ctypes.POINTER(BLOB)]
+    fn.restype = ctypes.c_int
     kernel32.LocalFree.argtypes = [ctypes.c_void_p]
     kernel32.LocalFree.restype = ctypes.c_void_p
 
