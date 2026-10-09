@@ -714,6 +714,9 @@ class App(tk.Tk):
 
 
 def main():
+    if os.environ.get("INTEGRA_SELFTEST"):   # test bez okna (GitHub Actions)
+        import selftest
+        os._exit(selftest.run(os.environ["INTEGRA_SELFTEST"]))
     try:  # ostrzejszy tekst na ekranach z powiększeniem
         import ctypes
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
