@@ -28,7 +28,8 @@ function doPost(e) {
         if (v === undefined || v === null) return '';
         if (c === 'czas_utc') return new Date(v);
         if (typeof v === 'number') return v;
-        return String(v).substring(0, 60);
+        // apostrof = zapis jako tekst (inaczej Arkusze zamieniają wersję „0.11.1” na datę)
+        return "'" + String(v).substring(0, 60);
       }));
     });
     if (rows.length) {
@@ -48,6 +49,7 @@ function arkusz_() {
     sh = ss.insertSheet('Zdarzenia');
     sh.appendRow(COLS);
     sh.setFrozenRows(1);
+    sh.getRange('C:C').setNumberFormat('@');
   }
   return sh;
 }
@@ -83,8 +85,9 @@ function przygotuj() {
   ];
   p.getRange(1, 1, data.length, 2).setValues(data);
   p.getRange('A16').setFormula(
-    '=IFERROR(QUERY(' + z + 'A2:D, "select year(A), week(A), count(D) where D = \'check\' group by year(A), week(A) ' +
-    'order by year(A) desc, week(A) desc label year(A) \'Rok\', week(A) \'Tydzień\', count(D) \'Sprawdzenia\'", 0), "brak danych")');
+    '=IFERROR(QUERY({ARRAYFORMULA(IF(' + z + 'A2:A="",,YEAR(' + z + 'A2:A)&"-T"&TEXT(ISOWEEKNUM(' + z + 'A2:A),"00"))),' +
+    z + 'D2:D}, "select Col1, count(Col2) where Col2 = \'check\' group by Col1 order by Col1 desc ' +
+    'label Col1 \'Rok-tydzień\', count(Col2) \'Sprawdzenia\'", 0), "brak danych")');
   p.getRange('E15').setValue('Wersje w użyciu (ostatnie 30 dni)');
   p.getRange('E16').setFormula(
     '=IFERROR(QUERY(' + z + 'A2:D, "select C, count(B) where A >= date \'"&TEXT(TODAY()-30,"yyyy-mm-dd")&"\' ' +
