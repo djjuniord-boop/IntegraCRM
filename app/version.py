@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.12.1"
+VERSION = "0.12.2"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.12.2",
+        "date": "2026-10-09",
+        "changes": [
+            "MARŻA: kolejka raportów z przyciskiem „✕ Usuń” przy każdym pliku i „Wyczyść kolejkę”",
+            "MARŻA: najwyżej 1 raport na oddział – przy drugim pytanie o podmianę",
+            "MARŻA: raport sprawdzany już przy dodawaniu – inne pliki (np. faktura, raport serwisu) są odrzucane z powodem",
+        ],
+    },
     {
         "version": "0.12.1",
         "date": "2026-10-09",

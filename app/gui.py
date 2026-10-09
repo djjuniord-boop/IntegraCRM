@@ -554,8 +554,12 @@ class App(tk.Tk):
                                    bg=BG, fg=MUTED, font=f.body, pady=10, cursor="hand2", justify="center")
         self.marza_drop.pack(fill="x", pady=(8, 6))
         self.marza_drop.bind("<Button-1>", lambda e: self.marza_pick_files())
-        self.marza_pending = tk.Label(drop, text="", bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left")
-        self.marza_pending.pack(fill="x")
+        qh = tk.Frame(drop, bg=SURFACE)
+        qh.pack(fill="x")
+        tk.Label(qh, text="Kolejka (najwyżej 1 raport na oddział):", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
+        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "ghost", f.small, 8, 2).pack(side="right")
+        self.marza_queue = tk.Frame(drop, bg=SURFACE)
+        self.marza_queue.pack(fill="x", pady=(4, 0))
 
         self.btn_marza = FlatButton(page, "AKTUALIZUJ WSZYSTKO", self.marza_run, "primary", f.big, 18, 8)
         self.btn_marza.pack(fill="x", pady=(0, 8))
@@ -608,8 +612,7 @@ class App(tk.Tk):
         else:
             self.marza_set_banner("idle", "Dodaj raporty i kliknij „AKTUALIZUJ WSZYSTKO”. "
                                   "Bez nowych raportów odświeżony zostanie tylko podgląd dla handlowców.")
-        pend = runner.pending(root) if not prob else []
-        self.marza_pending.config(text=("Czekają na przeliczenie: " + ", ".join(pend)) if pend else "Brak raportów w kolejce.")
+        self.marza_refresh_pending_only()
 
     def marza_set_banner(self, kind, text):
         colors = {"idle": (SURFACE, MUTED), "ok": (OK_BG, OK), "warn": (WARN_BG, WARN),
@@ -651,10 +654,17 @@ class App(tk.Tk):
         if prob:
             messagebox.showwarning("MARŻA", prob)
             return
-        added = runner.add_reports(root, files)
-        self.marza_refresh()
+        def ask_replace(branch, old):
+            return messagebox.askyesno("MARŻA", f"W kolejce jest już raport dla oddziału "
+                                       f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?")
+        added, rejected = runner.add_reports(root, files, ask_replace)
+        self.marza_refresh_pending_only()
+        if rejected:
+            messagebox.showwarning("MARŻA – nie dodano",
+                                   "\n\n".join(f"{n}\n→ {why}" for n, why in rejected))
         if added:
-            self.marza_set_banner("idle", f"Dodano {len(added)} raport(y). Kliknij „AKTUALIZUJ WSZYSTKO”.")
+            self.marza_set_banner("idle", "Dodano: " + ", ".join(f"{n} ({runner.BRANCH_NAMES[b]})" for n, b in added)
+                                  + ". Kliknij „AKTUALIZUJ WSZYSTKO”.")
 
     def marza_run(self):
         from marza import runner
@@ -702,7 +712,6 @@ class App(tk.Tk):
             def done():
                 self.marza_busy = False
                 self.btn_marza.set_enabled(True, "AKTUALIZUJ WSZYSTKO")
-                self.marza_pending.config(text="")
                 try:
                     self.marza_refresh_pending_only()
                 except Exception:
@@ -711,8 +720,40 @@ class App(tk.Tk):
 
     def marza_refresh_pending_only(self):
         from marza import runner
-        pend = runner.pending(self._marza_root())
-        self.marza_pending.config(text=("Czekają na przeliczenie: " + ", ".join(pend)) if pend else "Brak raportów w kolejce.")
+        f = self.fonts
+        for w in self.marza_queue.winfo_children():
+            w.destroy()
+        root = self._marza_root()
+        items = runner.pending_info(root) if root and not runner.check_folder(root) else []
+        if not items:
+            tk.Label(self.marza_queue, text="Brak raportów w kolejce.", bg=SURFACE, fg=MUTED, font=f.small
+                     ).pack(anchor="w")
+            return
+        for name, branch in items:
+            row = tk.Frame(self.marza_queue, bg=BG)
+            row.pack(fill="x", pady=2)
+            tag = runner.BRANCH_NAMES.get(branch, "NIEROZPOZNANY")
+            tk.Label(row, text=f" {tag} ", bg=(BLACK if branch else RED), fg="white", font=f.small
+                     ).pack(side="left", padx=(6, 8), pady=4)
+            tk.Label(row, text=name, bg=BG, fg=INK, font=f.body).pack(side="left")
+            FlatButton(row, "✕ Usuń", lambda n=name: self.marza_remove(n), "ghost", f.small, 8, 2
+                       ).pack(side="right", padx=6, pady=3)
+
+    def marza_remove(self, name):
+        from marza import runner
+        if self.marza_busy:
+            return
+        runner.remove_pending(self._marza_root(), name)
+        self.marza_refresh_pending_only()
+
+    def marza_clear(self):
+        from marza import runner
+        if self.marza_busy:
+            return
+        root = self._marza_root()
+        for n in runner.pending(root) if root else []:
+            runner.remove_pending(root, n)
+        self.marza_refresh_pending_only()
 
     def show_tab(self, key):
         for k, p in self.pages.items():

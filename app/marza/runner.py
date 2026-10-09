@@ -45,19 +45,69 @@ def check_folder(root: str) -> str:
     return ""
 
 
-def add_reports(root: str, files) -> list:
-    """Kopiuje PDF-y do „1. WRZUC RAPORTY TUTAJ”. Zwraca listę skopiowanych nazw."""
+BRANCH_NAMES = {"wroclaw": "Wrocław", "opole": "Opole"}
+
+
+def inspect(path: str):
+    """Sprawdza PDF przed dodaniem. Zwraca (oddział 'wroclaw'|'opole'|None, opis)."""
+    try:
+        import pypdf
+        text = pypdf.PdfReader(path).pages[0].extract_text() or ""
+    except Exception as e:
+        return None, f"nie da się odczytać PDF ({e})"
+    t = text.lower()
+    if "raport sprzedaży towarów i usług" not in t and "raport sprzedazy towarow i uslug" not in t:
+        first = (text.strip().splitlines() or ["?"])[0][:60]
+        return None, f"to nie jest „Raport sprzedaży towarów i usług” (to: „{first}”)"
+    wro = "serwis wrocław" in t or "serwis wroclaw" in t
+    opo = "serwis opole" in t
+    if wro and not opo:
+        return "wroclaw", ""
+    if opo and not wro:
+        return "opole", ""
+    return None, "w nagłówku nie ma „Serwis Wrocław” ani „Serwis Opole”"
+
+
+def add_reports(root: str, files, replace=lambda branch, old: True):
+    """Sprawdza i kopiuje PDF-y do „1. WRZUC RAPORTY TUTAJ” – najwyżej jeden raport na oddział.
+    replace(oddział, stara_nazwa) decyduje, czy podmienić raport już czekający w kolejce.
+    Zwraca (dodane: [(nazwa, oddział)], odrzucone: [(nazwa, powód)])."""
     dst = os.path.join(root, WRZUC)
     os.makedirs(dst, exist_ok=True)
-    out = []
+    added, rejected = [], []
     for f in files:
-        if not f.lower().endswith(".pdf"):
-            continue
         name = os.path.basename(f)
+        if not f.lower().endswith(".pdf"):
+            rejected.append((name, "to nie jest plik PDF"))
+            continue
+        branch, why = inspect(f)
+        if not branch:
+            rejected.append((name, why))
+            continue
+        queued = [n for n, b in pending_info(root) if b == branch]
+        if queued:
+            if not replace(branch, queued[0]):
+                rejected.append((name, f"w kolejce jest już raport dla oddziału {BRANCH_NAMES[branch]}"))
+                continue
+            for n in queued:
+                remove_pending(root, n)
         target = _wolna(dst, name)
         shutil.copy2(f, target)
-        out.append(os.path.basename(target))
-    return out
+        added.append((os.path.basename(target), branch))
+    return added, rejected
+
+
+def pending_info(root: str):
+    """[(nazwa, oddział lub None)] dla PDF-ów czekających w kolejce."""
+    d = os.path.join(root, WRZUC)
+    return [(n, inspect(os.path.join(d, n))[0]) for n in pending(root)]
+
+
+def remove_pending(root: str, name: str) -> None:
+    """Usuwa raport z kolejki (tylko kopię w „1. WRZUC RAPORTY TUTAJ” – oryginał zostaje tam, skąd był dodany)."""
+    p = os.path.join(root, WRZUC, os.path.basename(name))
+    if os.path.isfile(p):
+        os.remove(p)
 
 
 def pending(root: str) -> list:
