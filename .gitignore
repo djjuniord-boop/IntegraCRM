@@ -14,3 +14,4 @@ data/python_path.txt
 data/historia.csv
 data/zgloszone.json
 data/*.bad.json
+data/statystyki_*
