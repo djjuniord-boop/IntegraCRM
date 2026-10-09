@@ -745,6 +745,7 @@ class App(tk.Tk):
             return
         runner.remove_pending(self._marza_root(), name)
         self.marza_refresh_pending_only()
+        self._marza_banner_after_change(f"Usunięto z kolejki: {name}.")
 
     def marza_clear(self):
         from marza import runner
@@ -754,6 +755,17 @@ class App(tk.Tk):
         for n in runner.pending(root) if root else []:
             runner.remove_pending(root, n)
         self.marza_refresh_pending_only()
+        self._marza_banner_after_change("Kolejka wyczyszczona.")
+
+    def _marza_banner_after_change(self, msg):
+        from marza import runner
+        root = self._marza_root()
+        left = runner.pending_info(root) if root and not runner.check_folder(root) else []
+        if left:
+            names = ", ".join(f"{n} ({runner.BRANCH_NAMES.get(b, '?')})" for n, b in left)
+            self.marza_set_banner("idle", f"{msg} W kolejce: {names}. Kliknij „AKTUALIZUJ WSZYSTKO”.")
+        else:
+            self.marza_set_banner("idle", f"{msg} Kolejka pusta – dodaj raporty sprzedaży (PDF).")
 
     def show_tab(self, key):
         for k, p in self.pages.items():

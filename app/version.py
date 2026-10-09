@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.12.2"
+VERSION = "0.12.3"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.12.3",
+        "date": "2026-10-09",
+        "changes": [
+            "MARŻA: po „Wyczyść kolejkę” lub „✕ Usuń” komunikat pokazuje aktualny stan kolejki (zamiast starego „Dodano…”).",
+        ],
+    },
     {
         "version": "0.12.2",
         "date": "2026-10-09",
