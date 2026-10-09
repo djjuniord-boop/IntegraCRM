@@ -317,6 +317,25 @@ class App(tk.Tk):
         finally:
             os._exit(0)
 
+    def _simulate_drop(self, path):
+        """Test: wysyła do okna komunikat WM_DROPFILES, jak przy upuszczeniu pliku z Eksploratora."""
+        import ctypes
+        import struct
+        data = path.encode("utf-16-le") + b"\0\0\0\0"
+        header = struct.pack("<IiiII", 20, 0, 0, 0, 1)        # DROPFILES: pFiles=20, pt, fNC, fWide=1
+        k32 = ctypes.windll.kernel32
+        k32.GlobalAlloc.restype = ctypes.c_void_p
+        k32.GlobalLock.restype = ctypes.c_void_p
+        k32.GlobalLock.argtypes = [ctypes.c_void_p]
+        k32.GlobalUnlock.argtypes = [ctypes.c_void_p]
+        h = k32.GlobalAlloc(0x0042, len(header) + len(data))   # GHND
+        ptr = k32.GlobalLock(h)
+        ctypes.memmove(ptr, header + data, len(header) + len(data))
+        k32.GlobalUnlock(h)
+        u32 = ctypes.windll.user32
+        u32.PostMessageW.argtypes = [ctypes.c_void_p, ctypes.c_uint, ctypes.c_size_t, ctypes.c_ssize_t]
+        u32.PostMessageW(self.winfo_id(), 0x0233, h, 0)
+
     def _screenshots_inner(self, out_dir):
         from PIL import ImageGrab
 
@@ -326,7 +345,15 @@ class App(tk.Tk):
             ImageGrab.grab((x, y, x + win.winfo_width(), y + win.winfo_height())).save(f"{out_dir}/{name}.png")
         self.lift()
         self.attributes("-topmost", True)
+        with open(f"{out_dir}/dnd.txt", "w", encoding="utf-8") as fh:
+            fh.write(f"enable={self.dnd_ok}\n")
+        if self.dnd_ok:
+            self._simulate_drop(r"C:\Raporty\Integra zakończone 09.10.pdf")
+            for _ in range(20):
+                self.update()
         grab(self, "1-kontrola")
+        with open(f"{out_dir}/dnd.txt", "a", encoding="utf-8") as fh:
+            fh.write(f"pdf_after_drop={self.pdf_path.get()}\n")
         self.set_chips(["DW12345", "WE7A071"], [("DX7806F", "DX78O6F")])
         self.set_banner("bad", "✖  W CRM brakuje 2 i 1 do weryfikacji z 12 zleceń. Mail jest gotowy.")
         self.subject.set("Brak zleceń w CRM – prośba o eksport")

@@ -83,6 +83,7 @@ jobs:
           if (-not $p.WaitForExit(90000)) { Stop-Process -Id $p.Id -Force; Write-Host "timeout" }
           Get-ChildItem shots
           if (Test-Path shots/error.txt) { Get-Content shots/error.txt }
+          if (Test-Path shots/dnd.txt) { Get-Content shots/dnd.txt }
           $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
       - uses: actions/upload-artifact@v4
