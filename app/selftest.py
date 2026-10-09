@@ -37,7 +37,20 @@ def run(folder: str) -> int:
         exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
                    subject=subj, seconds=round(time.time() - t0, 1))
-        res["ok"] = sorted(missing) == sorted(exp["missing"]) and not uncertain
+        import history
+        import vault
+        enc = vault.protect("abcd efgh ijkl mnop")
+        res["vault_encrypted"] = enc.startswith(vault.PREFIX) or os.name != "nt"
+        res["vault_roundtrip"] = vault.unprotect(enc) == "abcd efgh ijkl mnop"
+        i = history.add_check("test.pdf", len(integra), len(crm), missing, uncertain)
+        history.mark_sent(i, ["test@example.com"], missing)
+        res["history_rows"] = len(history.read_all())
+        res["reported"] = sorted(history.reported())
+        subj2, body2 = mailer.compose(missing, uncertain, history.reported())
+        res["mail_marks_reported"] = "zgłaszany już" in body2
+        res["ok"] = (sorted(missing) == sorted(exp["missing"]) and not uncertain and res["vault_encrypted"]
+                     and res["vault_roundtrip"] and res["history_rows"] >= 1
+                     and res["reported"] == sorted(missing) and res["mail_marks_reported"])
     except Exception:
         res["error"] = traceback.format_exc()
     (d / "result.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")

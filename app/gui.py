@@ -18,6 +18,24 @@ import mailer
 import paths
 import plates
 import updater
+
+# Moduły dodane w 0.9.0 – starsze IntegraCRM.exe mogą nie mieć potrzebnych bibliotek
+# standardowych (np. csv). Wtedy program działa dalej, tylko bez tych funkcji.
+try:
+    import history
+except Exception:   # pragma: no cover
+    history = None
+try:
+    import vault
+except Exception:   # pragma: no cover
+    class vault:   # noqa: N801 – zastępstwo bez szyfrowania
+        PREFIX = "dpapi:"
+        protect = staticmethod(lambda x: x)
+        unprotect = staticmethod(lambda x: "" if (x or "").startswith("dpapi:") else (x or ""))
+try:
+    import dnd
+except Exception:   # pragma: no cover
+    dnd = None
 from version import CHANGELOG, DEFAULT_UPDATE_SOURCE, RELEASED, VERSION
 
 # ---------- identyfikacja wizualna ----------
@@ -35,11 +53,13 @@ DEFAULTS = {
     "recipients": [],
     "tesseract_cmd": "",       # puste = automatycznie (folder programu / Program Files)
     "update_source": "",       # puste = DEFAULT_UPDATE_SOURCE z version.py
+    "cc_self": True,           # kopia (DW) wysyłanego maila do nadawcy
 }
 
 HELP_STEPS = [
-    ("Raport z Integra 7", "Kliknij „Wybierz PDF” i wskaż raport zakończonych zleceń."),
-    ("Wycinek z CRM", "W CRM zrób wycinek tabeli (Win+Shift+S), wróć tutaj i naciśnij Ctrl+V."),
+    ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
+    ("Wycinek z CRM", "W CRM zrób wycinek tabeli (Win+Shift+S), wróć tutaj i naciśnij Ctrl+V. "
+                      "Można też przeciągnąć plik ze zrzutem ekranu."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
     ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
 ]
@@ -55,15 +75,23 @@ def load_config() -> dict:
                 paths.CONFIG_PATH.replace(paths.CONFIG_PATH.with_suffix(".bad.json"))
             except OSError:
                 pass
+    cfg["gmail_app_password"] = vault.unprotect(cfg.get("gmail_app_password", ""))
     return cfg
 
 
 def migrate_config() -> None:
-    """Usuwa stare źródło aktualizacji (Dysk Google) – od 0.8.3 domyślnie GitHub."""
+    """Usuwa stare źródło aktualizacji (Dysk Google) i szyfruje hasło zapisane jawnym tekstem."""
     try:
+        raw = json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8")) if paths.CONFIG_PATH.exists() else {}
         cfg = load_config()
+        changed = False
         if "drive.google.com" in (cfg.get("update_source") or ""):
             cfg["update_source"] = ""
+            changed = True
+        pw = raw.get("gmail_app_password") or ""
+        if pw and not pw.startswith(vault.PREFIX) and vault.protect(pw) != pw:
+            changed = True
+        if changed:
             save_config(cfg)
     except Exception:
         pass
@@ -71,7 +99,9 @@ def migrate_config() -> None:
 
 def save_config(cfg: dict) -> None:
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    paths.CONFIG_PATH.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
+    out = dict(cfg)
+    out["gmail_app_password"] = vault.protect(out.get("gmail_app_password", ""))
+    paths.CONFIG_PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
 
 
 def update_source(cfg: dict) -> str:
@@ -195,6 +225,10 @@ class SettingsDialog(tk.Toplevel):
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
         r[0] += 1
         row("Odbiorcy (po przecinku)", self.v_to)
+        self.v_cc = tk.BooleanVar(value=bool(cfg.get("cc_self", True)))
+        ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
+                        ).grid(row=r[0], column=1, sticky="w", padx=12)
+        r[0] += 1
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
@@ -204,7 +238,7 @@ class SettingsDialog(tk.Toplevel):
 
         hint = ("Hasło aplikacji to 16 znaków z konta Google (nie zwykłe hasło do Gmaila):\n"
                 "Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji.\n"
-                "Ustawienia zapisują się tylko na tym komputerze.")
+                "Ustawienia zapisują się tylko na tym komputerze, hasło jest zaszyfrowane (Windows).")
         tk.Label(body, text=hint, bg=BG, fg=MUTED, font=f.small, justify="left",
                  padx=10, pady=8).grid(row=r[0], column=0, columnspan=2, sticky="we", pady=(12, 14))
         r[0] += 1
@@ -222,6 +256,7 @@ class SettingsDialog(tk.Toplevel):
             "recipients": [x.strip() for x in self.v_to.get().split(",") if x.strip()],
             "tesseract_cmd": self.v_tess.get().strip(),
             "update_source": self.v_upd.get().strip(),
+            "cc_self": bool(self.v_cc.get()),
         }
 
     def save(self):
@@ -258,7 +293,9 @@ class App(tk.Tk):
         self._thumb = None
         self._logo = None
         self.result = None
+        self.hist_index = None
         self._build()
+        self.dnd_ok = dnd.enable(self, self.on_drop) if dnd else False
         self.bind("<Control-v>", self._on_ctrl_v)
         self.bind("<Control-V>", self._on_ctrl_v)
         shot = os.environ.get("INTEGRA_SHOT")   # tryb zrzutów ekranu (kontrola wyglądu w GitHub Actions)
@@ -298,6 +335,8 @@ class App(tk.Tk):
         grab(self, "2-wynik")
         self.show_tab("help")
         grab(self, "3-pomoc")
+        self.show_tab("hist")
+        grab(self, "5-historia")
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
@@ -346,7 +385,7 @@ class App(tk.Tk):
         self.pages, self.tab_btns = {}, {}
         holder = tk.Frame(self, bg=BG)
         holder.pack(fill="both", expand=True)
-        for key, label in (("main", "KONTROLA"), ("help", "POMOC I WERSJE")):
+        for key, label in (("main", "KONTROLA"), ("hist", "HISTORIA"), ("help", "POMOC I WERSJE")):
             b = tk.Label(tabs, text=label, bg=BLACK, fg="#BBBBBB", font=f.label, padx=20, pady=9,
                          cursor="hand2")
             b.pack(side="left")
@@ -355,7 +394,55 @@ class App(tk.Tk):
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=16)
         self._build_main(self.pages["main"])
         self._build_help(self.pages["help"])
+        self._build_history(self.pages["hist"])
         self.show_tab("main")
+
+    def _build_history(self, page):
+        f = self.fonts
+        top = tk.Frame(page, bg=BG)
+        top.pack(fill="x", pady=(0, 10))
+        tk.Label(top, text="Historia sprawdzeń", bg=BG, fg=BLACK, font=f.h1).pack(side="left")
+        FlatButton(top, "Otwórz w Excelu", self.open_history_file, "ghost", f.body, 14, 6).pack(side="right")
+        FlatButton(top, "Odśwież", self.refresh_history, "ghost", f.body, 14, 6).pack(side="right", padx=8)
+        box = card(page, padx=2, pady=2)
+        box.pack(fill="both", expand=True)
+        cols = ("data", "plik", "integra", "crm", "brakuje", "mail")
+        s = ttk.Style(self)
+        s.configure("H.Treeview", font=f.body, rowheight=26, background=SURFACE, fieldbackground=SURFACE)
+        s.configure("H.Treeview.Heading", font=f.label, background=BG)
+        s.map("H.Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
+        self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
+        for c, t, w in (("data", "Data", 130), ("plik", "Plik PDF", 200), ("integra", "Integra", 70),
+                        ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "Mail wysłany do", 200)):
+            self.hist_tree.heading(c, text=t, anchor="w")
+            self.hist_tree.column(c, width=w, anchor="w")
+        sb = ttk.Scrollbar(box, command=self.hist_tree.yview)
+        self.hist_tree.config(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        self.hist_tree.pack(fill="both", expand=True)
+        tk.Label(page, text="Numery zgłoszone już wcześniej są oznaczane przy kolejnych sprawdzeniach "
+                 "(„zgłoszony …”), żeby nie wysyłać ich ponownie bez potrzeby.",
+                 bg=BG, fg=MUTED, font=f.small, wraplength=900, justify="left").pack(anchor="w", pady=(8, 0))
+        self.refresh_history()
+
+    def refresh_history(self):
+        t = self.hist_tree
+        t.delete(*t.get_children())
+        if history is None:
+            return
+        for r in reversed(history.read_all()):
+            t.insert("", "end", values=(r.get("data", ""), r.get("plik_pdf", ""), r.get("integra", ""),
+                                        r.get("crm", ""), r.get("brakuje", "") or "—",
+                                        r.get("mail_wyslany_do", "") or "—"))
+
+    def open_history_file(self):
+        if history is None or not history.HISTORY.exists():
+            messagebox.showinfo("Historia", "Historia jest jeszcze pusta.")
+            return
+        try:
+            os.startfile(str(history.HISTORY))   # Windows: otwiera w Excelu
+        except Exception as e:
+            messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
 
     def show_tab(self, key):
         for k, p in self.pages.items():
@@ -378,8 +465,8 @@ class App(tk.Tk):
         h.pack(fill="x")
         step_badge(h, 1, f).pack(side="left")
         tk.Label(h, text="Raport z Integra 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        self.pdf_box = tk.Label(c1, text="Nie wybrano pliku", bg=BG, fg=MUTED, font=f.body, anchor="w",
-                                padx=12, pady=16, cursor="hand2")
+        self.pdf_box = tk.Label(c1, text="Przeciągnij tutaj plik PDF\nalbo kliknij, aby wybrać", bg=BG, fg=MUTED, font=f.body, anchor="w",
+                                padx=12, pady=10, cursor="hand2", justify="center")
         self.pdf_box.pack(fill="x", pady=(12, 10))
         self.pdf_box.bind("<Button-1>", lambda e: self.pick_pdf())
         FlatButton(c1, "Wybierz PDF", self.pick_pdf, "dark", f.body, 14, 6).pack(anchor="w")
@@ -508,9 +595,13 @@ class App(tk.Tk):
         wrap = tk.Frame(self.chips, bg=SURFACE)
         wrap.pack(fill="x")
         col = 0
+        reg = history.reported() if history else {}
         for p in missing:
-            tk.Label(wrap, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4
-                     ).grid(row=col // 3, column=col % 3, padx=(0, 6), pady=3, sticky="w")
+            cell = tk.Frame(wrap, bg=SURFACE)
+            cell.grid(row=col // 3, column=col % 3, padx=(0, 6), pady=3, sticky="w")
+            tk.Label(cell, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4).pack(anchor="w")
+            if p in reg:
+                tk.Label(cell, text=f"zgłoszony {reg[p]}", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
             col += 1
         if uncertain:
             tk.Label(self.chips, text="Do weryfikacji (podobny numer w CRM):", bg=SURFACE, fg=WARN,
@@ -600,9 +691,30 @@ class App(tk.Tk):
     def pick_pdf(self):
         p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
         if p:
-            self.pdf_path.set(p)
-            name = p.replace("\\", "/").split("/")[-1]
-            self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
+            self.set_pdf(p)
+
+    def set_pdf(self, p):
+        self.pdf_path.set(p)
+        name = p.replace("\\", "/").split("/")[-1]
+        self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
+
+    def on_drop(self, files):
+        """Upuszczone pliki: PDF → krok 1, obraz → krok 2."""
+        used = False
+        for fp in files:
+            low = fp.lower()
+            if low.endswith(".pdf"):
+                self.set_pdf(fp)
+                used = True
+            elif low.endswith((".png", ".jpg", ".jpeg", ".bmp")):
+                try:
+                    from PIL import Image
+                    self.set_image(Image.open(fp))
+                    used = True
+                except Exception as e:
+                    messagebox.showerror("Obraz", f"Nie udało się otworzyć obrazu:\n{e}")
+        if not used:
+            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry albo obraz (zrzut z CRM).")
 
     def pick_img(self):
         p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg *.bmp")])
@@ -679,13 +791,21 @@ class App(tk.Tk):
 
             missing, uncertain = plates.compare(integra, crm)
             self.result = (missing, uncertain)
+            try:
+                if history is None:
+                    raise RuntimeError("brak modułu historii – pobierz nową wersję .exe")
+                name = os.path.basename(self.pdf_path.get())
+                self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain)
+                self.ui(self.refresh_history)
+            except Exception as e:
+                self.say(f"Historia: nie zapisano ({e})")
             self.ui(self.set_chips, missing, uncertain)
             if not missing and not uncertain:
                 self.ui(self.set_banner, "ok", f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.")
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
-            subj, body = mailer.compose(missing, uncertain)
+            subj, body = mailer.compose(missing, uncertain, history.reported() if history else {})
 
             def fill():
                 self.subject.set(subj)
@@ -720,7 +840,16 @@ class App(tk.Tk):
             return
         try:
             mailer.send(self.subject.get(), self.mail_body.get("1.0", "end").strip(), cfg)
-            self.set_banner("ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}")
+            cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
+            self.set_banner("ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
+            try:
+                if history is None:
+                    raise RuntimeError
+                history.mark_sent(self.hist_index if self.hist_index is not None else -1, cfg["recipients"],
+                                  list(self.result[0]) + [a for a, _ in self.result[1]])
+                self.refresh_history()
+            except Exception:
+                pass
             self.btn_send.set_enabled(False, "Wysłano ✔")
         except Exception as e:
             self.set_banner("bad", f"✖  Nie udało się wysłać: {e}")

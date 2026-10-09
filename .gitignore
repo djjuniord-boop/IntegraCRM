@@ -11,3 +11,6 @@ data/backup/
 data/error.log
 data/skip_version.txt
 data/python_path.txt
+data/historia.csv
+data/zgloszone.json
+data/*.bad.json

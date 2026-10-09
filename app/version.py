@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.8.5"
+VERSION = "0.9.0"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,17 @@ RELEASED = "2026-10-09"
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.9.0",
+        "date": "2026-10-09",
+        "changes": [
+            "Przeciąganie plików: PDF z Integry i zrzut z CRM można upuścić na okno (przycisk wyboru zostaje)",
+            "Nowa zakładka Historia – każde sprawdzenie zapisywane, plik otwiera się w Excelu",
+            "Numery zgłoszone wcześniej są oznaczane („zgłoszony …”) na ekranie i w mailu",
+            "Kopia (DW) wysyłanego maila do nadawcy – do wyłączenia w Ustawieniach",
+            "Hasło aplikacji Google zapisywane w postaci zaszyfrowanej (Windows DPAPI)",
+        ],
+    },
     {
         "version": "0.8.5",
         "date": "2026-10-09",
