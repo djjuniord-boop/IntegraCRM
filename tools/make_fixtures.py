@@ -18,16 +18,21 @@ CRM = [p for p in INTEGRA if p not in MISSING] + ["DW77777", "WR4567A"]
 out = Path(sys.argv[1])
 out.mkdir(parents=True, exist_ok=True)
 
-# PDF z „Integry” – z typowym szumem (daty, NIP, faktury), który nie może dać fałszywych braków
+# PDF w układzie Integry 7 („Raport bieżącej pracy serwisu wg pojazdów”) z typowym szumem
 c = canvas.Canvas(str(out / "integra.pdf"), pagesize=A4)
 y = 800
-c.setFont("Helvetica", 10)
-c.drawString(40, y, "Raport zakonczonych zlecen   08.10.2026   Oddzial Wroclaw")
-y -= 24
+c.setFont("Helvetica", 9)
+for line in ("LATEX SERWIS Sp. z o.o.", "NIP 7543073900 Serwis Wroclaw",
+             "Raport biezacej pracy serwisu wg pojazdow",
+             "Zakres dat: od 2026-10-08 do 2026-10-08 (OSTATNI DZIEN)",
+             "8.10.2026 () 0,00 0,00 (0 rbh, 0 oper) 2219,51 358,91 2219,51 358,91"):
+    c.drawString(30, y, line)
+    y -= 16
 for i, p in enumerate(INTEGRA, 1):
-    c.drawString(40, y, f"{i}.  Zlecenie 2026/{1000 + i}   Nr rej.: {p}   Wymiana opon   Kwota 240,00")
-    y -= 18
-c.drawString(40, y - 10, "Razem: 8 zlecen")
+    c.drawString(30, y, f"8.10.2026 {3570 + i}/Z/SP51/26 (Zak.) {p} - SKODA FABIA IV (PJ3) 1.0 TSI 4x4 eDrive40 "
+                        f"0,80 0,80 (0 rbh, 8 oper) 229,59")
+    y -= 16
+c.drawString(30, y - 8, "Podsumowanie raportu: 7,70 7,70 4724,82 2196,01   Strona 1 z 1")
 c.save()
 
 # „Wycinek” z CRM – układ jak w Historii importów (data, godzina, numer, oddział, status)
@@ -47,5 +52,5 @@ for i, r in enumerate(rows):
     dr.text((12, 40 + 32 * i), r, fill="black", font=font)
 img.save(out / "crm.png")
 
-(out / "expected.json").write_text(json.dumps({"missing": MISSING}), encoding="utf-8")
+(out / "expected.json").write_text(json.dumps({"missing": MISSING, "integra": INTEGRA}), encoding="utf-8")
 print("Dane testowe:", out)

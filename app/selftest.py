@@ -25,14 +25,11 @@ def run(folder: str) -> int:
         tess = paths.find_tesseract("")
         res["tesseract"] = tess
         res["root"] = str(paths.ROOT)
-        integra = plates.extract_plates(extract.text_from_pdf(str(d / "integra.pdf"), tess))
-        texts = extract.ocr_variants(str(d / "crm.png"), tess)
-        crm = []
-        for t in texts:
-            for p in plates.extract_crm_plates(t):
-                if p not in crm:
-                    crm.append(p)
-        missing, uncertain = plates.compare(integra, crm)
+        import analyze
+        a = analyze.run(str(d / "integra.pdf"), str(d / "crm.png"), tess)
+        integra, crm, missing, uncertain = a["integra"], a["crm"], a["missing"], a["uncertain"]
+        res["layout_ok"] = a["layout_ok"]
+        res["warnings"] = a["warnings"]
         subj, body = mailer.compose(missing, uncertain)
         exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
@@ -49,7 +46,8 @@ def run(folder: str) -> int:
         res["reported"] = sorted(history.reported())
         subj2, body2 = mailer.compose(missing, uncertain, history.reported())
         res["mail_marks_reported"] = "zgłaszany już" in body2
-        res["ok"] = (sorted(missing) == sorted(exp["missing"]) and not uncertain and res["vault_encrypted"]
+        res["ok"] = (sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+                     and sorted(integra) == sorted(exp["integra"]) and not a["warnings"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1
                      and res["reported"] == sorted(missing) and res["mail_marks_reported"])
     except Exception:

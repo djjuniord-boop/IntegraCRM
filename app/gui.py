@@ -13,6 +13,7 @@ except ImportError:   # starsze IntegraCRM.exe nie mają tego modułu
     tkfont = None
 from tkinter import filedialog, messagebox, ttk
 
+import analyze
 import extract
 import mailer
 import paths
@@ -796,18 +797,9 @@ class App(tk.Tk):
     def _check_work(self):
         try:
             tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
-            self.say("PDF z Integry…")
-            integra = plates.extract_plates(extract.text_from_pdf(self.pdf_path.get(), tess))
-            self.say(f"  {len(integra)}: {', '.join(integra) or '—'}")
-            self.say("Wycinek z CRM (OCR)…")
-            texts = extract.ocr_variants(self.crm_img, tess)
-            crm_main = plates.extract_crm_plates(texts[0])
-            crm = list(crm_main)
-            for t in texts[1:]:  # dodatkowe przebiegi OCR – poprawiają przekręcone znaki
-                for p in plates.extract_crm_plates(t):
-                    if p not in crm:
-                        crm.append(p)
-            self.say(f"  {len(crm_main)}: {', '.join(crm_main) or '—'}")
+            res = analyze.run(self.pdf_path.get(), self.crm_img, tess, self.say)
+            integra, crm, crm_main = res["integra"], res["crm"], res["crm_main"]
+            warn = res["warnings"]
 
             self.result = None
             if not integra:
@@ -818,8 +810,10 @@ class App(tk.Tk):
                 self.ui(self.set_banner, "warn", "⚠  Na wycinku z CRM nie odczytano numerów – zrób wycinek "
                         "tabeli z kolumną „Rejestracja” i wklej ponownie.")
                 return
+            for w in warn:
+                self.say("⚠ " + w)
 
-            missing, uncertain = plates.compare(integra, crm)
+            missing, uncertain = res["missing"], res["uncertain"]
             self.result = (missing, uncertain)
             try:
                 if history is None:
@@ -830,8 +824,10 @@ class App(tk.Tk):
             except Exception as e:
                 self.say(f"Historia: nie zapisano ({e})")
             self.ui(self.set_chips, missing, uncertain)
+            wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
             if not missing and not uncertain:
-                self.ui(self.set_banner, "ok", f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.")
+                self.ui(self.set_banner, "warn" if warn else "ok",
+                        f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
@@ -849,7 +845,7 @@ class App(tk.Tk):
             if uncertain:
                 parts.append(f"{len(uncertain)} do weryfikacji")
             self.ui(self.set_banner, "bad", f"✖  W CRM {' i '.join(parts)} z {len(integra)} zleceń. "
-                    "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”.")
+                    "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”." + wtxt)
         except Exception as e:
             self.say(f"Błąd: {e}")
             self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")

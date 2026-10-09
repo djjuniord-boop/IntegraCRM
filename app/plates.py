@@ -30,6 +30,34 @@ def extract_crm_plates(text: str) -> list[str]:
     return found or extract_plates(text)
 
 
+# Raport Integra 7 „Raport bieżącej pracy serwisu wg pojazdów”, kolumna Pojazd:
+#   8.10.2026 3576/Z/SP51/26 (Zak.) D4DDY - SKODA KODIAQ ...
+# numer rejestracyjny = pierwszy wyraz po numerze dokumentu i statusie, przed " - ".
+# Wiersze sprzedaży bez pojazdu mają puste „()” i są pomijane.
+INTEGRA_ROW_RE = re.compile(
+    r"\d+/[A-Z]+/[A-Z0-9]+/\d+\s+\([^)]*\)\s+([A-Z0-9]{2,8})\s+-\s")
+INTEGRA_RANGE_RE = re.compile(r"Zakres dat:\s*od\s+(\d{4}-\d{2}-\d{2})\s+do\s+(\d{4}-\d{2}-\d{2})")
+
+
+def extract_integra_plates(text: str) -> tuple[list[str], bool]:
+    """Numery z raportu Integry. Zwraca (numery, czy_rozpoznano_układ_raportu).
+    Gdy układ nie zostanie rozpoznany – wzorzec ogólny (mniej pewny)."""
+    found = []
+    for m in INTEGRA_ROW_RE.finditer(text.upper()):
+        p = m.group(1)
+        if any(c.isdigit() for c in p) and p not in found:
+            found.append(p)
+    if found:
+        return found, True
+    return extract_plates(text), False
+
+
+def integra_date_range(text: str):
+    """(od, do) jako 'RRRR-MM-DD' z nagłówka raportu albo None."""
+    m = INTEGRA_RANGE_RE.search(text)
+    return (m.group(1), m.group(2)) if m else None
+
+
 def normalize(plate: str) -> str:
     """Wielkie litery, bez spacji i myślników."""
     return re.sub(r"[\s\-]", "", plate.upper())

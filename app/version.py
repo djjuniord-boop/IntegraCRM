@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.9.0"
+VERSION = "0.10.0"
 RELEASED = "2026-10-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -8,6 +8,17 @@ RELEASED = "2026-10-09"
 DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/latest/download/version.json"
 
 CHANGELOG = [
+    {
+        "version": "0.10.0",
+        "date": "2026-10-09",
+        "changes": [
+            "Odczyt raportu Integry z kolumny „Pojazd” – numer brany dokładnie z pozycji przed „ - marka”",
+            "Rozpoznawane tablice indywidualne (np. D4DDY), pomijane wiersze bez pojazdu",
+            "Koniec fałszywych numerów z PDF (np. daty „od 2026”, „eDrive40”)",
+            "Ostrzeżenie, gdy wycinek z CRM nie obejmuje wszystkich dni z raportu Integry",
+            "Dokładniejsza lista „do weryfikacji” (bez przekłamań z dodatkowych przebiegów OCR)",
+        ],
+    },
     {
         "version": "0.9.0",
         "date": "2026-10-09",
