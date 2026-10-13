@@ -18,6 +18,7 @@ if _ok:
     u32.GetWindowThreadProcessId.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.DWORD)]
     u32.GetWindowTextW.argtypes = [wintypes.HWND, wintypes.LPWSTR, ctypes.c_int]
     u32.SetFocus.argtypes = [wintypes.HWND]
+    u32.GetWindowRect.argtypes = [wintypes.HWND, ctypes.POINTER(wintypes.RECT)]
 
 GWL_STYLE = -16
 WS_CHILD, WS_POPUP, WS_CAPTION, WS_THICKFRAME = 0x40000000, 0x80000000, 0x00C00000, 0x00040000
@@ -49,7 +50,57 @@ def find_window(pid: int, title: str) -> int:
         return True
 
     u32.EnumWindows(proto(cb), 0)
-    return int(found[0]) if found else 0
+    if found:
+        return int(found[0])
+    # zapas: tytuł mógł zostać zmieniony – największe okno najwyższego poziomu tego procesu z tytułem
+    best = (0, 0)
+    for hwnd, text, area in _windows(pid):
+        if text and area > best[1]:
+            best = (hwnd, area)
+    return best[0]
+
+
+def _windows(pid: int):
+    """[(hwnd, tytuł, pole)] okien najwyższego poziomu procesu pid."""
+    if not _ok:
+        return []
+    out = []
+    proto = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+
+    def cb(hwnd, _):
+        p = wintypes.DWORD()
+        u32.GetWindowThreadProcessId(hwnd, ctypes.byref(p))
+        if p.value == pid:
+            buf = ctypes.create_unicode_buffer(256)
+            u32.GetWindowTextW(hwnd, buf, 256)
+            r = wintypes.RECT()
+            u32.GetWindowRect(hwnd, ctypes.byref(r))
+            out.append((int(hwnd), buf.value, max(0, r.right - r.left) * max(0, r.bottom - r.top)))
+        return True
+
+    u32.EnumWindows(proto(cb), 0)
+    return out
+
+
+def list_windows(pid: int) -> list:
+    """Opis okien procesu do dziennika (diagnostyka osadzania)."""
+    return [f"{h:#x} '{t}' {a}" for h, t, a in _windows(pid)] or ["brak okien"]
+
+
+GWL_EXSTYLE = -20
+WS_EX_TOOLWINDOW, WS_EX_APPWINDOW = 0x00000080, 0x00040000
+
+
+def hide_from_taskbar(hwnd: int) -> bool:
+    """Usuwa przycisk okna z paska zadań (okno czekające poza ekranem na osadzenie)."""
+    if not _ok or not hwnd or not u32.IsWindow(hwnd):
+        return False
+    ex = u32.GetWindowLongW(hwnd, GWL_EXSTYLE) & 0xFFFFFFFF
+    ex = (ex | WS_EX_TOOLWINDOW) & ~WS_EX_APPWINDOW
+    u32.ShowWindow(hwnd, SW_HIDE)    # pasek zadań odświeża się dopiero po ponownym pokazaniu
+    u32.SetWindowLongW(hwnd, GWL_EXSTYLE, ctypes.c_long(ex - (1 << 32) if ex >= (1 << 31) else ex).value)
+    u32.ShowWindow(hwnd, SW_SHOW)
+    return True
 
 
 def embed(hwnd: int, parent: int, w: int, h: int) -> bool:

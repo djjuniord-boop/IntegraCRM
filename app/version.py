@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.6"
+VERSION = "0.13.7"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.7",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: po „Uruchom ponownie” panel nie zostaje już porzucony poza ekranem "
+            "(znikają „martwe” pozycje na pasku zadań i fałszywy komunikat „Panel został zamknięty”).",
+            "SERWIS QR: okno panelu czekające na osadzenie nie pokazuje się na pasku zadań; zamykanie panelu "
+            "kończy też procesy Edge WebView2.",
+            "SERWIS QR: pewniejsze wyszukiwanie okna panelu i dziennik kroków osadzania w data\\serwis.log.",
+        ],
+    },
     {
         "version": "0.13.6",
         "date": "2026-10-13",

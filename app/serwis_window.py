@@ -129,10 +129,45 @@ def log_tail(n: int = 12) -> str:
         return ""
 
 
+def reset_log() -> None:
+    try:
+        paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        LOG.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def gui_log(msg: str) -> None:
+    """Wpis głównego okna (osadzanie panelu) do tego samego dziennika co okno panelu."""
+    try:
+        with open(LOG, "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} INFO program: {msg}\n")
+    except OSError:
+        pass
+
+
+def kill_tree(proc) -> None:
+    """Zamyka proces okna panelu razem z procesami potomnymi (Edge WebView2)."""
+    try:
+        if proc.poll() is None or sys.platform == "win32":
+            if sys.platform == "win32":
+                import subprocess
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            else:
+                proc.terminate()
+            proc.wait(timeout=3)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
 def _setup_log():
     import logging
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    h = logging.FileHandler(LOG, mode="w", encoding="utf-8")
+    h = logging.FileHandler(LOG, mode="a", encoding="utf-8")   # plik czyści główne okno (reset_log)
     h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
     root = logging.getLogger()
     root.addHandler(h)
@@ -206,6 +241,13 @@ def run() -> int:
 
         def on_shown():
             log.info("okno widoczne")
+            if embedded:   # okno czeka poza ekranem na osadzenie – bez przycisku na pasku zadań
+                try:
+                    import embed_win
+                    hwnd = embed_win.find_window(os.getpid(), TITLE)
+                    log.info("ukrywam z paska zadań: %s", embed_win.hide_from_taskbar(hwnd))
+                except Exception:
+                    log.exception("pasek zadań")
             _status("shown")
 
         def on_loaded():

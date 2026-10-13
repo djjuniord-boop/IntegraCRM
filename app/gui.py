@@ -571,6 +571,7 @@ class App(tk.Tk):
         cfg = load_config()
         self._serwis_proc = None
         self._serwis_hwnd = 0
+        self._serwis_gen = 0          # numer uruchomienia – stare sprawdzania po „Uruchom ponownie” same się kończą
         self._serwis_settings_open = False
         page.configure(padx=0, pady=0)
         bar = tk.Frame(page, bg=SURFACE, padx=16, pady=6, highlightthickness=1, highlightbackground=LINE)
@@ -684,25 +685,25 @@ class App(tk.Tk):
             except OSError:
                 pass
             self._serwis_hwnd = 0
+            self._serwis_gen += 1
+            serwis_window.reset_log()
             self._serwis_proc = serwis_window.launch(embed=True)
             self._serwis_t0 = time.time()
+            self._serwis_loaded_t = 0.0
+            serwis_window.gui_log(f"start panelu #{self._serwis_gen}, pid {self._serwis_proc.pid}")
             self._stat("serwis_open")
             self._serwis_msg("Wczytywanie panelu…")
-            self.after(500, self._serwis_check_started)
+            gen = self._serwis_gen
+            self.after(500, lambda: self._serwis_check_started(gen))
         except Exception as e:
             self._serwis_msg(f"Nie udało się uruchomić panelu:\n{e}", "bad")
 
     def serwis_stop(self):
+        import serwis_window
+        self._serwis_gen = getattr(self, "_serwis_gen", 0) + 1   # unieważnia zaplanowane sprawdzania
         proc = getattr(self, "_serwis_proc", None)
-        if proc is not None and proc.poll() is None:
-            try:
-                proc.terminate()
-                proc.wait(timeout=3)
-            except Exception:
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+        if proc is not None:
+            serwis_window.kill_tree(proc)   # razem z procesami Edge WebView2 – nic nie zostaje na pasku zadań
         self._serwis_proc = None
         self._serwis_hwnd = 0
 
@@ -718,12 +719,12 @@ class App(tk.Tk):
             self.serwis_host.update_idletasks()
             embed_win.resize(self._serwis_hwnd, self.serwis_host.winfo_width(), self.serwis_host.winfo_height())
 
-    def _serwis_check_started(self):
+    def _serwis_check_started(self, gen):
         import time
         import embed_win
         import serwis_window
         proc = self._serwis_proc
-        if proc is None:
+        if proc is None or gen != self._serwis_gen:
             return
         st = serwis_window.read_status()
         state = st.get("state", "")
@@ -735,8 +736,11 @@ class App(tk.Tk):
             self._serwis_fail(err)
             return
         if state == "loaded":
+            if not self._serwis_loaded_t:
+                self._serwis_loaded_t = time.time()
             hwnd = embed_win.find_window(proc.pid, serwis_window.TITLE)
             if hwnd:
+                serwis_window.gui_log(f"znaleziono okno panelu {hwnd:#x}, osadzam")
                 self.serwis_host.update_idletasks()
                 if embed_win.embed(hwnd, self.serwis_host.winfo_id(), self.serwis_host.winfo_width(),
                                    self.serwis_host.winfo_height()):
@@ -745,32 +749,39 @@ class App(tk.Tk):
                     if self.current_tab != "serwis" or self._serwis_settings_open:
                         embed_win.show(hwnd, False)
                     self.serwis_refresh()
-                    self.after(2000, self._serwis_watch)
+                    serwis_window.gui_log("panel osadzony w zakładce")
+                    self.after(2000, lambda: self._serwis_watch(gen))
                     return
+                serwis_window.gui_log("osadzanie nie powiodło się")
+            elif time.time() - self._serwis_loaded_t > 10:
+                serwis_window.gui_log("panel wczytany, ale okna nie znaleziono: "
+                                      + "; ".join(embed_win.list_windows(proc.pid)))
+                self._serwis_fail("nie znaleziono okna panelu do osadzenia", kill=True)
+                return
         if waited > 45:
             self._serwis_fail(f"przekroczony czas, etap: {state or 'start'}", kill=True)
             return
         label = {"": "uruchamianie…", "starting": "wczytywanie silnika…", "window": "tworzenie okna…",
                  "shown": "wczytywanie panelu…", "loaded": "osadzanie w programie…"}.get(state, state)
         self._serwis_msg(f"Wczytywanie panelu – {label}")
-        self.after(400, self._serwis_check_started)
+        self.after(400, lambda: self._serwis_check_started(gen))
 
-    def _serwis_watch(self):
+    def _serwis_watch(self, gen):
         """Pilnuje, czy panel działa; gdy jego proces się zakończy – pokazuje komunikat."""
         import embed_win
         proc = self._serwis_proc
-        if proc is None:
+        if proc is None or gen != self._serwis_gen:   # po „Uruchom ponownie” stary strażnik kończy pracę
             return
         if proc.poll() is not None or not embed_win.alive(self._serwis_hwnd):
-            self._serwis_hwnd = 0
-            self._serwis_proc = None
+            self.serwis_stop()
             self._serwis_msg("Panel został zamknięty.\nKliknij „Uruchom ponownie” na pasku powyżej.", "warn")
             self.serwis_refresh()
             return
-        self.after(2000, self._serwis_watch)
+        self.after(2000, lambda: self._serwis_watch(gen))
 
     def _serwis_fail(self, err, kill=False):
         import serwis_window
+        serwis_window.gui_log(f"błąd: {err}")
         if kill:
             self.serwis_stop()
         tail = serwis_window.log_tail(6)
