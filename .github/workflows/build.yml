@@ -79,38 +79,42 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force shots | Out-Null
           $exe = (Resolve-Path pkg/IntegraCRM/IntegraCRM.exe).Path
+          $data = "pkg/IntegraCRM/data"
+          function Show-Logs { foreach ($f in "$data/serwis.log", "$data/error.log", "$data/serwis_status.json") { if (Test-Path $f) { Write-Host "----- $f"; Get-Content $f } } }
+          function Wait-Loaded([int]$secs) {
+            $st = "$data/serwis_status.json"; Remove-Item $st -ErrorAction SilentlyContinue
+            $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
+            $state = ""
+            for ($i = 0; $i -lt $secs; $i++) {
+              Start-Sleep -Seconds 1
+              if (Test-Path $st) { try { $state = (Get-Content $st -Raw | ConvertFrom-Json).state } catch {} }
+              if ($state -eq "loaded" -or $state -eq "error" -or $p.HasExited) { break }
+            }
+            Write-Host "Stan okna: '$state' po $i s, zakończony=$($p.HasExited) kod=$(if ($p.HasExited) { $p.ExitCode })"
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+            return $state
+          }
+          # 1) zwykłe uruchomienie – tak jak z przycisku w programie
+          $state = Wait-Loaded 60
+          Show-Logs
+          if ($state -ne "loaded") { throw "Zwykłe uruchomienie okna nie doszło do wczytania panelu (stan: '$state')" }
+          # 2) test działania + trwałość danych (dwa uruchomienia)
           foreach ($n in 1,2) {
             $env:INTEGRA_SERWIS_TEST = "$PWD\serwis_test_$n.json"
             if ($n -eq 2) { $env:INTEGRA_SHOT = (Resolve-Path shots).Path }
             $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
-            if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Okno SERWIS QR: przekroczony czas" }
-            Remove-Item Env:INTEGRA_SHOT -ErrorAction SilentlyContinue
-            if (-not (Test-Path "serwis_test_$n.json")) {
-              $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
-              throw "Okno SERWIS QR nie zapisało wyniku testu ($n)"
-            }
-            Get-Content "serwis_test_$n.json"
+            $done = $p.WaitForExit(120000)
+            if (-not $done) { Stop-Process -Id $p.Id -Force }
+            $env:INTEGRA_SHOT = $null
+            $env:INTEGRA_SERWIS_TEST = $null
+            if (Test-Path "serwis_test_$n.json") { Get-Content "serwis_test_$n.json" } else { Show-Logs; throw "Test okna ($n): brak wyniku (zakończony=$done)" }
             $r = Get-Content "serwis_test_$n.json" -Raw | ConvertFrom-Json
-            if (-not $r.ok) { throw "Test okna SERWIS QR nie przeszedł ($n)" }
+            if (-not $r.ok) { Show-Logs; throw "Test okna SERWIS QR nie przeszedł ($n)" }
           }
           $r1 = Get-Content serwis_test_1.json -Raw | ConvertFrom-Json
           $r2 = Get-Content serwis_test_2.json -Raw | ConvertFrom-Json
           if ($r2.cars_before -lt $r1.cars_after) { throw "Dane panelu nie przetrwały ponownego uruchomienia" }
-          # zwykłe uruchomienie (tak jak z przycisku w programie, bez trybu testowego)
-          Remove-Item Env:INTEGRA_SERWIS_TEST -ErrorAction SilentlyContinue
-          $st = "pkg/IntegraCRM/data/serwis_status.json"; Remove-Item $st -ErrorAction SilentlyContinue
-          $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
-          $state = ""
-          for ($i = 0; $i -lt 60; $i++) {
-            Start-Sleep -Seconds 1
-            if (Test-Path $st) { $state = (Get-Content $st -Raw | ConvertFrom-Json).state }
-            if ($state -eq "loaded" -or $state -eq "error" -or $p.HasExited) { break }
-          }
-          Write-Host "Stan okna (zwykłe uruchomienie): $state po $i s"
-          Get-Content pkg/IntegraCRM/data/serwis.log -ErrorAction SilentlyContinue
-          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
-          if ($state -ne "loaded") { throw "Zwykłe uruchomienie okna nie doszło do wczytania panelu (stan: $state)" }
-          Remove-Item -Recurse -Force pkg/IntegraCRM/data/serwis_webview, pkg/IntegraCRM/data/serwis_config.js, pkg/IntegraCRM/data/serwis_status.json, pkg/IntegraCRM/data/serwis.log -ErrorAction SilentlyContinue
+          Remove-Item -Recurse -Force "$data/serwis_webview", "$data/serwis_config.js", "$data/serwis_status.json", "$data/serwis.log" -ErrorAction SilentlyContinue
 
       - name: Zrzuty ekranu (kontrola wyglądu)
         continue-on-error: true
