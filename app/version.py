@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.15.2"
+VERSION = "0.16.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.16.0",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: panel nie wymaga osobnego logowania – korzysta z logowania programu",
+            "Logowanie odświeżane automatycznie co 30 minut (program może być otwarty cały dzień)",
+            "Dziennik zmian (Użytkownicy → Dziennik zmian): kto i kiedy dodał/zmienił/usunął auto lub wpis, "
+            "zrobił sprawdzenie, wysłał mail, zalogował się, zmienił uprawnienia lub ustawienia; wyszukiwanie",
+        ],
+    },
     {"version": "0.15.2", "date": "2026-10-13",
      "changes": ["SERWIS QR: nowe auto zapisuje się w oddziale zalogowanego pracownika (wcześniej zawsze Wrocław)"]},
     {"version": "0.15.1", "date": "2026-10-13",

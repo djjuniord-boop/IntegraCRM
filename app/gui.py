@@ -588,6 +588,69 @@ class UserDialog(tk.Toplevel):
         self._run(lambda: self.app.session.admin_fn(action="delete", email=email), f"Usunięto: {email}")
 
 
+class AuditWindow(tk.Toplevel):
+    """Dziennik zmian: kto, kiedy i co zrobił (auta, wpisy serwisowe, sprawdzenia, maile, użytkownicy)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        self.title("Dziennik zmian")
+        self.geometry("1150x650")
+        self.configure(bg=BG, padx=16, pady=12)
+        set_icon(self)
+        f = app.fonts
+        bar = tk.Frame(self, bg=BG)
+        bar.pack(fill="x")
+        tk.Label(bar, text="Szukaj (e-mail, numer, plik):", bg=BG, fg=INK, font=f.body).pack(side="left")
+        self.v_q = tk.StringVar()
+        e = tk.Entry(bar, textvariable=self.v_q, width=30, font=f.body, relief="solid", bd=1)
+        e.pack(side="left", padx=8, ipady=3)
+        e.bind("<Return>", lambda ev: self.load())
+        FlatButton(bar, "Szukaj", self.load, "primary", f.body, 14, 6).pack(side="left")
+        self.msg = tk.Label(bar, text="", bg=BG, fg=MUTED, font=f.small)
+        self.msg.pack(side="left", padx=12)
+        cols = ("at", "email", "action", "entity", "label", "detail")
+        self.tv = ttk.Treeview(self, columns=cols, show="headings")
+        for c, h, w in zip(cols, ("Kiedy", "Kto", "Co", "Czego", "Dotyczy", "Szczegóły"),
+                           (130, 200, 90, 120, 160, 430)):
+            self.tv.heading(c, text=h, anchor="w")
+            self.tv.column(c, width=w, anchor="w")
+        sb = ttk.Scrollbar(self, command=self.tv.yview)
+        self.tv.config(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y", pady=(10, 0))
+        self.tv.pack(fill="both", expand=True, pady=(10, 0))
+        self.load()
+
+    def load(self):
+        self.msg.config(text="Wczytuję…")
+        q = self.v_q.get()
+
+        def work():
+            try:
+                rows = self.app.session.audit(query=q)
+                self.app.after(0, self.show, rows)
+            except Exception as e:
+                self.app.after(0, lambda err=str(e): self.msg.config(text=f"Błąd: {err}", fg=RED))
+        threading.Thread(target=work, daemon=True).start()
+
+    def show(self, rows):
+        if not self.winfo_exists():
+            return
+        from datetime import datetime as _dt
+        self.tv.delete(*self.tv.get_children())
+        for r in rows:
+            try:
+                t = _dt.fromisoformat(str(r["at"]).replace("Z", "+00:00")).astimezone().strftime("%Y-%m-%d %H:%M")
+            except ValueError:
+                t = str(r.get("at", ""))[:16]
+            d = r.get("detail") or {}
+            det = "  ·  ".join(f"{k}: {', '.join(map(str, v)) if isinstance(v, list) else v}"
+                               for k, v in d.items() if v not in (None, "", []))
+            self.tv.insert("", "end", values=(t, r.get("email") or "", r.get("action") or "",
+                                              r.get("entity") or "", r.get("label") or "", det))
+        self.msg.config(text=f"Pozycji: {len(rows)} (najnowsze na górze, do 1000)", fg=MUTED)
+
+
 # ---------- okno główne ----------
 class App(tk.Tk):
     def __init__(self, session=None):
@@ -653,6 +716,8 @@ class App(tk.Tk):
         if (not self.session or self.session.can("crm")) and not (_c["gmail_user"] and _c["gmail_app_password"]):
             self.after(400, lambda: SettingsDialog(self))
         self.after(900, lambda: self.check_updates(manual=False))
+        if self.session:
+            self.after(30 * 60 * 1000, self._keep_session)
         self._stat("start")
 
     def _screenshots(self, out_dir):
@@ -840,6 +905,7 @@ class App(tk.Tk):
         tk.Label(bar, text="Użytkownicy programu", bg=BG, fg=BLACK, font=f.h1).pack(side="left")
         FlatButton(bar, "+ Dodaj użytkownika", lambda: UserDialog(self), "primary", f.btn).pack(side="right")
         FlatButton(bar, "Odśwież", lambda: self.refresh_users(), "ghost", f.body, 14, 8).pack(side="right", padx=8)
+        FlatButton(bar, "Dziennik zmian", lambda: AuditWindow(self), "dark", f.body, 14, 8).pack(side="right")
         self.users_msg = tk.Label(page, text="", bg=BG, fg=MUTED, font=f.small, anchor="w")
         self.users_msg.pack(fill="x")
         cols = ("email", "name", "role", "modules", "branches", "active", "last", "ver")
@@ -1023,7 +1089,27 @@ class App(tk.Tk):
 
     def _on_close(self):
         self.serwis_stop()
+        try:
+            import serwis_qr
+            serwis_qr.clear_token()
+        except Exception:
+            pass
         self.destroy()
+
+    def _keep_session(self):
+        """Co 30 min odświeża logowanie (token ważny ok. 1 godz.) i przekazuje go panelowi SERWIS QR."""
+        def work():
+            try:
+                self.session.refresh()
+                if cloud.SESSION_FILE.exists():
+                    cloud.remember(self.session)
+                import serwis_qr
+                if serwis_qr.TOKEN_FILE.exists():
+                    serwis_qr.write_token(self.session.access)
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+        self.after(30 * 60 * 1000, self._keep_session)
 
     def serwis_refresh(self):
         import serwis_qr
@@ -1074,6 +1160,9 @@ class App(tk.Tk):
             return
         cfg = load_config()
         try:
+            if self.session:
+                cfg["serwis_sso"] = True
+                serwis_qr.write_token(self.session.access)
             serwis_qr.write_config(cfg)
             try:
                 serwis_window.STATUS.unlink()
@@ -1220,6 +1309,9 @@ class App(tk.Tk):
         cfg.update(vals)
         save_config(cfg)
         try:
+            if self.session:
+                cfg["serwis_sso"] = True
+                serwis_qr.write_token(self.session.access)
             serwis_qr.write_config(cfg)
         except OSError as e:
             messagebox.showerror("SERWIS QR", f"Nie udało się zapisać ustawień panelu:\n{e}")

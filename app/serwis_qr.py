@@ -48,11 +48,38 @@ def write_config(cfg: dict) -> Path:
         "url": (cfg.get("serwis_sb_url") or "").strip().rstrip("/"),
         "key": (cfg.get("serwis_sb_key") or "").strip(),
         "base": (cfg.get("serwis_base") or "").strip(),
+        "sso": bool(cfg.get("serwis_sso")),   # token logowania podaje program (bez osobnego logowania)
     }
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
     text = "window.SERWIS_CFG = " + json.dumps(data, ensure_ascii=False) + ";\n"
     CONFIG_JS.write_text(text, encoding="utf-8")
     return CONFIG_JS
+
+
+TOKEN_FILE = paths.DATA_DIR / "serwis_token.json"
+
+
+def write_token(access_token: str) -> None:
+    """Bieżący token logowania dla panelu (ważny ok. 1 godz., program odświeża go co 30 min)."""
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = TOKEN_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps({"access_token": access_token}), encoding="utf-8")
+    import os
+    os.replace(tmp, TOKEN_FILE)
+
+
+def read_token() -> str:
+    try:
+        return json.loads(TOKEN_FILE.read_text(encoding="utf-8")).get("access_token", "")
+    except (OSError, ValueError):
+        return ""
+
+
+def clear_token() -> None:
+    try:
+        TOKEN_FILE.unlink()
+    except OSError:
+        pass
 
 
 def open_panel(cfg: dict) -> None:

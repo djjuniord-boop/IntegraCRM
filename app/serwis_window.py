@@ -31,6 +31,11 @@ class Api:
     def __init__(self):
         self._window = None   # z podkreśleniem: pywebview nie może udostępniać okna stronie
 
+    def get_token(self):
+        """Token logowania z programu głównego (panel nie loguje się osobno)."""
+        import serwis_qr
+        return serwis_qr.read_token()
+
     def open_url(self, url):
         u = str(url or "")
         if not u.startswith(("https://", "http://", "tel:", "mailto:")):

@@ -19,6 +19,10 @@ MODULES = [("crm", "Kontrola CRM"), ("marza", "MARŻA"), ("serwis", "SERWIS QR")
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 
 
+import threading as _th
+_refresh_lock = _th.Lock()
+
+
 class CloudError(Exception):
     pass
 
@@ -63,8 +67,9 @@ class Session:
         return cls(_http("POST", "/auth/v1/token?grant_type=refresh_token", {"refresh_token": refresh_token}))
 
     def refresh(self):
-        s = Session.from_refresh(self.refresh_token)
-        self.access, self.refresh_token = s.access, s.refresh_token
+        with _refresh_lock:   # jeden wątek naraz – token odświeżania jest jednorazowy
+            s = Session.from_refresh(self.refresh_token)
+            self.access, self.refresh_token = s.access, s.refresh_token
 
     def logout(self):
         try:
@@ -116,6 +121,15 @@ class Session:
         """Ustawienia firmowe modułu Kontrola CRM (odbiorcy maili, nadawca) – ustawia administrator."""
         rows = self.call("GET", "/rest/v1/app_config?key=eq.crm&select=value") or []
         return rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
+
+    def audit(self, limit: int = 1000, query: str = "") -> list:
+        """Dziennik zmian (tylko administrator). query – fragment e-maila, numeru albo nazwy pliku."""
+        flt = ""
+        if query.strip():
+            from urllib.parse import quote
+            q = quote("*" + query.strip().replace(",", " ").replace("*", "") + "*")
+            flt = f"&or=(email.ilike.{q},label.ilike.{q},entity.ilike.{q},action.ilike.{q})"
+        return self.call("GET", f"/rest/v1/audit_log?select=*&order=id.desc&limit={int(limit)}{flt}") or []
 
     def set_company(self, value: dict):
         self.call("POST", "/rest/v1/app_config?on_conflict=key", {"key": "crm", "value": value},
