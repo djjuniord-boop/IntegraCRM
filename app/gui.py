@@ -562,7 +562,7 @@ class App(tk.Tk):
         tk.Label(h, text="Historia serwisowa z naklejką QR", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
         tk.Label(h, text=" BETA ", bg=WARN_BG, fg=WARN, font=f.small).pack(side="left", padx=8)
         tk.Label(top, text="Wpisujesz wymianę oleju i inne prace, drukujesz naklejkę z kodem QR pod maskę, "
-                 "a klient po zeskanowaniu widzi historię swojego auta. Panel otwiera się w przeglądarce.",
+                 "a klient po zeskanowaniu widzi historię swojego auta. Panel otwiera się w osobnym oknie programu.",
                  bg=SURFACE, fg=INK, font=f.body, wraplength=900, justify="left").pack(anchor="w", pady=(6, 10))
         self.btn_serwis = FlatButton(top, "OTWÓRZ PANEL SERWISOWY", self.serwis_open, "primary", f.big, 18, 8)
         self.btn_serwis.pack(fill="x")
@@ -593,10 +593,9 @@ class App(tk.Tk):
         info = card(page, padx=16, pady=12)
         info.pack(fill="x")
         tk.Label(info, text="Ważne w wersji beta", bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
-        for line in ("• Tryb lokalny: dane są w przeglądarce. Wyczyszczenie danych przeglądarki je usuwa – "
+        for line in ("• Tryb lokalny: dane są w folderze programu (data\\serwis_webview) na tym komputerze – "
                      "w panelu używaj „Zapisz kopię” (np. raz w tygodniu).",
-                     "• Panel otwieraj zawsze tym przyciskiem i w tej samej przeglądarce – inna przeglądarka "
-                     "nie widzi tych samych danych.",
+                     "• Przenosząc program na inny komputer, skopiuj cały folder razem z „data” albo wczytaj kopię w panelu.",
                      "• Naklejki z prawdziwym kodem QR drukuj dopiero po ustawieniu adresu strony dla klientów.",
                      "• Zakładka jest widoczna tylko u osób, które włączą ją w Ustawieniach na kanale beta."):
             tk.Label(info, text=line, bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left",
@@ -610,7 +609,7 @@ class App(tk.Tk):
             self._serwis_banner("bad", "✖  Brak plików panelu w folderze programu. Zaktualizuj program.")
             self.btn_serwis.set_enabled(False)
             return
-        m = "chmura (Supabase)" if serwis_qr.mode(cfg) == "cloud" else "lokalny – dane tylko na tym komputerze"
+        m = "chmura (Supabase)" if serwis_qr.mode(cfg) == "cloud" else "lokalny – dane w folderze programu na tym komputerze"
         base = (cfg.get("serwis_base") or "").strip()
         if base:
             self._serwis_banner("ok", f"Tryb: {m}.   Kody QR prowadzą do: {base}")
@@ -660,10 +659,44 @@ class App(tk.Tk):
             if not self.serwis_save(quiet=True):
                 return
             cfg = load_config()
+        import serwis_window
+        proc = getattr(self, "_serwis_proc", None)
+        if proc is not None and proc.poll() is None:
+            self._serwis_banner("ok", "Panel jest już otwarty – sprawdź pasek zadań (okno „Latex Serwis – historia serwisowa”).")
+            return
+        why = serwis_window.is_available()
+        if why:
+            if messagebox.askyesno("SERWIS QR", why + "\n\nOtworzyć panel tymczasowo w przeglądarce?"):
+                self._serwis_browser(cfg)
+            return
+        try:
+            serwis_qr.write_config(cfg)
+            self._serwis_proc = serwis_window.launch()
+            self._stat("serwis_open")
+            self._serwis_banner("ok", "Otwieram panel…")
+            self.after(5000, self._serwis_check_started)
+        except Exception as e:
+            messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
+
+    def _serwis_check_started(self):
+        proc = getattr(self, "_serwis_proc", None)
+        if proc is None:
+            return
+        code = proc.poll()
+        if code is None:
+            self._serwis_banner("ok", "✔  Panel otwarty w osobnym oknie programu.")
+        elif code != 0:
+            self._serwis_banner("bad", "✖  Okno panelu nie uruchomiło się (szczegóły w data\\error.log).")
+            if messagebox.askyesno("SERWIS QR", "Okno panelu nie uruchomiło się. Najczęstsza przyczyna: brak składnika "
+                                   "Microsoft Edge WebView2 w systemie.\n\nOtworzyć panel tymczasowo w przeglądarce?"):
+                self._serwis_browser(load_config())
+
+    def _serwis_browser(self, cfg):
+        import serwis_qr
         try:
             serwis_qr.open_panel(cfg)
-            self._stat("serwis_open")
-            self._serwis_banner("ok", "✔  Panel otwarty w przeglądarce.")
+            self._serwis_banner("warn", "Panel otwarty w przeglądarce (tryb awaryjny) – dane w przeglądarce są osobne "
+                                "od danych w oknie programu.")
         except Exception as e:
             messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
 

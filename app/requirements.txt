@@ -4,3 +4,4 @@ Pillow
 openpyxl
 pypdf
 matplotlib
+pywebview==5.4

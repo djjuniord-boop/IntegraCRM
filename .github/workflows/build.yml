@@ -34,7 +34,7 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: PyInstaller
-        run: pyinstaller --noconfirm --windowed --name IntegraCRM --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib launcher.py
+        run: pyinstaller --noconfirm --windowed --name IntegraCRM --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
 
       - name: Paczka
         shell: pwsh
@@ -72,6 +72,31 @@ jobs:
           Get-Content "$fx\result.json"
           $r = Get-Content "$fx\result.json" -Raw | ConvertFrom-Json
           if (-not $r.ok) { throw "Test nie przeszedł" }
+          Remove-Item -Recurse -Force "$dir" -ErrorAction SilentlyContinue
+
+      - name: Test okna SERWIS QR (WebView2, zapis danych między uruchomieniami)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $exe = (Resolve-Path pkg/IntegraCRM/IntegraCRM.exe).Path
+          foreach ($n in 1,2) {
+            $env:INTEGRA_SERWIS_TEST = "$PWD\serwis_test_$n.json"
+            if ($n -eq 2) { $env:INTEGRA_SHOT = (Resolve-Path shots).Path }
+            $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
+            if (-not $p.WaitForExit(120000)) { Stop-Process -Id $p.Id -Force; throw "Okno SERWIS QR: przekroczony czas" }
+            Remove-Item Env:INTEGRA_SHOT -ErrorAction SilentlyContinue
+            if (-not (Test-Path "serwis_test_$n.json")) {
+              $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
+              throw "Okno SERWIS QR nie zapisało wyniku testu ($n)"
+            }
+            Get-Content "serwis_test_$n.json"
+            $r = Get-Content "serwis_test_$n.json" -Raw | ConvertFrom-Json
+            if (-not $r.ok) { throw "Test okna SERWIS QR nie przeszedł ($n)" }
+          }
+          $r1 = Get-Content serwis_test_1.json -Raw | ConvertFrom-Json
+          $r2 = Get-Content serwis_test_2.json -Raw | ConvertFrom-Json
+          if ($r2.cars_before -lt $r1.cars_after) { throw "Dane panelu nie przetrwały ponownego uruchomienia" }
+          Remove-Item -Recurse -Force pkg/IntegraCRM/data/serwis_webview, pkg/IntegraCRM/data/serwis_config.js -ErrorAction SilentlyContinue
 
       - name: Zrzuty ekranu (kontrola wyglądu)
         continue-on-error: true

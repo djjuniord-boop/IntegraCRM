@@ -63,7 +63,9 @@ def run(folder: str) -> int:
         res["serwis_checks"] = (serwis_qr.check_base("serwis.pl") != "" and serwis_qr.check_base("https://serwis.latex.net.pl/") == ""
                                 and serwis_qr.check_supabase("https://abc.supabase.co", "") != "")
         js.unlink()
-        res["ok"] = (res["serwis_panel"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        import serwis_window
+        res["serwis_window"] = serwis_window.is_available() == ""
+        res["ok"] = (res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1

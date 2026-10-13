@@ -96,7 +96,7 @@ header nav{display:flex;flex-wrap:wrap;gap:4px}
 <style id="pageSize"></style>
 </head>
 <body>
-<div id="demoBar" class="demo hidden">BETA · tryb lokalny: dane są tylko w tej przeglądarce na tym komputerze. Rób regularnie kopię zapasową.
+<div id="demoBar" class="demo hidden"><span id="demoTxt">BETA · tryb lokalny: dane są tylko w tej przeglądarce na tym komputerze.</span> Rób regularnie kopię zapasową.
   <button class="dark" style="margin-left:8px;padding:4px 10px;font-size:12px" onclick="exportBackup()">Zapisz kopię</button>
   <label class="pbtn" style="padding:4px 10px;font-size:12px" for="importIn">Wczytaj kopię</label>
   <input type="file" id="importIn" class="fileHidden" accept=".json,application/json" onchange="importBackup(this.files[0]);this.value=''">
@@ -326,6 +326,8 @@ function status(car){
 }
 function carUrl(car){const base=S.base||CFG.base||location.href.split(/[?#]/)[0];return base+(base.includes("?")?"&":"?")+"a="+car.token}
 const normPlate=p=>String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const IN_APP=()=>!!(window.pywebview&&window.pywebview.api);
+function openExternal(url){if(IN_APP()){window.pywebview.api.open_url(url);return true}return false}
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ---------- naklejka ---------- */
@@ -379,6 +381,7 @@ function waPhone(p){let ph=String(p||"").replace(/\D/g,"");if(ph.startsWith("00"
 function sendWA(id,kind,win){const car=CARS.find(c=>c.id===id);if(!car){win?.close();return}
   const ph=waPhone(car.phone);if(!ph){win?.close();alert("Nieprawidłowy numer telefonu klienta: "+car.phone);return}
   const url=`https://wa.me/${ph}?text=${encodeURIComponent(fillMsg(kind==="remind"?S.msgRemind:S.msgDone,car))}`;
+  if(openExternal(url)){win?.close();return}
   if(win)win.location.href=url;else if(!window.open(url,"_blank"))location.href=url;}
 function filterChecks(sel=[]){const list=S.filters.split(",").map(x=>x.trim()).filter(Boolean);sel.forEach(x=>{if(!list.includes(x))list.push(x)});$("fFilters").innerHTML=list.map(x=>`<label><input type="checkbox" value="${esc(x)}" ${sel.includes(x)?"checked":""} onchange="preview()">${esc(x)}</label>`).join("")}
 async function openService(id,onlyLabel){
@@ -429,7 +432,9 @@ const isOil=()=>/olej/i.test($("fType").value);
 function typeChanged(keep){const oil=isOil();["fOil","fQty"].forEach(id=>$(id).closest("div").style.opacity=oil?1:.45);
   if(!keep&&!oil){$("fNextKm").value="";$("fNextDate").value="";filterChecks([])}else if(!keep)calcNext()}
 function calcNext(){if(!isOil())return;const km=num($("fKm").value);if(km)$("fNextKm").value=km+Number(S.km);if($("fDate").value)$("fNextDate").value=addMonths($("fDate").value,S.months)}
-function renderPhotos(){const pc=$("photoCount");if(pc)pc.textContent=PHOTOS.length?`Zdjęcia: ${PHOTOS.length}/6`:"";$("fPhotos").innerHTML=PHOTOS.map((p,i)=>`<div class="ph"><img src="${p}" onclick="const w=window.open();if(w)w.document.write('<img src=&quot;'+this.src+'&quot; style=&quot;max-width:100%&quot;>')"><b onclick="PHOTOS.splice(${i},1);renderPhotos()">×</b></div>`).join("")}
+function showPhoto(src){const o=document.createElement("div");o.style.cssText="position:fixed;inset:0;background:#000d;z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out";
+  const i=document.createElement("img");i.src=src;i.style.cssText="max-width:94vw;max-height:94vh";o.appendChild(i);o.onclick=()=>o.remove();document.body.appendChild(o)}
+function renderPhotos(){const pc=$("photoCount");if(pc)pc.textContent=PHOTOS.length?`Zdjęcia: ${PHOTOS.length}/6`:"";$("fPhotos").innerHTML=PHOTOS.map((p,i)=>`<div class="ph"><img src="${p}" onclick="showPhoto(this.src)"><b onclick="PHOTOS.splice(${i},1);renderPhotos()">×</b></div>`).join("")}
 function readAsDataURL(f){return new Promise((ok,err)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>err(r.error);r.readAsDataURL(f)})}
 function loadImg(src){return new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src})}
 async function addPhotos(files){let bad=0,over=false;files=[...(files||[])];
@@ -469,7 +474,7 @@ async function saveService(print,wa){
   if(s.km<prevMax&&!kmWarned){kmWarned=true;$("formErr").textContent=`Przebieg ${fmtKm(s.km)} jest mniejszy niż przy poprzedniej wizycie (${fmtKm(prevMax)}). Sprawdź i kliknij zapis ponownie, jeśli jest poprawny.`;return}
   if(s.next_date&&s.next_date<=s.date){$("formErr").textContent="Data następnej wymiany musi być późniejsza niż data wpisu.";return}
   if(s.next_km&&s.next_km<=s.km){$("formErr").textContent="Przebieg następnej wymiany musi być większy niż obecny.";return}
-  const win=wa?window.open("about:blank","_blank"):null;
+  const win=wa&&!IN_APP()?window.open("about:blank","_blank"):null;
   saving=true;document.querySelectorAll("#sec-form button").forEach(b=>b.disabled=true);
   try{
     const isEditSvc=editCar?._editSvc;
@@ -548,8 +553,13 @@ async function renderPublic(tok){
    <a class="btn out" style="border-color:#1fa855;color:#1fa855" href="https://wa.me/${wa}?text=${encodeURIComponent("Dzień dobry, piszę w sprawie auta "+car.plate)}">Napisz na WhatsApp</a>
    <p class="muted" style="text-align:center;margin-top:16px">Latex Auto Serwis · ul. Krakowska 54a, Wrocław</p>`;
 }
+window.addEventListener("pywebviewready",()=>{const t=document.getElementById("demoTxt");if(t)t.textContent="BETA · tryb lokalny: dane są zapisane w programie na tym komputerze."});
 function exportBackup(){
   try{const data={app:"latex-serwis",version:1,saved:new Date().toISOString(),cars:store.load("cars",[]),settings:store.load("settings",{})};
+    if(IN_APP()){window.pywebview.api.save_backup(JSON.stringify(data),`serwis-kopia-${todayStr()}.json`).then(p=>{
+      if(!p){$("backupMsg").textContent=" Anulowano.";return}
+      try{localStorage.setItem("latex_lastBackup",todayStr())}catch(e){}
+      $("backupMsg").textContent=` Zapisano kopię (${data.cars.length} aut): ${p}`}).catch(e=>{$("backupMsg").textContent=" Błąd kopii: "+e});return}
     const blob=new Blob([JSON.stringify(data)],{type:"application/json"}),a=document.createElement("a");
     a.href=URL.createObjectURL(blob);a.download=`serwis-kopia-${todayStr()}.json`;document.body.appendChild(a);a.click();
     setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
