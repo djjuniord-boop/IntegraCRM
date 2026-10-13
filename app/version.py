@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.4"
+VERSION = "0.13.5"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.5",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: naprawiony błąd „Failed to resolve Python.Runtime.Loader.Initialize” – program sam zdejmuje "
+            "z bibliotek okna znacznik Windows „pobrano z internetu”.",
+        ],
+    },
     {
         "version": "0.13.4",
         "date": "2026-10-13",

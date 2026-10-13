@@ -94,6 +94,21 @@ jobs:
             if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
             return $state
           }
+          # 0) jak u użytkownika: paczka pobrana z internetu i rozpakowana w Eksploratorze –
+          #    wszystkie pliki dostają znacznik Zone.Identifier (ZoneId=3, „Internet”)
+          $tagged = 0
+          Get-ChildItem -Recurse -File pkg/IntegraCRM | Where-Object { $_.Name -ne "IntegraCRM.exe" } | ForEach-Object {
+            Set-Content -Path $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=https://github.com/"
+            $tagged++
+          }
+          Write-Host "Oznaczono jako pobrane z internetu: $tagged plików"
+          # kontrola: bez odblokowania błąd musi wystąpić (to ten sam błąd co u użytkownika)
+          $env:INTEGRA_NO_UNBLOCK = "1"
+          $state = Wait-Loaded 40
+          $env:INTEGRA_NO_UNBLOCK = $null
+          $err = ""; if (Test-Path "$data/serwis_status.json") { $err = (Get-Content "$data/serwis_status.json" -Raw | ConvertFrom-Json).error }
+          Write-Host "Bez odblokowania: stan '$state', błąd: $err"
+          if ($state -ne "error" -or $err -notmatch "Python.Runtime") { Write-Host "UWAGA: nie odtworzono błędu użytkownika" }
           # 1) zwykłe uruchomienie – tak jak z przycisku w programie; 3 razy pod rząd (stabilność)
           $env:PYWEBVIEW_LOG = "debug"
           foreach ($k in 1,2,3) {

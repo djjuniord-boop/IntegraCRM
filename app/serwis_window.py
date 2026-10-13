@@ -141,12 +141,40 @@ def _setup_log():
     return logging.getLogger("serwis")
 
 
+def unblock_runtime(log=None) -> int:
+    """Zdejmuje znacznik „pobrano z internetu” (Zone.Identifier) z bibliotek okna panelu.
+
+    Pliki z paczki pobranej przeglądarką i rozpakowanej w Eksploratorze dostają ten znacznik,
+    a .NET odmawia wtedy wczytania Python.Runtime.dll („Failed to resolve Python.Runtime.Loader.Initialize”).
+    Zwraca liczbę odblokowanych plików.
+    """
+    if sys.platform != "win32" or os.environ.get("INTEGRA_NO_UNBLOCK"):   # zmienna tylko do testu
+        return 0
+    base = Path(getattr(sys, "_MEIPASS", "") or (Path(sys.executable).parent / "_internal"))
+    n = 0
+    for sub in ("pythonnet", "clr_loader", "webview"):
+        d = base / sub
+        if not d.is_dir():
+            continue
+        for f in d.rglob("*"):
+            if f.is_file() and f.suffix.lower() in (".dll", ".exe", ".config", ".json"):
+                try:
+                    os.remove(str(f) + ":Zone.Identifier")
+                    n += 1
+                except OSError:
+                    pass
+    if log and n:
+        log.info("odblokowano pliki pobrane z internetu: %d", n)
+    return n
+
+
 def run() -> int:
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
     _status("starting")
     log = _setup_log()
     try:
         log.info("start, python %s, frozen=%s, root=%s", sys.version.split()[0], getattr(sys, "frozen", False), paths.ROOT)
+        unblock_runtime(log)
         import webview
         log.info("pywebview %s", getattr(webview, "__version__", "?"))
         if not serwis_qr.PANEL.exists():
