@@ -38,26 +38,40 @@ def run(pdf_path, crm_image, tesseract_cmd=None, log=lambda s: None) -> dict:
         r["warnings"].append("Nie rozpoznano układu raportu Integry – numery wyszukane ogólnie, "
                              "wynik może zawierać błędne pozycje.")
 
-    log("Wycinek z CRM (OCR)…")
-    texts = extract.ocr_variants(crm_image, tesseract_cmd)
-    crm_main = plates.extract_crm_plates(texts[0])
-    crm = list(crm_main)
-    for t in texts[1:]:   # dodatkowe przebiegi poprawiają przekręcone znaki
-        for p in plates.extract_crm_plates(t):
-            if p not in crm:
-                crm.append(p)
+    if isinstance(crm_image, dict):   # raport .xlsx z „Listy kontrolne” – bez OCR, wybrane oddziały
+        rows = crm_image["rows"]
+        log(f"Raport z CRM (plik), oddziały: {', '.join(crm_image.get('branches', [])) or '—'}")
+        crm_main = []
+        for x in rows:
+            if x["plate"] not in crm_main:
+                crm_main.append(x["plate"])
+        crm = list(crm_main)
+        dates = {x["date"] for x in rows if x["date"]}
+        r["crm_source"] = "report"
+    else:
+        log("Wycinek z CRM (OCR)…")
+        texts = extract.ocr_variants(crm_image, tesseract_cmd)
+        crm_main = plates.extract_crm_plates(texts[0])
+        crm = list(crm_main)
+        for t in texts[1:]:   # dodatkowe przebiegi poprawiają przekręcone znaki
+            for p in plates.extract_crm_plates(t):
+                if p not in crm:
+                    crm.append(p)
+        dates = crm_dates(texts)
+        r["crm_source"] = "image"
     r.update(crm=crm, crm_main=crm_main)
     log(f"  {len(crm_main)}: {', '.join(crm_main) or '—'}")
 
-    # Zakres dat: czy wycinek z CRM obejmuje wszystkie dni raportu z Integry
-    dates = crm_dates(texts)
+    # Zakres dat: czy dane z CRM obejmują wszystkie dni raportu z Integry
     r["crm_dates"] = sorted(d.isoformat() for d in dates)
     if r["range"] and dates:
         lacking = [d for d in _days(r["range"]) if d not in dates]
         if lacking:
             txt = ", ".join(d.strftime("%d.%m") for d in lacking[:5])
-            r["warnings"].append(f"Na wycinku z CRM nie widać wierszy z dnia: {txt}. Jeśli tego dnia były "
-                                 "importy, zrób dłuższy wycinek – inaczej wynik pokaże fałszywe braki.")
+            what = ("W raporcie z CRM (wybrane oddziały) nie ma" if r["crm_source"] == "report"
+                    else "Na wycinku z CRM nie widać")
+            r["warnings"].append(f"{what} wierszy z dnia: {txt}. Jeśli tego dnia były importy, pobierz "
+                                 "raport/wycinek za pełny zakres – inaczej wynik pokaże fałszywe braki.")
 
     # Porównanie: dokładne trafienia ze wszystkich przebiegów, „podobne” tylko z głównego
     exact = {plates.normalize(p) for p in crm}
