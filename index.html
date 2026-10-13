@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Latex Serwis – Historia serwisowa (beta)</title>
+<link href="https://fonts.googleapis.com/css2?family=Saira:ital,wght@0,600;0,800;1,800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="qrcode.min.js"></script>
+<script src="config.js"></script>
+<style>
+:root{--red:#E30613;--black:#141414;--gray:#666;--line:#e5e5e5;--bg:#f4f4f4}
+*{box-sizing:border-box}
+body{margin:0;font-family:Poppins,sans-serif;background:var(--bg);color:var(--black)}
+.brand{font-family:Saira;font-weight:800;font-style:italic;letter-spacing:.5px}
+.brand .x{color:var(--red)} .brand small{font-style:normal;font-size:.55em}
+header{background:#fff;border-bottom:3px solid var(--red);padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+header .brand{font-size:24px}
+nav button{margin-left:4px}
+main{max-width:980px;margin:0 auto;padding:16px}
+.card{background:#fff;border-radius:10px;padding:16px;margin-bottom:16px;border:1px solid var(--line)}
+h2{font-family:Saira;font-weight:800;margin:0 0 12px;font-size:20px}
+label{display:block;font-size:12px;color:var(--gray);margin:8px 0 3px}
+input,select,textarea{width:100%;padding:9px 10px;border:1px solid #ccc;border-radius:6px;font:inherit;font-size:14px}
+.row{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:0 12px}
+button{font:inherit;font-size:14px;padding:9px 14px;border-radius:6px;border:1px solid var(--red);background:#fff;color:var(--red);cursor:pointer}
+button.primary{background:var(--red);color:#fff}
+button.dark{border-color:var(--black);color:var(--black)}
+.checks{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:6px}
+.checks label{display:flex;align-items:center;gap:5px;color:var(--black);font-size:14px;margin:0}
+.checks input{width:auto}
+table{width:100%;border-collapse:collapse;font-size:14px}
+td,th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
+th{font-size:12px;color:var(--gray);font-weight:500}
+.plate{font-family:Saira;font-weight:800;font-size:16px}
+.badge{display:inline-block;font-size:12px;padding:2px 9px;border-radius:10px}
+.ok{background:#e6f4ea;color:#1d7a3a}.soon{background:#fff4d6;color:#8a5a00}.late{background:#fde8e8;color:#b00012}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:760px){.split{grid-template-columns:1fr}}
+.hidden{display:none!important}
+.muted{color:var(--gray);font-size:13px}
+.demo{background:#fff4d6;color:#8a5a00;font-size:13px;padding:8px 16px;text-align:center}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.tabs button{border-color:#ccc;color:var(--black);font-size:13px;padding:6px 12px}
+.tabs button.on{background:var(--black);color:#fff;border-color:var(--black)}
+button.wa{border-color:#1fa855;color:#1fa855}
+.photoBtns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:4px}
+.pbtn{display:inline-block;margin:0;font-size:14px;padding:9px 14px;border-radius:6px;border:1px solid var(--black);color:var(--black);background:#fff;cursor:pointer}
+.pbtn:active{background:#eee}
+.fileHidden{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
+#photoDrop.over{outline:2px dashed var(--red)}
+.photos{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.photos img{width:72px;height:72px;object-fit:cover;border-radius:6px;cursor:pointer}
+.photos .ph{position:relative}.photos .ph b{position:absolute;top:2px;right:4px;color:#fff;background:#000a;border-radius:50%;width:18px;height:18px;text-align:center;font-size:12px;line-height:18px;cursor:pointer}
+.tl{border-left:2px solid var(--red);margin-left:6px;padding-left:12px}
+.tl .it{position:relative;margin-bottom:14px}
+.tl .it:before{content:"";position:absolute;left:-18px;top:5px;width:10px;height:10px;border-radius:50%;background:var(--red)}
+.ptabs{display:flex;gap:6px;margin:4px 0 10px}
+.ptabs button{flex:1;border-color:#ccc;color:var(--black)}.ptabs button.on{background:var(--black);color:#fff;border-color:var(--black)}
+/* naklejka */
+.label{background:#fff;display:flex;overflow:hidden;color:var(--black);border:1px solid #bbb;font-family:Poppins,sans-serif}
+.label .l{flex:1;display:flex;flex-direction:column;min-width:0}
+.label .head{background:var(--black);color:#fff;padding:1.2mm 2mm;display:flex;justify-content:space-between;align-items:center}
+.label .head .brand{font-size:4.2mm}
+.label .head .sub{font-size:2mm;color:var(--red);font-weight:600}
+.label .body{padding:1.2mm 2mm 0}
+.label .pl{font-family:Saira;font-weight:800;font-size:6.5mm;line-height:1}
+.label .car{font-size:2.5mm;color:#444}
+.label .info{font-size:2.3mm;line-height:1.35;margin-top:.8mm}
+.label .next{margin:auto 2mm 1mm;border:.5mm solid var(--red);background:var(--red);color:#fff;font-size:2.6mm;font-weight:600;padding:.8mm 1.5mm;border-radius:.8mm}
+.label.mono .next{background:#fff;color:var(--black)}
+.label .foot{font-size:1.9mm;color:#444;padding:0 2mm 1.2mm}
+.label .r{border-left:.6mm solid var(--red);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.6mm;padding:1.5mm}
+.label .r .scan{font-size:2mm;font-weight:600;color:var(--red)}
+.label .qr img,.label .qr canvas{display:block}
+/* publiczna */
+.pub{max-width:480px;margin:0 auto;padding:16px}
+.pub .tile{background:#fff;border-radius:10px;padding:12px 14px;margin-bottom:10px;border:1px solid var(--line)}
+.pub .tile .k{font-size:12px;color:var(--gray);text-transform:uppercase;letter-spacing:.5px}
+.pub .btn{display:block;text-align:center;text-decoration:none;padding:12px;border-radius:6px;margin-top:10px;font-weight:600}
+.pub .btn.red{background:var(--red);color:#fff}.pub .btn.out{border:1px solid var(--red);color:var(--red);background:#fff}
+.label,.label *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.label .qr img,.label .qr canvas{image-rendering:pixelated}
+#printArea{display:none}
+.label.mono .pre{visibility:hidden}
+.label.mono .r{border-left-color:transparent}
+.tablewrap{overflow-x:auto}
+header nav{display:flex;flex-wrap:wrap;gap:4px}
+@media print{
+  html,body{background:#fff;margin:0;padding:0}
+  body>*:not(#printArea){display:none!important}
+  #printArea{display:block!important}
+  #printArea .label{border:none}
+}
+</style>
+<style id="pageSize"></style>
+</head>
+<body>
+<div id="demoBar" class="demo hidden"><span id="demoTxt">BETA · tryb lokalny: dane są tylko w tej przeglądarce na tym komputerze.</span> Rób regularnie kopię zapasową.
+  <button class="dark" style="margin-left:8px;padding:4px 10px;font-size:12px" onclick="exportBackup()">Zapisz kopię</button>
+  <label class="pbtn" style="padding:4px 10px;font-size:12px" for="importIn">Wczytaj kopię</label>
+  <input type="file" id="importIn" class="fileHidden" accept=".json,application/json" onchange="importBackup(this.files[0]);this.value=''">
+  <span id="backupMsg"></span></div>
+
+<!-- ===== WIDOK PUBLICZNY ===== -->
+<div id="publicView" class="hidden">
+  <header><span class="brand">LATE<span class="x">X</span> <small>AUTO SERWIS</small></span><span class="muted">Historia serwisowa</span></header>
+  <div class="pub" id="pubBody"></div>
+</div>
+
+<!-- ===== LOGOWANIE ===== -->
+<div id="loginView" class="hidden">
+  <header><span class="brand">LATE<span class="x">X</span> <small>AUTO SERWIS</small></span></header>
+  <main><div class="card" style="max-width:380px;margin:40px auto">
+    <h2>Logowanie warsztatu</h2>
+    <label>E-mail</label><input id="lgEmail" type="email" autocomplete="username">
+    <label>Hasło</label><input id="lgPass" type="password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    <p id="lgErr" class="muted" style="color:var(--red)"></p>
+    <button class="primary" onclick="doLogin()">Zaloguj</button>
+  </div></main>
+</div>
+
+<!-- ===== PANEL ===== -->
+<div id="adminView" class="hidden">
+  <header>
+    <span class="brand">LATE<span class="x">X</span> <small>AUTO SERWIS</small></span>
+    <nav>
+      <button class="dark" onclick="show('list')">Auta</button>
+      <button class="dark" onclick="show('settings')">Szablon</button>
+      <button class="dark" id="logoutBtn" onclick="doLogout()">Wyloguj</button>
+    </nav>
+  </header>
+  <main>
+    <!-- lista -->
+    <section id="sec-list">
+      <div class="card">
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input id="search" placeholder="Szukaj: numer rejestracyjny lub model" oninput="renderList()" style="flex:1;min-width:200px">
+          <button class="primary" onclick="openService(null)">+ Nowy wpis</button>
+        </div>
+        <div class="tabs" id="listTabs"></div>
+      </div>
+      <div class="card"><div class="tablewrap"><table><thead><tr><th>Rejestracja</th><th>Auto</th><th>Ostatnia</th><th>Następna</th><th>Status</th><th></th></tr></thead><tbody id="carRows"></tbody></table></div><p id="emptyFilter" class="muted hidden">Brak aut w tym widoku.</p>
+      <p id="emptyList" class="muted hidden">Brak aut. Dodaj pierwszą wymianę.</p></div>
+    </section>
+
+    <!-- formularz serwisu -->
+    <section id="sec-form" class="hidden">
+      <div class="split">
+        <div class="card">
+          <h2 id="formTitle">Nowa wymiana oleju</h2>
+          <div class="row">
+            <div><label>Nr rejestracyjny *</label><input id="fPlate" oninput="this.value=this.value.toUpperCase();checkPlate();preview()"><div id="plateHint" class="muted" style="color:#1d7a3a"></div></div>
+            <div><label>Marka i model</label><input id="fModel" placeholder="Škoda Octavia Combi" oninput="preview()"></div>
+            <div><label>Rok</label><input id="fYear" inputmode="numeric" oninput="preview()"></div>
+            <div><label>VIN</label><input id="fVin" oninput="this.value=this.value.toUpperCase();preview()"></div>
+            <div><label>Właściciel (niepubliczne)</label><input id="fOwner"></div>
+            <div><label>Telefon klienta (niepubliczne)</label><input id="fPhone" inputmode="tel"></div>
+          </div>
+          <hr style="border:none;border-top:1px solid var(--line);margin:14px 0 4px">
+          <label>Rodzaj prac</label>
+          <select id="fType" onchange="typeChanged();preview()"></select>
+          <div class="row">
+            <div><label>Data *</label><input id="fDate" type="date" oninput="calcNext();preview()"></div>
+            <div><label>Przebieg (km) *</label><input id="fKm" inputmode="numeric" oninput="calcNext();preview()"></div>
+            <div><label>Olej</label><input id="fOil" list="oils" placeholder="5W-30 syntetyczny" oninput="preview()"></div>
+            <div><label>Ilość (l)</label><input id="fQty" inputmode="decimal" oninput="preview()"></div>
+          </div>
+          <datalist id="oils"><option>0W-20</option><option>0W-30</option><option>5W-30</option><option>5W-40</option><option>10W-40</option></datalist>
+          <label>Wymienione filtry</label>
+          <div class="checks" id="fFilters"></div>
+          <div class="row">
+            <div><label>Następna przy (km)</label><input id="fNextKm" inputmode="numeric" oninput="preview()"></div>
+            <div><label>lub dnia</label><input id="fNextDate" type="date" oninput="preview()"></div>
+          </div>
+          <label>Wykonane prace i części (widoczne dla klienta)</label><textarea id="fWork" rows="2" placeholder="Klocki hamulcowe przód TRW, płyn hamulcowy DOT4"></textarea>
+          <label>Uwagi / zalecenia (widoczne dla klienta)</label><textarea id="fNotes" rows="2" placeholder="Zalecana wymiana tarcz przy następnej wizycie"></textarea>
+          <label>Zdjęcia (zmniejszane automatycznie)</label>
+          <div class="photoBtns">
+            <label class="pbtn" for="fPhotoCam">Zrób zdjęcie</label>
+            <label class="pbtn" for="fPhotoIn">Wybierz z galerii</label>
+            <span class="muted" id="photoCount"></span>
+          </div>
+          <input type="file" id="fPhotoCam" class="fileHidden" accept="image/*" capture="environment" onchange="addPhotos(this.files);this.value=''">
+          <input type="file" id="fPhotoIn" class="fileHidden" accept="image/*" multiple onchange="addPhotos(this.files);this.value=''">
+          <div id="photoDrop" class="muted" style="font-size:12px">Na komputerze możesz też przeciągnąć zdjęcie tutaj lub wkleić je (Ctrl+V).</div>
+          <div class="photos" id="fPhotos"></div>
+          <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+            <button class="primary" onclick="saveService()">Zapisz</button>
+            <button class="dark" onclick="saveService(true)">Zapisz i drukuj</button>
+            <button class="dark hidden" id="printOnlyBtn" onclick="printOnly()">Tylko drukuj</button>
+            <button class="wa" onclick="saveService(false,true)">Zapisz i wyślij WhatsApp</button>
+            <button onclick="show('list')">Anuluj</button>
+            <button id="delBtn" class="hidden" onclick="delService()">Usuń wpis</button>
+          </div>
+          <p id="formErr" class="muted" style="color:var(--red)"></p>
+        </div>
+        <div class="card">
+          <h2>Podgląd naklejki</h2>
+          <div id="previewBox"></div>
+          <p class="muted" id="previewLink"></p>
+          <div id="historyBox"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- szablon -->
+    <section id="sec-settings" class="hidden">
+      <div class="split">
+        <div class="card">
+          <h2>Szablon naklejki</h2>
+          <div class="row">
+            <div><label>Szerokość (mm)</label><input id="sW" inputmode="numeric" oninput="preview2()"></div>
+            <div><label>Wysokość (mm)</label><input id="sH" inputmode="numeric" oninput="preview2()"></div>
+          </div>
+          <label>Podpis w nagłówku</label><input id="sSub" oninput="preview2()">
+          <label>Stopka (telefon, adres)</label><input id="sFoot" oninput="preview2()">
+          <label>Tekst przy QR</label><input id="sScan" oninput="preview2()">
+          <label>Tryb druku</label>
+          <select id="sMono" onchange="preview2()"><option value="0">Kolor (laser / kolorowa)</option><option value="1">Jednokolorowy (drukarka etykiet)</option></select>
+          <label>Pola na naklejce</label>
+          <div class="checks" id="sFields"></div>
+          <div class="row">
+            <div><label>Domyślny interwał (km)</label><input id="sKm" inputmode="numeric"></div>
+            <div><label>Domyślny interwał (miesiące)</label><input id="sMonths" inputmode="numeric"></div>
+          </div>
+          <label>Lista filtrów (po przecinku)</label><input id="sFilters">
+          <label>Rodzaje prac (po przecinku, pierwszy = domyślny)</label><input id="sTypes">
+          <label>Wiadomość WhatsApp po serwisie</label><textarea id="sMsgDone" rows="2"></textarea>
+          <label>Wiadomość WhatsApp – przypomnienie</label><textarea id="sMsgRemind" rows="2"></textarea>
+          <p class="muted">Zmienne: {rej} {auto} {link} {nastepna}</p>
+          <label>Adres strony dla QR</label><input id="sBase" placeholder="https://serwis.latex.net.pl/">
+          <p class="muted">Uwaga: zmiana adresu po wydrukowaniu naklejek sprawi, że stare kody QR przestaną działać.</p>
+          <label>Telefon na stronie klienta</label><input id="sPhone">
+          <label>WhatsApp warsztatu (na stronie klienta)</label><input id="sWa">
+          <label>Link „Umów wizytę”</label><input id="sBook">
+          <div style="margin-top:14px"><button class="primary" onclick="saveSettings()">Zapisz szablon</button> <span id="sOk" class="muted"></span></div>
+        </div>
+        <div class="card"><h2>Podgląd</h2><div id="preview2Box"></div></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div id="printArea"></div>
+
+<script>
+/* ============ KONFIGURACJA ============
+   Wklej dane z Supabase (Project Settings → API).
+   Puste = tryb demo w przeglądarce. */
+const CFG = window.SERWIS_CFG || {};   // zapisywane przez IntegraCRM (zakładka SERWIS QR)
+const SUPABASE_URL = (CFG.url || "").trim();
+const SUPABASE_ANON_KEY = (CFG.key || "").trim();
+/* ====================================== */
+
+const DEMO = !SUPABASE_URL;
+const sb = DEMO ? null : (window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+if(!DEMO&&!sb)document.addEventListener("DOMContentLoaded",()=>document.body.insertAdjacentHTML("afterbegin",'<div class="demo">Nie udało się wczytać biblioteki bazy danych. Sprawdź internet i odśwież stronę.</div>'));
+const $ = id => document.getElementById(id);
+const FIELD_LABELS = {oil:"Olej",filters:"Filtry",done:"Data i przebieg wymiany",vin:"VIN",foot:"Stopka"};
+const DEFAULT_SETTINGS = {
+  w:100,h:50,sub:"HISTORIA SERWISU",foot:"71 341 30 60 · ul. Krakowska 54a, Wrocław",scan:"ZESKANUJ",mono:"0",
+  fields:{oil:true,filters:true,done:true,vin:false,foot:true},km:15000,months:12,
+  filters:"Oleju,Powietrza,Kabinowy,Paliwa",base:"",phone:"+48713413060",wa:"+48667545554",
+  book:"https://fsttps.integra.com.pl/ClientScheduler?pointOfServiceCode=LATEX",
+  types:"Wymiana oleju,Przegląd okresowy,Hamulce,Zawieszenie,Klimatyzacja,Rozrząd,Opony,Inne",
+  msgDone:"Dzień dobry! Dziękujemy za wizytę w Latex Auto Serwis. Historia serwisowa auta {rej}: {link} Następna wymiana: {nastepna}.",
+  msgRemind:"Dzień dobry! Przypominamy o terminie wymiany oleju w aucie {rej} ({nastepna}). Umów wizytę: tel. 71 341 30 60. Historia: {link}"
+};
+let S = {...DEFAULT_SETTINGS}, CARS = [], editCar = null, PHOTOS = [], FILTER = "all";
+
+/* ---------- warstwa danych ---------- */
+const store = {
+  load(k,d){try{return JSON.parse(localStorage.getItem("latex_"+k))??d}catch(e){return d}},
+  save(k,v){try{localStorage.setItem("latex_"+k,JSON.stringify(v));return true}catch(e){alert("Brak miejsca w pamięci przeglądarki – ostatni zapis NIE został zachowany. Usuń zdjęcia lub podłącz bazę Supabase.");throw new Error("Brak miejsca w pamięci przeglądarki")}}
+};
+const uuid=()=>crypto.randomUUID?crypto.randomUUID():"10000000-1000-4000-8000-100000000000".replace(/[018]/g,c=>(c^crypto.getRandomValues(new Uint8Array(1))[0]&15>>c/4).toString(16));
+function token(){const a="abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";let t="";const r=crypto.getRandomValues(new Uint8Array(10));for(const b of r)t+=a[b%a.length];return t}
+
+async function loadSettings(){
+  if(DEMO){S={...DEFAULT_SETTINGS,...store.load("settings",{})};return}
+  const {data}=await sb.from("settings").select("data").eq("id",1).maybeSingle();
+  S={...DEFAULT_SETTINGS,...(data?.data||{})};
+}
+async function loadCars(){
+  if(DEMO){CARS=store.load("cars",[]);return}
+  const cols="*,services(id,car_id,date,km,oil,qty,filters,next_km,next_date,notes,type,work)";let all=[];
+  for(let from=0;;from+=1000){const {data,error}=await sb.from("cars").select(cols).order("created_at",{ascending:false}).range(from,from+999);
+    if(error){alert("Błąd wczytywania: "+error.message);return false}all=all.concat(data);if(data.length<1000)break}
+  CARS=all.map(c=>({...c,services:sortSvc(c.services||[]).map(x=>({...x,photos:undefined}))}));return true
+}
+async function upsertCar(car){
+  if(DEMO){const i=CARS.findIndex(c=>c.id===car.id);i>=0?CARS[i]=car:CARS.unshift(car);store.save("cars",CARS);return car}
+  const {services,...row}=car;
+  const {data,error}=await sb.from("cars").upsert(row).select().single();
+  if(error)throw error;return {...data,services:car.services};
+}
+async function insertService(car,s){
+  if(DEMO){car.services.unshift(s);sortSvc(car.services);store.save("cars",CARS);return}
+  const {error}=await sb.from("services").upsert({...s,car_id:car.id});if(error)throw error;
+}
+async function loadPhotos(s){
+  if(DEMO||!s||!s.id||s.photos!==undefined)return s?.photos||[];
+  const {data,error}=await sb.from("services").select("photos").eq("id",s.id).maybeSingle();
+  if(error)throw error;s.photos=data?.photos||[];return s.photos}
+async function getPublic(tok){
+  if(DEMO)return store.load("cars",[]).find(c=>c.token===tok)||null;
+  const {data,error}=await sb.rpc("get_car",{p_token:tok});if(error)throw error;return data;
+}
+
+/* ---------- pomocnicze ---------- */
+const num=v=>{const d=String(v??"").replace(/\D/g,"");return d?parseInt(d,10):null};
+const fmtKm=n=>n||n===0?Number(n).toLocaleString("pl-PL")+" km":"–";
+const fmtD=d=>d?d.split("-").reverse().join("."):"–";
+function addMonths(d,m){const [y,mo,da]=d.split("-").map(Number);const t=y*12+(mo-1)+Number(m),ny=Math.floor(t/12),nm=t%12+1;
+  const last=new Date(Date.UTC(ny,nm,0)).getUTCDate();return `${ny}-${String(nm).padStart(2,"0")}-${String(Math.min(da,last)).padStart(2,"0")}`}
+function todayStr(){const x=new Date();return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,"0")}-${String(x.getDate()).padStart(2,"0")}`}
+const sortSvc=a=>a.sort((x,y)=>(y.date||"").localeCompare(x.date||"")||(y.km||0)-(x.km||0));
+const nextOf=car=>(car.services||[]).find(s=>s.next_km||s.next_date)||{};
+const nextTxt=s=>[s.next_km?fmtKm(s.next_km):"",s.next_date?fmtD(s.next_date):""].filter(Boolean).join(" lub ");
+function status(car){
+  const s=nextOf(car);if(!s.next_date&&!s.next_km)return["–",""];
+  const today=todayStr();
+  if(s.next_date&&s.next_date<today)return["Po terminie","late"];
+  if(s.next_date&&addMonths(today,1)>=s.next_date)return["Zbliża się termin","soon"];
+  return["Aktualny","ok"];
+}
+function carUrl(car){const base=S.base||CFG.base||location.href.split(/[?#]/)[0];return base+(base.includes("?")?"&":"?")+"a="+car.token}
+const normPlate=p=>String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
+const IN_APP=()=>!!(window.pywebview&&window.pywebview.api);
+function openExternal(url){if(IN_APP()){window.pywebview.api.open_url(url);return true}return false}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- naklejka ---------- */
+function labelHTML(car,s,set){
+  const f=set.fields, filt=(s.filters||[]).map(x=>x.length>4?x.slice(0,3)+".":x).join(", ");
+  let info="";
+  if(f.oil&&s.oil)info+=`<b>Olej:</b> ${esc(s.oil)}${s.qty?" · "+esc(s.qty)+" l":""}&nbsp; `;
+  if(f.filters&&filt)info+=`<b>Filtry:</b> ${filt}`;
+  if(info)info+="<br>";
+  if(f.done)info+=`<b>Wymiana:</b> ${fmtD(s.date)} · ${fmtKm(s.km)}<br>`;
+  if(f.vin&&car.vin)info+=`<b>VIN:</b> ${esc(car.vin)}`;
+  const next=[s.next_km?fmtKm(s.next_km):"",s.next_date?fmtD(s.next_date):""].filter(Boolean).join(" lub ");
+  const qr=Math.round(Math.min(set.h-12,set.w*0.36-6));
+  return `<div class="label ${set.mono==="1"?"mono":""}" style="width:${set.w}mm;height:${set.h}mm">
+   <div class="l"><div class="head pre"><span class="brand">LATE<span class="x">X</span> <small>AUTO SERWIS</small></span><span class="sub">${esc(set.sub)}</span></div>
+   <div class="body"><div class="pl">${esc(car.plate)||"WA 00000"}</div><div class="car">${esc(car.model)} ${esc(car.year)}</div><div class="info">${info}</div></div>
+   ${next?`<div class="next">NASTĘPNA: ${next}</div>`:""}
+   ${f.foot?`<div class="foot pre">${esc(set.foot)}</div>`:""}</div>
+   <div class="r" style="width:${qr+6}mm;padding:3mm"><div class="qr" data-url="${esc(carUrl(car))}" data-mm="${qr}"></div><div class="scan pre">${esc(set.scan)}</div></div></div>`;
+}
+function drawQR(root){
+  root.querySelectorAll(".qr").forEach(el=>{
+    el.innerHTML="";const px=Math.round(el.dataset.mm*3.78*4);
+    new QRCode(el,{text:el.dataset.url,width:px,height:px,colorDark:"#141414",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M});
+    setTimeout(()=>el.querySelectorAll("img,canvas").forEach(i=>{i.style.width=i.style.height=el.dataset.mm+"mm"}),0);
+  });
+}
+function scaleBox(box){const lab=box.querySelector(".label");if(!lab)return;lab.style.transform="";const w=box.clientWidth,lw=lab.offsetWidth;if(lw>w){lab.style.transformOrigin="0 0";lab.style.transform=`scale(${w/lw})`;box.style.height=lab.offsetHeight*w/lw+"px"}else box.style.height=""}
+
+/* ---------- panel ---------- */
+function show(sec){["list","form","settings"].forEach(s=>$("sec-"+s).classList.toggle("hidden",s!==sec));if(sec==="list")renderList();if(sec==="settings")fillSettings()}
+function setFilter(f){FILTER=f;renderList()}
+function renderList(){
+  const q=$("search").value.trim().toUpperCase();
+  const cnt={all:CARS.length,soon:0,late:0};CARS.forEach(c=>{const cl=status(c)[1];if(cnt[cl]!==undefined)cnt[cl]++});
+  $("listTabs").innerHTML=[["all","Wszystkie"],["soon","Zbliża się termin"],["late","Po terminie"]]
+    .map(([k,v])=>`<button class="${FILTER===k?"on":""}" onclick="setFilter('${k}')">${v} (${cnt[k]})</button>`).join("");
+  const qn=normPlate(q);
+  const rows=CARS.filter(c=>(!q||[c.plate,c.model,c.owner,c.phone,c.vin].join(" ").toUpperCase().includes(q)||(qn.length>=3&&normPlate(c.plate).includes(qn)))&&(FILTER==="all"||status(c)[1]===FILTER))
+    .sort((a,b)=>(b.services?.[0]?.date||"").localeCompare(a.services?.[0]?.date||""));
+  $("emptyList").classList.toggle("hidden",CARS.length>0);
+  $("emptyFilter").classList.toggle("hidden",!(CARS.length>0&&rows.length===0));
+  $("carRows").innerHTML=rows.map(c=>{const s=c.services?.[0]||{},n=nextOf(c);const [t,cl]=status(c);
+    return `<tr><td class="plate">${esc(c.plate)}</td><td>${esc(c.model)}<br><span class="muted">${esc(c.owner)}</span></td><td>${fmtD(s.date)}<br><span class="muted">${esc(s.type||"")}</span></td>
+    <td>${fmtKm(n.next_km)}<br><span class="muted">${fmtD(n.next_date)}</span></td><td><span class="badge ${cl}">${t}</span></td>
+    <td style="white-space:nowrap"><button onclick="openService('${c.id}')">+ Wpis</button> <button class="dark" onclick="openService('${c.id}',true)">Naklejka</button>
+    ${c.phone?`<button class="wa" onclick="sendWA('${c.id}','${cl==="soon"||cl==="late"?"remind":"done"}')" title="WhatsApp">WA</button>`:""}</td></tr>`}).join("");
+}
+function fillMsg(tpl,car){const n=nextOf(car),v={rej:car.plate||"",auto:car.model||"",link:carUrl(car),nastepna:nextTxt(n)||"–"};return tpl.replace(/\{(rej|auto|link|nastepna)\}/g,(_,k)=>v[k])}
+function waPhone(p){let ph=String(p||"").replace(/\D/g,"");if(ph.startsWith("00"))ph=ph.slice(2);if(ph.length===9)ph="48"+ph;return ph.length>=11?ph:""}
+function sendWA(id,kind,win){const car=CARS.find(c=>c.id===id);if(!car){win?.close();return}
+  const ph=waPhone(car.phone);if(!ph){win?.close();alert("Nieprawidłowy numer telefonu klienta: "+car.phone);return}
+  const url=`https://wa.me/${ph}?text=${encodeURIComponent(fillMsg(kind==="remind"?S.msgRemind:S.msgDone,car))}`;
+  if(openExternal(url)){win?.close();return}
+  if(win)win.location.href=url;else if(!window.open(url,"_blank"))location.href=url;}
+function filterChecks(sel=[]){const list=S.filters.split(",").map(x=>x.trim()).filter(Boolean);sel.forEach(x=>{if(!list.includes(x))list.push(x)});$("fFilters").innerHTML=list.map(x=>`<label><input type="checkbox" value="${esc(x)}" ${sel.includes(x)?"checked":""} onchange="preview()">${esc(x)}</label>`).join("")}
+async function openService(id,onlyLabel){
+  autoCar=false;autoFilled={};kmWarned=false;$("plateHint").textContent="";$("delBtn").classList.add("hidden");
+  $("printOnlyBtn").classList.toggle("hidden",!(onlyLabel&&id&&nextOf(CARS.find(c=>c.id===id)||{}).id));
+  editCar=id?CARS.find(c=>c.id===id):null;const c=editCar||{},last=c.services?.[0];
+  $("formTitle").textContent=editCar?(onlyLabel?"Naklejka – "+c.plate:"Nowy wpis – "+c.plate):"Nowy wpis";
+  $("fPlate").value=c.plate||"";$("fModel").value=c.model||"";$("fYear").value=c.year||"";$("fVin").value=c.vin||"";
+  $("fOwner").value=c.owner||"";$("fPhone").value=c.phone||"";
+  const lastOil=nextOf(c);const types=S.types.split(",").map(x=>x.trim()).filter(Boolean);
+  const s=onlyLabel&&lastOil.id?lastOil:{date:todayStr(),type:types[0],oil:lastOil.oil||"",qty:lastOil.qty||"",filters:["Oleju"]};
+  $("fType").innerHTML=types.map(t=>`<option ${t===s.type?"selected":""}>${esc(t)}</option>`).join("")+(s.type&&!types.includes(s.type)?`<option selected>${esc(s.type)}</option>`:"");
+  $("fWork").value=s.work||"";PHOTOS=[];renderPhotos();
+  if(onlyLabel&&lastOil.id){try{PHOTOS=[...await loadPhotos(lastOil)];renderPhotos()}catch(e){$("formErr").textContent="Nie udało się wczytać zdjęć: "+e.message}}
+  $("fDate").value=s.date||"";$("fKm").value=s.km||"";$("fOil").value=s.oil||"";$("fQty").value=s.qty||"";
+  $("fNextKm").value=s.next_km||"";$("fNextDate").value=s.next_date||"";$("fNotes").value=s.notes||"";
+  filterChecks(s.filters||[]);editCar&&(editCar._editSvc=onlyLabel&&lastOil.id?lastOil.id:null);
+  if(!onlyLabel)calcNext();
+  $("historyBox").innerHTML=histHTML(c);typeChanged(true);
+  if(!$("formErr").textContent.startsWith("Nie udało"))$("formErr").textContent="";show("form");preview();
+}
+let autoCar=false,autoFilled={},kmWarned=false,saving=false;
+function histHTML(c){return c.services?.length?`<h2 style="margin-top:16px">Historia</h2><table>${c.services.map(x=>`<tr><td>${fmtD(x.date)}</td><td>${fmtKm(x.km)}</td><td>${esc(x.type||"")}<br><span class="muted">${esc(x.oil||x.work||"")}</span></td><td><button onclick="editSvc('${x.id}')">Edytuj</button></td></tr>`).join("")}</table>`:""}
+function checkPlate(){
+  if(editCar&&!autoCar)return;
+  const n=normPlate($("fPlate").value);
+  const m=n.length>=4&&CARS.find(c=>normPlate(c.plate)===n);
+  const F=[["fModel","model"],["fYear","year"],["fVin","vin"],["fOwner","owner"],["fPhone","phone"]];
+  const unfill=()=>F.forEach(([id])=>{if(autoFilled[id]!==undefined&&$(id).value===autoFilled[id])$(id).value="";});
+  if(m&&editCar!==m){
+    if(autoCar)unfill();autoFilled={};
+    editCar=m;autoCar=true;editCar._editSvc=null;
+    F.forEach(([id,k])=>{if(m[k]&&(!$(id).value||$(id).value!==m[k])){$(id).value=m[k];autoFilled[id]=m[k]}});
+    const lo=nextOf(m);if(isOil()&&lo.oil&&!$("fOil").value){$("fOil").value=lo.oil;$("fQty").value=lo.qty||""}
+    $("plateHint").textContent=`Auto ${m.plate} jest już w bazie (wpisów: ${m.services.length}). Ten wpis trafi do jego historii, naklejka i QR bez zmian.`;
+    $("formTitle").textContent="Nowy wpis – "+m.plate;$("historyBox").innerHTML=histHTML(m);
+  }else if(!m&&autoCar){unfill();autoFilled={};editCar=null;autoCar=false;$("plateHint").textContent="";$("formTitle").textContent="Nowy wpis";$("historyBox").innerHTML=""}
+}
+async function editSvc(sid){const s=editCar.services.find(x=>x.id===sid);if(!s)return;kmWarned=false;
+  try{await loadPhotos(s)}catch(e){$("formErr").textContent="Nie udało się wczytać zdjęć: "+e.message;return}
+  editCar._editSvc=sid;$("printOnlyBtn").classList.add("hidden");$("delBtn").classList.remove("hidden");$("delBtn").textContent="Usuń wpis";
+  $("formTitle").textContent="Edycja wpisu – "+editCar.plate;
+  const types=S.types.split(",").map(x=>x.trim()).filter(Boolean);$("fType").innerHTML=types.map(t=>`<option ${t===s.type?"selected":""}>${esc(t)}</option>`).join("")+(s.type&&!types.includes(s.type)?`<option selected>${esc(s.type)}</option>`:"");
+  $("fDate").value=s.date||"";$("fKm").value=s.km||"";$("fOil").value=s.oil||"";$("fQty").value=s.qty||"";$("fWork").value=s.work||"";
+  $("fNextKm").value=s.next_km||"";$("fNextDate").value=s.next_date||"";$("fNotes").value=s.notes||"";
+  filterChecks(s.filters||[]);PHOTOS=[...(s.photos||[])];renderPhotos();typeChanged(true);preview();window.scrollTo(0,0)}
+const isOil=()=>/olej/i.test($("fType").value);
+function typeChanged(keep){const oil=isOil();["fOil","fQty"].forEach(id=>$(id).closest("div").style.opacity=oil?1:.45);
+  if(!keep&&!oil){$("fNextKm").value="";$("fNextDate").value="";filterChecks([])}else if(!keep)calcNext()}
+function calcNext(){if(!isOil())return;const km=num($("fKm").value);if(km)$("fNextKm").value=km+Number(S.km);if($("fDate").value)$("fNextDate").value=addMonths($("fDate").value,S.months)}
+function showPhoto(src){const o=document.createElement("div");o.style.cssText="position:fixed;inset:0;background:#000d;z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out";
+  const i=document.createElement("img");i.src=src;i.style.cssText="max-width:94vw;max-height:94vh";o.appendChild(i);o.onclick=()=>o.remove();document.body.appendChild(o)}
+function renderPhotos(){const pc=$("photoCount");if(pc)pc.textContent=PHOTOS.length?`Zdjęcia: ${PHOTOS.length}/6`:"";$("fPhotos").innerHTML=PHOTOS.map((p,i)=>`<div class="ph"><img src="${p}" onclick="showPhoto(this.src)"><b onclick="PHOTOS.splice(${i},1);renderPhotos()">×</b></div>`).join("")}
+function readAsDataURL(f){return new Promise((ok,err)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>err(r.error);r.readAsDataURL(f)})}
+function loadImg(src){return new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src})}
+async function addPhotos(files){let bad=0,over=false;files=[...(files||[])];
+  if(!files.length){$("formErr").textContent="Nie wybrano zdjęcia.";return}
+  $("photoCount").textContent="Wczytuję…";
+  for(const f of files){if(PHOTOS.length>=6){over=true;break}
+    if(f.type&&!f.type.startsWith("image/")){bad++;continue}
+    let img;try{img=await loadImg(URL.createObjectURL(f))}catch(e){try{img=await loadImg(await readAsDataURL(f))}catch(e2){bad++;continue}}
+    const sc=Math.min(1,(DEMO?700:1000)/Math.max(img.width,img.height)),cv=document.createElement("canvas");
+    cv.width=Math.round(img.width*sc);cv.height=Math.round(img.height*sc);cv.getContext("2d").drawImage(img,0,0,cv.width,cv.height);
+    PHOTOS.push(cv.toDataURL("image/jpeg",DEMO?.6:.7));if(img.src.startsWith("blob:"))URL.revokeObjectURL(img.src)}
+  renderPhotos();
+  $("formErr").textContent=(bad?`Pominięto ${bad} plik(i) – nieobsługiwany format (np. HEIC). `:"")+(over?"Maksymalnie 6 zdjęć na wpis.":"")}
+function formData(){
+  const car={...(editCar||{id:uuid(),token:token(),services:[]}),
+    plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),year:$("fYear").value.trim(),vin:$("fVin").value.trim(),
+    owner:$("fOwner").value.trim(),phone:$("fPhone").value.trim()};
+  delete car._editSvc;
+  const s={id:editCar?._editSvc||uuid(),date:$("fDate").value,km:num($("fKm").value),oil:$("fOil").value.trim(),
+    qty:$("fQty").value.trim(),filters:[...$("fFilters").querySelectorAll("input:checked")].map(i=>i.value),
+    next_km:num($("fNextKm").value),next_date:$("fNextDate").value||null,notes:$("fNotes").value.trim(),
+    type:$("fType").value,work:$("fWork").value.trim(),photos:PHOTOS};
+  if(!isOil()){s.oil="";s.qty=""}
+  return {car,s};
+}
+function preview(){const {car,s:cur}=formData();const s=isOil()||!editCar?cur:(nextOf(editCar).id?nextOf(editCar):cur);$("previewBox").innerHTML=labelHTML(car,s,S);drawQR($("previewBox"));scaleBox($("previewBox"));
+  $("previewLink").textContent=(!(S.base||CFG.base)?"Uwaga: nie ustawiono adresu strony dla klientów – taki kod QR nie zadziała w telefonie klienta (ustaw go w IntegraCRM). ":"")+(editCar?"QR prowadzi do: "+carUrl(car):"Link QR powstanie po zapisaniu.");}
+async function saveService(print,wa){
+  if(saving)return;
+  const {car,s}=formData();
+  if(!car.plate||!s.date||!s.km){$("formErr").textContent="Uzupełnij numer rejestracyjny, datę i przebieg.";return}
+  if(!editCar){const m=CARS.find(c=>normPlate(c.plate)===normPlate(car.plate));if(m){editCar=m;autoCar=true;m._editSvc=null;return saveService(print,wa)}}
+  const other=CARS.find(c=>c.id!==car.id&&normPlate(c.plate)===normPlate(car.plate));
+  if(other){$("formErr").textContent=`Numer ${car.plate} należy już do innego auta w bazie (${other.model||"bez modelu"}).`;return}
+  if(wa&&!waPhone(car.phone)){$("formErr").textContent="Wpisz prawidłowy telefon klienta (9 cyfr), żeby wysłać WhatsApp.";return}
+  const prevMax=Math.max(0,...(editCar?.services||[]).filter(x=>x.id!==s.id).map(x=>x.km||0));
+  if(s.km<prevMax&&!kmWarned){kmWarned=true;$("formErr").textContent=`Przebieg ${fmtKm(s.km)} jest mniejszy niż przy poprzedniej wizycie (${fmtKm(prevMax)}). Sprawdź i kliknij zapis ponownie, jeśli jest poprawny.`;return}
+  if(s.next_date&&s.next_date<=s.date){$("formErr").textContent="Data następnej wymiany musi być późniejsza niż data wpisu.";return}
+  if(s.next_km&&s.next_km<=s.km){$("formErr").textContent="Przebieg następnej wymiany musi być większy niż obecny.";return}
+  const win=wa&&!IN_APP()?window.open("about:blank","_blank"):null;
+  saving=true;document.querySelectorAll("#sec-form button").forEach(b=>b.disabled=true);
+  try{
+    const isEditSvc=editCar?._editSvc;
+    const saved=await upsertCar(car);
+    if(DEMO){const target=CARS.find(c=>c.id===saved.id);if(isEditSvc){const i=target.services.findIndex(x=>x.id===s.id);if(i>=0)target.services[i]=s;else target.services.push(s);sortSvc(target.services);store.save("cars",CARS)}else await insertService(target,s)}
+    else{await insertService(saved,s);if(!await loadCars())throw new Error("zapisano, ale nie udało się odświeżyć listy – odśwież stronę")}
+    const fresh=CARS.find(c=>c.id===car.id);
+    if(print&&fresh){const ls=nextOf(fresh).id?nextOf(fresh):fresh.services[0];printLabel(fresh,ls)}
+    if(wa&&fresh)sendWA(fresh.id,"done",win);
+    show("list");
+  }catch(e){win?.close();if(DEMO)await loadCars();
+    const msg=/duplicate|unique/i.test(e.message||"")?"to auto lub wpis już istnieje (możliwy podwójny zapis) – odśwież listę":e.message;
+    $("formErr").textContent="Błąd zapisu: "+msg}
+  finally{saving=false;document.querySelectorAll("#sec-form button").forEach(b=>b.disabled=false)}
+}
+function printOnly(){const c=editCar;if(!c)return;const s=nextOf(c);if(!s.id)return;printLabel(c,s)}
+async function delService(){const b=$("delBtn");
+  if(b.textContent!=="Na pewno usunąć?"){b.textContent="Na pewno usunąć?";return}
+  const sid=editCar._editSvc;
+  try{if(DEMO){editCar.services=editCar.services.filter(x=>x.id!==sid);CARS=CARS.filter(c=>c.services.length);store.save("cars",CARS)}
+  else{const {error}=await sb.from("services").delete().eq("id",sid);if(error)throw error;
+    if(editCar.services.length===1){const r=await sb.from("cars").delete().eq("id",editCar.id);if(r.error)throw r.error}await loadCars()}
+  show("list")}catch(e){$("formErr").textContent="Błąd usuwania: "+e.message}}
+function printLabel(car,s){
+  $("pageSize").textContent=`@page{size:${S.w}mm ${S.h}mm;margin:0}`;
+  $("printArea").innerHTML=labelHTML(car,s,S);drawQR($("printArea"));
+  setTimeout(()=>{if(!$("printArea").querySelector(".qr img[src^='data:'],.qr canvas")){alert("Nie udało się wygenerować kodu QR – sprawdź połączenie z internetem i spróbuj ponownie.");return}window.print()},600);
+}
+
+/* ---------- szablon ---------- */
+const DEMO_CAR={plate:"WA 58213",model:"Škoda Octavia Combi",year:"2022",vin:"TMBJJ7NX5NY000000",token:"przyklad"};
+const DEMO_SVC={date:"2026-10-12",km:46300,oil:"5W-30 syntetyczny",qty:"4,3",filters:["Oleju","Powietrza","Kabinowy"],next_km:61300,next_date:"2027-10-12"};
+function fillSettings(){
+  $("sW").value=S.w;$("sH").value=S.h;$("sSub").value=S.sub;$("sFoot").value=S.foot;$("sScan").value=S.scan;$("sMono").value=S.mono;
+  $("sKm").value=S.km;$("sMonths").value=S.months;$("sFilters").value=S.filters;$("sBase").value=S.base;$("sPhone").value=S.phone;$("sBook").value=S.book;
+  $("sTypes").value=S.types;$("sWa").value=S.wa;$("sMsgDone").value=S.msgDone;$("sMsgRemind").value=S.msgRemind;
+  $("sFields").innerHTML=Object.entries(FIELD_LABELS).map(([k,v])=>`<label><input type="checkbox" data-f="${k}" ${S.fields[k]?"checked":""} onchange="preview2()">${v}</label>`).join("");
+  $("sOk").textContent="";preview2();
+}
+function readSettings(){const f={};$("sFields").querySelectorAll("input").forEach(i=>f[i.dataset.f]=i.checked);
+  return {w:Math.min(200,Math.max(40,num($("sW").value)||100)),h:Math.min(150,Math.max(25,num($("sH").value)||50)),sub:$("sSub").value,foot:$("sFoot").value,scan:$("sScan").value,mono:$("sMono").value,
+  fields:f,km:num($("sKm").value)||15000,months:Math.min(60,num($("sMonths").value)||12),filters:$("sFilters").value,base:$("sBase").value.trim(),phone:$("sPhone").value.trim(),book:$("sBook").value.trim(),
+  types:$("sTypes").value||DEFAULT_SETTINGS.types,wa:$("sWa").value.trim(),msgDone:$("sMsgDone").value,msgRemind:$("sMsgRemind").value}}
+function preview2(){$("preview2Box").innerHTML=labelHTML(DEMO_CAR,DEMO_SVC,readSettings());drawQR($("preview2Box"));scaleBox($("preview2Box"))}
+async function saveSettings(){const nv=readSettings();
+  if(nv.base&&!/^https:\/\/[^\s/]+\.[^\s]+$/.test(nv.base)){$("sOk").textContent="Adres strony musi zaczynać się od https:// (np. https://serwis.latex.net.pl/)";return}
+  S=nv;
+  if(DEMO){try{store.save("settings",S)}catch(e){$("sOk").textContent="Błąd: "+e.message;return}}else{const {error}=await sb.from("settings").upsert({id:1,data:S});if(error){$("sOk").textContent="Błąd: "+error.message;return}}
+  $("sOk").textContent="Zapisano";}
+
+/* ---------- widok publiczny ---------- */
+async function renderPublic(tok){
+  $("publicView").classList.remove("hidden");
+  let car;try{car=await getPublic(tok)}catch(e){$("pubBody").innerHTML=`<div class="tile">Nie udało się wczytać historii. Sprawdź połączenie z internetem i odśwież stronę.</div>`;return}
+  if(!car){$("pubBody").innerHTML=`<div class="tile">Nie znaleziono pojazdu. Zadzwoń do serwisu: <a href="tel:${esc(S.phone)}">${esc(S.phone)}</a></div>`;return}
+  const svcs=sortSvc(car.services||[]),s=nextOf({services:svcs}),last=svcs[0]||{},[t,cl]=status({services:svcs});
+  const next=nextTxt(s);
+  const photos=x=>(x.photos||[]).length?`<div class="photos">${x.photos.filter(p=>/^data:image\/(jpeg|png|webp);base64,/.test(p)).map(p=>`<img src="${p}" alt="Zdjęcie z serwisu">`).join("")}</div>`:"";
+  const summary=`
+   <div class="tile"><div class="k">Następny serwis</div><div style="font-size:18px;font-weight:600;color:var(--red)">${next||"–"}</div></div>
+   <div class="tile"><div class="k">Użyty olej</div>${esc(s.oil)||"–"}${s.qty?" · "+esc(s.qty)+" l":""}</div>
+   <div class="tile"><div class="k">Wymienione filtry</div>${(s.filters||[]).map(esc).join(", ")||"–"}</div>
+   <div class="tile"><div class="k">Ostatnia wizyta</div>${fmtD(last.date)} · ${fmtKm(last.km)} · ${esc(last.type||"")}${last.notes?`<div class="muted" style="margin-top:4px">${esc(last.notes)}</div>`:""}</div>`;
+  const history=`<div class="tile"><div class="tl">${svcs.map(x=>`<div class="it"><b>${esc(x.type||"Serwis")}</b> <span class="muted">${fmtD(x.date)} · ${fmtKm(x.km)}</span>
+     ${x.oil?`<div>Olej: ${esc(x.oil)}${x.qty?" · "+esc(x.qty)+" l":""}</div>`:""}
+     ${(x.filters||[]).length?`<div>Filtry: ${x.filters.map(esc).join(", ")}</div>`:""}
+     ${x.work?`<div>${esc(x.work)}</div>`:""}${x.notes?`<div class="muted">${esc(x.notes)}</div>`:""}${photos(x)}</div>`).join("")||"Brak wpisów"}</div></div>`;
+  const wa=(S.wa||"48667545554").replace(/\D/g,"");
+  $("pubBody").innerHTML=`
+   <div class="tile"><div class="plate" style="font-size:28px">${esc(car.plate)}</div><div class="muted">${esc(car.model)} ${esc(car.year)}</div>
+   <div style="margin-top:8px"><span class="badge ${cl}">${t}</span> <span class="muted">Wizyt: ${svcs.length}</span></div></div>
+   <div class="ptabs"><button class="on" id="ptS" onclick="pubTab('S')">Podsumowanie</button><button id="ptH" onclick="pubTab('H')">Historia (${svcs.length})</button></div>
+   <div id="pbS">${summary}</div><div id="pbH" class="hidden">${history}</div>
+   <a class="btn red" href="${esc(S.book)}">Umów wizytę ›</a>
+   <a class="btn out" href="tel:${esc(S.phone)}">Zadzwoń</a>
+   <a class="btn out" style="border-color:#1fa855;color:#1fa855" href="https://wa.me/${wa}?text=${encodeURIComponent("Dzień dobry, piszę w sprawie auta "+car.plate)}">Napisz na WhatsApp</a>
+   <p class="muted" style="text-align:center;margin-top:16px">Latex Auto Serwis · ul. Krakowska 54a, Wrocław</p>`;
+}
+function markApp(){if(!IN_APP())return false;const t=document.getElementById("demoTxt");if(t)t.textContent="BETA · tryb lokalny: dane są zapisane w programie na tym komputerze.";return true}
+window.addEventListener("pywebviewready",markApp);
+(()=>{let n=0;const iv=setInterval(()=>{if(markApp()||++n>40)clearInterval(iv)},250)})();
+function exportBackup(){
+  try{const data={app:"latex-serwis",version:1,saved:new Date().toISOString(),cars:store.load("cars",[]),settings:store.load("settings",{})};
+    if(IN_APP()){window.pywebview.api.save_backup(JSON.stringify(data),`serwis-kopia-${todayStr()}.json`).then(p=>{
+      if(!p){$("backupMsg").textContent=" Anulowano.";return}
+      try{localStorage.setItem("latex_lastBackup",todayStr())}catch(e){}
+      $("backupMsg").textContent=` Zapisano kopię (${data.cars.length} aut): ${p}`}).catch(e=>{$("backupMsg").textContent=" Błąd kopii: "+e});return}
+    const blob=new Blob([JSON.stringify(data)],{type:"application/json"}),a=document.createElement("a");
+    a.href=URL.createObjectURL(blob);a.download=`serwis-kopia-${todayStr()}.json`;document.body.appendChild(a);a.click();
+    setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+    try{localStorage.setItem("latex_lastBackup",todayStr())}catch(e){}
+    $("backupMsg").textContent=` Zapisano kopię: ${data.cars.length} aut.`}catch(e){$("backupMsg").textContent=" Błąd kopii: "+e.message}}
+async function importBackup(f){if(!f)return;
+  try{const d=JSON.parse(await f.text());if(d.app!=="latex-serwis"||!Array.isArray(d.cars))throw new Error("to nie jest kopia panelu serwisowego");
+    const b=$("backupMsg");
+    if(b.dataset.confirm!==f.name){b.dataset.confirm=f.name;b.dataset.pending=JSON.stringify(d);
+      b.innerHTML=` Kopia z ${esc((d.saved||"").slice(0,10))}: ${d.cars.length} aut. Obecne dane (${CARS.length} aut) zostaną zastąpione. <button class="primary" style="padding:4px 10px;font-size:12px" onclick="confirmImport()">Zastąp</button>`;return}
+  }catch(e){$("backupMsg").textContent=" Nie wczytano: "+e.message}}
+function confirmImport(){const b=$("backupMsg");try{const d=JSON.parse(b.dataset.pending||"{}");
+  store.save("cars",d.cars);if(d.settings)store.save("settings",d.settings);b.dataset.confirm="";b.dataset.pending="";
+  loadSettings().then(loadCars).then(()=>{show("list");b.textContent=` Wczytano ${d.cars.length} aut.`})}catch(e){b.textContent=" Błąd: "+e.message}}
+function pubTab(k){["S","H"].forEach(x=>{$("pb"+x).classList.toggle("hidden",x!==k);$("pt"+x).classList.toggle("on",x===k)})}
+
+/* ---------- logowanie i start ---------- */
+async function doLogin(){if(!$("lgEmail").value||!$("lgPass").value){$("lgErr").textContent="Wpisz e-mail i hasło.";return}const {error}=await sb.auth.signInWithPassword({email:$("lgEmail").value,password:$("lgPass").value});
+  if(error){$("lgErr").textContent="Nieprawidłowe dane logowania.";return}$("loginView").classList.add("hidden");startAdmin()}
+async function doLogout(){await sb.auth.signOut();location.reload()}
+async function startAdmin(){$("adminView").classList.remove("hidden");await loadCars();show("list")}
+(async()=>{
+  if(!DEMO&&!sb)return;
+  try{await loadSettings()}catch(e){}
+  const tok=new URLSearchParams(location.search).get("a");
+  if(tok)return renderPublic(tok);
+  if(DEMO){$("demoBar").classList.remove("hidden");$("logoutBtn").classList.add("hidden");
+    let last="";try{last=localStorage.getItem("latex_lastBackup")||""}catch(e){}
+    if(store.load("cars",[]).length&&(!last||(new Date(todayStr())-new Date(last))>7*864e5))$("backupMsg").textContent=last?` Ostatnia kopia: ${fmtD(last)} – zrób nową.`:" Nie masz jeszcze kopii zapasowej.";
+    return startAdmin()}
+  const {data}=await sb.auth.getSession();
+  data.session?startAdmin():$("loginView").classList.remove("hidden");
+})();
+(()=>{const d=$("photoDrop");if(!d)return;
+  d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("over")});
+  d.addEventListener("dragleave",()=>d.classList.remove("over"));
+  d.addEventListener("drop",e=>{e.preventDefault();d.classList.remove("over");addPhotos(e.dataTransfer.files)});
+  document.addEventListener("paste",e=>{if($("sec-form").classList.contains("hidden"))return;
+    const f=[...(e.clipboardData?.files||[])].filter(x=>x.type.startsWith("image/"));if(f.length){e.preventDefault();addPhotos(f)}});})();
+window.addEventListener("resize",()=>{["previewBox","preview2Box"].forEach(id=>scaleBox($(id)))});
+</script>
+</body>
+</html>
