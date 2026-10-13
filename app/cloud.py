@@ -23,10 +23,10 @@ class CloudError(Exception):
     pass
 
 
-def _http(method, path, body=None, token=None):
+def _http(method, path, body=None, token=None, prefer="return=representation"):
     req = urllib.request.Request(URL + path, method=method,
                                  data=json.dumps(body).encode("utf-8") if body is not None else None,
-                                 headers={"apikey": ANON_KEY, "Content-Type": "application/json", "Prefer": "return=representation",
+                                 headers={"apikey": ANON_KEY, "Content-Type": "application/json", "Prefer": prefer,
                                           "Authorization": f"Bearer {token or ANON_KEY}"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
@@ -74,15 +74,15 @@ class Session:
         forget()
 
     # --- zapytania (z odświeżeniem tokenu po wygaśnięciu) ---
-    def call(self, method, path, body=None):
+    def call(self, method, path, body=None, prefer="return=representation"):
         try:
-            return _http(method, path, body, self.access)
+            return _http(method, path, body, self.access, prefer)
         except CloudError as e:
             if "JWT" not in str(e) and "expired" not in str(e).lower():
                 raise
         self.refresh()
         remember(self) if SESSION_FILE.exists() else None
-        return _http(method, path, body, self.access)
+        return _http(method, path, body, self.access, prefer)
 
     def rpc(self, fn, **args):
         return self.call("POST", f"/rest/v1/rpc/{fn}", args)
@@ -118,7 +118,8 @@ class Session:
         return rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
 
     def set_company(self, value: dict):
-        self.call("POST", "/rest/v1/app_config?on_conflict=key", {"key": "crm", "value": value})
+        self.call("POST", "/rest/v1/app_config?on_conflict=key", {"key": "crm", "value": value},
+                  prefer="resolution=merge-duplicates,return=minimal")
 
     # --- administrator ---
     def list_users(self) -> list:
