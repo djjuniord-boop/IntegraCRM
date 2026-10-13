@@ -11,8 +11,11 @@ const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: 
 
 Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Tylko POST" }, 405);
-  if (!GMAIL_USER || !GMAIL_PASS) return json({ error: "Wysyłka z serwera nie jest skonfigurowana (brak sekretów GMAIL_USER / GMAIL_APP_PASSWORD)." }, 503);
   const sb = createClient(URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+  // najpierw: czy to aktywne konto programu (bez tego nic nie zdradzamy, nawet stanu konfiguracji)
+  const { data: who } = await sb.rpc("me");
+  if (!who || !(who as { email?: string }).email) return json({ error: "Brak dostępu – zaloguj się w programie" }, 401);
+  if (!GMAIL_USER || !GMAIL_PASS) return json({ error: "Wysyłka z serwera nie jest skonfigurowana (brak sekretów GMAIL_USER / GMAIL_APP_PASSWORD)." }, 503);
   let b: Record<string, unknown>;
   try { b = await req.json(); } catch { return json({ error: "Nieprawidłowe dane" }, 400); }
 
@@ -26,8 +29,11 @@ Deno.serve(async (req) => {
     const rto = Array.isArray(b.to) ? (b.to as unknown[]).map((x) => String(x).trim().toLowerCase()) : [];
     const rbad = rto.filter((x) => !ok.has(x));
     if (!rto.length || rbad.length) return json({ error: `Adres spoza listy odbiorców MARŻY: ${rbad.join(", ")}` }, 400);
-    const raw = String(b.raw ?? "");
+    let raw = String(b.raw ?? "");
     if (!raw || raw.length > 8_000_000) return json({ error: "Nieprawidłowa wiadomość" }, 400);
+    // nagłówek „Od” zawsze z konta wysyłkowego serwera (silnik nie zna tego adresu)
+    const cut = raw.search(/\r?\n\r?\n/);
+    if (cut > 0) raw = raw.slice(0, cut).replace(/^From:[^\r\n]*(\r?\n[ \t][^\r\n]*)*/m, `From: Panel Wynikow LATEX <${GMAIL_USER}>`) + raw.slice(cut);
     const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } });
     try {
       await t.sendMail({ envelope: { from: GMAIL_USER, to: rto }, raw });
@@ -40,7 +46,7 @@ Deno.serve(async (req) => {
   // Kontrola CRM: mail z brakami
   const { data: ok } = await sb.rpc("has_module", { m: "crm" });
   if (ok !== true) return json({ error: "Brak dostępu do modułu Kontrola CRM" }, 403);
-  const { data: me } = await sb.rpc("me");
+  const me = who as { email?: string };
   if (b.action === "status") return json({ ok: true, from: GMAIL_USER });
   const subject = String(b.subject ?? "").slice(0, 300);
   const text = String(b.body ?? "").slice(0, 50000);

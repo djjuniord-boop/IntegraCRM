@@ -227,6 +227,8 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
     # pytanie z konsoli → okno programu
     eng.input = lambda q="": "T" if ask(q.strip()) else "N"
     captured = _cloud_hooks(eng) if SESSION is not None else None
+    if captured is not None and not eng.EMAIL_NADAWCA:   # nagłówek „Od” – serwer i tak wstawia swój adres
+        eng.EMAIL_NADAWCA = SESSION.email
     real_smtplib = sys.modules.get("smtplib")
     if captured is not None:
         sys.modules["smtplib"] = _server_smtplib()   # silnik robi „import smtplib” – maile idą przez serwer
