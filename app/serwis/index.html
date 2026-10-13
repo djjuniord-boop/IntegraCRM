@@ -449,7 +449,7 @@ async function addPhotos(files){let bad=0,over=false;files=[...(files||[])];
   renderPhotos();
   $("formErr").textContent=(bad?`Pominięto ${bad} plik(i) – nieobsługiwany format (np. HEIC). `:"")+(over?"Maksymalnie 6 zdjęć na wpis.":"")}
 function formData(){
-  const car={...(editCar||{id:uuid(),token:token(),services:[]}),
+  const car={...(editCar||{id:uuid(),token:token(),services:[],...(!DEMO?{branch:(ME?.role!=="admin"&&ME?.branches?.[0])||"Latex Wrocław"}:{})}),
     plate:$("fPlate").value.trim(),model:$("fModel").value.trim(),year:$("fYear").value.trim(),vin:$("fVin").value.trim(),
     owner:$("fOwner").value.trim(),phone:$("fPhone").value.trim()};
   delete car._editSvc;
@@ -582,7 +582,11 @@ function pubTab(k){["S","H"].forEach(x=>{$("pb"+x).classList.toggle("hidden",x!=
 async function doLogin(){if(!$("lgEmail").value||!$("lgPass").value){$("lgErr").textContent="Wpisz e-mail i hasło.";return}const {error}=await sb.auth.signInWithPassword({email:$("lgEmail").value,password:$("lgPass").value});
   if(error){$("lgErr").textContent="Nieprawidłowe dane logowania.";return}$("loginView").classList.add("hidden");startAdmin()}
 async function doLogout(){await sb.auth.signOut();location.reload()}
-async function startAdmin(){$("adminView").classList.remove("hidden");await loadCars();show("list")}
+let ME=null;   // zalogowany pracownik: oddziały (nowe auta trafiają do jego pierwszego oddziału)
+async function startAdmin(){$("adminView").classList.remove("hidden");
+  if(!DEMO){try{const {data}=await sb.rpc("me");ME=data}catch(e){}
+    if(!ME||!ME.email){alert("To konto nie ma dostępu do SERWIS QR. Skontaktuj się z administratorem.");return doLogout()}}
+  await loadCars();show("list")}
 (async()=>{
   if(!DEMO&&!sb)return;
   try{await loadSettings()}catch(e){}
