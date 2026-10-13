@@ -86,7 +86,8 @@ def _selftest(window, out_file: str):
         js("saveService();1")
         time.sleep(1.0)
         res["cars_after"] = js("store.load('cars',[]).length")
-        res["ok"] = (res["qr_lib"] == "function" and res["qr_drawn"] and res["bridge"] and "w programie" in res["app_mode_text"]
+        res["status"] = read_status().get("state")
+        res["ok"] = (res["status"] == "loaded" and res["qr_lib"] == "function" and res["qr_drawn"] and res["bridge"] and "w programie" in res["app_mode_text"]
                      and res["cars_after"] == res["cars_before"] + 1)
         shot = os.environ.get("INTEGRA_SHOT")
         if shot:
@@ -101,26 +102,96 @@ def _selftest(window, out_file: str):
     window.destroy()
 
 
+STATUS = paths.DATA_DIR / "serwis_status.json"
+LOG = paths.DATA_DIR / "serwis.log"
+
+
+def _status(state: str, **extra) -> None:
+    """Stan okna dla głównego programu: starting → window → shown → loaded / error."""
+    try:
+        STATUS.write_text(json.dumps({"state": state, "pid": os.getpid(), "time": time.time(), **extra},
+                                     ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def read_status() -> dict:
+    try:
+        return json.loads(STATUS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def log_tail(n: int = 12) -> str:
+    try:
+        return "\n".join(LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+def _setup_log():
+    import logging
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    h = logging.FileHandler(LOG, mode="w", encoding="utf-8")
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(logging.INFO)
+    logging.getLogger("pywebview").addHandler(h)
+    return logging.getLogger("serwis")
+
+
 def run() -> int:
-    import webview
-    if not serwis_qr.PANEL.exists():
-        raise FileNotFoundError(f"Brak pliku panelu: {serwis_qr.PANEL}")
-    serwis_qr.write_config(_load_cfg())
-    STORAGE.mkdir(parents=True, exist_ok=True)
-    api = Api()
-    w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
-                              width=1320, height=900, min_size=(960, 640), text_select=True)
-    api.window = w
-    test_out = os.environ.get("INTEGRA_SERWIS_TEST")
-    icon = paths.APP_DIR / "assets" / "icon.ico"
-    kw = dict(private_mode=False, storage_path=str(STORAGE), icon=str(icon) if icon.exists() else None)
-    if sys.platform == "win32":
-        kw["gui"] = "edgechromium"   # nigdy stary silnik Internet Explorera
-    if test_out:
-        webview.start(_selftest, (w, test_out), **kw)
-    else:
-        webview.start(**kw)
-    return 0
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _status("starting")
+    log = _setup_log()
+    try:
+        log.info("start, python %s, frozen=%s, root=%s", sys.version.split()[0], getattr(sys, "frozen", False), paths.ROOT)
+        import webview
+        log.info("pywebview %s", getattr(webview, "__version__", "?"))
+        if not serwis_qr.PANEL.exists():
+            raise FileNotFoundError(f"Brak pliku panelu: {serwis_qr.PANEL}")
+        serwis_qr.write_config(_load_cfg())
+        STORAGE.mkdir(parents=True, exist_ok=True)
+        api = Api()
+        w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
+                                  width=1320, height=900, min_size=(960, 640), text_select=True)
+        api.window = w
+
+        def on_shown():
+            log.info("okno widoczne")
+            _status("shown")
+            try:   # wysuń okno na wierzch (Windows potrafi otworzyć je za oknem głównym)
+                w.on_top = True
+                time.sleep(0.6)
+                w.on_top = False
+            except Exception:
+                log.exception("on_top")
+
+        def on_loaded():
+            log.info("panel wczytany: %s", w.get_current_url())
+            _status("loaded")
+
+        w.events.shown += on_shown
+        w.events.loaded += on_loaded
+        test_out = os.environ.get("INTEGRA_SERWIS_TEST")
+        icon = paths.APP_DIR / "assets" / "icon.ico"
+        kw = dict(private_mode=False, storage_path=str(STORAGE), icon=str(icon) if icon.exists() else None)
+        if sys.platform == "win32":
+            kw["gui"] = "edgechromium"   # nigdy stary silnik Internet Explorera
+        _status("window")
+        log.info("uruchamiam okno (%s)", kw.get("gui", "auto"))
+        if test_out:
+            webview.start(_selftest, (w, test_out), **kw)
+        else:
+            webview.start(**kw)
+        log.info("okno zamknięte")
+        _status("closed")
+        return 0
+    except Exception as e:
+        log.exception("błąd okna panelu")
+        _status("error", error=f"{type(e).__name__}: {e}")
+        raise
 
 
 def is_available() -> str:

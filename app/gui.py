@@ -671,25 +671,60 @@ class App(tk.Tk):
             return
         try:
             serwis_qr.write_config(cfg)
+            try:
+                serwis_window.STATUS.unlink()
+            except OSError:
+                pass
             self._serwis_proc = serwis_window.launch()
+            self._serwis_t0 = __import__("time").time()
             self._stat("serwis_open")
-            self._serwis_banner("ok", "Otwieram panel…")
-            self.after(5000, self._serwis_check_started)
+            self._serwis_banner("warn", "Otwieram panel… (pierwsze uruchomienie może potrwać kilkanaście sekund)")
+            self.after(1000, self._serwis_check_started)
         except Exception as e:
             messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
 
     def _serwis_check_started(self):
+        import time
+        import serwis_window
         proc = getattr(self, "_serwis_proc", None)
         if proc is None:
             return
+        st = serwis_window.read_status()
+        state = st.get("state", "")
+        waited = time.time() - getattr(self, "_serwis_t0", time.time())
         code = proc.poll()
-        if code is None:
-            self._serwis_banner("ok", "✔  Panel otwarty w osobnym oknie programu.")
-        elif code != 0:
-            self._serwis_banner("bad", "✖  Okno panelu nie uruchomiło się (szczegóły w data\\error.log).")
-            if messagebox.askyesno("SERWIS QR", "Okno panelu nie uruchomiło się. Najczęstsza przyczyna: brak składnika "
-                                   "Microsoft Edge WebView2 w systemie.\n\nOtworzyć panel tymczasowo w przeglądarce?"):
-                self._serwis_browser(load_config())
+        if state == "loaded":
+            self._serwis_banner("ok", "✔  Panel otwarty w osobnym oknie programu "
+                                "(jeśli go nie widzisz – kliknij jego ikonę na pasku zadań).")
+            return
+        if code is not None or state == "error":
+            err = st.get("error") or f"kod zakończenia {code}"
+            self._serwis_banner("bad", f"✖  Okno panelu nie uruchomiło się: {err}")
+            self._serwis_fail(err)
+            return
+        if waited > 45:
+            self._serwis_banner("bad", f"✖  Okno panelu nie pojawiło się w ciągu 45 s (etap: {state or 'start'}).")
+            self._serwis_fail(f"przekroczony czas, etap: {state or 'start'}", kill=True)
+            return
+        label = {"": "uruchamianie…", "starting": "wczytywanie silnika…", "window": "tworzenie okna…",
+                 "shown": "wczytywanie panelu…"}.get(state, state)
+        self._serwis_banner("warn", f"Otwieram panel… {label} ({int(waited)} s)")
+        self.after(1000, self._serwis_check_started)
+
+    def _serwis_fail(self, err, kill=False):
+        import serwis_window
+        if kill:
+            try:
+                self._serwis_proc.kill()
+            except Exception:
+                pass
+        tail = serwis_window.log_tail()
+        msg = (f"Okno panelu nie uruchomiło się.\n\nPowód: {err}\n\n"
+               + (f"Ostatnie wpisy dziennika (data\\serwis.log):\n{tail}\n\n" if tail else "")
+               + "Najczęstsza przyczyna: brak lub zablokowany składnik Microsoft Edge WebView2.\n\n"
+               "Otworzyć panel tymczasowo w przeglądarce?")
+        if messagebox.askyesno("SERWIS QR", msg):
+            self._serwis_browser(load_config())
 
     def _serwis_browser(self, cfg):
         import serwis_qr

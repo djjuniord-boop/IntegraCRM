@@ -96,7 +96,21 @@ jobs:
           $r1 = Get-Content serwis_test_1.json -Raw | ConvertFrom-Json
           $r2 = Get-Content serwis_test_2.json -Raw | ConvertFrom-Json
           if ($r2.cars_before -lt $r1.cars_after) { throw "Dane panelu nie przetrwały ponownego uruchomienia" }
-          Remove-Item -Recurse -Force pkg/IntegraCRM/data/serwis_webview, pkg/IntegraCRM/data/serwis_config.js -ErrorAction SilentlyContinue
+          # zwykłe uruchomienie (tak jak z przycisku w programie, bez trybu testowego)
+          Remove-Item Env:INTEGRA_SERWIS_TEST -ErrorAction SilentlyContinue
+          $st = "pkg/IntegraCRM/data/serwis_status.json"; Remove-Item $st -ErrorAction SilentlyContinue
+          $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
+          $state = ""
+          for ($i = 0; $i -lt 60; $i++) {
+            Start-Sleep -Seconds 1
+            if (Test-Path $st) { $state = (Get-Content $st -Raw | ConvertFrom-Json).state }
+            if ($state -eq "loaded" -or $state -eq "error" -or $p.HasExited) { break }
+          }
+          Write-Host "Stan okna (zwykłe uruchomienie): $state po $i s"
+          Get-Content pkg/IntegraCRM/data/serwis.log -ErrorAction SilentlyContinue
+          if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+          if ($state -ne "loaded") { throw "Zwykłe uruchomienie okna nie doszło do wczytania panelu (stan: $state)" }
+          Remove-Item -Recurse -Force pkg/IntegraCRM/data/serwis_webview, pkg/IntegraCRM/data/serwis_config.js, pkg/IntegraCRM/data/serwis_status.json, pkg/IntegraCRM/data/serwis.log -ErrorAction SilentlyContinue
 
       - name: Zrzuty ekranu (kontrola wyglądu)
         continue-on-error: true
