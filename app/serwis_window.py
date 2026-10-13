@@ -158,15 +158,21 @@ def run() -> int:
                                   width=1320, height=900, min_size=(960, 640), text_select=True)
         api.window = w
 
-        def on_shown():
-            log.info("okno widoczne")
-            _status("shown")
-            try:   # wysuń okno na wierzch (Windows potrafi otworzyć je za oknem głównym)
+        def raise_window():
+            # wysuń okno na wierzch (Windows potrafi otworzyć je za oknem głównym);
+            # osobny wątek – nie wolno blokować wątku okna, bo panel by się nie wczytał
+            try:
+                time.sleep(0.3)
                 w.on_top = True
-                time.sleep(0.6)
+                time.sleep(0.8)
                 w.on_top = False
             except Exception:
                 log.exception("on_top")
+
+        def on_shown():
+            log.info("okno widoczne")
+            _status("shown")
+            threading.Thread(target=raise_window, daemon=True).start()
 
         def on_loaded():
             log.info("panel wczytany: %s", w.get_current_url())
