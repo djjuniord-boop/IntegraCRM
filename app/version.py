@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.14.0"
+VERSION = "0.15.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.15.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Historia sprawdzeń wspólna dla wszystkich komputerów (w bazie) – z informacją kto i dla którego oddziału",
+            "Rejestr „zgłaszany już” wspólny dla oddziałów – ten sam numer nie jest zgłaszany dwa razy; "
+            "dotychczasowy rejestr z tego komputera przenosi się automatycznie",
+            "Ustawienia firmowe (administrator): nadawca, odbiorcy domyślni i osobni odbiorcy dla każdego oddziału",
+            "Mail z brakami trafia do odbiorców oddziałów zaznaczonych przy sprawdzaniu",
+        ],
+    },
     {
         "version": "0.14.0",
         "date": "2026-10-13",

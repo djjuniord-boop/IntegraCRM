@@ -88,6 +88,20 @@ HELP_STEPS = [
 ]
 
 
+COMPANY: dict = {}   # ustawienia firmowe z bazy (odbiorcy, nadawca) – wczytywane po zalogowaniu
+
+
+def recipients_for(branches, cfg=None) -> list:
+    """Odbiorcy maila z brakami: wg oddziałów (ustawienia firmowe), inaczej domyślni."""
+    by = COMPANY.get("by_branch") or {}
+    out = []
+    for b in branches or []:
+        for r in by.get(b) or []:
+            if r.lower() not in {x.lower() for x in out}:
+                out.append(r)
+    return out or list((cfg or load_config())["recipients"])
+
+
 def load_config() -> dict:
     cfg = dict(DEFAULTS)
     if paths.CONFIG_PATH.exists():
@@ -99,6 +113,11 @@ def load_config() -> dict:
             except OSError:
                 pass
     cfg["gmail_app_password"] = vault.unprotect(cfg.get("gmail_app_password", ""))
+    if COMPANY:   # po zalogowaniu firmowe ustawienia mają pierwszeństwo przed lokalnymi
+        if COMPANY.get("recipients"):
+            cfg["recipients"] = list(COMPANY["recipients"])
+        if COMPANY.get("sender_name"):
+            cfg["sender_name"] = COMPANY["sender_name"]
     return cfg
 
 
@@ -243,7 +262,7 @@ class SettingsDialog(tk.Toplevel):
 
         section("Poczta")
         self.v_name = tk.StringVar(value=cfg.get("sender_name") or mailer.DEFAULT_SENDER)
-        row("Nazwa nadawcy", self.v_name)
+        self.name_entry = row("Nazwa nadawcy", self.v_name)
         row("Twój Gmail (nadawca)", self.v_user)
         self.pass_entry = row("Hasło aplikacji Google", self.v_pass, show="•")
         self.show = tk.BooleanVar()
@@ -251,7 +270,26 @@ class SettingsDialog(tk.Toplevel):
                         command=lambda: self.pass_entry.config(show="" if self.show.get() else "•")
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
         r[0] += 1
-        row("Odbiorcy (po przecinku)", self.v_to)
+        sess = getattr(parent, "session", None)
+        self.company_mode = "admin" if sess and sess.is_admin else ("locked" if sess else "")
+        self.v_by = {}
+        if self.company_mode == "locked":   # ustawienia firmowe – tylko do odczytu
+            for e in (self.name_entry, row("Odbiorcy (domyślni)", self.v_to)):
+                e.config(state="disabled")
+            tk.Label(body, text="Nadawcę i odbiorców ustawia administrator (wspólne dla firmy).",
+                     bg=SURFACE, fg=MUTED, font=f.small).grid(row=r[0], column=1, sticky="w", padx=12)
+            r[0] += 1
+        else:
+            row("Odbiorcy (domyślni)", self.v_to)
+        if self.company_mode == "admin":
+            by = COMPANY.get("by_branch") or {}
+            for b in cloud.BRANCHES:
+                self.v_by[b] = tk.StringVar(value=", ".join(by.get(b) or []))
+                row(f"Odbiorcy – {b}", self.v_by[b])
+            tk.Label(body, text="Ustawienia firmowe – zapisują się dla wszystkich użytkowników. Puste pole "
+                     "oddziału = odbiorcy domyślni.", bg=SURFACE, fg=MUTED, font=f.small).grid(
+                row=r[0], column=1, sticky="w", padx=12)
+            r[0] += 1
         self.v_cc = tk.BooleanVar(value=bool(cfg.get("cc_self", True)))
         ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
@@ -300,7 +338,22 @@ class SettingsDialog(tk.Toplevel):
     def save(self):
         old = load_config()
         cfg = dict(old)
-        cfg.update(self.collect())     # zachowuje pozostałe ustawienia (np. SERWIS QR)
+        new = self.collect()
+        if self.company_mode == "admin":   # firmowe: do bazy (dla wszystkich)
+            split = lambda v: [x.strip() for x in v.get().split(",") if x.strip()]
+            value = dict(COMPANY, recipients=new["recipients"], sender_name=new["sender_name"],
+                         by_branch={b: split(v) for b, v in self.v_by.items() if split(v)})
+            try:
+                self.master.session.set_company(value)
+                COMPANY.clear()
+                COMPANY.update(value)
+            except Exception as e:
+                messagebox.showerror("Ustawienia", f"Nie zapisano ustawień firmowych:\n{e}", parent=self)
+                return
+        if self.company_mode == "locked":   # tych pól użytkownik nie zmienia
+            new.pop("recipients")
+            new.pop("sender_name")
+        cfg.update(new)     # zachowuje pozostałe ustawienia (np. SERWIS QR)
         save_config(cfg)
         self.destroy()
         changed = []   # zakładki zależą teraz od uprawnień konta (zakładka UŻYTKOWNICY)
@@ -541,6 +594,22 @@ class App(tk.Tk):
         super().__init__()
         self.session = session   # zalogowany użytkownik (rola, moduły, oddziały)
         migrate_config()
+        if session and history is not None:   # historia i rejestr zgłoszeń – wspólne, w bazie
+            history.SESSION = session
+            try:
+                COMPANY.update(session.company())
+            except Exception:
+                pass
+
+            def _sync():
+                try:
+                    n = history.migrate_local()
+                    history.reported(refresh=True)
+                    if n:
+                        self.after(0, lambda: self.say(f"Przeniesiono do bazy {n} zgłoszonych wcześniej numerów."))
+                except Exception:
+                    pass
+            threading.Thread(target=_sync, daemon=True).start()
         if session:   # SERWIS QR korzysta z tej samej bazy co logowanie
             try:
                 _c = load_config()
@@ -836,13 +905,14 @@ class App(tk.Tk):
         FlatButton(top, "Odśwież", self.refresh_history, "ghost", f.body, 14, 6).pack(side="right", padx=8)
         box = card(page, padx=2, pady=2)
         box.pack(fill="both", expand=True)
-        cols = ("data", "plik", "integra", "crm", "brakuje", "mail")
+        cols = ("data", "kto", "plik", "integra", "crm", "brakuje", "mail")
         s = ttk.Style(self)
         s.configure("H.Treeview", font=f.body, rowheight=26, background=SURFACE, fieldbackground=SURFACE)
         s.configure("H.Treeview.Heading", font=f.label, background=BG)
         s.map("H.Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
         self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
-        for c, t, w in (("data", "Data", 130), ("plik", "Plik PDF", 200), ("integra", "Integra", 70),
+        for c, t, w in (("data", "Data", 130), ("kto", "Kto / oddział", 200), ("plik", "Plik PDF", 170),
+                        ("integra", "Integra", 70),
                         ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "Mail wysłany do", 200)):
             self.hist_tree.heading(c, text=t, anchor="w")
             self.hist_tree.column(c, width=w, anchor="w")
@@ -856,23 +926,39 @@ class App(tk.Tk):
         self.refresh_history()
 
     def refresh_history(self):
-        t = self.hist_tree
-        t.delete(*t.get_children())
         if history is None:
             return
-        for r in reversed(history.read_all()):
-            t.insert("", "end", values=(r.get("data", ""), r.get("plik_pdf", ""), r.get("integra", ""),
+
+        def work():   # historia może być w bazie – pobieranie w tle
+            try:
+                rows = history.read_all()
+            except Exception as e:
+                rows = [{"data": "", "plik_pdf": f"Nie udało się wczytać historii: {e}"}]
+            self.after(0, self._show_history, rows)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_history(self, rows):
+        t = self.hist_tree
+        t.delete(*t.get_children())
+        for r in reversed(rows):
+            who = " · ".join(x for x in (r.get("kto", ""), r.get("oddzialy", "")) if x)
+            t.insert("", "end", values=(r.get("data", ""), who or "—", r.get("plik_pdf", ""), r.get("integra", ""),
                                         r.get("crm", ""), r.get("brakuje", "") or "—",
                                         r.get("mail_wyslany_do", "") or "—"))
 
     def open_history_file(self):
-        if history is None or not history.HISTORY.exists():
-            messagebox.showinfo("Historia", "Historia jest jeszcze pusta.")
+        if history is None:
             return
-        try:
-            os.startfile(str(history.HISTORY))   # Windows: otwiera w Excelu
-        except Exception as e:
-            messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
+        import tempfile
+        out = os.path.join(tempfile.gettempdir(), "IntegraCRM-historia.csv")
+
+        def work():
+            try:
+                history.export_csv(out)
+                os.startfile(out)   # Windows: otwiera w Excelu
+            except Exception as e:
+                self.after(0, lambda err=str(e): messagebox.showinfo("Historia", f"Nie udało się otworzyć historii:\n{err}"))
+        threading.Thread(target=work, daemon=True).start()
 
     # ---------- SERWIS QR (beta) – panel osadzony w zakładce ----------
     def _build_serwis(self, page):
@@ -1943,7 +2029,9 @@ class App(tk.Tk):
                 if history is None:
                     raise RuntimeError("brak modułu historii – pobierz nową wersję .exe")
                 name = os.path.basename(pdf)
-                self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain)
+                self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain,
+                                                    src.get("branches", []) if isinstance(src, dict) else [])
+                self.last_branches = src.get("branches", []) if isinstance(src, dict) else []
                 self.ui(self.refresh_history)
             except Exception as e:
                 self.say(f"Historia: nie zapisano ({e})")
@@ -1966,7 +2054,11 @@ class App(tk.Tk):
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
-            subj, body = mailer.compose(missing, uncertain, history.reported() if history else {})
+            try:
+                reg = history.reported(refresh=True) if history else {}
+            except Exception:
+                reg = history.reported() if history else {}
+            subj, body = mailer.compose(missing, uncertain, reg)
 
             def fill():
                 self.subject.set(subj)
@@ -1994,12 +2086,14 @@ class App(tk.Tk):
                                 "gdy czegoś brakuje w CRM.")
             return
         cfg = load_config()
+        cfg["recipients"] = recipients_for(getattr(self, "last_branches", []), cfg)
         if not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
             messagebox.showwarning("Ustawienia", "Uzupełnij swój Gmail, hasło aplikacji i odbiorców.")
             SettingsDialog(self)
             return
         if not messagebox.askyesno("Wyślij maila", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
             return
+        branch = ", ".join(getattr(self, "last_branches", []))
         subj, body = self.subject.get(), self.mail_body.get("1.0", "end").strip()
         missing = list(self.result[0])
         hist_index = self.hist_index if self.hist_index is not None else -1
@@ -2022,7 +2116,7 @@ class App(tk.Tk):
                     raise RuntimeError
                 self._stat("mail_sent", n_recipients=len(cfg["recipients"]))
                 # do rejestru „zgłoszone” trafiają tylko pewne braki, nie pozycje „do weryfikacji”
-                history.mark_sent(hist_index, cfg["recipients"], missing)
+                history.mark_sent(hist_index, cfg["recipients"], missing, branch)
                 self.ui(self.refresh_history)
             except Exception:
                 pass

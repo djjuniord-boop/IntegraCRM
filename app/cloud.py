@@ -26,7 +26,7 @@ class CloudError(Exception):
 def _http(method, path, body=None, token=None):
     req = urllib.request.Request(URL + path, method=method,
                                  data=json.dumps(body).encode("utf-8") if body is not None else None,
-                                 headers={"apikey": ANON_KEY, "Content-Type": "application/json",
+                                 headers={"apikey": ANON_KEY, "Content-Type": "application/json", "Prefer": "return=representation",
                                           "Authorization": f"Bearer {token or ANON_KEY}"})
     try:
         with urllib.request.urlopen(req, timeout=TIMEOUT) as r:
@@ -111,6 +111,14 @@ class Session:
     def min_version(self) -> str:
         rows = self.call("GET", "/rest/v1/app_config?key=eq.min_version&select=value") or []
         return str(rows[0]["value"]) if rows else ""
+
+    def company(self) -> dict:
+        """Ustawienia firmowe modułu Kontrola CRM (odbiorcy maili, nadawca) – ustawia administrator."""
+        rows = self.call("GET", "/rest/v1/app_config?key=eq.crm&select=value") or []
+        return rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
+
+    def set_company(self, value: dict):
+        self.call("POST", "/rest/v1/app_config?on_conflict=key", {"key": "crm", "value": value})
 
     # --- administrator ---
     def list_users(self) -> list:

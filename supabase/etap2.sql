@@ -1,0 +1,2 @@
+-- Etap 2 (zastosowane w bazie 2026-10-13 przez narzędzie Supabase): tabele checks, reported,
+-- funkcja report_plates, ustawienia firmowe app_config['crm']. Treść jak w migracji etap2_history_reported.
