@@ -29,7 +29,7 @@ class Api:
     """Funkcje programu dostępne z panelu (window.pywebview.api.*)."""
 
     def __init__(self):
-        self.window = None
+        self._window = None   # z podkreśleniem: pywebview nie może udostępniać okna stronie
 
     def open_url(self, url):
         u = str(url or "")
@@ -44,7 +44,7 @@ class Api:
 
     def save_backup(self, text, name):
         import webview
-        r = self.window.create_file_dialog(webview.SAVE_DIALOG, save_filename=str(name or "serwis-kopia.json"),
+        r = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename=str(name or "serwis-kopia.json"),
                                            file_types=("Kopia panelu (*.json)",))
         if not r:
             return ""
@@ -156,7 +156,7 @@ def run() -> int:
         api = Api()
         w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
                                   width=1320, height=900, min_size=(960, 640), text_select=True)
-        api.window = w
+        api._window = w
 
         def raise_window():
             # wysuń okno na wierzch (Windows potrafi otworzyć je za oknem głównym);
