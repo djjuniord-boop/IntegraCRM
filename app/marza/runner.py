@@ -16,6 +16,7 @@ import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+SESSION = None   # po zalogowaniu (ustawia okno programu): maile przez serwer, wyniki i kopie plików w chmurze
 
 ODDZIALY = [
     # klucz, nazwa, podfolder, moduł silnika, moduł podglądu
@@ -221,12 +222,18 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
         eng._wczytaj_haslo_email = lambda: pw
     recips = cfg.get("marza_recipients") or {}
     key = "wroclaw" if silnik_mod.endswith("wroclaw") else "opole"
-    if recips.get(key):
+    if key in recips:   # lista z ustawień (także pusta = nikt nie dostaje maila)
         eng.EMAIL_ODBIORCY = list(recips[key])
     # pytanie z konsoli → okno programu
     eng.input = lambda q="": "T" if ask(q.strip()) else "N"
+    captured = _cloud_hooks(eng) if SESSION is not None else None
+    real_smtplib = sys.modules.get("smtplib")
+    if captured is not None:
+        sys.modules["smtplib"] = _server_smtplib()   # silnik robi „import smtplib” – maile idą przez serwer
     try:
         eng.main()
+        if captured is not None:
+            _cloud_save(eng, key, folder, captured)
         return 0
     except SystemExit as e:
         return int(e.code or 0) if isinstance(e.code, int) else 1
@@ -244,3 +251,116 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
         return 1
     finally:
         sys.modules.pop("generuj_podglad", None)
+        if captured is not None:   # przywrócenie prawdziwej biblioteki poczty (albo jej brak)
+            if real_smtplib is not None:
+                sys.modules["smtplib"] = real_smtplib
+            else:
+                sys.modules.pop("smtplib", None)
+
+
+# ---------- chmura: maile przez serwer, wyniki i kopie plików ----------
+class _ServerSMTP:
+    """Zastępuje smtplib.SMTP w silniku: gotowa wiadomość (HTML z wykresem) idzie przez serwer firmy."""
+
+    def __init__(self, *a, **k):
+        pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def starttls(self, *a, **k):
+        pass
+
+    def login(self, *a, **k):
+        pass
+
+    def quit(self):
+        pass
+
+    def sendmail(self, frm, to, msg):
+        import cloud
+        r = SESSION.call("POST", "/functions/v1/send-mail", {"action": "raw", "to": list(to), "raw": msg})
+        if isinstance(r, dict) and r.get("error"):
+            raise cloud.CloudError(r["error"])
+        return {}
+
+
+def _server_smtplib():
+    import types
+    m = types.ModuleType("smtplib")
+    m.SMTP = m.SMTP_SSL = _ServerSMTP
+    return m
+
+
+def _cloud_hooks(eng) -> dict:
+    """Podsłuch silnika (bez zmiany obliczeń): odczytane raporty, ich pliki i wynik podglądu."""
+    cap = {"reports": [], "pdfs": {}, "podglad": None}
+    eng._wczytaj_haslo_email = lambda: "serwer"
+    o_ext, o_parse, o_ref = eng.extract_text, eng.parse_report, eng._refresh_podglad
+
+    def ext(path):
+        try:
+            with open(path, "rb") as f:
+                cap["pdfs"][os.path.basename(path)] = f.read()
+        except OSError:
+            pass
+        return o_ext(path)
+
+    def parse(text, name):
+        r = o_parse(text, name)
+        cap["reports"].append(r)
+        return r
+
+    def ref(*a, **k):
+        r = o_ref(*a, **k)
+        cap["podglad"] = r
+        return r
+    eng.extract_text, eng.parse_report, eng._refresh_podglad = ext, parse, ref
+    return cap
+
+
+def _cloud_save(eng, key, folder, cap):
+    """Po udanym przebiegu: kopia kalkulatora i raportów w schowku + wyniki do bazy. Błąd chmury nie psuje przebiegu."""
+    if not cap["reports"] and not cap["podglad"]:
+        return
+    if os.environ.get("LATEX_TRYB_TESTOWY") == "1":
+        print("[TRYB TESTOWY] Wyniki i pliki NIE zostały zapisane w chmurze.")
+        return
+    stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    base = f"{key}/{stamp[:4]}/{stamp}"
+    try:
+        xlsx = os.path.join(folder, eng.XLSX_NAME)
+        if os.path.isfile(xlsx):
+            with open(xlsx, "rb") as f:
+                SESSION.upload("marza", f"{base}/{eng.XLSX_NAME}", f.read(),
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        for name, data in cap["pdfs"].items():
+            SESSION.upload("marza", f"{base}/{name}", data, "application/pdf")
+        print(f"Kopia kalkulatora i raportów zapisana w chmurze ({base}).")
+    except Exception as e:
+        print(f"Uwaga: kopia w chmurze nie powiodła się: {e}")
+        base = None
+    try:
+        def num(v):
+            try:
+                return round(float(v), 2)
+            except (TypeError, ValueError):
+                return None
+        label = cel = zrob = None
+        if cap["podglad"]:
+            label, cel, zrob = (list(cap["podglad"]) + [None, None, None])[:3]
+        rows = []
+        for r in cap["reports"] or [{"label": label}]:
+            same = r.get("label") == label
+            rows.append({"branch": key, "month_label": r.get("label"), "period_from": r.get("start_date"),
+                         "period_to": r.get("end_date"), "margin": r.get("margin_netto"),
+                         "target": num(cel) if same else None,
+                         "done": num(zrob) if same else None,
+                         "source_pdf": r.get("source"), "files_path": base})
+        SESSION.call("POST", "/rest/v1/marza_results", rows, prefer="return=minimal")
+        print("Wyniki zapisane w bazie (widoczne w programie na każdym komputerze).")
+    except Exception as e:
+        print(f"Uwaga: zapis wyników w bazie nie powiódł się: {e}")

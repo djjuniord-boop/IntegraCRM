@@ -13,12 +13,34 @@ Deno.serve(async (req) => {
   if (req.method !== "POST") return json({ error: "Tylko POST" }, 405);
   if (!GMAIL_USER || !GMAIL_PASS) return json({ error: "Wysyłka z serwera nie jest skonfigurowana (brak sekretów GMAIL_USER / GMAIL_APP_PASSWORD)." }, 503);
   const sb = createClient(URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+  let b: Record<string, unknown>;
+  try { b = await req.json(); } catch { return json({ error: "Nieprawidłowe dane" }, 400); }
+
+  // MARŻA: gotowa wiadomość (HTML z wykresem) z kalkulatora – odbiorcy z listy MARŻA w ustawieniach firmowych
+  if (b.action === "raw") {
+    const { data: okm } = await sb.rpc("has_module", { m: "marza" });
+    if (okm !== true) return json({ error: "Brak dostępu do modułu MARŻA" }, 403);
+    const { data: rows } = await sb.from("app_config").select("value").eq("key", "crm");
+    const mz = ((rows?.[0]?.value ?? {}) as { marza?: Record<string, { email: string }[]> }).marza ?? {};
+    const ok = new Set(Object.values(mz).flat().map((r) => String(r.email).toLowerCase()));
+    const rto = Array.isArray(b.to) ? (b.to as unknown[]).map((x) => String(x).trim().toLowerCase()) : [];
+    const rbad = rto.filter((x) => !ok.has(x));
+    if (!rto.length || rbad.length) return json({ error: `Adres spoza listy odbiorców MARŻY: ${rbad.join(", ")}` }, 400);
+    const raw = String(b.raw ?? "");
+    if (!raw || raw.length > 8_000_000) return json({ error: "Nieprawidłowa wiadomość" }, 400);
+    const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } });
+    try {
+      await t.sendMail({ envelope: { from: GMAIL_USER, to: rto }, raw });
+    } catch (e) {
+      return json({ error: `Gmail odrzucił wysyłkę: ${(e as Error).message}` }, 502);
+    }
+    return json({ ok: true, to: rto, from: GMAIL_USER });
+  }
+
+  // Kontrola CRM: mail z brakami
   const { data: ok } = await sb.rpc("has_module", { m: "crm" });
   if (ok !== true) return json({ error: "Brak dostępu do modułu Kontrola CRM" }, 403);
   const { data: me } = await sb.rpc("me");
-
-  let b: Record<string, unknown>;
-  try { b = await req.json(); } catch { return json({ error: "Nieprawidłowe dane" }, 400); }
   if (b.action === "status") return json({ ok: true, from: GMAIL_USER });
   const subject = String(b.subject ?? "").slice(0, 300);
   const text = String(b.body ?? "").slice(0, 50000);

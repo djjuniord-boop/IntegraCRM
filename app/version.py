@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.17.0"
+VERSION = "0.18.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,18 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.18.0",
+        "date": "2026-10-13",
+        "changes": [
+            "MARŻA: maile do handlowców wysyła serwer firmy (bez email_config.txt); odbiorców zaznacza się "
+            "lub dopisuje w programie – przycisk „Odbiorcy maili”",
+            "MARŻA: wyniki każdej aktualizacji zapisywane w bazie – przycisk „Wyniki online” (cel, zrobione, % celu) "
+            "na każdym komputerze",
+            "MARŻA: kopia kalkulatora i raportów PDF w chmurze po każdej aktualizacji – „Kopie w chmurze” (pobieranie)",
+            "Naprawiony błąd dziennika zmian, który mógł blokować zapis w SERWIS QR i ustawień firmowych",
+        ],
+    },
     {
         "version": "0.17.0",
         "date": "2026-10-13",

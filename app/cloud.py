@@ -135,6 +135,42 @@ class Session:
         self.call("POST", "/rest/v1/app_config?on_conflict=key", {"key": "crm", "value": value},
                   prefer="resolution=merge-duplicates,return=minimal")
 
+    # --- schowek plików (Supabase Storage) ---
+    def upload(self, bucket: str, path: str, data: bytes, ctype: str = "application/octet-stream"):
+        from urllib.parse import quote
+        url = f"{URL}/storage/v1/object/{bucket}/{quote(path)}"
+        for attempt in (1, 2):
+            req = urllib.request.Request(url, data=data, method="POST", headers={
+                "apikey": ANON_KEY, "Authorization": f"Bearer {self.access}", "Content-Type": ctype,
+                "x-upsert": "false"})
+            try:
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    return json.loads(r.read() or b"{}")
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", "replace")
+                if attempt == 1 and ("jwt" in body.lower() or "expired" in body.lower()):
+                    self.refresh()
+                    continue
+                raise CloudError(f"Nie zapisano pliku w chmurze: {body[:200]}") from None
+            except (urllib.error.URLError, TimeoutError, OSError):
+                raise CloudError("Brak połączenia z serwerem – plik nie trafił do chmury.") from None
+
+    def list_files(self, bucket: str, prefix: str) -> list:
+        return self.call("POST", f"/storage/v1/object/list/{bucket}",
+                         {"prefix": prefix, "limit": 1000, "sortBy": {"column": "name", "order": "desc"}}) or []
+
+    def download(self, bucket: str, path: str) -> bytes:
+        from urllib.parse import quote
+        req = urllib.request.Request(f"{URL}/storage/v1/object/authenticated/{bucket}/{quote(path)}",
+                                     headers={"apikey": ANON_KEY, "Authorization": f"Bearer {self.access}"})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return r.read()
+        except urllib.error.HTTPError as e:
+            raise CloudError(f"Nie udało się pobrać pliku: HTTP {e.code}") from None
+        except (urllib.error.URLError, TimeoutError, OSError):
+            raise CloudError("Brak połączenia z serwerem.") from None
+
     # --- administrator ---
     def list_users(self) -> list:
         return self.call("GET", "/rest/v1/app_users?select=*&order=email") or []
