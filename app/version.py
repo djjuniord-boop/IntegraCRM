@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.18.0"
+VERSION = "0.19.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,18 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.19.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Porządki wewnętrzne: program podzielony na moduły (Kontrola, MARŻA, SERWIS QR, Użytkownicy) – "
+            "zmiany w jednym module nie ruszają pozostałych; wygląd i działanie bez zmian",
+            "Każde wydanie przechodzi automatyczne testy wszystkich modułów",
+            "MARŻA: adresy odbiorców maili tylko w ustawieniach programu („Odbiorcy maili”), usunięte z kodu",
+            "SERWIS QR: strona dla klientów aktualizuje się automatycznie razem z programem",
+            "Wysyłka maili z serwera: lepiej zabezpieczona przed osobami spoza programu",
+        ],
+    },
     {
         "version": "0.18.0",
         "date": "2026-10-13",
