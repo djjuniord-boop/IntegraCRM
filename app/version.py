@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.8"
+VERSION = "0.13.9"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,19 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.9",
+        "date": "2026-10-13",
+        "changes": [
+            "Raport .xlsx z CRM: porównanie dokładne – podobny numer innego auta nie ukrywa już prawdziwego braku",
+            "Ostrzeżenie, gdy dane z CRM prawie nie pasują do Integry (zły oddział lub okres) – mail nie jest wtedy przygotowywany",
+            "Wysyłka maila w tle, z limitem czasu – okno nie zamarza przy słabym internecie",
+            "Statystyki nie blokują już okna, gdy brak internetu",
+            "Rejestr „zgłaszany już”: tylko pewne braki, wpisy wygasają po 60 dniach",
+            "Bezpieczny zapis ustawień i historii (przerwanie nie psuje plików), poprawki raportów CSV i tematu maila",
+            "SERWIS QR: zdjęcia ostatniej wizyty widoczne od razu na stronie klienta",
+        ],
+    },
     {
         "version": "0.13.8",
         "date": "2026-10-13",

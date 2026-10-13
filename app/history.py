@@ -1,12 +1,14 @@
 """Historia sprawdzeń (data/historia.csv) i rejestr zgłoszonych już numerów (data/zgloszone.json)."""
 import csv
 import json
-from datetime import datetime
+import os
+from datetime import datetime, timedelta
 
 import paths
 
 HISTORY = paths.DATA_DIR / "historia.csv"
 REPORTED = paths.DATA_DIR / "zgloszone.json"
+KEEP_DAYS = 60   # po tylu dniach numer nie jest już oznaczany „zgłaszany już”
 FIELDS = ["data", "plik_pdf", "integra", "crm", "brakuje", "do_weryfikacji", "mail_wyslany_do"]
 
 
@@ -36,15 +38,17 @@ def mark_sent(index: int, recipients, plates_sent) -> None:
     today = datetime.now().strftime("%Y-%m-%d")
     for p in plates_sent:
         reg.setdefault(p, today)
-    REPORTED.write_text(json.dumps(reg, indent=1, ensure_ascii=False), encoding="utf-8")
+    _atomic(REPORTED, json.dumps(reg, indent=1, ensure_ascii=False))
 
 
 def reported() -> dict:
     """{numer: data pierwszego zgłoszenia}"""
     try:
-        return json.loads(REPORTED.read_text(encoding="utf-8"))
+        reg = json.loads(REPORTED.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
+    limit = (datetime.now() - timedelta(days=KEEP_DAYS)).strftime("%Y-%m-%d")
+    return {p: d for p, d in reg.items() if str(d) >= limit}   # stare zgłoszenia wygasają
 
 
 def read_all() -> list[dict]:
@@ -55,10 +59,19 @@ def read_all() -> list[dict]:
         return []
 
 
+def _atomic(path, text: str) -> None:
+    """Zapis przez plik tymczasowy – przerwanie (np. zanik prądu) nie psuje pliku."""
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def _write(rows) -> None:
     # utf-8-sig + średnik: plik otwiera się poprawnie w polskim Excelu
-    with open(HISTORY, "w", newline="", encoding="utf-8-sig") as f:
+    tmp = HISTORY.with_suffix(".csv.tmp")
+    with open(tmp, "w", newline="", encoding="utf-8-sig") as f:
         w = csv.DictWriter(f, fieldnames=FIELDS, delimiter=";")
         w.writeheader()
         for r in rows:
             w.writerow({k: r.get(k, "") for k in FIELDS})
+    os.replace(tmp, HISTORY)

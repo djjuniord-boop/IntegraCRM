@@ -28,7 +28,8 @@ def compose(missing: list[str], uncertain: list[tuple[str, str]], reported: dict
         lines += [f"  • Integra: {a}  ↔  CRM: {b}" for a, b in uncertain]
     lines += ["", f"Data sprawdzenia: {today}",
               f"Wiadomość wygenerowana automatycznie (program Integra–CRM v{VERSION})."]
-    subject = f"Brakujące zlecenia w CRM ({len(missing)}) – {today}"
+    subject = (f"Brakujące zlecenia w CRM ({len(missing)}) – {today}" if missing
+               else f"Numery do weryfikacji w CRM ({len(uncertain)}) – {today}")
     return subject, "\n".join(lines)
 
 
@@ -38,10 +39,10 @@ def send(subject: str, body: str, cfg: dict) -> None:
     name = (cfg.get("sender_name") or DEFAULT_SENDER).strip()
     msg["From"] = formataddr((name, cfg["gmail_user"])) if name else cfg["gmail_user"]
     msg["To"] = ", ".join(cfg["recipients"])
-    if cfg.get("cc_self", True) and cfg["gmail_user"] not in cfg["recipients"]:
+    if cfg.get("cc_self", True) and cfg["gmail_user"].lower() not in {r.lower() for r in cfg["recipients"]}:
         msg["Cc"] = cfg["gmail_user"]
     msg.set_content(body)
     ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=30) as s:
         s.login(cfg["gmail_user"], cfg["gmail_app_password"].replace(" ", ""))
         s.send_message(msg)

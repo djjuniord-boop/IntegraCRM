@@ -73,8 +73,24 @@ def run(pdf_path, crm_image, tesseract_cmd=None, log=lambda s: None) -> dict:
             r["warnings"].append(f"{what} wierszy z dnia: {txt}. Jeśli tego dnia były importy, pobierz "
                                  "raport/wycinek za pełny zakres – inaczej wynik pokaże fałszywe braki.")
 
-    # Porównanie: dokładne trafienia ze wszystkich przebiegów, „podobne” tylko z głównego
     exact = {plates.normalize(p) for p in crm}
+    common = sum(1 for p in integra if plates.normalize(p) in exact)
+    r["n_common"] = common
+    r["no_overlap"] = bool(integra) and bool(crm) and (
+        common == 0 or (len(integra) > 5 and common / len(integra) < 0.3))
+    if r["no_overlap"]:
+        r["warnings"].insert(0, f"Tylko {common} z {len(integra)} numerów z Integry jest w danych z CRM – "
+                                "prawdopodobnie wybrano zły oddział albo raport/wycinek za inny okres. "
+                                "Sprawdź dane przed wysłaniem maila.")
+
+    if r["crm_source"] == "report":
+        # Raport .xlsx to dokładne dane (bez OCR) – żadnego „rozmytego” dopasowania,
+        # inaczej inny samochód o podobnym numerze ukryłby prawdziwy brak.
+        r.update(missing=[plates.normalize(p) for p in integra if plates.normalize(p) not in exact],
+                 uncertain=[], autofix=[])
+        return r
+
+    # Porównanie: dokładne trafienia ze wszystkich przebiegów, „podobne” tylko z głównego
     rest, autofix = [], []
     for p in integra:
         if plates.normalize(p) in exact:

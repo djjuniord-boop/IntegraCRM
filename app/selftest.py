@@ -35,6 +35,13 @@ def run(folder: str) -> int:
         exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
                    subject=subj, seconds=round(time.time() - t0, 1))
+        # raport .xlsx z CRM: porównanie dokładne (podobny numer innego auta nie ukrywa braku)
+        from datetime import date as _d
+        xr = analyze.run(str(d / "integra.pdf"), {"rows": [{"date": _d(2026, 1, 1), "plate": p, "branch": "T"}
+                                                           for p in integra if p != integra[0]] + [
+            {"date": _d(2026, 1, 1), "plate": integra[0][:-1] + ("X" if integra[0][-1] != "X" else "Y"), "branch": "T"}],
+            "branches": ["T"]}, tess)
+        res["xlsx_exact"] = integra[0] in xr["missing"] and not xr["autofix"] and not xr["uncertain"]
         import history
         import vault
         enc = vault.protect("abcd efgh ijkl mnop")
@@ -65,7 +72,7 @@ def run(folder: str) -> int:
         js.unlink()
         import serwis_window
         res["serwis_window"] = serwis_window.is_available() == ""
-        res["ok"] = (res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        res["ok"] = (res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1

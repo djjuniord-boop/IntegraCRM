@@ -123,7 +123,9 @@ def save_config(cfg: dict) -> None:
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
     out = dict(cfg)
     out["gmail_app_password"] = vault.protect(out.get("gmail_app_password", ""))
-    paths.CONFIG_PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    tmp = paths.CONFIG_PATH.with_suffix(".json.tmp")   # zapis atomowy – przerwanie nie psuje ustawień
+    tmp.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+    os.replace(tmp, paths.CONFIG_PATH)
 
 
 def update_source(cfg: dict) -> str:
@@ -1596,19 +1598,21 @@ class App(tk.Tk):
         self.log.delete("1.0", "end")
         self.set_chips([], [])
         self.set_banner("busy", "Sprawdzam… odczyt wycinka może potrwać kilka sekund.")
-        threading.Thread(target=self._check_work, daemon=True).start()
+        # Tkinter nie jest bezpieczny dla wątków – wszystko z okna odczytujemy tutaj
+        pdf = self.pdf_path.get()
+        if self.crm_rows is not None:
+            br = self.chosen_branches()
+            src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
+        else:
+            src = self.crm_img
+        threading.Thread(target=self._check_work, args=(pdf, src), daemon=True).start()
 
-    def _check_work(self):
+    def _check_work(self, pdf, src):
         try:
             tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
             import time as _t
             _t0 = _t.time()
-            if self.crm_rows is not None:
-                br = self.chosen_branches()
-                src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
-            else:
-                src = self.crm_img
-            res = analyze.run(self.pdf_path.get(), src, tess, self.say)
+            res = analyze.run(pdf, src, tess, self.say)
             self._stat("check", n_integra=len(res["integra"]), n_crm=len(res["crm_main"]),
                        n_missing=len(res["missing"]), n_uncertain=len(res["uncertain"]),
                        n_autofix=len(res.get("autofix", [])), n_warnings=len(res["warnings"]),
@@ -1635,7 +1639,7 @@ class App(tk.Tk):
             try:
                 if history is None:
                     raise RuntimeError("brak modułu historii – pobierz nową wersję .exe")
-                name = os.path.basename(self.pdf_path.get())
+                name = os.path.basename(pdf)
                 self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain)
                 self.ui(self.refresh_history)
             except Exception as e:
@@ -1649,6 +1653,13 @@ class App(tk.Tk):
             if not missing and not uncertain:
                 self.ui(self.set_banner, "warn" if warn else "ok",
                         f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")
+                self.ui(self.subject.set, "")
+                self.ui(self.mail_body.delete, "1.0", "end")
+                return
+            if res.get("no_overlap"):   # prawie nic się nie pokrywa – mail byłby fałszywym alarmem
+                self.ui(self.set_banner, "warn", f"⚠  Dane z CRM nie pasują do raportu Integry "
+                        f"(wspólne numery: {res.get('n_common', 0)} z {len(integra)}). Sprawdź zaznaczone "
+                        "serwisy i zakres dat. Mail nie został przygotowany." + wtxt)
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
@@ -1686,23 +1697,33 @@ class App(tk.Tk):
             return
         if not messagebox.askyesno("Wyślij maila", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
             return
-        try:
-            mailer.send(self.subject.get(), self.mail_body.get("1.0", "end").strip(), cfg)
+        subj, body = self.subject.get(), self.mail_body.get("1.0", "end").strip()
+        missing = list(self.result[0])
+        hist_index = self.hist_index if self.hist_index is not None else -1
+        self.btn_send.set_enabled(False, "WYSYŁAM…")
+        self.set_banner("busy", "Wysyłam maila…")
+
+        def work():   # wysyłka w tle – okno nie zamarza przy wolnym internecie
+            try:
+                mailer.send(subj, body, cfg)
+            except Exception as e:
+                self._report(e, "wysyłka maila")
+                self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
+                self.ui(self.btn_send.set_enabled, True, "Wyślij maila")
+                return
             cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
-            self.set_banner("ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
+            self.ui(self.set_banner, "ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
+            self.ui(self.btn_send.set_enabled, False, "Wysłano ✔")
             try:
                 if history is None:
                     raise RuntimeError
                 self._stat("mail_sent", n_recipients=len(cfg["recipients"]))
-                history.mark_sent(self.hist_index if self.hist_index is not None else -1, cfg["recipients"],
-                                  list(self.result[0]) + [a for a, _ in self.result[1]])
-                self.refresh_history()
+                # do rejestru „zgłoszone” trafiają tylko pewne braki, nie pozycje „do weryfikacji”
+                history.mark_sent(hist_index, cfg["recipients"], missing)
+                self.ui(self.refresh_history)
             except Exception:
                 pass
-            self.btn_send.set_enabled(False, "Wysłano ✔")
-        except Exception as e:
-            self._report(e, "wysyłka maila")
-            self.set_banner("bad", f"✖  Nie udało się wysłać: {e}")
+        threading.Thread(target=work, daemon=True).start()
 
 
 def main():
