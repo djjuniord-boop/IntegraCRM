@@ -175,7 +175,7 @@ def run() -> int:
             threading.Thread(target=raise_window, daemon=True).start()
 
         def on_loaded():
-            log.info("panel wczytany: %s", w.get_current_url())
+            log.info("panel wczytany")
             _status("loaded")
 
         w.events.shown += on_shown

@@ -95,7 +95,9 @@ jobs:
             return $state
           }
           # 1) zwykłe uruchomienie – tak jak z przycisku w programie
+          $env:PYWEBVIEW_LOG = "debug"
           $state = Wait-Loaded 60
+          $env:PYWEBVIEW_LOG = $null
           Show-Logs
           if ($state -ne "loaded") { throw "Zwykłe uruchomienie okna nie doszło do wczytania panelu (stan: '$state')" }
           # 2) test działania + trwałość danych (dwa uruchomienia)
