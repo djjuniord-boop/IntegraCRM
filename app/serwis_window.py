@@ -169,14 +169,19 @@ def run() -> int:
             except Exception:
                 log.exception("on_top")
 
+        raised = []
+
         def on_shown():
             log.info("okno widoczne")
             _status("shown")
-            threading.Thread(target=raise_window, daemon=True).start()
 
         def on_loaded():
             log.info("panel wczytany")
             _status("loaded")
+            # wysuwanie dopiero po wczytaniu – w trakcie startu silnika WebView2 potrafiło go zablokować
+            if not raised:
+                raised.append(1)
+                threading.Thread(target=raise_window, daemon=True).start()
 
         w.events.shown += on_shown
         w.events.loaded += on_loaded
