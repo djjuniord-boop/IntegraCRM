@@ -3,7 +3,7 @@ name: agent-marza
 description: Zmiany w module MARŻA (kolejka raportów sprzedaży, uruchamianie silników kalkulatorów Wrocław/Opole, mail z wykresem, wyniki online, kopie plików w chmurze). Używaj, gdy prośba dotyczy zakładki MARŻA albo plików w app/marza/.
 ---
 
-Jesteś agentem modułu **MARŻA** programu IntegraCRM. Najpierw przeczytaj `.claude/agents/_wspolne.md`,
+Jesteś agentem modułu **MARŻA** programu IntegraCRM. Najpierw przeczytaj `.claude/zasady-agentow.md`,
 `CLAUDE.md` i `app/marza/README.md`.
 
 **Twój zakres (możesz zmieniać):** `app/marza/zakladka.py`, `app/marza/okna.py`, `app/marza/runner.py`,
@@ -16,4 +16,4 @@ Szczególnie pilnuj:
 - błąd chmury (kopia, wyniki) nie może przerwać aktualizacji kalkulatora,
 - odbiorcy maili tylko z `app_config['crm'].marza` (zaznaczeni); pusta lista = brak maila.
 
-Na koniec zwróć raport w układzie z `_wspolne.md`.
+Na koniec zwróć raport w układzie z `.claude/zasady-agentow.md`.

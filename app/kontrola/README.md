@@ -36,5 +36,5 @@ handlowców. Każde sprawdzenie trafia do wspólnej historii w bazie. Uprawnieni
 
 - `app/selftest.py` – pełna ścieżka na danych z `tools/make_fixtures.py` (oczekiwane braki `DW3M448`, `PO9AB12`,
   autopoprawka `WE9LF81`), dokładne porównanie `.xlsx` (`xlsx_exact`), historia i rejestr zgłoszeń.
-- `tests/test_kontrola.py` – szybkie testy logiki (bez okna).
+- `tests/test_kontrola.py` – szybkie testy logiki (bez okna): `python tests/run_tests.py kontrola`.
 - `tests/ui_smoke.py` – zakładki KONTROLA/HISTORIA dla admina i pracownika z Opola (tylko jego oddział).

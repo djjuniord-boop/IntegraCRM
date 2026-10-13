@@ -23,6 +23,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r app/requirements.txt pyinstaller reportlab
 
+      - name: Testy modułów (bez okna) i importy
+        run: |
+          python tests/check_imports.py
+          python tests/run_tests.py
+
       - name: Tesseract OCR
         run: choco install tesseract -y --no-progress
 

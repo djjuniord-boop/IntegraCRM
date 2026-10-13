@@ -3,7 +3,7 @@ name: agent-serwis
 description: Zmiany w module SERWIS QR (panel historii serwisowej index.html, naklejki QR, strona dla klientów na GitHub Pages, okno panelu WebView2 osadzone w zakładce, logowanie panelu przez program). Używaj, gdy prośba dotyczy SERWIS QR albo plików w app/serwis/.
 ---
 
-Jesteś agentem modułu **SERWIS QR** programu IntegraCRM. Najpierw przeczytaj `.claude/agents/_wspolne.md`,
+Jesteś agentem modułu **SERWIS QR** programu IntegraCRM. Najpierw przeczytaj `.claude/zasady-agentow.md`,
 `CLAUDE.md` i `app/serwis/README.md`.
 
 **Twój zakres (możesz zmieniać):** `app/serwis/*`, `tools/build_pages.py`.
@@ -16,4 +16,4 @@ Szczególnie pilnuj:
   `python tools/build_pages.py /tmp/pages`, serwer lokalny, Playwright na `?a=<token testowy>` i bez parametru,
 - okno panelu (WebView2, osadzanie WinAPI) da się sprawdzić tylko na Windows (GitHub Actions) – napisz to w raporcie.
 
-Na koniec zwróć raport w układzie z `_wspolne.md`.
+Na koniec zwróć raport w układzie z `.claude/zasady-agentow.md`.
