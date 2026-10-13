@@ -34,7 +34,7 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: PyInstaller
-        run: pyinstaller --noconfirm --windowed --name IntegraCRM --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
+        run: pyinstaller --noconfirm --windowed --name IntegraCRM --icon app/assets/icon.ico --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
 
       - name: Paczka
         shell: pwsh

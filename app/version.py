@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.1"
+VERSION = "0.13.2"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.2",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: poprawny opis trybu lokalnego w oknie programu; ikona Latex w oknie panelu i na pasku zadań.",
+        ],
+    },
     {
         "version": "0.13.1",
         "date": "2026-10-13",

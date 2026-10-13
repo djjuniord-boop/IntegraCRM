@@ -77,6 +77,7 @@ def _selftest(window, out_file: str):
         res["qr_lib"] = js("typeof QRCode")
         res["bridge"] = js("!!(window.pywebview&&window.pywebview.api)")
         res["cars_before"] = js("store.load('cars',[]).length")
+        res["app_mode_text"] = js("(document.getElementById('demoTxt')||{}).textContent||''")
         js("openService(null);1")
         time.sleep(0.5)
         js("$('fPlate').value='TEST '+Date.now()%100000;$('fKm').value='12345';preview();1")
@@ -85,7 +86,7 @@ def _selftest(window, out_file: str):
         js("saveService();1")
         time.sleep(1.0)
         res["cars_after"] = js("store.load('cars',[]).length")
-        res["ok"] = (res["qr_lib"] == "function" and res["qr_drawn"] and res["bridge"]
+        res["ok"] = (res["qr_lib"] == "function" and res["qr_drawn"] and res["bridge"] and "w programie" in res["app_mode_text"]
                      and res["cars_after"] == res["cars_before"] + 1)
         shot = os.environ.get("INTEGRA_SHOT")
         if shot:

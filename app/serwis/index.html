@@ -553,7 +553,9 @@ async function renderPublic(tok){
    <a class="btn out" style="border-color:#1fa855;color:#1fa855" href="https://wa.me/${wa}?text=${encodeURIComponent("Dzień dobry, piszę w sprawie auta "+car.plate)}">Napisz na WhatsApp</a>
    <p class="muted" style="text-align:center;margin-top:16px">Latex Auto Serwis · ul. Krakowska 54a, Wrocław</p>`;
 }
-window.addEventListener("pywebviewready",()=>{const t=document.getElementById("demoTxt");if(t)t.textContent="BETA · tryb lokalny: dane są zapisane w programie na tym komputerze."});
+function markApp(){if(!IN_APP())return false;const t=document.getElementById("demoTxt");if(t)t.textContent="BETA · tryb lokalny: dane są zapisane w programie na tym komputerze.";return true}
+window.addEventListener("pywebviewready",markApp);
+(()=>{let n=0;const iv=setInterval(()=>{if(markApp()||++n>40)clearInterval(iv)},250)})();
 function exportBackup(){
   try{const data={app:"latex-serwis",version:1,saved:new Date().toISOString(),cars:store.load("cars",[]),settings:store.load("settings",{})};
     if(IN_APP()){window.pywebview.api.save_backup(JSON.stringify(data),`serwis-kopia-${todayStr()}.json`).then(p=>{
