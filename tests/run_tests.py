@@ -7,6 +7,12 @@ import sys
 import traceback
 from pathlib import Path
 
+for _s in (sys.stdout, sys.stderr):   # konsola Windows (cp1252) – polskie znaki nie mogą przerwać testów
+    try:
+        _s.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 want = set(sys.argv[1:])

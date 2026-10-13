@@ -81,8 +81,9 @@ class MarzaRecipientsDialog(tk.Toplevel):
 
     def save(self):
         mz = {k: [{"email": i["email"], "on": bool(i["var"].get())} for i in items] for k, items in self.rows.items()}
-        value = dict(COMPANY, marza=mz)
-        try:
+        try:   # świeży stan z bazy – zmieniamy tylko listę MARŻY, reszta ustawień firmowych zostaje
+            value = dict(self.app.session.company() or COMPANY)
+            value["marza"] = mz
             self.app.session.set_company(value)
         except Exception as e:
             self.msg.config(text=f"Nie zapisano: {e}", fg=RED)
@@ -115,7 +116,7 @@ class MarzaResultsWindow(tk.Toplevel):
         cols = ("branch", "month", "margin", "target", "done", "pct", "at", "who")
         self.tv = ttk.Treeview(self, columns=cols, show="headings")
         for c, h, w in zip(cols, ("Oddział", "Miesiąc", "Marża z raportu", "Cel", "Zrobione", "% celu",
-                                  "Ostatnia aktualizacja", "Kto"), (90, 140, 140, 120, 120, 70, 140, 190)):
+                                  "Ostatnia aktualizacja", "Kto"), (80, 130, 120, 110, 110, 60, 150, 190)):
             self.tv.heading(c, text=h, anchor="w")
             self.tv.column(c, width=w, anchor="w")
         self.tv.pack(fill="both", expand=True, pady=(8, 0))

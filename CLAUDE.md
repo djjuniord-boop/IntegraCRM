@@ -72,7 +72,7 @@ python3.12 -m venv /tmp/venv && /tmp/venv/bin/pip install pdfplumber pytesseract
 /tmp/venv/bin/python -m pyflakes app                      # brakujące nazwy, literówki
 /tmp/venv/bin/python tests/check_imports.py               # każdy import wskazuje istniejący moduł
 /tmp/venv/bin/python tests/run_tests.py [kontrola|marza|serwis|rdzen]   # testy modułów (bez okna)
-python3 tools/make_fixtures.py /tmp/fx                    # dane testowe (bez prawdziwych danych firmy)
+/tmp/venv/bin/python tools/make_fixtures.py /tmp/fx      # dane testowe (bez prawdziwych danych firmy)
 INTEGRA_SELFTEST=/tmp/fx xvfb-run -a /tmp/venv/bin/python app/start.py   # ścieżka PDF→OCR→porównanie→mail
 xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/venv/bin/python tests/ui_smoke.py . /tmp/zrzuty  # okno jak nowy użytkownik
 ```

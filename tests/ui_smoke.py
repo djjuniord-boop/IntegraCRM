@@ -68,10 +68,13 @@ class FakeSession(cloud.Session):
             return [{"branch": "wroclaw", "month_label": "Październik 2026", "period_from": "2026-10-01",
                      "margin": 12345.5, "target": 300000, "done": 120000.5, "run_at": "2026-10-13T15:40:00Z",
                      "user_email": "test@example.com"}]
-        if "checks" in path and method == "GET":
-            return [{"created_at": "2026-10-13T10:00:00Z", "pdf_name": "test.pdf", "n_integra": 9, "n_crm": 8,
-                     "missing": ["DW3M448"], "uncertain": [], "user_email": "test@example.com",
-                     "branches": ["Latex Wrocław"]}]
+        if "checks" in path and method == "GET":   # jak zasada w bazie: admin wszystko, pracownik swoje oddziały
+            rows = [{"created_at": "2026-10-13T10:00:00Z", "pdf_name": "wroclaw.pdf", "n_integra": 9, "n_crm": 8,
+                     "missing": ["DW3M448"], "uncertain": [], "user_email": "wroclaw@example.com",
+                     "branches": ["Latex Wrocław"]},
+                    {"created_at": "2026-10-13T11:00:00Z", "pdf_name": "opole.pdf", "n_integra": 5, "n_crm": 5,
+                     "missing": [], "uncertain": [], "user_email": "opole@example.com", "branches": ["Latex Opole"]}]
+            return [r for r in rows if self.is_admin or set(r["branches"]) & set(self.profile["branches"])]
         if "audit_log" in path:
             return [{"at": "2026-10-13T15:40:00Z", "email": "test@example.com", "action": "mail",
                      "entity": "sprawdzenie", "label": "test.pdf", "detail": {"do": "a@example.com"}}]
@@ -205,8 +208,41 @@ def run_scenario(label, sess):
     return info
 
 
+def run_login():
+    """Okno logowania (bez zapamiętanej sesji): zrzut i zamknięcie."""
+    import gui
+    orig = tk.Tk.mainloop
+
+    def mainloop(self, n=0):
+        def snap():
+            try:
+                grab(self, OUT / "logowanie.png")
+                shots.append("logowanie.png")
+            except Exception as e:
+                errors.append(f"zrzut logowania: {e}")
+            self.destroy()
+        self.after(1500, snap)
+        return orig(self, n)
+    tk.Tk.mainloop = mainloop
+    try:
+        sess = gui.login_flow()
+        if sess is not None:
+            errors.append("logowanie: okno zwróciło sesję bez wpisania hasła")
+    except Exception:
+        errors.append(f"logowanie: {traceback.format_exc()}")
+    finally:
+        tk.Tk.mainloop = orig
+    return {"shown": "logowanie.png" in shots}
+
+
 def main():
     only = os.environ.get("UI_SMOKE_ONLY")
+    if only == "logowanie":
+        info = run_login()
+        (OUT / "_logowanie.json").write_text(json.dumps({"info": info, "errors": errors, "messages": notes,
+                                                         "shots": shots}, ensure_ascii=False), encoding="utf-8")
+        shutil.rmtree(WORK, ignore_errors=True)
+        os._exit(0)
     if only:   # proces potomny: jeden scenariusz
         sess = dict(SCENARIOS)[only]
         info = run_scenario(only, sess)
@@ -216,7 +252,7 @@ def main():
         os._exit(0)
     import subprocess
     result, all_err, all_notes, all_shots = {}, [], [], []
-    for label, _ in SCENARIOS:
+    for label in ["logowanie"] + [lb for lb, _ in SCENARIOS]:
         env = dict(os.environ, UI_SMOKE_ONLY=label)
         p = subprocess.run([sys.executable, __file__, str(SRC), str(OUT)], env=env, timeout=300,
                            capture_output=True, text=True)
@@ -234,7 +270,9 @@ def main():
         "admin_ma_wszystkie_zakladki": all(t in result.get("admin", {}).get("tabs", []) for t in
                                            ("main", "hist", "marza", "serwis", "users", "help")),
         "admin_lista_uzytkownikow": result.get("admin", {}).get("users_rows") == 2,
-        "historia_z_bazy": result.get("admin", {}).get("history_rows") == 1,
+        "okno_logowania": result.get("logowanie", {}).get("shown") is True,
+        "historia_z_bazy": result.get("admin", {}).get("history_rows") == 2,
+        "historia_opole_tylko_swoja": result.get("kontrola_opole", {}).get("history_rows") == 1,
         "opole_tylko_kontrola": result.get("kontrola_opole", {}).get("tabs") == ["main", "hist", "help"],
         "opole_tylko_swoj_oddzial": result.get("kontrola_opole", {}).get("branches_crm") == ["Latex Opole"],
         "marza_serwis_bez_kontroli": "main" not in result.get("marza_serwis", {}).get("tabs", ["main"]),

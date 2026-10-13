@@ -104,7 +104,10 @@ class SettingsDialog(tk.Toplevel):
 
         hint = ("Hasło aplikacji to 16 znaków z konta Google (nie zwykłe hasło do Gmaila):\n"
                 "Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji.\n"
-                "Ustawienia zapisują się tylko na tym komputerze, hasło jest zaszyfrowane (Windows).")
+                + ("Gmail, hasło, Tesseract i źródło aktualizacji zapisują się tylko na tym komputerze "
+                   "(hasło zaszyfrowane);\nnadawca i odbiorcy – dla całej firmy."
+                   if self.company_mode == "admin" else
+                   "Ustawienia zapisują się tylko na tym komputerze, hasło jest zaszyfrowane (Windows)."))
         tk.Label(body, text=hint, bg=BG, fg=MUTED, font=f.small, justify="left",
                  padx=10, pady=8).grid(row=r[0], column=0, columnspan=2, sticky="we", pady=(12, 14))
         r[0] += 1
@@ -136,9 +139,10 @@ class SettingsDialog(tk.Toplevel):
         new = self.collect()
         if self.company_mode == "admin":   # firmowe: do bazy (dla wszystkich)
             split = lambda v: [x.strip() for x in v.get().split(",") if x.strip()]
-            value = dict(COMPANY, recipients=new["recipients"], sender_name=new["sender_name"],
-                         by_branch={b: split(v) for b, v in self.v_by.items() if split(v)})
-            try:
+            try:   # świeży stan z bazy – nie kasujemy kluczy, których to okno nie zmienia (np. odbiorców MARŻY)
+                value = dict(self.master.session.company() or COMPANY)
+                value.update(recipients=new["recipients"], sender_name=new["sender_name"],
+                             by_branch={b: split(v) for b, v in self.v_by.items() if split(v)})
                 self.master.session.set_company(value)
                 COMPANY.clear()
                 COMPANY.update(value)
@@ -151,12 +155,6 @@ class SettingsDialog(tk.Toplevel):
         cfg.update(new)     # zachowuje pozostałe ustawienia (np. SERWIS QR)
         save_config(cfg)
         self.destroy()
-        changed = []   # zakładki zależą teraz od uprawnień konta (zakładka UŻYTKOWNICY)
-        _unused = [n for k, n in (("marza_enabled", "MARŻA"), ("serwis_enabled", "SERWIS QR"))
-                   if bool(cfg.get(k)) != bool(old.get(k))]
-        if changed:
-            messagebox.showinfo("Ustawienia", f"Zmiana zakładki {', '.join(changed)} będzie widoczna "
-                                "po ponownym uruchomieniu programu.")
 
     def test(self):
         cfg = self.collect()

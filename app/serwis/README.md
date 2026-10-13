@@ -33,6 +33,11 @@ Uwaga: zmiana `index.html` na kanale beta od razu zmienia stronę, którą widz�
   `settings` (wygląd naklejki – zmienia admin).
 - `get_car(token)` – jedyna droga dla klienta: historia jednego auta **bez** właściciela, telefonu i VIN.
 
+## Auto testowe
+
+`DW 1TEST` (token `TESTqr2026x`, oddział Latex Wrocław) jest w bazie **celowo** – na nim testujemy stronę klienta.
+Nie usuwaj go; administrator widzi je w panelu.
+
 ## Do zrobienia (znane)
 
 - Zdjęcia jako base64 w bazie – przy setkach wpisów zbliżą się do limitu 500 MB; przenieść do Supabase Storage.

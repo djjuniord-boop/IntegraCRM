@@ -29,7 +29,7 @@ class HistoriaMixin:
         s.configure("H.Treeview.Heading", font=f.label, background=BG)
         s.map("H.Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
         self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
-        for c, t, w in (("data", "Data", 130), ("kto", "Kto / oddział", 200), ("plik", "Plik PDF", 170),
+        for c, t, w in (("data", "Data", 130), ("kto", "Kto / oddział", 280), ("plik", "Plik PDF", 170),
                         ("integra", "Integra", 70),
                         ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "Mail wysłany do", 200)):
             self.hist_tree.heading(c, text=t, anchor="w")

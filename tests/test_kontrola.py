@@ -22,6 +22,14 @@ def test_integra_wzorzec_wiersza():
 
 def test_raport_xlsx_porownanie_dokladne_i_zly_oddzial():
     from kontrola import analyze
+    stary = analyze.extract.text_from_pdf
+    try:
+        _porownanie_dokladne(analyze)
+    finally:
+        analyze.extract.text_from_pdf = stary
+
+
+def _porownanie_dokladne(analyze):
     analyze.extract.text_from_pdf = lambda *a, **k: (
         "Zakres dat: od 2026-10-13 do 2026-10-13\n13.10.2026 1/Z/SP1/26 (Zak.) WE9LF81 - SKODA X\n"
         "13.10.2026 2/Z/SP1/26 (Zak.) DW12345 - VW Y\n")

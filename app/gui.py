@@ -370,7 +370,8 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
         self.btn_update = FlatButton(r, "Sprawdź aktualizacje", lambda: self.check_updates(manual=True),
                                      "primary", f.body, 14, 6)
         self.btn_update.pack(side="left")
-        FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
+        if self.session is None or self.session.is_admin:   # cofnięcie wersji tylko administrator
+            FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
 
         tk.Label(top, text="Prywatność: " + STATS_INFO, bg=SURFACE, fg=MUTED, font=f.small,
                  wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
@@ -469,9 +470,11 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
 
     def _update_checked(self, m, newer, manual, err):
         if err:
-            self.set_update_status(f"Nie udało się sprawdzić aktualizacji: {err}")
+            why = ("brak połączenia ze źródłem aktualizacji – sprawdź internet i spróbuj później"
+                   if isinstance(err, OSError) else str(err))
+            self.set_update_status(f"Nie udało się sprawdzić aktualizacji: {why}")
             if manual:
-                messagebox.showerror("Aktualizacje", f"Nie udało się sprawdzić aktualizacji:\n{err}")
+                messagebox.showerror("Aktualizacje", f"Nie udało się sprawdzić aktualizacji:\n{why}")
             return
         if not newer:
             self.set_update_status(f"✔ Masz najnowszą wersję ({VERSION}).")

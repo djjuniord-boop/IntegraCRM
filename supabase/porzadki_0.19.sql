@@ -4,5 +4,4 @@
 -- 1. zbędna funkcja po wcześniejszym podejściu do importu historii (ostrzeżenie bezpieczeństwa doradcy)
 drop function if exists public.audit_trg_skip_import();
 
--- 2. auto testowe z testu strony klienta (DW 1TEST) – razem z jego wpisem serwisowym
-delete from public.cars where token = 'TESTqr2026x';
+-- Auto testowe DW 1TEST (token TESTqr2026x) zostaje celowo – na nim sprawdzamy stronę klienta (?a=TESTqr2026x).

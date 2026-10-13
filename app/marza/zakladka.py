@@ -190,13 +190,23 @@ class MarzaMixin:
             self.after(0, lambda l=line: (self.marza_log.insert("end", l + "\n"), self.marza_log.see("end")))
         try:
             cfg = load_config()
+            if self.session is not None:   # odbiorcy świeżo z bazy (przy starcie mogło nie być internetu)
+                try:
+                    fresh = self.session.company()
+                    if fresh:
+                        COMPANY.clear()
+                        COMPANY.update(fresh)
+                except Exception as e:
+                    logline(f"Uwaga: nie udało się wczytać odbiorców maili z bazy ({e}).")
             mz = COMPANY.get("marza") or {}
-            if mz:   # odbiorcy maili MARŻY z ustawień firmowych (zaznaczeni)
-                cfg["marza_recipients"] = {k: [r["email"] for r in v if r.get("on")] for k, v in mz.items()}
+            if self.session is not None:   # odbiorcy maili MARŻY z ustawień firmowych (tylko zaznaczeni)
+                cfg["marza_recipients"] = {k: [r["email"] for r in (mz.get(k) or []) if r.get("on")]
+                                           for k in ("wroclaw", "opole")}
+                names = {"wroclaw": "Wrocław", "opole": "Opole"}
                 for k, v in cfg["marza_recipients"].items():
                     if not v:
-                        logline(f"Uwaga: oddział {k} nie ma zaznaczonych odbiorców maili – mail nie zostanie wysłany.")
-                        cfg["marza_recipients"][k] = []
+                        logline(f"⚠ UWAGA: oddział {names[k]} nie ma zaznaczonych odbiorców maili – mail NIE zostanie "
+                                "wysłany (MARŻA → „Odbiorcy maili”).")
             res = runner.run_all(root, cfg, log=logline, ask=self._marza_ask)
             n = sum(res.get("counts", {}).values())
             self._stat("marza", n_integra=n)

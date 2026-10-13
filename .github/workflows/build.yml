@@ -24,6 +24,8 @@ jobs:
           pip install -r app/requirements.txt pyinstaller reportlab
 
       - name: Testy modułów (bez okna) i importy
+        env:
+          PYTHONIOENCODING: utf-8   # konsola Windows (cp1252) nie ma polskich znaków
         run: |
           python tests/check_imports.py
           python tests/run_tests.py
@@ -210,12 +212,19 @@ jobs:
           }
 
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
+        if: github.ref_name == 'beta'   # jedna gałąź publikuje stronę klientów (inaczej strona przełączałaby się między wersjami)
         shell: pwsh
         run: |
           # jedno źródło: panel z programu → gałąź gh-pages (strona dla klientów z kodów QR)
           git fetch --depth 1 origin gh-pages
           git worktree add pages_out FETCH_HEAD
           python tools/build_pages.py pages_out
+          # kontrola przed publikacją: widok klienta, konfiguracja, brak indeksowania
+          $html = Get-Content pages_out/index.html -Raw -Encoding UTF8
+          foreach ($need in @('rpc("get_car"', '<script src="config.js"></script>', 'content="noindex"')) {
+            if (-not $html.Contains($need)) { throw "Zbudowana strona nie zawiera: $need" }
+          }
+          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js)) { throw "Brak plików strony" }
           Set-Location pages_out
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"

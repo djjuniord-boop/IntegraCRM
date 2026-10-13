@@ -24,7 +24,7 @@ class UzytkownicyMixin:
         self.users_msg.pack(fill="x")
         cols = ("email", "name", "role", "modules", "branches", "active", "last", "ver")
         heads = ("E-mail", "Imię i nazwisko", "Rola", "Moduły", "Oddziały", "Status", "Ostatnie logowanie", "Wersja")
-        widths = (220, 160, 100, 180, 260, 90, 140, 70)
+        widths = (220, 160, 100, 180, 260, 120, 140, 70)
         self.users_tv = ttk.Treeview(page, columns=cols, show="headings", height=18)
         for c, h, w in zip(cols, heads, widths):
             self.users_tv.heading(c, text=h)
