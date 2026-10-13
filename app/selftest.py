@@ -55,7 +55,15 @@ def run(folder: str) -> int:
         import marza.podglad_wroclaw as _pw  # noqa: F401
         png = _sw._generuj_wykres_png("Październik 2026", 300000, 120000, 2026, 10, holidays=set(), log_lines=[])
         res["marza_chart_bytes"] = len(png or b"")
-        res["ok"] = (res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        # SERWIS QR (beta): pliki panelu w paczce i zapis ustawień dla przeglądarki
+        import serwis_qr
+        res["serwis_panel"] = serwis_qr.PANEL.exists() and (serwis_qr.PANEL.parent / "qrcode.min.js").exists()
+        js = serwis_qr.write_config({"serwis_base": "https://serwis.example.pl/", "serwis_sb_url": "", "serwis_sb_key": ""})
+        res["serwis_config"] = "https://serwis.example.pl/" in js.read_text(encoding="utf-8")
+        res["serwis_checks"] = (serwis_qr.check_base("serwis.pl") != "" and serwis_qr.check_base("https://serwis.latex.net.pl/") == ""
+                                and serwis_qr.check_supabase("https://abc.supabase.co", "") != "")
+        js.unlink()
+        res["ok"] = (res["serwis_panel"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1

@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.12.3"
-RELEASED = "2026-10-09"
+VERSION = "0.13.0"
+RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.0",
+        "date": "2026-10-13",
+        "changes": [
+            "BETA (kanał testowy): zakładka SERWIS QR – historia wymian oleju i innych prac, naklejka z kodem QR "
+            "pod maskę, strona historii dla klienta. Włączana w Ustawieniach.",
+            "SERWIS QR: tryb lokalny (dane w przeglądarce) z kopią zapasową albo baza Supabase.",
+        ],
+    },
     {
         "version": "0.12.3",
         "date": "2026-10-09",

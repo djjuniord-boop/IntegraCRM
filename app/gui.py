@@ -63,6 +63,10 @@ DEFAULTS = {
     "stats_enabled": True,     # anonimowe statystyki użycia (tylko liczby)
     "marza_enabled": False,    # zakładka MARŻA (kalkulator marży Wrocław + Opole) – tylko dla właściciela
     "marza_folder": "",        # folder „LATEX Wyniki”
+    "serwis_enabled": False,   # zakładka SERWIS QR (beta) – tylko dla właściciela
+    "serwis_sb_url": "",       # adres bazy Supabase (puste = tryb lokalny)
+    "serwis_sb_key": "",       # klucz publiczny (anon) Supabase
+    "serwis_base": "",         # adres strony dla klientów (kod QR)
 }
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -254,6 +258,10 @@ class SettingsDialog(tk.Toplevel):
         ttk.Checkbutton(body, text="Pokaż zakładkę MARŻA (Wrocław + Opole)", variable=self.v_marza
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
         r[0] += 1
+        self.v_serwis = tk.BooleanVar(value=bool(cfg.get("serwis_enabled", False)))
+        ttk.Checkbutton(body, text="Pokaż zakładkę SERWIS QR (beta)", variable=self.v_serwis
+                        ).grid(row=r[0], column=1, sticky="w", padx=12)
+        r[0] += 1
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
@@ -286,15 +294,20 @@ class SettingsDialog(tk.Toplevel):
             "stats_enabled": bool(self.v_stats.get()),
             "marza_enabled": bool(self.v_marza.get()),
             "marza_folder": load_config().get("marza_folder", ""),
+            "serwis_enabled": bool(self.v_serwis.get()),
         }
 
     def save(self):
-        before = bool(load_config().get("marza_enabled", False))
-        cfg = self.collect()
+        old = load_config()
+        cfg = dict(old)
+        cfg.update(self.collect())     # zachowuje pozostałe ustawienia (np. SERWIS QR)
         save_config(cfg)
         self.destroy()
-        if cfg["marza_enabled"] != before:
-            messagebox.showinfo("Ustawienia", "Zmiana zakładki MARŻA będzie widoczna po ponownym uruchomieniu programu.")
+        changed = [n for k, n in (("marza_enabled", "MARŻA"), ("serwis_enabled", "SERWIS QR"))
+                   if bool(cfg.get(k)) != bool(old.get(k))]
+        if changed:
+            messagebox.showinfo("Ustawienia", f"Zmiana zakładki {', '.join(changed)} będzie widoczna "
+                                "po ponownym uruchomieniu programu.")
 
     def test(self):
         cfg = self.collect()
@@ -412,6 +425,9 @@ class App(tk.Tk):
         if "marza" in self.pages:
             self.show_tab("marza")
             grab(self, "7-marza")
+        if "serwis" in self.pages:
+            self.show_tab("serwis")
+            grab(self, "8-serwis")
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
@@ -463,6 +479,8 @@ class App(tk.Tk):
         tab_list = [("main", "KONTROLA"), ("hist", "HISTORIA")]
         if load_config().get("marza_enabled") or os.environ.get("INTEGRA_SHOT"):
             tab_list.append(("marza", "MARŻA"))
+        if load_config().get("serwis_enabled") or os.environ.get("INTEGRA_SHOT"):
+            tab_list.append(("serwis", "SERWIS QR  β"))
         tab_list.append(("help", "POMOC I WERSJE"))
         self.current_tab = "main"
         for key, label in tab_list:
@@ -477,6 +495,12 @@ class App(tk.Tk):
         self._build_history(self.pages["hist"])
         if "marza" in self.pages:
             self._build_marza(self.pages["marza"])
+        if "serwis" in self.pages:
+            try:
+                self._build_serwis(self.pages["serwis"])
+            except Exception as e:   # beta nie może zablokować reszty programu
+                tk.Label(self.pages["serwis"], text=f"Nie udało się wczytać zakładki SERWIS QR: {e}",
+                         bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
         self.show_tab("main")
 
     def _build_history(self, page):
@@ -525,6 +549,123 @@ class App(tk.Tk):
             os.startfile(str(history.HISTORY))   # Windows: otwiera w Excelu
         except Exception as e:
             messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
+
+    # ---------- SERWIS QR (beta) ----------
+    def _build_serwis(self, page):
+        import serwis_qr
+        f = self.fonts
+        cfg = load_config()
+        top = card(page, padx=16, pady=12)
+        top.pack(fill="x")
+        h = tk.Frame(top, bg=SURFACE)
+        h.pack(fill="x")
+        tk.Label(h, text="Historia serwisowa z naklejką QR", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
+        tk.Label(h, text=" BETA ", bg=WARN_BG, fg=WARN, font=f.small).pack(side="left", padx=8)
+        tk.Label(top, text="Wpisujesz wymianę oleju i inne prace, drukujesz naklejkę z kodem QR pod maskę, "
+                 "a klient po zeskanowaniu widzi historię swojego auta. Panel otwiera się w przeglądarce.",
+                 bg=SURFACE, fg=INK, font=f.body, wraplength=900, justify="left").pack(anchor="w", pady=(6, 10))
+        self.btn_serwis = FlatButton(top, "OTWÓRZ PANEL SERWISOWY", self.serwis_open, "primary", f.big, 18, 8)
+        self.btn_serwis.pack(fill="x")
+        self.serwis_banner = tk.Label(top, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=12, pady=8,
+                                      highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
+        self.serwis_banner.pack(fill="x", pady=(8, 0))
+
+        box = card(page, padx=16, pady=12)
+        box.pack(fill="x", pady=10)
+        tk.Label(box, text="Ustawienia panelu", bg=SURFACE, fg=BLACK, font=f.label).grid(
+            row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
+        self.v_sv_base = tk.StringVar(value=cfg.get("serwis_base", ""))
+        self.v_sv_url = tk.StringVar(value=cfg.get("serwis_sb_url", ""))
+        self.v_sv_key = tk.StringVar(value=cfg.get("serwis_sb_key", ""))
+        rows = (("Adres strony dla klientów (QR)", self.v_sv_base, "np. https://serwis.latex.net.pl/  – puste: kod QR "
+                 "nie zadziała u klienta, panel działa normalnie"),
+                ("Baza Supabase – adres", self.v_sv_url, "puste = tryb lokalny (dane w przeglądarce na tym komputerze)"),
+                ("Baza Supabase – klucz anon", self.v_sv_key, "klucz publiczny „anon” z Supabase → Project Settings → API"))
+        for i, (lab, var, hint) in enumerate(rows):
+            tk.Label(box, text=lab, bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=1 + 2 * i, column=0, sticky="w", pady=(4, 0))
+            ttk.Entry(box, textvariable=var, width=70, font=f.body).grid(row=1 + 2 * i, column=1, sticky="we", padx=(12, 0), pady=(4, 0), ipady=2)
+            tk.Label(box, text=hint, bg=SURFACE, fg=MUTED, font=f.small, anchor="w").grid(row=2 + 2 * i, column=1, sticky="w", padx=(12, 0))
+        box.grid_columnconfigure(1, weight=1)
+        btns = tk.Frame(box, bg=SURFACE)
+        btns.grid(row=8, column=1, sticky="e", pady=(10, 0))
+        FlatButton(btns, "Zapisz ustawienia", self.serwis_save, "dark", f.body, 14, 6).pack(side="right")
+
+        info = card(page, padx=16, pady=12)
+        info.pack(fill="x")
+        tk.Label(info, text="Ważne w wersji beta", bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
+        for line in ("• Tryb lokalny: dane są w przeglądarce. Wyczyszczenie danych przeglądarki je usuwa – "
+                     "w panelu używaj „Zapisz kopię” (np. raz w tygodniu).",
+                     "• Panel otwieraj zawsze tym przyciskiem i w tej samej przeglądarce – inna przeglądarka "
+                     "nie widzi tych samych danych.",
+                     "• Naklejki z prawdziwym kodem QR drukuj dopiero po ustawieniu adresu strony dla klientów.",
+                     "• Zakładka jest widoczna tylko u osób, które włączą ją w Ustawieniach na kanale beta."):
+            tk.Label(info, text=line, bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left",
+                     wraplength=900).pack(anchor="w", pady=1)
+        self.serwis_refresh()
+
+    def serwis_refresh(self):
+        import serwis_qr
+        cfg = load_config()
+        if not serwis_qr.PANEL.exists():
+            self._serwis_banner("bad", "✖  Brak plików panelu w folderze programu. Zaktualizuj program.")
+            self.btn_serwis.set_enabled(False)
+            return
+        m = "chmura (Supabase)" if serwis_qr.mode(cfg) == "cloud" else "lokalny – dane tylko na tym komputerze"
+        base = (cfg.get("serwis_base") or "").strip()
+        if base:
+            self._serwis_banner("ok", f"Tryb: {m}.   Kody QR prowadzą do: {base}")
+        else:
+            self._serwis_banner("warn", f"Tryb: {m}.   Nie ustawiono adresu strony dla klientów – "
+                                "kody QR na naklejkach nie zadziałają u klienta.")
+
+    def _serwis_banner(self, kind, text):
+        bg, fg = {"ok": (OK_BG, OK), "warn": (WARN_BG, WARN), "bad": (ERR_BG, RED)}.get(kind, (SURFACE, MUTED))
+        self.serwis_banner.config(text=text, bg=bg, fg=fg)
+
+    def _serwis_collect(self):
+        import serwis_qr
+        base, url, key = self.v_sv_base.get().strip(), self.v_sv_url.get().strip(), self.v_sv_key.get().strip()
+        prob = serwis_qr.check_base(base) or serwis_qr.check_supabase(url, key)
+        return {"serwis_base": base, "serwis_sb_url": url.rstrip("/"), "serwis_sb_key": key}, prob
+
+    def serwis_save(self, quiet=False):
+        import serwis_qr
+        vals, prob = self._serwis_collect()
+        if prob:
+            messagebox.showwarning("SERWIS QR", prob)
+            return False
+        cfg = load_config()
+        old_base = (cfg.get("serwis_base") or "").strip()
+        if old_base and vals["serwis_base"] != old_base and not messagebox.askyesno(
+                "SERWIS QR", "Zmieniasz adres strony dla klientów.\n\nNaklejki wydrukowane ze starym adresem "
+                f"({old_base}) przestaną działać.\n\nZapisać nowy adres?"):
+            return False
+        cfg.update(vals)
+        save_config(cfg)
+        try:
+            serwis_qr.write_config(cfg)
+        except OSError as e:
+            messagebox.showerror("SERWIS QR", f"Nie udało się zapisać ustawień panelu:\n{e}")
+            return False
+        self.serwis_refresh()
+        if not quiet:
+            self._serwis_banner("ok", "✔  Zapisano. Jeśli panel jest otwarty, odśwież go w przeglądarce (F5).")
+        return True
+
+    def serwis_open(self):
+        import serwis_qr
+        vals, prob = self._serwis_collect()
+        cfg = load_config()
+        if any(vals[k] != (cfg.get(k) or "").strip() for k in vals):
+            if not self.serwis_save(quiet=True):
+                return
+            cfg = load_config()
+        try:
+            serwis_qr.open_panel(cfg)
+            self._stat("serwis_open")
+            self._serwis_banner("ok", "✔  Panel otwarty w przeglądarce.")
+        except Exception as e:
+            messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
 
     # ---------- MARŻA ----------
     def _build_marza(self, page):
