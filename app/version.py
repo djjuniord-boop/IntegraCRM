@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.7"
+VERSION = "0.13.8"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.8",
+        "date": "2026-10-13",
+        "changes": [
+            "Krok 2: można wczytać raport .xlsx z „Listy kontrolne” w CRM (przycisk albo przeciągnięcie) – "
+            "bez OCR, bez błędów odczytu",
+            "Wybór serwisów do sprawdzenia: Latex Wrocław, Latex Opole, Stangum Opole (zapamiętywany)",
+            "Ostrzeżenie, gdy raport z CRM nie obejmuje wszystkich dni z raportu Integry",
+            "Wklejanie wycinka ekranu (Ctrl+V) działa jak dotąd",
+        ],
+    },
     {
         "version": "0.13.7",
         "date": "2026-10-13",

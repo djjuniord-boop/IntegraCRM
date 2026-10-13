@@ -14,6 +14,7 @@ except ImportError:   # starsze IntegraCRM.exe nie mają tego modułu
 from tkinter import filedialog, messagebox, ttk
 
 import analyze
+import crm_report
 import extract
 import mailer
 import paths
@@ -67,6 +68,7 @@ DEFAULTS = {
     "serwis_sb_url": "",       # adres bazy Supabase (puste = tryb lokalny)
     "serwis_sb_key": "",       # klucz publiczny (anon) Supabase
     "serwis_base": "",         # adres strony dla klientów (kod QR)
+    "crm_branches": list(crm_report.BRANCHES),   # oddziały liczone z raportu CRM (.xlsx)
 }
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -76,8 +78,10 @@ STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikato
 
 HELP_STEPS = [
     ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
-    ("Wycinek z CRM", "W CRM zrób wycinek tabeli (Win+Shift+S), wróć tutaj i naciśnij Ctrl+V. "
-                      "Można też przeciągnąć plik ze zrzutem ekranu."),
+    ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
+                   "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia: Latex Wrocław, "
+                   "Latex Opole, Stangum Opole – wybór jest zapamiętywany. Można też wkleić wycinek "
+                   "tabeli (Win+Shift+S, potem Ctrl+V)."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
     ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
 ]
@@ -340,6 +344,9 @@ class App(tk.Tk):
         self._style()
         self.pdf_path = tk.StringVar()
         self.crm_img = None
+        self.crm_rows = None     # raport .xlsx z „Listy kontrolne”
+        self.crm_file = ""
+        self.branch_vars = {}
         self._thumb = None
         self._logo = None
         self.result = None
@@ -1119,15 +1126,23 @@ class App(tk.Tk):
         h = tk.Frame(c2, bg=SURFACE)
         h.pack(fill="x")
         step_badge(h, 2, f).pack(side="left")
-        tk.Label(h, text="Wycinek z CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        self.preview = tk.Label(c2, text="Kliknij tutaj lub naciśnij Ctrl+V\npo zrobieniu wycinka (Win+Shift+S)",
+        tk.Label(h, text="Dane z CRM – raport lub wycinek", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
+        self.preview = tk.Label(c2, text="Przeciągnij raport .xlsx z „Listy kontrolne”\n"
+                                "albo naciśnij Ctrl+V po zrobieniu wycinka (Win+Shift+S)",
                                 bg=BG, fg=MUTED, font=f.body, pady=6, cursor="hand2", justify="center")
         self.preview.pack(fill="x", pady=(8, 8))
         self.preview.bind("<Button-1>", lambda e: self.paste())
         r = tk.Frame(c2, bg=SURFACE)
         r.pack(fill="x")
-        FlatButton(r, "Wklej ze schowka", self.paste, "dark", f.body, 14, 6).pack(side="left")
-        FlatButton(r, "Z pliku…", self.pick_img, "ghost", f.body, 12, 6).pack(side="left", padx=8)
+        FlatButton(r, "Raport z CRM (.xlsx)…", self.pick_report, "dark", f.body, 14, 6).pack(side="left")
+        FlatButton(r, "Wklej wycinek", self.paste, "ghost", f.body, 12, 6).pack(side="left", padx=8)
+        FlatButton(r, "Obraz z pliku…", self.pick_img, "ghost", f.body, 12, 6).pack(side="left")
+        bl = tk.Frame(c2, bg=SURFACE)
+        bl.pack(fill="x", pady=(8, 0))
+        tk.Label(bl, text="Sprawdzaj serwisy:", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
+        self.branch_box = tk.Frame(bl, bg=SURFACE)
+        self.branch_box.pack(side="left", padx=(6, 0))
+        self._build_branches(crm_report.BRANCHES)
 
         # krok 3 – sprawdź
         self.btn_check = FlatButton(page, "SPRAWDŹ", self.check, "primary", f.big, 18, 8)
@@ -1465,6 +1480,9 @@ class App(tk.Tk):
             if low.endswith(".pdf"):
                 self.set_pdf(fp)
                 used = True
+            elif low.endswith((".xlsx", ".csv")):
+                self.set_report(fp)
+                used = True
             elif low.endswith((".png", ".jpg", ".jpeg", ".bmp")):
                 try:
                     from PIL import Image
@@ -1473,7 +1491,60 @@ class App(tk.Tk):
                 except Exception as e:
                     messagebox.showerror("Obraz", f"Nie udało się otworzyć obrazu:\n{e}")
         if not used:
-            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry albo obraz (zrzut z CRM).")
+            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry, raport .xlsx z CRM albo obraz (zrzut z CRM).")
+
+    # ---------- raport z CRM (.xlsx) i wybór serwisów ----------
+    def _build_branches(self, names):
+        chosen = {crm_report._key(b) for b in load_config().get("crm_branches", crm_report.BRANCHES)}
+        for n in names:
+            if n in self.branch_vars:
+                continue
+            v = tk.BooleanVar(value=crm_report._key(n) in chosen)
+            self.branch_vars[n] = v
+            tk.Checkbutton(self.branch_box, text=n, variable=v, command=self._branches_changed,
+                           bg=SURFACE, activebackground=SURFACE, font=self.fonts.small,
+                           selectcolor=SURFACE).pack(side="left", padx=(0, 6))
+
+    def chosen_branches(self):
+        return [n for n, v in self.branch_vars.items() if v.get()]
+
+    def _branches_changed(self):
+        cfg = load_config()
+        cfg["crm_branches"] = self.chosen_branches()
+        try:
+            save_config(cfg)
+        except OSError:
+            pass
+        self._show_report()
+
+    def pick_report(self):
+        p = filedialog.askopenfilename(filetypes=[("Raport CRM", "*.xlsx *.csv")])
+        if p:
+            self.set_report(p)
+
+    def set_report(self, p):
+        try:
+            rows = crm_report.load(p)
+        except Exception as e:
+            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{e}")
+            return
+        self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
+        self._build_branches(crm_report.branches(rows))
+        self._show_report()
+
+    def _show_report(self):
+        if not self.crm_rows:
+            return
+        counts = {}
+        for r in self.crm_rows:
+            counts[r["branch"]] = counts.get(r["branch"], 0) + 1
+        sel = set(self.chosen_branches())
+        n = sum(c for b, c in counts.items() if b in sel)
+        ds = sorted(r["date"] for r in self.crm_rows if r["date"])
+        rng = f"{ds[0]:%d.%m} – {ds[-1]:%d.%m.%Y}" if ds else "bez dat"
+        det = ",  ".join(f"{b}: {c}" for b, c in counts.items())
+        self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} numerów",
+                            fg=OK if n else WARN, bg=OK_BG if n else WARN_BG)
 
     def pick_img(self):
         p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg *.bmp")])
@@ -1492,6 +1563,7 @@ class App(tk.Tk):
     def set_image(self, img):
         from PIL import ImageTk
         self.crm_img = img.copy()
+        self.crm_rows = None
         th = img.copy()
         th.thumbnail((420, 110))
         self._thumb = ImageTk.PhotoImage(th)
@@ -1512,8 +1584,12 @@ class App(tk.Tk):
         if not self.pdf_path.get():
             messagebox.showwarning("Brak PDF", "Wybierz raport PDF z Integry.")
             return
-        if self.crm_img is None:
-            messagebox.showwarning("Brak wycinka", "Wklej wycinek ekranu z CRM (Ctrl+V).")
+        if self.crm_img is None and not self.crm_rows:
+            messagebox.showwarning("Brak danych z CRM", "Wczytaj raport .xlsx z „Listy kontrolne” "
+                                   "albo wklej wycinek ekranu z CRM (Ctrl+V).")
+            return
+        if self.crm_rows is not None and not self.chosen_branches():
+            messagebox.showwarning("Serwisy", "Zaznacz co najmniej jeden serwis do sprawdzenia.")
             return
         self.btn_check.set_enabled(False, "SPRAWDZAM…")
         self.btn_send.set_enabled(False)
@@ -1527,7 +1603,12 @@ class App(tk.Tk):
             tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
             import time as _t
             _t0 = _t.time()
-            res = analyze.run(self.pdf_path.get(), self.crm_img, tess, self.say)
+            if self.crm_rows is not None:
+                br = self.chosen_branches()
+                src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
+            else:
+                src = self.crm_img
+            res = analyze.run(self.pdf_path.get(), src, tess, self.say)
             self._stat("check", n_integra=len(res["integra"]), n_crm=len(res["crm_main"]),
                        n_missing=len(res["missing"]), n_uncertain=len(res["uncertain"]),
                        n_autofix=len(res.get("autofix", [])), n_warnings=len(res["warnings"]),
@@ -1541,7 +1622,9 @@ class App(tk.Tk):
                         "rejestracyjnego – sprawdź, czy to właściwy plik.")
                 return
             if not crm:
-                self.ui(self.set_banner, "warn", "⚠  Na wycinku z CRM nie odczytano numerów – zrób wycinek "
+                self.ui(self.set_banner, "warn", "⚠  W raporcie z CRM nie ma numerów dla zaznaczonych serwisów."
+                        if res.get("crm_source") == "report" else
+                        "⚠  Na wycinku z CRM nie odczytano numerów – zrób wycinek "
                         "tabeli z kolumną „Rejestracja” i wklej ponownie.")
                 return
             for w in warn:
