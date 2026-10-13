@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.16.1"
+VERSION = "0.17.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.17.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Mail z brakami wysyła serwer firmy – na komputerach nie trzeba już hasła Gmail "
+            "(odbiorcy tylko z listy firmowej, odpowiedzi trafiają do osoby, która wysłała)",
+            "Stara historia sprawdzeń z tego komputera przenosi się do wspólnej historii w bazie",
+            "Błędy programu trafiają do Dziennika zmian zamiast do arkusza Google",
+        ],
+    },
     {"version": "0.16.1", "date": "2026-10-13",
      "changes": ["SERWIS QR: panel naprawdę korzysta z logowania programu (wcześniej prosił o ponowne logowanie)"]},
     {

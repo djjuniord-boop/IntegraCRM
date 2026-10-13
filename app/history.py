@@ -152,11 +152,34 @@ def export_csv(path) -> None:
 
 
 def migrate_local() -> int:
-    """Jednorazowo: lokalny rejestr zgłoszeń trafia do bazy (żeby nie zgłaszać ponownie). Zwraca liczbę numerów."""
-    if SESSION is None or not REPORTED.exists():
+    """Jednorazowo: lokalny rejestr zgłoszeń i stara historia (historia.csv) trafiają do bazy.
+    Zwraca liczbę przeniesionych pozycji."""
+    if SESSION is None:
         return 0
-    reg = _local_reported()
-    if reg:
-        SESSION.rpc("report_plates", p_plates=list(reg), p_branch="")
-    REPORTED.replace(REPORTED.with_suffix(".przeniesione.json"))
-    return len(reg)
+    n = 0
+    if REPORTED.exists():
+        reg = _local_reported()
+        if reg:
+            SESSION.rpc("report_plates", p_plates=list(reg), p_branch="")
+        REPORTED.replace(REPORTED.with_suffix(".przeniesione.json"))
+        n += len(reg)
+    if HISTORY.exists():
+        rows = []
+        for r in _local_read_all():
+            try:
+                at = datetime.strptime(r.get("data", ""), "%Y-%m-%d %H:%M").astimezone().isoformat()
+            except ValueError:
+                continue
+            num = lambda v: int(v) if str(v or "").strip().isdigit() else None
+            rows.append({"created_at": at, "pdf_name": r.get("plik_pdf") or "", "imported": True,
+                         "n_integra": num(r.get("integra")), "n_crm": num(r.get("crm")),
+                         "missing": (r.get("brakuje") or "").split(),
+                         "uncertain": (r.get("do_weryfikacji") or "").split(),
+                         "mail_to": r.get("mail_wyslany_do") or None})
+        if rows:
+            SESSION.call("POST", "/rest/v1/checks", rows, prefer="return=minimal")
+            SESSION.rpc("log_event", p_action="import", p_entity="historia", p_label="historia.csv",
+                        p_detail={"wierszy": len(rows)})
+        HISTORY.replace(HISTORY.with_suffix(".przeniesione.csv"))
+        n += len(rows)
+    return n

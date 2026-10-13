@@ -47,8 +47,22 @@ def enabled(cfg: dict) -> bool:
     return bool(cfg.get("stats_enabled", True))
 
 
+SESSION = None   # po zalogowaniu: błędy trafiają do dziennika zmian w bazie, arkusz Google nie jest używany
+
+
 def event(name: str, cfg: dict, **values) -> None:
     """Dodaje zdarzenie do kolejki i próbuje wysłać w tle. Nigdy nie zgłasza błędu."""
+    if SESSION is not None:
+        if name == "error":
+            def _send(s=SESSION):
+                try:
+                    s.rpc("log_event", p_action="błąd", p_entity=str(values.get("where", ""))[:60],
+                          p_label=str(values.get("error", ""))[:60],
+                          p_detail={"wersja": VERSION, "miejsce": str(values.get("detail", ""))[:300]})
+                except Exception:
+                    pass
+            threading.Thread(target=_send, daemon=True).start()
+        return
     if not enabled(cfg):
         return
     try:

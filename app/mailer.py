@@ -46,3 +46,22 @@ def send(subject: str, body: str, cfg: dict) -> None:
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=30) as s:
         s.login(cfg["gmail_user"], cfg["gmail_app_password"].replace(" ", ""))
         s.send_message(msg)
+
+
+class NotConfigured(Exception):
+    """Wysyłka z serwera nie jest skonfigurowana – można użyć Gmaila z tego komputera."""
+
+
+def send_server(session, subject: str, body: str, recipients, cc_self: bool = True) -> str:
+    """Wysyłka przez serwer (Gmail firmy w sekretach Supabase). Zwraca adres nadawcy."""
+    import cloud
+    try:
+        r = session.call("POST", "/functions/v1/send-mail",
+                         {"subject": subject, "body": body, "to": list(recipients), "cc_self": cc_self})
+    except cloud.CloudError as e:
+        if "nie jest skonfigurowana" in str(e):
+            raise NotConfigured(str(e)) from None
+        raise
+    if isinstance(r, dict) and r.get("error"):
+        raise RuntimeError(r["error"])
+    return (r or {}).get("from", "")

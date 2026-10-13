@@ -261,6 +261,12 @@ class SettingsDialog(tk.Toplevel):
             return e
 
         section("Poczta")
+        if getattr(parent, "session", None):
+            tk.Label(body, text="Po zalogowaniu maile wysyła serwer firmy – Gmail i hasło poniżej są potrzebne\n"
+                     "tylko awaryjnie, gdy wysyłka z serwera nie jest skonfigurowana.",
+                     bg=SURFACE, fg=MUTED, font=f.small, justify="left").grid(row=r[0], column=0, columnspan=2,
+                                                                              sticky="w", pady=(0, 4))
+            r[0] += 1
         self.v_name = tk.StringVar(value=cfg.get("sender_name") or mailer.DEFAULT_SENDER)
         self.name_entry = row("Nazwa nadawcy", self.v_name)
         row("Twój Gmail (nadawca)", self.v_user)
@@ -659,6 +665,8 @@ class App(tk.Tk):
         migrate_config()
         if session and history is not None:   # historia i rejestr zgłoszeń – wspólne, w bazie
             history.SESSION = session
+            if stats is not None:
+                stats.SESSION = session
             try:
                 COMPANY.update(session.company())
             except Exception:
@@ -669,7 +677,9 @@ class App(tk.Tk):
                     n = history.migrate_local()
                     history.reported(refresh=True)
                     if n:
-                        self.after(0, lambda: self.say(f"Przeniesiono do bazy {n} zgłoszonych wcześniej numerów."))
+                        self.after(0, lambda: self.say(f"Przeniesiono do bazy {n} pozycji (stara historia "
+                                                       "i zgłoszone numery)."))
+                        self.after(0, self.refresh_history)
                 except Exception:
                     pass
             threading.Thread(target=_sync, daemon=True).start()
@@ -713,7 +723,7 @@ class App(tk.Tk):
             self.after(2500, self._screenshots, shot)
             return
         _c = load_config()
-        if (not self.session or self.session.can("crm")) and not (_c["gmail_user"] and _c["gmail_app_password"]):
+        if not self.session and not (_c["gmail_user"] and _c["gmail_app_password"]):   # po zalogowaniu maile wysyła serwer
             self.after(400, lambda: SettingsDialog(self))
         self.after(900, lambda: self.check_updates(manual=False))
         if self.session:
@@ -2179,7 +2189,11 @@ class App(tk.Tk):
             return
         cfg = load_config()
         cfg["recipients"] = recipients_for(getattr(self, "last_branches", []), cfg)
-        if not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
+        server = self.session is not None   # po zalogowaniu mail wysyła serwer (bez hasła Gmail na komputerze)
+        if server and not cfg["recipients"]:
+            messagebox.showwarning("Odbiorcy", "Brak odbiorców – administrator ustawia ich w Ustawieniach.")
+            return
+        if not server and not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
             messagebox.showwarning("Ustawienia", "Uzupełnij swój Gmail, hasło aplikacji i odbiorców.")
             SettingsDialog(self)
             return
@@ -2194,7 +2208,18 @@ class App(tk.Tk):
 
         def work():   # wysyłka w tle – okno nie zamarza przy wolnym internecie
             try:
-                mailer.send(subj, body, cfg)
+                sent = False
+                if server:
+                    try:
+                        frm = mailer.send_server(self.session, subj, body, cfg["recipients"], cfg.get("cc_self", True))
+                        cfg["gmail_user"] = self.session.email if cfg.get("cc_self", True) else frm
+                        sent = True
+                    except mailer.NotConfigured:
+                        if not (cfg["gmail_user"] and cfg["gmail_app_password"]):
+                            raise RuntimeError("Wysyłka z serwera nie jest jeszcze skonfigurowana, a na tym "
+                                               "komputerze nie ma ustawionego Gmaila.") from None
+                if not sent:
+                    mailer.send(subj, body, cfg)
             except Exception as e:
                 self._report(e, "wysyłka maila")
                 self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
