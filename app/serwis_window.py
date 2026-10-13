@@ -182,8 +182,13 @@ def run() -> int:
         serwis_qr.write_config(_load_cfg())
         STORAGE.mkdir(parents=True, exist_ok=True)
         api = Api()
-        w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
-                                  width=1320, height=900, min_size=(960, 640), text_select=True)
+        embedded = bool(os.environ.get("INTEGRA_EMBED"))
+        if embedded:   # okno zostanie wstawione w zakładkę programu – startuje bez ramki, poza ekranem
+            w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api, frameless=True,
+                                      easy_drag=False, x=-20000, y=-20000, width=1200, height=800, text_select=True)
+        else:
+            w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
+                                      width=1320, height=900, min_size=(960, 640), text_select=True)
         api._window = w
 
         def raise_window():
@@ -207,7 +212,7 @@ def run() -> int:
             log.info("panel wczytany")
             _status("loaded")
             # wysuwanie dopiero po wczytaniu – w trakcie startu silnika WebView2 potrafiło go zablokować
-            if not raised:
+            if not raised and not embedded:
                 raised.append(1)
                 threading.Thread(target=raise_window, daemon=True).start()
 
@@ -244,7 +249,7 @@ def is_available() -> str:
     return ""
 
 
-def launch():
+def launch(embed: bool = False):
     """Uruchamia okno panelu w osobnym procesie. Zwraca obiekt procesu."""
     import subprocess
     if getattr(sys, "frozen", False):
@@ -258,4 +263,8 @@ def launch():
     env = dict(os.environ)
     env.pop("INTEGRA_SHOT", None)
     env.pop("INTEGRA_SELFTEST", None)
+    if embed:
+        env["INTEGRA_EMBED"] = "1"
+    else:
+        env.pop("INTEGRA_EMBED", None)
     return subprocess.Popen(cmd, cwd=str(paths.ROOT), env=env)

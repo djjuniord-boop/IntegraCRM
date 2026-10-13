@@ -426,8 +426,23 @@ class App(tk.Tk):
             self.show_tab("marza")
             grab(self, "7-marza")
         if "serwis" in self.pages:
+            import time
             self.show_tab("serwis")
+            t_end = time.time() + 60
+            while time.time() < t_end and not self._serwis_hwnd:
+                self.update()
+                time.sleep(0.1)
+            for _ in range(20):
+                self.update()
+                time.sleep(0.1)
+            with open(f"{out_dir}/serwis_embed.txt", "w", encoding="utf-8") as fh:
+                fh.write(f"embedded={bool(self._serwis_hwnd)}\nmsg={self.serwis_msg.cget('text')}\n")
             grab(self, "8-serwis")
+            self.show_tab("hist")
+            self.update()
+            time.sleep(0.5)
+            grab(self, "8b-serwis-ukryty")
+            self.serwis_stop()
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
@@ -550,76 +565,232 @@ class App(tk.Tk):
         except Exception as e:
             messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
 
-    # ---------- SERWIS QR (beta) ----------
+    # ---------- SERWIS QR (beta) – panel osadzony w zakładce ----------
     def _build_serwis(self, page):
-        import serwis_qr
         f = self.fonts
         cfg = load_config()
-        top = card(page, padx=16, pady=12)
-        top.pack(fill="x")
-        h = tk.Frame(top, bg=SURFACE)
-        h.pack(fill="x")
-        tk.Label(h, text="Historia serwisowa z naklejką QR", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
-        tk.Label(h, text=" BETA ", bg=WARN_BG, fg=WARN, font=f.small).pack(side="left", padx=8)
-        tk.Label(top, text="Wpisujesz wymianę oleju i inne prace, drukujesz naklejkę z kodem QR pod maskę, "
-                 "a klient po zeskanowaniu widzi historię swojego auta. Panel otwiera się w osobnym oknie programu.",
-                 bg=SURFACE, fg=INK, font=f.body, wraplength=900, justify="left").pack(anchor="w", pady=(6, 10))
-        self.btn_serwis = FlatButton(top, "OTWÓRZ PANEL SERWISOWY", self.serwis_open, "primary", f.big, 18, 8)
-        self.btn_serwis.pack(fill="x")
-        self.serwis_banner = tk.Label(top, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=12, pady=8,
-                                      highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
-        self.serwis_banner.pack(fill="x", pady=(8, 0))
+        self._serwis_proc = None
+        self._serwis_hwnd = 0
+        self._serwis_settings_open = False
+        page.configure(padx=0, pady=0)
+        bar = tk.Frame(page, bg=SURFACE, padx=16, pady=6, highlightthickness=1, highlightbackground=LINE)
+        bar.pack(fill="x")
+        tk.Label(bar, text="Historia serwisowa", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
+        tk.Label(bar, text=" BETA ", bg=WARN_BG, fg=WARN, font=f.small).pack(side="left", padx=8)
+        self.serwis_banner = tk.Label(bar, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w")
+        self.serwis_banner.pack(side="left", padx=(8, 0), fill="x", expand=True)
+        FlatButton(bar, "Uruchom ponownie", self.serwis_restart, "ghost", f.small, 10, 3).pack(side="right")
+        self.btn_sv_settings = FlatButton(bar, "⚙  Ustawienia panelu", self.serwis_toggle_settings, "ghost", f.small, 10, 3)
+        self.btn_sv_settings.pack(side="right", padx=(0, 8))
 
-        box = card(page, padx=16, pady=12)
-        box.pack(fill="x", pady=10)
-        tk.Label(box, text="Ustawienia panelu", bg=SURFACE, fg=BLACK, font=f.label).grid(
+        # ustawienia (chowane) – przykrywają panel, gdy otwarte
+        self.serwis_settings = box = tk.Frame(page, bg=BG, padx=22, pady=12)
+        inner = card(box, padx=16, pady=12)
+        inner.pack(fill="x")
+        tk.Label(inner, text="Ustawienia panelu", bg=SURFACE, fg=BLACK, font=f.label).grid(
             row=0, column=0, columnspan=2, sticky="w", pady=(0, 6))
         self.v_sv_base = tk.StringVar(value=cfg.get("serwis_base", ""))
         self.v_sv_url = tk.StringVar(value=cfg.get("serwis_sb_url", ""))
         self.v_sv_key = tk.StringVar(value=cfg.get("serwis_sb_key", ""))
         rows = (("Adres strony dla klientów (QR)", self.v_sv_base, "np. https://serwis.latex.net.pl/  – puste: kod QR "
                  "nie zadziała u klienta, panel działa normalnie"),
-                ("Baza Supabase – adres", self.v_sv_url, "puste = tryb lokalny (dane w przeglądarce na tym komputerze)"),
+                ("Baza Supabase – adres", self.v_sv_url, "puste = tryb lokalny (dane w folderze programu na tym komputerze)"),
                 ("Baza Supabase – klucz anon", self.v_sv_key, "klucz publiczny „anon” z Supabase → Project Settings → API"))
         for i, (lab, var, hint) in enumerate(rows):
-            tk.Label(box, text=lab, bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=1 + 2 * i, column=0, sticky="w", pady=(4, 0))
-            ttk.Entry(box, textvariable=var, width=70, font=f.body).grid(row=1 + 2 * i, column=1, sticky="we", padx=(12, 0), pady=(4, 0), ipady=2)
-            tk.Label(box, text=hint, bg=SURFACE, fg=MUTED, font=f.small, anchor="w").grid(row=2 + 2 * i, column=1, sticky="w", padx=(12, 0))
-        box.grid_columnconfigure(1, weight=1)
-        btns = tk.Frame(box, bg=SURFACE)
+            tk.Label(inner, text=lab, bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=1 + 2 * i, column=0, sticky="w", pady=(4, 0))
+            ttk.Entry(inner, textvariable=var, width=70, font=f.body).grid(row=1 + 2 * i, column=1, sticky="we", padx=(12, 0), pady=(4, 0), ipady=2)
+            tk.Label(inner, text=hint, bg=SURFACE, fg=MUTED, font=f.small, anchor="w").grid(row=2 + 2 * i, column=1, sticky="w", padx=(12, 0))
+        inner.grid_columnconfigure(1, weight=1)
+        btns = tk.Frame(inner, bg=SURFACE)
         btns.grid(row=8, column=1, sticky="e", pady=(10, 0))
-        FlatButton(btns, "Zapisz ustawienia", self.serwis_save, "dark", f.body, 14, 6).pack(side="right")
-
-        info = card(page, padx=16, pady=12)
-        info.pack(fill="x")
+        FlatButton(btns, "Zamknij", self.serwis_toggle_settings, "ghost", f.body, 14, 6).pack(side="right")
+        FlatButton(btns, "Zapisz ustawienia", self.serwis_save, "dark", f.body, 14, 6).pack(side="right", padx=8)
+        info = card(box, padx=16, pady=12)
+        info.pack(fill="x", pady=(10, 0))
         tk.Label(info, text="Ważne w wersji beta", bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
-        for line in ("• Tryb lokalny: dane są w folderze programu (data\\serwis_webview) na tym komputerze – "
-                     "w panelu używaj „Zapisz kopię” (np. raz w tygodniu).",
+        for line in ("• Tryb lokalny: dane są w folderze programu (data\\serwis_webview) – w panelu używaj „Zapisz kopię” "
+                     "(np. raz w tygodniu).",
                      "• Przenosząc program na inny komputer, skopiuj cały folder razem z „data” albo wczytaj kopię w panelu.",
                      "• Naklejki z prawdziwym kodem QR drukuj dopiero po ustawieniu adresu strony dla klientów.",
                      "• Zakładka jest widoczna tylko u osób, które włączą ją w Ustawieniach na kanale beta."):
             tk.Label(info, text=line, bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left",
                      wraplength=900).pack(anchor="w", pady=1)
+
+        # miejsce na panel
+        self.serwis_host = tk.Frame(page, bg=SURFACE)
+        self.serwis_host.pack(fill="both", expand=True)
+        self.serwis_msg = tk.Label(self.serwis_host, text="", bg=SURFACE, fg=MUTED, font=f.body, justify="center")
+        self.serwis_msg.place(relx=0.5, rely=0.4, anchor="center")
+        self.serwis_host.bind("<Configure>", lambda e: self._serwis_fit())
+        self.protocol("WM_DELETE_WINDOW", self._on_close)
         self.serwis_refresh()
+
+    def _on_close(self):
+        self.serwis_stop()
+        self.destroy()
 
     def serwis_refresh(self):
         import serwis_qr
         cfg = load_config()
-        if not serwis_qr.PANEL.exists():
-            self._serwis_banner("bad", "✖  Brak plików panelu w folderze programu. Zaktualizuj program.")
-            self.btn_serwis.set_enabled(False)
-            return
-        m = "chmura (Supabase)" if serwis_qr.mode(cfg) == "cloud" else "lokalny – dane w folderze programu na tym komputerze"
+        m = "chmura (Supabase)" if serwis_qr.mode(cfg) == "cloud" else "tryb lokalny"
         base = (cfg.get("serwis_base") or "").strip()
-        if base:
-            self._serwis_banner("ok", f"Tryb: {m}.   Kody QR prowadzą do: {base}")
+        txt = f"{m}  ·  " + (f"kody QR → {base}" if base else "⚠ brak adresu strony dla klientów (QR)")
+        if not self._serwis_hwnd:
+            self._serwis_banner("idle", txt)
         else:
-            self._serwis_banner("warn", f"Tryb: {m}.   Nie ustawiono adresu strony dla klientów – "
-                                "kody QR na naklejkach nie zadziałają u klienta.")
+            self._serwis_banner("ok", txt)
 
     def _serwis_banner(self, kind, text):
-        bg, fg = {"ok": (OK_BG, OK), "warn": (WARN_BG, WARN), "bad": (ERR_BG, RED)}.get(kind, (SURFACE, MUTED))
-        self.serwis_banner.config(text=text, bg=bg, fg=fg)
+        fg = {"ok": OK, "warn": WARN, "bad": RED}.get(kind, MUTED)
+        self.serwis_banner.config(text=text, fg=fg)
+
+    def _serwis_msg(self, text, kind="idle"):
+        fg = {"warn": WARN, "bad": RED}.get(kind, MUTED)
+        self.serwis_msg.config(text=text, fg=fg)
+        self.serwis_msg.lift()
+
+    def serwis_on_show(self):
+        """Wywoływane przy wejściu na zakładkę: uruchamia panel albo go pokazuje."""
+        import embed_win
+        if self._serwis_settings_open:
+            return
+        proc = self._serwis_proc
+        if self._serwis_hwnd and embed_win.alive(self._serwis_hwnd):
+            embed_win.show(self._serwis_hwnd, True)
+            self._serwis_fit()
+            return
+        if proc is None or proc.poll() is not None:
+            self.serwis_start()
+
+    def serwis_on_hide(self):
+        import embed_win
+        if self._serwis_hwnd:
+            embed_win.show(self._serwis_hwnd, False)
+
+    def serwis_start(self):
+        import time
+        import serwis_qr
+        import serwis_window
+        why = serwis_window.is_available()
+        if why:
+            self._serwis_msg(why + "\n\nPobierz paczkę IntegraCRM-…-exe.zip z wydania „kanal-beta” na GitHubie,\n"
+                             "rozpakuj do nowego folderu i skopiuj do niego swój folder „data”.", "warn")
+            return
+        cfg = load_config()
+        try:
+            serwis_qr.write_config(cfg)
+            try:
+                serwis_window.STATUS.unlink()
+            except OSError:
+                pass
+            self._serwis_hwnd = 0
+            self._serwis_proc = serwis_window.launch(embed=True)
+            self._serwis_t0 = time.time()
+            self._stat("serwis_open")
+            self._serwis_msg("Wczytywanie panelu…")
+            self.after(500, self._serwis_check_started)
+        except Exception as e:
+            self._serwis_msg(f"Nie udało się uruchomić panelu:\n{e}", "bad")
+
+    def serwis_stop(self):
+        proc = getattr(self, "_serwis_proc", None)
+        if proc is not None and proc.poll() is None:
+            try:
+                proc.terminate()
+                proc.wait(timeout=3)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        self._serwis_proc = None
+        self._serwis_hwnd = 0
+
+    def serwis_restart(self):
+        self.serwis_stop()
+        if self._serwis_settings_open:
+            self.serwis_toggle_settings()
+        self.serwis_start()
+
+    def _serwis_fit(self):
+        import embed_win
+        if self._serwis_hwnd:
+            self.serwis_host.update_idletasks()
+            embed_win.resize(self._serwis_hwnd, self.serwis_host.winfo_width(), self.serwis_host.winfo_height())
+
+    def _serwis_check_started(self):
+        import time
+        import embed_win
+        import serwis_window
+        proc = self._serwis_proc
+        if proc is None:
+            return
+        st = serwis_window.read_status()
+        state = st.get("state", "")
+        waited = time.time() - self._serwis_t0
+        code = proc.poll()
+        if code is not None or state == "error":
+            err = st.get("error") or f"kod zakończenia {code}"
+            self._serwis_proc = None
+            self._serwis_fail(err)
+            return
+        if state == "loaded":
+            hwnd = embed_win.find_window(proc.pid, serwis_window.TITLE)
+            if hwnd:
+                self.serwis_host.update_idletasks()
+                if embed_win.embed(hwnd, self.serwis_host.winfo_id(), self.serwis_host.winfo_width(),
+                                   self.serwis_host.winfo_height()):
+                    self._serwis_hwnd = hwnd
+                    self._serwis_msg("")
+                    if self.current_tab != "serwis" or self._serwis_settings_open:
+                        embed_win.show(hwnd, False)
+                    self.serwis_refresh()
+                    self.after(2000, self._serwis_watch)
+                    return
+        if waited > 45:
+            self._serwis_fail(f"przekroczony czas, etap: {state or 'start'}", kill=True)
+            return
+        label = {"": "uruchamianie…", "starting": "wczytywanie silnika…", "window": "tworzenie okna…",
+                 "shown": "wczytywanie panelu…", "loaded": "osadzanie w programie…"}.get(state, state)
+        self._serwis_msg(f"Wczytywanie panelu – {label}")
+        self.after(400, self._serwis_check_started)
+
+    def _serwis_watch(self):
+        """Pilnuje, czy panel działa; gdy jego proces się zakończy – pokazuje komunikat."""
+        import embed_win
+        proc = self._serwis_proc
+        if proc is None:
+            return
+        if proc.poll() is not None or not embed_win.alive(self._serwis_hwnd):
+            self._serwis_hwnd = 0
+            self._serwis_proc = None
+            self._serwis_msg("Panel został zamknięty.\nKliknij „Uruchom ponownie” na pasku powyżej.", "warn")
+            self.serwis_refresh()
+            return
+        self.after(2000, self._serwis_watch)
+
+    def _serwis_fail(self, err, kill=False):
+        import serwis_window
+        if kill:
+            self.serwis_stop()
+        tail = serwis_window.log_tail(6)
+        self._serwis_msg(f"Panel nie uruchomił się.\n\nPowód: {err}\n\n"
+                         + (f"Dziennik (data\\serwis.log):\n{tail}\n\n" if tail else "")
+                         + "Kliknij „Uruchom ponownie” na pasku powyżej.", "bad")
+
+    def serwis_toggle_settings(self):
+        import embed_win
+        self._serwis_settings_open = not self._serwis_settings_open
+        if self._serwis_settings_open:
+            embed_win.show(self._serwis_hwnd, False)
+            self.serwis_host.pack_forget()
+            self.serwis_settings.pack(fill="both", expand=True)
+            self.btn_sv_settings.config(text="✕  Zamknij ustawienia")
+        else:
+            self.serwis_settings.pack_forget()
+            self.serwis_host.pack(fill="both", expand=True)
+            self.btn_sv_settings.config(text="⚙  Ustawienia panelu")
+            self.serwis_on_show()
 
     def _serwis_collect(self):
         import serwis_qr
@@ -639,6 +810,7 @@ class App(tk.Tk):
                 "SERWIS QR", "Zmieniasz adres strony dla klientów.\n\nNaklejki wydrukowane ze starym adresem "
                 f"({old_base}) przestaną działać.\n\nZapisać nowy adres?"):
             return False
+        changed = any(vals[k] != (cfg.get(k) or "").strip() for k in vals)
         cfg.update(vals)
         save_config(cfg)
         try:
@@ -647,93 +819,11 @@ class App(tk.Tk):
             messagebox.showerror("SERWIS QR", f"Nie udało się zapisać ustawień panelu:\n{e}")
             return False
         self.serwis_refresh()
+        if changed and self._serwis_proc is not None:   # panel musi wczytać nowe ustawienia
+            self.serwis_stop()
         if not quiet:
-            self._serwis_banner("ok", "✔  Zapisano. Jeśli panel jest otwarty, odśwież go w przeglądarce (F5).")
+            messagebox.showinfo("SERWIS QR", "Zapisano. Panel uruchomi się z nowymi ustawieniami po zamknięciu ustawień.")
         return True
-
-    def serwis_open(self):
-        import serwis_qr
-        vals, prob = self._serwis_collect()
-        cfg = load_config()
-        if any(vals[k] != (cfg.get(k) or "").strip() for k in vals):
-            if not self.serwis_save(quiet=True):
-                return
-            cfg = load_config()
-        import serwis_window
-        proc = getattr(self, "_serwis_proc", None)
-        if proc is not None and proc.poll() is None:
-            self._serwis_banner("ok", "Panel jest już otwarty – sprawdź pasek zadań (okno „Latex Serwis – historia serwisowa”).")
-            return
-        why = serwis_window.is_available()
-        if why:
-            messagebox.showwarning("SERWIS QR", why + "\n\nPobierz paczkę IntegraCRM-…-exe.zip z wydania „kanal-beta” "
-                                   "na GitHubie, rozpakuj do nowego folderu i skopiuj do niego swój folder „data”.")
-            return
-        try:
-            serwis_qr.write_config(cfg)
-            try:
-                serwis_window.STATUS.unlink()
-            except OSError:
-                pass
-            self._serwis_proc = serwis_window.launch()
-            self._serwis_t0 = __import__("time").time()
-            self._stat("serwis_open")
-            self._serwis_banner("warn", "Otwieram panel… (pierwsze uruchomienie może potrwać kilkanaście sekund)")
-            self.after(1000, self._serwis_check_started)
-        except Exception as e:
-            messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
-
-    def _serwis_check_started(self):
-        import time
-        import serwis_window
-        proc = getattr(self, "_serwis_proc", None)
-        if proc is None:
-            return
-        st = serwis_window.read_status()
-        state = st.get("state", "")
-        waited = time.time() - getattr(self, "_serwis_t0", time.time())
-        code = proc.poll()
-        if state == "loaded":
-            self._serwis_banner("ok", "✔  Panel otwarty w osobnym oknie programu "
-                                "(jeśli go nie widzisz – kliknij jego ikonę na pasku zadań).")
-            return
-        if code is not None or state == "error":
-            err = st.get("error") or f"kod zakończenia {code}"
-            self._serwis_banner("bad", f"✖  Okno panelu nie uruchomiło się: {err}")
-            self._serwis_fail(err)
-            return
-        if waited > 45:
-            self._serwis_banner("bad", f"✖  Okno panelu nie pojawiło się w ciągu 45 s (etap: {state or 'start'}).")
-            self._serwis_fail(f"przekroczony czas, etap: {state or 'start'}", kill=True)
-            return
-        label = {"": "uruchamianie…", "starting": "wczytywanie silnika…", "window": "tworzenie okna…",
-                 "shown": "wczytywanie panelu…"}.get(state, state)
-        self._serwis_banner("warn", f"Otwieram panel… {label} ({int(waited)} s)")
-        self.after(1000, self._serwis_check_started)
-
-    def _serwis_fail(self, err, kill=False):
-        import serwis_window
-        if kill:
-            try:
-                self._serwis_proc.kill()
-            except Exception:
-                pass
-        tail = serwis_window.log_tail()
-        msg = (f"Okno panelu nie uruchomiło się.\n\nPowód: {err}\n\n"
-               + (f"Ostatnie wpisy dziennika (data\\serwis.log):\n{tail}\n\n" if tail else "")
-               + "Spróbować otworzyć ponownie?")
-        if messagebox.askyesno("SERWIS QR", msg):
-            self._serwis_proc = None
-            self.serwis_open()
-
-    def _serwis_browser(self, cfg):
-        import serwis_qr
-        try:
-            serwis_qr.open_panel(cfg)
-            self._serwis_banner("warn", "Panel otwarty w przeglądarce (tryb awaryjny) – dane w przeglądarce są osobne "
-                                "od danych w oknie programu.")
-        except Exception as e:
-            messagebox.showerror("SERWIS QR", f"Nie udało się otworzyć panelu:\n{e}")
 
     # ---------- MARŻA ----------
     def _build_marza(self, page):
@@ -983,6 +1073,14 @@ class App(tk.Tk):
         self.current_tab = key
         self.pages[key].pack(fill="both", expand=True)
         self.tab_btns[key].config(fg="white", bg=RED)
+        if "serwis" in self.pages and hasattr(self, "serwis_host"):
+            try:
+                if key == "serwis":
+                    self.after(50, self.serwis_on_show)
+                else:
+                    self.serwis_on_hide()
+            except Exception:
+                pass
 
     def _build_main(self, page):
         f = self.fonts

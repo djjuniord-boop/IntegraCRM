@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.5"
+VERSION = "0.13.6"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.13.6",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: panel działa wewnątrz zakładki programu (jedno okno) – uruchamia się sam przy wejściu "
+            "w zakładkę, chowa przy przejściu na inną i zamyka razem z programem.",
+            "SERWIS QR: ustawienia panelu pod przyciskiem „Ustawienia panelu”, przycisk „Uruchom ponownie”.",
+        ],
+    },
     {
         "version": "0.13.5",
         "date": "2026-10-13",

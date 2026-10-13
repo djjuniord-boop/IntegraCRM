@@ -156,6 +156,16 @@ jobs:
           if (Test-Path shots/dnd.txt) { Get-Content shots/dnd.txt }
           $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
+      - name: Kontrola – panel SERWIS QR osadzony w zakładce programu
+        shell: pwsh
+        run: |
+          if (-not (Test-Path shots/serwis_embed.txt)) { throw "Brak wyniku osadzania panelu" }
+          Get-Content shots/serwis_embed.txt
+          if (-not (Select-String -Path shots/serwis_embed.txt -Pattern "embedded=True" -Quiet)) {
+            $log = "pkg/IntegraCRM/data/serwis.log"; if (Test-Path $log) { Get-Content $log }
+            throw "Panel nie został osadzony w zakładce programu"
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: zrzuty
