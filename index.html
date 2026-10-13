@@ -538,7 +538,7 @@ async function renderPublic(tok){
    <div class="tile"><div class="k">Następny serwis</div><div style="font-size:18px;font-weight:600;color:var(--red)">${next||"–"}</div></div>
    <div class="tile"><div class="k">Użyty olej</div>${esc(s.oil)||"–"}${s.qty?" · "+esc(s.qty)+" l":""}</div>
    <div class="tile"><div class="k">Wymienione filtry</div>${(s.filters||[]).map(esc).join(", ")||"–"}</div>
-   <div class="tile"><div class="k">Ostatnia wizyta</div>${fmtD(last.date)} · ${fmtKm(last.km)} · ${esc(last.type||"")}${last.notes?`<div class="muted" style="margin-top:4px">${esc(last.notes)}</div>`:""}</div>`;
+   <div class="tile"><div class="k">Ostatnia wizyta</div>${fmtD(last.date)} · ${fmtKm(last.km)} · ${esc(last.type||"")}${last.notes?`<div class="muted" style="margin-top:4px">${esc(last.notes)}</div>`:""}${photos(last)}</div>`;
   const history=`<div class="tile"><div class="tl">${svcs.map(x=>`<div class="it"><b>${esc(x.type||"Serwis")}</b> <span class="muted">${fmtD(x.date)} · ${fmtKm(x.km)}</span>
      ${x.oil?`<div>Olej: ${esc(x.oil)}${x.qty?" · "+esc(x.qty)+" l":""}</div>`:""}
      ${(x.filters||[]).length?`<div>Filtry: ${x.filters.map(esc).join(", ")}</div>`:""}
