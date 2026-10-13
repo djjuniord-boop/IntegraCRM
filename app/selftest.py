@@ -70,9 +70,38 @@ def run(folder: str) -> int:
         res["serwis_checks"] = (serwis_qr.check_base("serwis.pl") != "" and serwis_qr.check_base("https://serwis.latex.net.pl/") == ""
                                 and serwis_qr.check_supabase("https://abc.supabase.co", "") != "")
         js.unlink()
+        # etap 1: okno programu dla admina i pracownika (udawana sesja, bez sieci)
+        import cloud
+        import gui
+
+        class _S(cloud.Session):
+            def __init__(self, role, mods, brs):
+                self.access = self.refresh_token = "x"
+                self.email = "test@example.com"
+                self.profile = {"role": role, "modules": mods, "branches": brs, "name": "Test"}
+
+            def list_users(self):
+                return [{"email": "a@example.com", "role": "admin", "active": True},
+                        {"email": "b@example.com", "role": "user", "modules": ["serwis"],
+                         "branches": ["Latex Opole"], "active": False}]
+        ui = {}
+        for nm, ss in (("admin", _S("admin", [], [])), ("user", _S("user", ["crm"], ["Latex Opole"]))):
+            app = gui.App(ss)
+            app.update()
+            ui[nm] = {"tabs": list(app.pages), "branches": list(app.branch_vars)}
+            if "users" in app.pages:
+                app._show_users(ss.list_users(), "")
+                gui.UserDialog(app, ss.list_users()[1]).destroy()
+                ui[nm]["rows"] = len(app.users_tv.get_children())
+            app.destroy()
+        res["ui"] = ui
+        res["ui_ok"] = ("users" in ui["admin"]["tabs"] and "serwis" in ui["admin"]["tabs"]
+                        and ui["admin"].get("rows") == 2 and "users" not in ui["user"]["tabs"]
+                        and "serwis" not in ui["user"]["tabs"] and "main" in ui["user"]["tabs"]
+                        and ui["user"]["branches"] == ["Latex Opole"])
         import serwis_window
         res["serwis_window"] = serwis_window.is_available() == ""
-        res["ok"] = (res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        res["ok"] = (res["ui_ok"] and res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1

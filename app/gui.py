@@ -14,6 +14,7 @@ except ImportError:   # starsze IntegraCRM.exe nie mają tego modułu
 from tkinter import filedialog, messagebox, ttk
 
 import analyze
+import cloud
 import crm_report
 import extract
 import mailer
@@ -259,15 +260,8 @@ class SettingsDialog(tk.Toplevel):
         ttk.Checkbutton(body, text="Wysyłaj anonimowe statystyki użycia (tylko liczby)", variable=self.v_stats
                         ).grid(row=r[0], column=1, sticky="w", padx=12, pady=(6, 0))
         r[0] += 1
-        section("Kalkulator marży")
         self.v_marza = tk.BooleanVar(value=bool(cfg.get("marza_enabled", False)))
-        ttk.Checkbutton(body, text="Pokaż zakładkę MARŻA (Wrocław + Opole)", variable=self.v_marza
-                        ).grid(row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
         self.v_serwis = tk.BooleanVar(value=bool(cfg.get("serwis_enabled", False)))
-        ttk.Checkbutton(body, text="Pokaż zakładkę SERWIS QR (beta)", variable=self.v_serwis
-                        ).grid(row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
         section("Zaawansowane")
         row("Tesseract (puste = auto)", self.v_tess)
         row("Źródło aktualizacji", self.v_upd)
@@ -309,7 +303,8 @@ class SettingsDialog(tk.Toplevel):
         cfg.update(self.collect())     # zachowuje pozostałe ustawienia (np. SERWIS QR)
         save_config(cfg)
         self.destroy()
-        changed = [n for k, n in (("marza_enabled", "MARŻA"), ("serwis_enabled", "SERWIS QR"))
+        changed = []   # zakładki zależą teraz od uprawnień konta (zakładka UŻYTKOWNICY)
+        _unused = [n for k, n in (("marza_enabled", "MARŻA"), ("serwis_enabled", "SERWIS QR"))
                    if bool(cfg.get(k)) != bool(old.get(k))]
         if changed:
             messagebox.showinfo("Ustawienia", f"Zmiana zakładki {', '.join(changed)} będzie widoczna "
@@ -328,11 +323,235 @@ class SettingsDialog(tk.Toplevel):
             messagebox.showerror("Test", f"Nie udało się wysłać:\n{e}", parent=self)
 
 
+# ---------- logowanie (zawsze online) ----------
+def _version_ok(sess) -> bool:
+    """Wersja programu nie starsza niż minimalna ustawiona przez administratora."""
+    try:
+        need = sess.min_version()
+    except cloud.CloudError:
+        return True
+    return not need or updater._ver(VERSION) >= updater._ver(need)
+
+
+def _force_update(root):
+    """Za stara wersja: próba aktualizacji; inaczej komunikat i koniec."""
+    try:
+        m, newer = updater.check(update_source(load_config()))
+        if newer:
+            messagebox.showinfo("Aktualizacja", f"Wymagana nowsza wersja programu. Instaluję {m['version']}…",
+                                parent=root)
+            updater.apply(m)
+            updater.restart()
+    except Exception:
+        pass
+    messagebox.showerror("Aktualizacja", "Ta wersja programu jest za stara i nie może się połączyć.\n"
+                         "Pobierz najnowszą paczkę IntegraCRM z GitHuba.", parent=root)
+
+
+def login_flow():
+    """Okno logowania. Zwraca zalogowaną sesję (z profilem) albo None (zamknięto okno)."""
+    root = tk.Tk()
+    root.title(f"Latex Serwis – logowanie  v{VERSION}")
+    root.configure(bg=BG)
+    root.resizable(False, False)
+    set_icon(root)
+    fonts = Fonts(root)
+    result = {"s": None}
+
+    def finish(sess):
+        if not _version_ok(sess):
+            _force_update(root)
+            root.destroy()
+            return
+        result["s"] = sess
+        root.destroy()
+
+    # 1. zapamiętana sesja – bez wpisywania hasła (ale zawsze z weryfikacją na serwerze)
+    email0, tok = cloud.remembered()
+    if tok:
+        try:
+            s = cloud.Session.from_refresh(tok)
+            s.load_profile(VERSION)
+            cloud.remember(s)
+            root.withdraw()
+            root.after(0, finish, s)
+            root.mainloop()
+            return result["s"]
+        except cloud.CloudError as e:
+            if "połączenia" in str(e):
+                messagebox.showerror("Brak internetu", str(e), parent=root)
+            cloud.forget()
+
+    box = card(root, padx=34, pady=26)
+    box.pack(padx=30, pady=30)
+    try:
+        if (ASSETS / "logo.png").exists():
+            root._logo = tk.PhotoImage(file=str(ASSETS / "logo.png"))
+            tk.Label(box, image=root._logo, bg=SURFACE).pack(pady=(0, 10))
+    except tk.TclError:
+        pass
+    tk.Label(box, text="Zaloguj się", bg=SURFACE, fg=BLACK, font=fonts.h1).pack(anchor="w")
+    tk.Label(box, text="Konto zakłada administrator programu.", bg=SURFACE, fg=MUTED,
+             font=fonts.small).pack(anchor="w", pady=(0, 12))
+    v_email, v_pass, v_rem = tk.StringVar(value=email0), tk.StringVar(), tk.BooleanVar(value=True)
+    for label, var, show in (("E-mail", v_email, None), ("Hasło", v_pass, "•")):
+        tk.Label(box, text=label, bg=SURFACE, fg=INK, font=fonts.label).pack(anchor="w")
+        e = tk.Entry(box, textvariable=var, show=show, width=34, font=fonts.body, relief="solid", bd=1)
+        e.pack(anchor="w", ipady=4, pady=(2, 10))
+        if (label == "E-mail") == (not email0):
+            e.focus_set()
+    tk.Checkbutton(box, text="Zapamiętaj mnie na tym komputerze", variable=v_rem, bg=SURFACE,
+                   activebackground=SURFACE, font=fonts.small).pack(anchor="w")
+    msg = tk.Label(box, text="", bg=SURFACE, fg=RED, font=fonts.small, wraplength=300, justify="left")
+    msg.pack(anchor="w", pady=(8, 4))
+    btn = FlatButton(box, "ZALOGUJ", lambda: go(), "primary", fonts.btn)
+    btn.pack(fill="x", pady=(4, 0))
+
+    def go():
+        if not v_email.get().strip() or not v_pass.get():
+            msg.config(text="Wpisz e-mail i hasło.")
+            return
+        btn.set_enabled(False, "Łączę…")
+        msg.config(text="")
+        email, pw, rem = v_email.get().strip(), v_pass.get(), v_rem.get()
+
+        def work():
+            try:
+                s = cloud.Session.login(email, pw)
+                s.load_profile(VERSION)
+                if rem:
+                    cloud.remember(s)
+                else:
+                    cloud.forget()
+                root.after(0, finish, s)
+            except cloud.CloudError as e:
+                root.after(0, lambda err=str(e): (msg.config(text=err), btn.set_enabled(True, "ZALOGUJ")))
+        threading.Thread(target=work, daemon=True).start()
+
+    root.bind("<Return>", lambda e: go())
+    root.mainloop()
+    return result["s"]
+
+
+# ---------- zakładka UŻYTKOWNICY (tylko administrator) ----------
+class UserDialog(tk.Toplevel):
+    def __init__(self, app, user=None):
+        super().__init__(app)
+        self.app, self.user = app, user or {}
+        self.title("Użytkownik" if user else "Nowy użytkownik")
+        self.configure(bg=SURFACE, padx=22, pady=18)
+        self.transient(app)
+        self.resizable(False, False)
+        set_icon(self)
+        f = app.fonts
+        u = self.user
+        self.v_email = tk.StringVar(value=u.get("email", ""))
+        self.v_name = tk.StringVar(value=u.get("name") or "")
+        self.v_pass = tk.StringVar()
+        self.v_admin = tk.BooleanVar(value=u.get("role") == "admin")
+        self.v_active = tk.BooleanVar(value=u.get("active", True))
+        self.v_mod = {k: tk.BooleanVar(value=k in (u.get("modules") or [])) for k, _ in cloud.MODULES}
+        self.v_br = {b: tk.BooleanVar(value=b in (u.get("branches") or [])) for b in cloud.BRANCHES}
+
+        def entry(label, var, show=None, state="normal"):
+            tk.Label(self, text=label, bg=SURFACE, fg=INK, font=f.label).pack(anchor="w")
+            tk.Entry(self, textvariable=var, show=show, width=40, font=f.body, relief="solid", bd=1,
+                     state=state).pack(anchor="w", ipady=3, pady=(2, 8))
+        entry("E-mail", self.v_email, state="disabled" if u else "normal")
+        entry("Imię i nazwisko", self.v_name)
+        entry("Nowe hasło (min. 8 znaków)" if u else "Hasło startowe (min. 8 znaków)", self.v_pass)
+        if u:
+            tk.Label(self, text="Zostaw puste, żeby nie zmieniać hasła.", bg=SURFACE, fg=MUTED,
+                     font=f.small).pack(anchor="w", pady=(0, 6))
+
+        def group(title, items):
+            tk.Label(self, text=title, bg=SURFACE, fg=INK, font=f.label).pack(anchor="w", pady=(6, 0))
+            row = tk.Frame(self, bg=SURFACE)
+            row.pack(anchor="w")
+            for text, var in items:
+                tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE,
+                               font=f.body).pack(side="left", padx=(0, 10))
+        group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES])
+        group("Oddziały", [(b, self.v_br[b]) for b in cloud.BRANCHES])
+        group("Konto", [("Administrator (dostęp do wszystkiego)", self.v_admin), ("Aktywne", self.v_active)])
+
+        self.msg = tk.Label(self, text="", bg=SURFACE, fg=RED, font=f.small, wraplength=380, justify="left")
+        self.msg.pack(anchor="w", pady=(10, 4))
+        bar = tk.Frame(self, bg=SURFACE)
+        bar.pack(fill="x")
+        self.btn = FlatButton(bar, "Zapisz", self.save, "primary", f.btn)
+        self.btn.pack(side="right")
+        FlatButton(bar, "Anuluj", self.destroy, "ghost", f.body, 14, 8).pack(side="right", padx=8)
+        if u and u.get("email", "").lower() != app.session.email.lower():
+            FlatButton(bar, "Usuń konto", self.delete, "dark", f.body, 14, 8).pack(side="left")
+        self.grab_set()
+
+    def _run(self, fn, done_text):
+        self.btn.set_enabled(False, "Zapisuję…")
+
+        def work():
+            try:
+                fn()
+                self.app.after(0, lambda: (self.destroy(), self.app.refresh_users(done_text)))
+            except Exception as e:
+                self.app.after(0, lambda err=str(e): (self.msg.config(text=err),
+                                                      self.btn.set_enabled(True, "Zapisz")))
+        threading.Thread(target=work, daemon=True).start()
+
+    def save(self):
+        email = self.v_email.get().strip().lower()
+        pw = self.v_pass.get()
+        role = "admin" if self.v_admin.get() else "user"
+        mods = [k for k, v in self.v_mod.items() if v.get()]
+        brs = [b for b, v in self.v_br.items() if v.get()]
+        if not email or "@" not in email:
+            self.msg.config(text="Wpisz poprawny e-mail.")
+            return
+        if (not self.user or pw) and len(pw) < 8:
+            self.msg.config(text="Hasło musi mieć co najmniej 8 znaków.")
+            return
+        if role != "admin" and (not mods or not brs):
+            self.msg.config(text="Zaznacz co najmniej jeden moduł i jeden oddział.")
+            return
+        s, name, active = self.app.session, self.v_name.get().strip(), self.v_active.get()
+
+        def fn():
+            if not self.user:
+                s.admin_fn(action="create", email=email, password=pw, name=name, role=role,
+                           modules=mods, branches=brs)
+                if not active:
+                    s.set_user(email, name, role, mods, brs, False)
+            else:
+                s.set_user(email, name, role, mods, brs, active)
+                if pw:
+                    s.admin_fn(action="set_password", email=email, password=pw)
+        self._run(fn, f"Zapisano: {email}" + (" – przekaż użytkownikowi hasło." if pw else ""))
+
+    def delete(self):
+        email = self.user["email"]
+        if not messagebox.askyesno("Usuń konto", f"Usunąć konto {email}?\nTej operacji nie można cofnąć.",
+                                   parent=self):
+            return
+        self._run(lambda: self.app.session.admin_fn(action="delete", email=email), f"Usunięto: {email}")
+
+
 # ---------- okno główne ----------
 class App(tk.Tk):
-    def __init__(self):
+    def __init__(self, session=None):
         super().__init__()
+        self.session = session   # zalogowany użytkownik (rola, moduły, oddziały)
         migrate_config()
+        if session:   # SERWIS QR korzysta z tej samej bazy co logowanie
+            try:
+                _c = load_config()
+                if not _c.get("serwis_sb_url"):
+                    _c.update(serwis_sb_url=cloud.URL, serwis_sb_key=cloud.ANON_KEY)
+                    _c.setdefault("serwis_base", "")
+                    if not _c.get("serwis_base"):
+                        _c["serwis_base"] = "https://djjuniord-boop.github.io/IntegraCRM/"
+                    save_config(_c)
+            except Exception:
+                pass
         self.fonts = Fonts(self)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
         self.geometry("1000x820")
@@ -362,7 +581,7 @@ class App(tk.Tk):
             self.after(2500, self._screenshots, shot)
             return
         _c = load_config()
-        if not (_c["gmail_user"] and _c["gmail_app_password"]):
+        if (not self.session or self.session.can("crm")) and not (_c["gmail_user"] and _c["gmail_app_password"]):
             self.after(400, lambda: SettingsDialog(self))
         self.after(900, lambda: self.check_updates(manual=False))
         self._stat("start")
@@ -492,6 +711,11 @@ class App(tk.Tk):
         tk.Label(titles, text=f"Integra 7 → CRM   ·   wersja {VERSION}", bg=SURFACE, fg=MUTED,
                  font=f.small).pack(anchor="w")
         FlatButton(head, "⚙  Ustawienia", lambda: SettingsDialog(self), "ghost", f.body, 14, 7).pack(side="right")
+        if self.session:
+            FlatButton(head, "Wyloguj", self.logout, "ghost", f.body, 14, 7).pack(side="right", padx=(0, 8))
+            who = self.session.profile.get("name") or self.session.email
+            tk.Label(head, text=f"{who}\n{'administrator' if self.session.is_admin else 'użytkownik'}",
+                     bg=SURFACE, fg=MUTED, font=f.small, justify="right").pack(side="right", padx=12)
         tk.Frame(self, bg=RED, height=4).pack(fill="x")
 
         # zakładki jako przyciski (czytelniejsze niż systemowy Notebook)
@@ -500,13 +724,19 @@ class App(tk.Tk):
         self.pages, self.tab_btns = {}, {}
         holder = tk.Frame(self, bg=BG)
         holder.pack(fill="both", expand=True)
-        tab_list = [("main", "KONTROLA"), ("hist", "HISTORIA")]
-        if load_config().get("marza_enabled") or os.environ.get("INTEGRA_SHOT"):
+        shot = bool(os.environ.get("INTEGRA_SHOT"))
+        can = (lambda m: shot or self.session.can(m)) if self.session else (lambda m: True)
+        tab_list = []
+        if can("crm"):
+            tab_list += [("main", "KONTROLA"), ("hist", "HISTORIA")]
+        if can("marza"):
             tab_list.append(("marza", "MARŻA"))
-        if load_config().get("serwis_enabled") or os.environ.get("INTEGRA_SHOT"):
+        if can("serwis"):
             tab_list.append(("serwis", "SERWIS QR  β"))
+        if self.session and self.session.is_admin:
+            tab_list.append(("users", "UŻYTKOWNICY"))
         tab_list.append(("help", "POMOC I WERSJE"))
-        self.current_tab = "main"
+        self.current_tab = tab_list[0][0]
         for key, label in tab_list:
             b = tk.Label(tabs, text=label, bg=BLACK, fg="#BBBBBB", font=f.label, padx=20, pady=9,
                          cursor="hand2")
@@ -514,9 +744,15 @@ class App(tk.Tk):
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
-        self._build_main(self.pages["main"])
+        if "main" in self.pages:
+            self._build_main(self.pages["main"])
+            self._build_history(self.pages["hist"])
+        else:   # bez modułu kontroli – elementy używane przez inne funkcje okna
+            self._build_main(tk.Frame(self))
+            self._build_history(tk.Frame(self))
         self._build_help(self.pages["help"])
-        self._build_history(self.pages["hist"])
+        if "users" in self.pages:
+            self._build_users(self.pages["users"])
         if "marza" in self.pages:
             self._build_marza(self.pages["marza"])
         if "serwis" in self.pages:
@@ -525,7 +761,71 @@ class App(tk.Tk):
             except Exception as e:   # beta nie może zablokować reszty programu
                 tk.Label(self.pages["serwis"], text=f"Nie udało się wczytać zakładki SERWIS QR: {e}",
                          bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
-        self.show_tab("main")
+        self.show_tab(self.current_tab)
+
+    # ---------- użytkownicy (administrator) ----------
+    def _build_users(self, page):
+        f = self.fonts
+        bar = tk.Frame(page, bg=BG)
+        bar.pack(fill="x", pady=(4, 8))
+        tk.Label(bar, text="Użytkownicy programu", bg=BG, fg=BLACK, font=f.h1).pack(side="left")
+        FlatButton(bar, "+ Dodaj użytkownika", lambda: UserDialog(self), "primary", f.btn).pack(side="right")
+        FlatButton(bar, "Odśwież", lambda: self.refresh_users(), "ghost", f.body, 14, 8).pack(side="right", padx=8)
+        self.users_msg = tk.Label(page, text="", bg=BG, fg=MUTED, font=f.small, anchor="w")
+        self.users_msg.pack(fill="x")
+        cols = ("email", "name", "role", "modules", "branches", "active", "last", "ver")
+        heads = ("E-mail", "Imię i nazwisko", "Rola", "Moduły", "Oddziały", "Status", "Ostatnie logowanie", "Wersja")
+        widths = (220, 160, 100, 180, 260, 90, 140, 70)
+        self.users_tv = ttk.Treeview(page, columns=cols, show="headings", height=18)
+        for c, h, w in zip(cols, heads, widths):
+            self.users_tv.heading(c, text=h)
+            self.users_tv.column(c, width=w, anchor="w")
+        self.users_tv.pack(fill="both", expand=True, pady=(6, 0))
+        self.users_tv.bind("<Double-1>", lambda e: self._edit_user())
+        tk.Label(page, text="Kliknij dwukrotnie użytkownika, żeby zmienić uprawnienia, hasło albo zablokować konto. "
+                 "Administrator ma zawsze dostęp do wszystkich modułów i oddziałów.",
+                 bg=BG, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 0))
+        self._users = []
+        self.after(300, self.refresh_users)
+
+    def refresh_users(self, info=""):
+        self.users_msg.config(text="Wczytuję…", fg=MUTED)
+
+        def work():
+            try:
+                users = self.session.list_users()
+                self.after(0, self._show_users, users, info)
+            except Exception as e:
+                self.after(0, lambda err=str(e): self.users_msg.config(text=f"Błąd: {err}", fg=RED))
+        threading.Thread(target=work, daemon=True).start()
+
+    def _show_users(self, users, info):
+        self._users = users
+        names = dict(cloud.MODULES)
+        self.users_tv.delete(*self.users_tv.get_children())
+        for i, u in enumerate(users):
+            adm = u.get("role") == "admin"
+            last = (u.get("last_seen") or "")[:16].replace("T", " ")
+            self.users_tv.insert("", "end", iid=str(i), values=(
+                u["email"], u.get("name") or "", "administrator" if adm else "użytkownik",
+                "wszystkie" if adm else ", ".join(names.get(m, m) for m in u.get("modules") or []),
+                "wszystkie" if adm else ", ".join(u.get("branches") or []),
+                "aktywne" if u.get("active") else "ZABLOKOWANE", last or "nigdy", u.get("app_version") or ""))
+        self.users_msg.config(text=info or f"Kont: {len(users)}", fg=OK if info else MUTED)
+
+    def _edit_user(self):
+        sel = self.users_tv.selection()
+        if sel:
+            UserDialog(self, self._users[int(sel[0])])
+
+    def logout(self):
+        if not messagebox.askyesno("Wyloguj", "Wylogować się? Program zostanie zamknięty."):
+            return
+        try:
+            self.session.logout()
+        except Exception:
+            pass
+        self._on_close() if hasattr(self, "_on_close") else self.destroy()
 
     def _build_history(self, page):
         f = self.fonts
@@ -1498,6 +1798,9 @@ class App(tk.Tk):
     # ---------- raport z CRM (.xlsx) i wybór serwisów ----------
     def _build_branches(self, names):
         chosen = {crm_report._key(b) for b in load_config().get("crm_branches", crm_report.BRANCHES)}
+        if self.session and not self.session.is_admin:   # tylko oddziały przydzielone użytkownikowi
+            allowed = {crm_report._key(b) for b in self.session.branches()}
+            names = [n for n in names if crm_report._key(n) in allowed]
         for n in names:
             if n in self.branch_vars:
                 continue
@@ -1735,4 +2038,10 @@ def main():
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
         pass
-    App().mainloop()
+    if os.environ.get("INTEGRA_SHOT"):   # zrzuty ekranu w GitHub Actions – bez logowania
+        App(None).mainloop()
+        return
+    sess = login_flow()
+    if sess is None:
+        return
+    App(sess).mainloop()

@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.9"
+VERSION = "0.14.0"
 RELEASED = "2026-10-13"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,19 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.14.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Logowanie przy starcie (konto zakłada administrator), opcja „Zapamiętaj mnie na tym komputerze”",
+            "Zakładki według uprawnień konta: Kontrola CRM, MARŻA, SERWIS QR",
+            "Oddziały w kontroli CRM ograniczone do przydzielonych użytkownikowi",
+            "Zakładka UŻYTKOWNICY dla administratora: dodawanie kont, moduły, oddziały, blokowanie, zmiana hasła, "
+            "ostatnie logowanie i wersja programu",
+            "SERWIS QR: auta przypisane do oddziałów – pracownik widzi tylko swoje",
+            "Program wymaga internetu; zbyt stara wersja sama się aktualizuje",
+        ],
+    },
     {
         "version": "0.13.9",
         "date": "2026-10-13",
