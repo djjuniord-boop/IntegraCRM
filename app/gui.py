@@ -666,8 +666,8 @@ class App(tk.Tk):
             return
         why = serwis_window.is_available()
         if why:
-            if messagebox.askyesno("SERWIS QR", why + "\n\nOtworzyć panel tymczasowo w przeglądarce?"):
-                self._serwis_browser(cfg)
+            messagebox.showwarning("SERWIS QR", why + "\n\nPobierz paczkę IntegraCRM-…-exe.zip z wydania „kanal-beta” "
+                                   "na GitHubie, rozpakuj do nowego folderu i skopiuj do niego swój folder „data”.")
             return
         try:
             serwis_qr.write_config(cfg)
@@ -721,10 +721,10 @@ class App(tk.Tk):
         tail = serwis_window.log_tail()
         msg = (f"Okno panelu nie uruchomiło się.\n\nPowód: {err}\n\n"
                + (f"Ostatnie wpisy dziennika (data\\serwis.log):\n{tail}\n\n" if tail else "")
-               + "Najczęstsza przyczyna: brak lub zablokowany składnik Microsoft Edge WebView2.\n\n"
-               "Otworzyć panel tymczasowo w przeglądarce?")
+               + "Spróbować otworzyć ponownie?")
         if messagebox.askyesno("SERWIS QR", msg):
-            self._serwis_browser(load_config())
+            self._serwis_proc = None
+            self.serwis_open()
 
     def _serwis_browser(self, cfg):
         import serwis_qr
