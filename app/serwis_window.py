@@ -251,6 +251,10 @@ def launch():
         cmd = [sys.executable, "--serwis"]
     else:
         cmd = [sys.executable, str(paths.APP_DIR / "start.py"), "--serwis"]
+    try:   # musi być PRZED startem okna: IntegraCRM.exe wczytuje biblioteki .NET już przy uruchomieniu
+        unblock_runtime()
+    except Exception:
+        pass
     env = dict(os.environ)
     env.pop("INTEGRA_SHOT", None)
     env.pop("INTEGRA_SELFTEST", None)

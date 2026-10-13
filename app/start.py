@@ -9,6 +9,9 @@ sys.path.insert(0, str(APP))
 
 
 def main():
+    if "--unblock" in sys.argv:   # test: odblokowanie bibliotek okna panelu (jak robi to główne okno)
+        import serwis_window
+        sys.exit(0 if serwis_window.unblock_runtime() >= 0 else 1)
     if "--serwis" in sys.argv:   # okno panelu SERWIS QR (osobny proces)
         try:
             import serwis_window

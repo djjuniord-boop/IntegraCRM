@@ -108,7 +108,16 @@ jobs:
           $env:INTEGRA_NO_UNBLOCK = $null
           $err = ""; if (Test-Path "$data/serwis_status.json") { $err = (Get-Content "$data/serwis_status.json" -Raw | ConvertFrom-Json).error }
           Write-Host "Bez odblokowania: stan '$state', błąd: $err"
-          if ($state -ne "error" -or $err -notmatch "Python.Runtime") { Write-Host "UWAGA: nie odtworzono błędu użytkownika" }
+          if ($state -ne "error" -or $err -notmatch "Python.Runtime") { throw "Nie odtworzono błędu użytkownika – test nie sprawdza poprawki" }
+          # tak jak w programie: główne okno odblokowuje pliki, dopiero potem startuje okno panelu
+          $u = Start-Process -FilePath $exe -ArgumentList "--unblock" -PassThru; $u.WaitForExit(60000) | Out-Null
+          $left = (Get-ChildItem -Recurse -File pkg/IntegraCRM/_internal/pythonnet, pkg/IntegraCRM/_internal/clr_loader, pkg/IntegraCRM/_internal/webview | Where-Object { Get-Item $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue } | Where-Object { $_.Extension -in ".dll", ".exe" }).Count
+          Write-Host "Po odblokowaniu zostało oznaczonych bibliotek: $left"
+          $env:INTEGRA_NO_UNBLOCK = "1"
+          $state = Wait-Loaded 60
+          $env:INTEGRA_NO_UNBLOCK = $null
+          Write-Host "Po odblokowaniu przez program: stan '$state'"
+          if ($state -ne "loaded") { Show-Logs; throw "Po odblokowaniu okno nadal się nie wczytuje (stan: '$state')" }
           # 1) zwykłe uruchomienie – tak jak z przycisku w programie; 3 razy pod rząd (stabilność)
           $env:PYWEBVIEW_LOG = "debug"
           foreach ($k in 1,2,3) {
