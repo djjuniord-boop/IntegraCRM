@@ -48,7 +48,8 @@ def write_config(cfg: dict) -> Path:
         "url": (cfg.get("serwis_sb_url") or "").strip().rstrip("/"),
         "key": (cfg.get("serwis_sb_key") or "").strip(),
         "base": (cfg.get("serwis_base") or "").strip(),
-        "sso": bool(cfg.get("serwis_sso")),   # token logowania podaje program (bez osobnego logowania)
+        # logowanie z programu: jest token przekazany przez okno główne (zapisuje go przy otwarciu zakładki)
+        "sso": bool(cfg.get("serwis_sso")) or bool(read_token()),
     }
     paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
     text = "window.SERWIS_CFG = " + json.dumps(data, ensure_ascii=False) + ";\n"
