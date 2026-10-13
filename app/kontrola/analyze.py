@@ -2,9 +2,8 @@
 import re
 from datetime import date, timedelta
 
-import extract
-import plates
-
+from kontrola import extract
+from kontrola import plates
 CRM_DATE_RE = re.compile(r"\b(\d{1,2})\.(\d{1,2})\.(\d{4}),?\s+\d{1,2}:\d{2}")
 
 

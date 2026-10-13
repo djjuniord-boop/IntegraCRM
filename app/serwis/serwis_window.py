@@ -12,8 +12,7 @@ import time
 from pathlib import Path
 
 import paths
-import serwis_qr
-
+from serwis import serwis_qr
 STORAGE = paths.DATA_DIR / "serwis_webview"
 TITLE = "Latex Serwis – historia serwisowa (beta)"
 
@@ -33,7 +32,7 @@ class Api:
 
     def get_token(self):
         """Token logowania z programu głównego (panel nie loguje się osobno)."""
-        import serwis_qr
+        from serwis import serwis_qr
         return serwis_qr.read_token()
 
     def open_url(self, url):
@@ -248,7 +247,7 @@ def run() -> int:
             log.info("okno widoczne")
             if embedded:   # okno czeka poza ekranem na osadzenie – bez przycisku na pasku zadań
                 try:
-                    import embed_win
+                    from serwis import embed_win
                     hwnd = embed_win.find_window(os.getpid(), TITLE)
                     log.info("ukrywam z paska zadań: %s", embed_win.hide_from_taskbar(hwnd))
                 except Exception:

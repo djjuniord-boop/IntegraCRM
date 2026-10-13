@@ -2,8 +2,7 @@
 import csv
 from datetime import date, datetime
 
-import plates
-
+from kontrola import plates
 # Serwisy pokazywane zawsze w oknie (kolejne, nieznane, dochodzą z wczytanego pliku)
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 

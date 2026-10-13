@@ -16,16 +16,15 @@ def run(folder: str) -> int:
     d = Path(folder)
     res = {"ok": False}
     try:
-        import extract
-        import mailer
+        from kontrola import extract
+        from kontrola import mailer
         import paths
-        import plates
-
+        from kontrola import plates
         t0 = time.time()
         tess = paths.find_tesseract("")
         res["tesseract"] = tess
         res["root"] = str(paths.ROOT)
-        import analyze
+        from kontrola import analyze
         a = analyze.run(str(d / "integra.pdf"), str(d / "crm.png"), tess)
         integra, crm, missing, uncertain = a["integra"], a["crm"], a["missing"], a["uncertain"]
         res["layout_ok"] = a["layout_ok"]
@@ -42,7 +41,7 @@ def run(folder: str) -> int:
             {"date": _d(2026, 1, 1), "plate": integra[0][:-1] + ("X" if integra[0][-1] != "X" else "Y"), "branch": "T"}],
             "branches": ["T"]}, tess)
         res["xlsx_exact"] = integra[0] in xr["missing"] and not xr["autofix"] and not xr["uncertain"]
-        import history
+        from kontrola import history
         import vault
         enc = vault.protect("abcd efgh ijkl mnop")
         res["vault_encrypted"] = enc.startswith(vault.PREFIX) or os.name != "nt"
@@ -63,7 +62,7 @@ def run(folder: str) -> int:
         png = _sw._generuj_wykres_png("Październik 2026", 300000, 120000, 2026, 10, holidays=set(), log_lines=[])
         res["marza_chart_bytes"] = len(png or b"")
         # SERWIS QR (beta): pliki panelu w paczce i zapis ustawień dla przeglądarki
-        import serwis_qr
+        from serwis import serwis_qr
         res["serwis_panel"] = serwis_qr.PANEL.exists() and (serwis_qr.PANEL.parent / "qrcode.min.js").exists()
         js = serwis_qr.write_config({"serwis_base": "https://serwis.example.pl/", "serwis_sb_url": "", "serwis_sb_key": ""})
         res["serwis_config"] = "https://serwis.example.pl/" in js.read_text(encoding="utf-8")
@@ -99,7 +98,7 @@ def run(folder: str) -> int:
                         and ui["admin"].get("rows") == 2 and "users" not in ui["user"]["tabs"]
                         and "serwis" not in ui["user"]["tabs"] and "main" in ui["user"]["tabs"]
                         and ui["user"]["branches"] == ["Latex Opole"])
-        import serwis_window
+        from serwis import serwis_window
         res["serwis_window"] = serwis_window.is_available() == ""
         res["ok"] = (res["ui_ok"] and res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
