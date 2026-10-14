@@ -477,7 +477,7 @@ async function saveService(print,wa){
   if(other){$("formErr").textContent=`Numer ${car.plate} należy już do innego auta w bazie (${other.model||"bez modelu"}).`;return}
   if(wa&&!waPhone(car.phone)){$("formErr").textContent="Wpisz prawidłowy telefon klienta (9 cyfr), żeby wysłać WhatsApp.";return}
   const prevMax=Math.max(0,...(editCar?.services||[]).filter(x=>x.id!==s.id).map(x=>x.km||0));
-  if(s.km<prevMax&&!kmWarned){kmWarned=true;$("formErr").textContent=`Przebieg ${fmtKm(s.km)} jest mniejszy niż przy poprzedniej wizycie (${fmtKm(prevMax)}). Sprawdź i kliknij zapis ponownie, jeśli jest poprawny.`;return}
+  if(s.km<prevMax&&!kmWarned){kmWarned=true;$("formErr").textContent=`Przebieg ${fmtKm(s.km)} jest mniejszy niż przy poprzedniej wizycie (${fmtKm(prevMax)}). Sprawdź i, jeśli przebieg jest poprawny, kliknij ponownie „Zapisz”.`;return}
   if(s.next_date&&s.next_date<=s.date){$("formErr").textContent="Data następnej wymiany musi być późniejsza niż data wpisu.";return}
   if(s.next_km&&s.next_km<=s.km){$("formErr").textContent="Przebieg następnej wymiany musi być większy niż obecny.";return}
   const win=wa&&!IN_APP()?window.open("about:blank","_blank"):null;
@@ -486,7 +486,7 @@ async function saveService(print,wa){
     const isEditSvc=editCar?._editSvc;
     const saved=await upsertCar(car);
     if(DEMO){const target=CARS.find(c=>c.id===saved.id);if(isEditSvc){const i=target.services.findIndex(x=>x.id===s.id);if(i>=0)target.services[i]=s;else target.services.push(s);sortSvc(target.services);store.save("cars",CARS)}else await insertService(target,s)}
-    else{await insertService(saved,s);if(!await loadCars())throw new Error("zapisano, ale nie udało się odświeżyć listy – odśwież stronę")}
+    else{await insertService(saved,s);if(!await loadCars())throw new Error("Zapisano, ale nie udało się odświeżyć listy – odśwież stronę")}
     const fresh=CARS.find(c=>c.id===car.id);
     if(print&&fresh){const ls=nextOf(fresh).id?nextOf(fresh):fresh.services[0];printLabel(fresh,ls)}
     if(wa&&fresh)sendWA(fresh.id,"done",win);
