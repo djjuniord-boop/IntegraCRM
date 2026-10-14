@@ -46,7 +46,7 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: PyInstaller
-        run: pyinstaller --noconfirm --windowed --name IntegraCRM --icon app/assets/icon.ico --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
+        run: pyinstaller --noconfirm --windowed --name IntegraCRM --icon app/assets/icon.ico --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
 
       - name: Paczka
         shell: pwsh
@@ -66,6 +66,24 @@ jobs:
           Compress-Archive -Path $out -DestinationPath "IntegraCRM-$v-exe.zip"
           python tools/publish.py
           Copy-Item release/* .
+
+      - name: Instalator (IntegraCRM-setup.exe)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.version }}" tools/installer.iss
+          if (-not (Test-Path IntegraCRM-setup.exe)) { throw "Brak instalatora" }
+          $mb = [math]::Round((Get-Item IntegraCRM-setup.exe).Length / 1MB, 1)
+          $zmb = [math]::Round((Get-Item "IntegraCRM-${{ steps.ver.outputs.version }}-exe.zip").Length / 1MB, 1)
+          $n = (Get-ChildItem -Recurse -File pkg/IntegraCRM).Count
+          $smb = [math]::Round(((Get-ChildItem -Recurse -File pkg/IntegraCRM | Measure-Object Length -Sum).Sum) / 1MB, 1)
+          Write-Host "Instalator: $mb MB, zip: $zmb MB, po instalacji: $smb MB w $n plikach"
+          # próba instalacji bez okien do folderu z polskimi znakami
+          $dir = "C:\Testy\Instalacja Łódź"
+          $p = Start-Process -FilePath .\IntegraCRM-setup.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"", "/TASKS=" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Instalacja: kod $($p.ExitCode)" }
+          foreach ($f in "IntegraCRM.exe", "app\version.py", "app\start.py") { if (-not (Test-Path "$dir\$f")) { throw "Po instalacji brak $f" } }
+          Write-Host "Instalacja OK"
 
       - name: Test działania (ścieżka z polskimi znakami)
         shell: pwsh
@@ -188,6 +206,7 @@ jobs:
           name: IntegraCRM-${{ steps.ver.outputs.version }}
           path: |
             IntegraCRM-*-exe.zip
+            IntegraCRM-setup.exe
             integra-*.zip
             version.json
 
@@ -202,18 +221,18 @@ jobs:
             # więc zwykłe instalacje (releases/latest/...) go nie widzą.
             gh release view kanal-beta 2>$null
             if ($LASTEXITCODE -eq 0) {
-              gh release upload kanal-beta "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --clobber
+              gh release upload kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
               gh release edit kanal-beta --prerelease --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
             } else {
-              gh release create kanal-beta "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
+              gh release create kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
             }
             exit 0
           }
           gh release view "v$v" 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --clobber
+            gh release upload "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
           } else {
-            gh release create "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
+            gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
 
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
