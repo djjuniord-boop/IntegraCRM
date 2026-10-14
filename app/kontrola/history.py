@@ -12,7 +12,7 @@ import paths
 
 HISTORY = paths.DATA_DIR / "historia.csv"
 REPORTED = paths.DATA_DIR / "zgloszone.json"
-KEEP_DAYS = 60   # po tylu dniach numer nie jest już oznaczany „zgłaszany już”
+KEEP_DAYS = 60   # po tylu dniach numer nie jest już oznaczany „zgłoszony już”
 FIELDS = ["data", "plik_pdf", "integra", "crm", "brakuje", "do_weryfikacji", "mail_wyslany_do"]
 
 
@@ -87,7 +87,7 @@ _reported_cache: dict = {}
 
 
 def add_check(pdf_name, n_integra, n_crm, missing, uncertain, branches=()):
-    """Zapisuje sprawdzenie; zwraca identyfikator (do oznaczenia wysyłki maila)."""
+    """Zapisuje sprawdzenie; zwraca identyfikator (do oznaczenia wysyłki e-maila)."""
     if SESSION is None:
         return _local_add_check(pdf_name, n_integra, n_crm, missing, uncertain)
     r = SESSION.call("POST", "/rest/v1/checks?select=id", {

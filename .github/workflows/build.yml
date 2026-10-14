@@ -235,6 +235,26 @@ jobs:
             gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target main --latest --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
 
+      - name: Porządki w wydaniach (stare paczki)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # kanal-beta: zostaje tylko bieżąca wersja, instalator i version.json
+          $v = "${{ steps.ver.outputs.version }}"
+          $keep = @("IntegraCRM-$v-exe.zip", "integra-$v.zip", "IntegraCRM-setup.exe", "version.json")
+          $assets = gh api "repos/${{ github.repository }}/releases/tags/kanal-beta" --jq '.assets[] | "\(.id) \(.name)"'
+          foreach ($a in $assets) {
+            $id, $name = $a -split " ", 2
+            if ($keep -notcontains $name) { gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"; Write-Host "usunięto: $name" }
+          }
+          # stare wydania stabilne sprzed 0.13.0 (v0.13.0 zostaje do przywrócenia poprzedniej wersji); tagi zostają
+          $rels = gh api "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name | startswith("v")) | "\(.id) \(.tag_name)"'
+          foreach ($r in $rels) {
+            $id, $tag = $r -split " ", 2
+            if ([version]$tag.TrimStart("v") -lt [version]"0.13.0") { gh api -X DELETE "repos/${{ github.repository }}/releases/$id"; Write-Host "usunięto wydanie: $tag" }
+          }
+
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
         if: github.ref_name == 'beta'   # jedna gałąź publikuje stronę klientów (inaczej strona przełączałaby się między wersjami)
         shell: pwsh

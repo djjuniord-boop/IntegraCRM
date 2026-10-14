@@ -1,4 +1,4 @@
-"""Treść i wysyłka maila z listą brakujących numerów (Gmail przez SMTP + hasło aplikacji)."""
+"""Treść e-maila z listą brakujących numerów (wysyła go serwer firmy)."""
 import smtplib
 import ssl
 from datetime import datetime
@@ -7,27 +7,27 @@ from email.utils import formataddr
 
 from version import VERSION
 
-DEFAULT_SENDER = "Kontrola eksportu – Latex Serwis"
+DEFAULT_SENDER = "Panel Latex Serwis"
 
 
 def compose(missing: list[str], uncertain: list[tuple[str, str]], reported: dict | None = None) -> tuple[str, str]:
-    """Zwraca (temat, treść) maila. reported = {numer: data} – numery zgłaszane już wcześniej."""
+    """Zwraca (temat, treść) e-maila. reported = {numer: data} – numery zgłaszane już wcześniej."""
     reported = reported or {}
     today = datetime.now().strftime("%d.%m.%Y")
     lines = [
         "Dzień dobry,",
         "",
         "w CRM brakuje poniższych numerów rejestracyjnych zakończonych zleceń "
-        "z Integra 7. Proszę o sprawdzenie i wyeksportowanie ich do CRM:",
+        "z Integry 7. Proszę o sprawdzenie i wyeksportowanie ich do CRM:",
         "",
     ]
-    lines += [f"  • {p}" + (f"   (zgłaszany już {reported[p]})" if p in reported else "")
-              for p in missing] or ["  (brak pewnych braków – patrz niżej)"]
+    lines += [f"  • {p}" + (f"   (zgłoszony już {reported[p]})" if p in reported else "")
+              for p in missing] or ["  (brak numerów, których na pewno brakuje – patrz niżej)"]
     if uncertain:
         lines += ["", "Do ręcznej weryfikacji (podobne numery w CRM – możliwy błąd odczytu):"]
         lines += [f"  • Integra: {a}  ↔  CRM: {b}" for a, b in uncertain]
     lines += ["", f"Data sprawdzenia: {today}",
-              f"Wiadomość wygenerowana automatycznie (program Integra–CRM v{VERSION})."]
+              f"Wiadomość wygenerowana automatycznie (Panel Latex Serwis, wersja {VERSION})."]
     subject = (f"Brakujące zlecenia w CRM ({len(missing)}) – {today}" if missing
                else f"Numery do weryfikacji w CRM ({len(uncertain)}) – {today}")
     return subject, "\n".join(lines)

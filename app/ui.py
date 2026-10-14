@@ -62,6 +62,16 @@ class FlatButton(tk.Label):
             self.config(text=text)
 
 
+def odmiana(n, jeden, kilka, wiele):
+    """Polska odmiana po liczbie: odmiana(1,"numer","numery","numerów") → „numer”; 3 → „numery”; 5, 12, 22? → zgodnie z zasadami."""
+    n = abs(int(n))
+    if n == 1:
+        return jeden
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return kilka
+    return wiele
+
+
 def card(parent, **kw):
     return tk.Frame(parent, bg=SURFACE, highlightthickness=1, highlightbackground=LINE, **kw)
 

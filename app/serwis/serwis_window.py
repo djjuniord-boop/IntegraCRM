@@ -289,7 +289,7 @@ def is_available() -> str:
     import importlib.util
     try:
         if importlib.util.find_spec("webview") is None:
-            return "Ta wersja IntegraCRM.exe nie ma silnika okna panelu – pobierz nową paczkę .exe z kanału beta."
+            return "Ta wersja IntegraCRM.exe nie ma silnika okna panelu."
     except Exception:
         return "Nie udało się sprawdzić silnika okna panelu."
     return ""

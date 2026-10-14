@@ -126,7 +126,7 @@ class Session:
         return str(rows[0]["value"]) if rows else ""
 
     def company(self) -> dict:
-        """Ustawienia firmowe modułu Kontrola CRM (odbiorcy maili, nadawca) – ustawia administrator."""
+        """Ustawienia firmowe modułu Kontrola CRM (odbiorcy e-maili, nadawca) – ustawia administrator."""
         rows = self.call("GET", "/rest/v1/app_config?key=eq.crm&select=value") or []
         return rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
 

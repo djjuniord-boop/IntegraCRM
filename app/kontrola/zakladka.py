@@ -1,11 +1,11 @@
-"""Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → mail (+ liczniki dzienne)."""
+"""Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → e-mail (+ liczniki dzienne)."""
 import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import paths
 from kontrola import analyze, crm_report, mailer
-from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, step_badge
+from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, odmiana, step_badge
 from konfig import load_config, recipients_for, save_config
 try:
     from kontrola import history
@@ -14,7 +14,7 @@ except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
 
 
 class KontrolaMixin:
-    """Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → mail.
+    """Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → e-mail.
     Część klasy okna programu (App) – metody korzystają z jej pól (self.*)."""
 
     def _build_main(self, page):
@@ -30,7 +30,7 @@ class KontrolaMixin:
         h = tk.Frame(c1, bg=SURFACE)
         h.pack(fill="x")
         step_badge(h, 1, f).pack(side="left")
-        tk.Label(h, text="Raport z Integra 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
+        tk.Label(h, text="Raport z Integry 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
         self.pdf_box = tk.Label(c1, text="Przeciągnij tutaj plik PDF\nalbo kliknij, aby wybrać", bg=BG, fg=MUTED, font=f.body, anchor="w",
                                 padx=12, pady=6, cursor="hand2", justify="center")
         self.pdf_box.pack(fill="x", pady=(8, 8))
@@ -100,7 +100,7 @@ class KontrolaMixin:
         hr = tk.Frame(right, bg=SURFACE)
         hr.pack(fill="x")
         step_badge(hr, 3, f).pack(side="left")
-        tk.Label(hr, text="Mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
+        tk.Label(hr, text="E-mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
         tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
         self.subject = tk.StringVar()
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
@@ -112,7 +112,7 @@ class KontrolaMixin:
         self.mail_body = tk.Text(right, height=8, font=f.body, bg=SURFACE, fg=INK, relief="flat",
                                  wrap="word", highlightthickness=1, highlightbackground=LINE,
                                  highlightcolor=RED, padx=8, pady=6)
-        self.btn_send = FlatButton(right, "Wyślij maila", self.send_mail, "dark", f.btn, 18, 8)
+        self.btn_send = FlatButton(right, "Wyślij e-mail", self.send_mail, "dark", f.btn, 18, 8)
         self.btn_send.pack(side="bottom", anchor="e", pady=(8, 0))   # zawsze widoczny
         self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
@@ -129,7 +129,7 @@ class KontrolaMixin:
             self.copy_info.config(text="Nie ma numerów do skopiowania.")
             return
         allp = list(self.result[0]) + [a for a, _ in self.result[1]]
-        self.copy_text("\n".join(allp), f"✔ Skopiowano {len(allp)} numer(y) – każdy w osobnej linii")
+        self.copy_text("\n".join(allp), f"✔ Skopiowano {len(allp)} {odmiana(len(allp), 'numer', 'numery', 'numerów')} – każdy w osobnym wierszu")
 
     def show_details(self):
         content = self.log.get("1.0", "end").strip() or "Brak szczegółów – najpierw kliknij „Sprawdź”."
@@ -139,7 +139,7 @@ class KontrolaMixin:
         def save(txt):
             self.mail_body.delete("1.0", "end")
             self.mail_body.insert("1.0", txt)
-        return self._text_window(f"Treść maila – {self.subject.get() or 'bez tematu'}",
+        return self._text_window(f"Treść e-maila – {self.subject.get() or 'bez tematu'}",
                           self.mail_body.get("1.0", "end").strip(), editable=True, on_save=save)
 
     def set_chips(self, missing, uncertain):
@@ -242,7 +242,7 @@ class KontrolaMixin:
         ds = sorted(r["date"] for r in self.crm_rows if r["date"])
         rng = f"{ds[0]:%d.%m} – {ds[-1]:%d.%m.%Y}" if ds else "bez dat"
         det = ",  ".join(f"{b}: {c}" for b, c in counts.items())
-        self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} numerów",
+        self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} {odmiana(n, 'numer', 'numery', 'numerów')}",
                             fg=OK if n else WARN, bg=OK_BG if n else WARN_BG)
 
     def set_image(self, img=None):
@@ -313,14 +313,14 @@ class KontrolaMixin:
             wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
             if not missing and not uncertain:
                 self.ui(self.set_banner, "warn" if warn else "ok",
-                        f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")
+                        f"✔  Jest dobrze – wszystkie zlecenia z Integry ({len(integra)}) są w CRM.{wtxt}")
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
             if res.get("no_overlap"):   # prawie nic się nie pokrywa – mail byłby fałszywym alarmem
                 self.ui(self.set_banner, "warn", f"⚠  Dane z CRM nie pasują do raportu Integry "
                         f"(wspólne numery: {res.get('n_common', 0)} z {len(integra)}). Sprawdź zaznaczone "
-                        "serwisy i zakres dat. Mail nie został przygotowany." + wtxt)
+                        "serwisy i zakres dat. E-mail nie został przygotowany." + wtxt)
                 self.ui(self.subject.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
@@ -334,7 +334,7 @@ class KontrolaMixin:
                 self.subject.set(subj)
                 self.mail_body.delete("1.0", "end")
                 self.mail_body.insert("1.0", body)
-                self.btn_send.set_enabled(True, "Wyślij maila")
+                self.btn_send.set_enabled(True, "Wyślij e-mail")
             self.ui(fill)
             parts = []
             if missing:
@@ -342,7 +342,7 @@ class KontrolaMixin:
             if uncertain:
                 parts.append(f"{len(uncertain)} do weryfikacji")
             self.ui(self.set_banner, "bad", f"✖  W CRM {' i '.join(parts)} z {len(integra)} zleceń. "
-                    "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”." + wtxt)
+                    "E-mail jest gotowy – sprawdź treść i kliknij „Wyślij e-mail”." + wtxt)
         except Exception as e:
             self.say(f"Błąd: {e}")
             self._report(e, "sprawdzanie")
@@ -365,7 +365,7 @@ class KontrolaMixin:
         try:
             idx = self.hist_index if isinstance(self.hist_index, int) else None
             n = history.save_visit_stats(branches[0], daily, idx)
-            self.say(f"Statystyki: zapisano {n} dzień/dni dla {branches[0]} ("
+            self.say(f"Statystyki: zapisano {n} {odmiana(n, 'dzień', 'dni', 'dni')} dla {branches[0]} ("
                      + ", ".join(f"{d['day']}: wizyty {d['visits']}, listy {d['lists']}, braki {d['missing']}"
                                  for d in daily) + ")")
         except Exception as e:
@@ -373,7 +373,7 @@ class KontrolaMixin:
 
     def send_mail(self):
         if not self.result or not (self.result[0] or self.result[1]):
-            messagebox.showinfo("Wyślij maila", "Nie ma czego wysyłać – mail przygotowuje się tylko wtedy, "
+            messagebox.showinfo("Wyślij e-mail", "Nie ma czego wysyłać – e-mail przygotowuje się tylko wtedy, "
                                 "gdy czegoś brakuje w CRM.")
             return
         cfg = load_config()
@@ -383,16 +383,16 @@ class KontrolaMixin:
             messagebox.showwarning("Odbiorcy", "Brak odbiorców – administrator ustawia ich w Ustawieniach.")
             return
         if not server:
-            messagebox.showwarning("Wyślij maila", "Mail wysyła serwer firmy – zaloguj się ponownie.")
+            messagebox.showwarning("Wyślij e-mail", "E-mail wysyła serwer firmy – zaloguj się ponownie.")
             return
-        if not messagebox.askyesno("Wyślij maila", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
+        if not messagebox.askyesno("Wyślij e-mail", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
             return
         branch = ", ".join(getattr(self, "last_branches", []))
         subj, body = self.subject.get(), self.mail_body.get("1.0", "end").strip()
         missing = list(self.result[0])
         hist_index = self.hist_index if self.hist_index is not None else -1
         self.btn_send.set_enabled(False, "WYSYŁAM…")
-        self.set_banner("busy", "Wysyłam maila…")
+        self.set_banner("busy", "Wysyłam e-mail…")
 
         def work():   # wysyłka w tle – okno nie zamarza przy wolnym internecie
             try:
@@ -402,12 +402,12 @@ class KontrolaMixin:
                     raise RuntimeError("Wysyłka z serwera nie jest skonfigurowana – powiadom administratora.") from None
                 cfg["gmail_user"] = self.session.email
             except Exception as e:
-                self._report(e, "wysyłka maila")
+                self._report(e, "wysyłka e-maila")
                 self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
-                self.ui(self.btn_send.set_enabled, True, "Wyślij maila")
+                self.ui(self.btn_send.set_enabled, True, "Wyślij e-mail")
                 return
             cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
-            self.ui(self.set_banner, "ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
+            self.ui(self.set_banner, "ok", f"✔  E-mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
             self.ui(self.btn_send.set_enabled, False, "Wysłano ✔")
             try:
                 if history is None:

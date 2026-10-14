@@ -11,16 +11,16 @@ Co robi, po kolei:
      albo "Serwis Opole" w naglowku) i przenosi plik do folderu oddzialu.
   3. Uruchamia silnik Wroclawia, potem silnik Opola (kazdy: kopia zapasowa,
      wpis do kalkulatora, podglad + CSV na Dysk Google, e-mail).
-  4. Kazdy PDF, ktorego nie udalo sie przetworzyc, wraca do
+  4. Każdy PDF, którego nie udało się przetworzyć, wraca do
      "1. WRZUC RAPORTY TUTAJ\\_ODRZUCONE" razem z plikiem *_POWOD.txt.
   5. Na koncu wypisuje jedno podsumowanie (i dopisuje je do
      _system\\log_rozdzielania.txt).
 
 Wszystkie sciezki sa liczone wzgledem folderu "LATEX Wyniki" - folder
-mozna przeniesc w inne miejsce w calosci i dalej bedzie dzialal.
+można przenieść w inne miejsce w całości i dalej będzie działał.
 
 Zmienne srodowiskowe (do testow):
-  LATEX_TRYB_TESTOWY=1  -> silniki NIE wysylaja maili i NIE kopiuja na Dysk.
+  LATEX_TRYB_TESTOWY=1  -> silniki NIE wysylaja e-maili i NIE kopiuja na Dysk.
 """
 
 import os
@@ -68,7 +68,7 @@ def wykryj_serwis(pdf_path):
             return None, "PDF nie ma zadnej strony"
         text = reader.pages[0].extract_text() or ""
     except Exception as e:
-        return None, f"nie udalo sie odczytac PDF ({e})"
+        return None, f"nie udało się odczytać PDF ({e})"
 
     t = text.lower()
     ma_wroclaw = "serwis wrocław" in t or "serwis wroclaw" in t
@@ -106,7 +106,7 @@ def odrzuc(sciezka_pdf, oddzial_nazwa, powod_linie):
             f.write(f"  {linia.strip()}\n")
         f.write("\nCo zrobic: popraw/wygeneruj raport ponownie w Integrze, wrzuc go do\n"
                 "folderu \"1. WRZUC RAPORTY TUTAJ\" i kliknij AKTUALIZUJ WSZYSTKO.\n"
-                "Ten plik i PDF obok mozna potem usunac.\n")
+                "Ten plik i PDF obok można potem usunąć.\n")
     return cel
 
 
@@ -114,9 +114,10 @@ def rozdziel():
     os.makedirs(WRZUC_DIR, exist_ok=True)
     pdfy = sorted(f for f in os.listdir(WRZUC_DIR) if f.lower().endswith(".pdf"))
     if not pdfy:
-        log("Brak nowych raportow PDF w folderze \"1. WRZUC RAPORTY TUTAJ\".")
+        log("Brak nowych raportów PDF w folderze \"1. WRZUC RAPORTY TUTAJ\".")
     else:
-        log(f"Znaleziono {len(pdfy)} raport(ow) PDF.")
+        n = len(pdfy)
+        log(f"Znaleziono {n} " + ("raport" if n == 1 else "raporty" if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14) else "raportów") + " PDF.")
     licznik = {"wroclaw": 0, "opole": 0}
     odrzucone = []
     foldery = {k: d for k, _, d in ODDZIALY}
@@ -158,7 +159,7 @@ def uruchom_silnik(nazwa, folder, run_engine):
 
     if proc.returncode != 0:
         wynik["status"] = "BŁĄD"
-        wynik["uwagi"].append("silnik zakonczyl sie bledem (szczegoly w dzienniku)")
+        wynik["uwagi"].append("silnik zakończył się błędem (szczegóły w dzienniku)")
 
     # zmiany w kalkulatorze
     w_sekcji = False
@@ -174,15 +175,15 @@ def uruchom_silnik(nazwa, folder, run_engine):
 
     tekst = nowy_log
     if "Brak nowych plików PDF" in tekst:
-        wynik["uwagi"].append("brak nowych raportow - odswiezono tylko podglad")
+        wynik["uwagi"].append("brak nowych raportów – odświeżono tylko podgląd")
     if "Żaden plik PDF nie został poprawnie odczytany" in tekst or "Błędy odczytu" in tekst:
         if wynik["status"] == "OK":
             wynik["status"] = "UWAGA"
-        wynik["uwagi"].append("co najmniej jeden raport zostal odrzucony")
+        wynik["uwagi"].append("co najmniej jeden raport został odrzucony")
     if "POMINIĘTO" in tekst:
         if wynik["status"] == "OK":
             wynik["status"] = "UWAGA"
-        wynik["uwagi"].append("co najmniej jeden raport zostal pominiety")
+        wynik["uwagi"].append("co najmniej jeden raport został pominięty")
     if "BŁĄD:" in tekst:
         wynik["status"] = "BŁĄD"
         for l in linie:
@@ -191,17 +192,17 @@ def uruchom_silnik(nazwa, folder, run_engine):
     if "folder Dysku Google nie znaleziony" in tekst or "nie udało się skopiować pliku na Dysk" in tekst:
         if wynik["status"] == "OK":
             wynik["status"] = "UWAGA"
-        wynik["uwagi"].append("Dysk Google niedostepny - Arkusz Google NIE zostal zaktualizowany")
-    if "nie udalo sie wyslac e-maila" in tekst or "NIE zostalo wyslane" in tekst:
+        wynik["uwagi"].append("Dysk Google niedostępny – Arkusz Google NIE został zaktualizowany")
+    if "nie udało się wysłać e-maila" in tekst or "NIE zostało wysłane" in tekst:
         if wynik["status"] == "OK":
             wynik["status"] = "UWAGA"
-        wynik["uwagi"].append("e-mail NIE zostal wyslany")
+        wynik["uwagi"].append("e-mail NIE został wysłany")
     if "Nie udało się wygenerować pliku podglądowego" in tekst or "nie udało się wygenerować pliku podglądowego" in tekst:
         if wynik["status"] == "OK":
             wynik["status"] = "UWAGA"
-        wynik["uwagi"].append("nie udalo sie wygenerowac podgladu dla handlowcow")
+        wynik["uwagi"].append("nie udało się wygenerować podglądu dla handlowców")
     for l in linie:
-        if l.startswith("Wyslano ") or l.startswith("[TRYB TESTOWY]"):
+        if l.startswith("Wysłano ") or l.startswith("[TRYB TESTOWY]"):
             wynik["uwagi"].append(l.strip())
 
     # PDF-y, ktore zostaly w folderze oddzialu = nieprzetworzone -> _ODRZUCONE
@@ -211,10 +212,10 @@ def uruchom_silnik(nazwa, folder, run_engine):
         powod = [l for l in linie if nazwa_pdf in l and "->" not in l]
         if not powod and proc.returncode != 0:
             powod = [l for l in linie if l.startswith("NIEOCZEKIWANY BŁĄD:")] or \
-                    ["silnik zakonczyl sie bledem"]
+                    ["silnik zakończył się błędem"]
         if not powod:
             powod = ["silnik nie przetworzyl tego pliku"]
-        powod.append("szczegoly w logu: " + os.path.relpath(log_silnika, ROOT_DIR))
+        powod.append("szczegóły w logu: " + os.path.relpath(log_silnika, ROOT_DIR))
         odrzuc(os.path.join(folder, nazwa_pdf), nazwa, powod)
         wynik["odrzucone"].append(nazwa_pdf)
     if wynik["odrzucone"] and wynik["status"] == "OK":
@@ -236,7 +237,7 @@ def podsumowanie(licznik, odrzucone_na_wejsciu, wyniki):
     for klucz, nazwa, _ in ODDZIALY:
         w = wyniki[klucz]
         znak = {"OK": "OK   ", "UWAGA": "UWAGA", "BŁĄD": "BŁĄD "}[w["status"]]
-        p(f" [{znak}] {nazwa}: nowych raportow {licznik[klucz]}")
+        p(f" [{znak}] {nazwa}: nowych raportów {licznik[klucz]}")
         for z in w["zmiany"]:
             p(f"           {z}")
         for u in w["uwagi"]:

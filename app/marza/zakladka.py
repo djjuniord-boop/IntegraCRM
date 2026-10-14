@@ -31,7 +31,7 @@ class MarzaMixin:
                          ("Folder LATEX Wyniki", ())):
             FlatButton(links, txt, lambda r=rel: self.marza_open(*r), "ghost", f.small, 10, 4).pack(side="left", padx=(0, 8))
         if self.session:
-            for txt, cmd in (("Odbiorcy maili", lambda: MarzaRecipientsDialog(self)),
+            for txt, cmd in (("Odbiorcy e-maili", lambda: MarzaRecipientsDialog(self)),
                              ("Wyniki online", lambda: MarzaResultsWindow(self)),
                              ("Kopie w chmurze", lambda: MarzaFilesWindow(self))):
                 FlatButton(links, txt, cmd, "dark", f.small, 10, 4).pack(side="left", padx=(0, 8))
@@ -197,7 +197,7 @@ class MarzaMixin:
                     if fresh:   # wspólny słownik okna podmieniany w wątku okna (nie w tle)
                         self.after(0, lambda c=fresh: (COMPANY.clear(), COMPANY.update(c)))
                 except Exception as e:
-                    logline(f"Uwaga: nie udało się wczytać odbiorców maili z bazy ({e}).")
+                    logline(f"Uwaga: nie udało się wczytać odbiorców e-maili z bazy ({e}).")
             mz = (fresh or COMPANY).get("marza") or {}
             if self.session is not None:   # odbiorcy maili MARŻY z ustawień firmowych (tylko zaznaczeni)
                 cfg["marza_recipients"] = {k: [r["email"] for r in (mz.get(k) or []) if r.get("on")]
@@ -205,8 +205,8 @@ class MarzaMixin:
                 names = {"wroclaw": "Wrocław", "opole": "Opole"}
                 for k, v in cfg["marza_recipients"].items():
                     if not v:
-                        logline(f"⚠ UWAGA: oddział {names[k]} nie ma zaznaczonych odbiorców maili – mail NIE zostanie "
-                                "wysłany (MARŻA → „Odbiorcy maili”).")
+                        logline(f"⚠ UWAGA: oddział {names[k]} nie ma zaznaczonych odbiorców e-maili – e-mail NIE zostanie "
+                                "wysłany (MARŻA → „Odbiorcy e-maili”).")
             res = runner.run_all(root, cfg, log=logline, ask=self._marza_ask)
             n = sum(res.get("counts", {}).values())
             self._stat("marza", n_integra=n)

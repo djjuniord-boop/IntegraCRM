@@ -69,23 +69,23 @@ class SettingsDialog(tk.Toplevel):
         self.v_by = {}
         by = COMPANY.get("by_branch") or {}
         if admin:
-            note("Maile wysyła serwer firmy. Nadawca i odbiorcy są wspólni – zapisują się dla wszystkich.", 0)
+            note("E-maile wysyła serwer firmy. Nadawca i odbiorcy są wspólni – zapisują się dla wszystkich.", 0)
             row("Nazwa nadawcy", self.v_name)
             row("Odbiorcy (domyślni)", self.v_to)
             for b in cloud.BRANCHES:
                 self.v_by[b] = tk.StringVar(value=", ".join(by.get(b) or []))
                 row(f"Odbiorcy – {b}", self.v_by[b])
-            note("Kilka adresów oddziel przecinkiem. Puste pole oddziału = odbiorcy domyślni.\n"
-                 "Odbiorców maili MARŻY ustawiasz w zakładce MARŻA → „Odbiorcy maili”.")
+            note("Kilka adresów oddziel przecinkiem. Jeśli pole oddziału jest puste, e-maile dostają odbiorcy domyślni.\n"
+                 "Odbiorców e-maili MARŻY ustawiasz w zakładce MARŻA → „Odbiorcy e-maili”.")
         else:
             moje = sess.branches() if sess else []
             linie = [f"{b}: {', '.join(by.get(b) or cfg['recipients']) or '—'}" for b in moje]
-            tk.Label(body, text="Odbiorcy maili", bg=SURFACE, fg=INK, font=f.body, anchor="nw").grid(
+            tk.Label(body, text="Odbiorcy e-maili", bg=SURFACE, fg=INK, font=f.body, anchor="nw").grid(
                 row=r[0], column=0, sticky="nw", pady=4)
             tk.Label(body, text="\n".join(linie) or ", ".join(cfg["recipients"]) or "—", bg=SURFACE, fg=BLACK,
                      font=f.body, justify="left").grid(row=r[0], column=1, sticky="w", padx=12, pady=4)
             r[0] += 1
-            note("Maile wysyła serwer firmy. Odbiorców ustawia administrator.")
+            note("E-maile wysyła serwer firmy. Odbiorców ustawia administrator.")
         self.v_cc = tk.BooleanVar(value=bool(cfg.get("cc_self", True)))
         ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
@@ -98,10 +98,10 @@ class SettingsDialog(tk.Toplevel):
         self.v_serwis = tk.BooleanVar(value=bool(cfg.get("serwis_enabled", False)))
         if admin:
             section("Zaawansowane")
-            row("Tesseract (puste = auto)", self.v_tess)
+            row("Tesseract (puste – wykrywany sam)", self.v_tess)
             note("tylko do skanów PDF z Integry (zdjęcie strony zamiast tekstu)")
             row("Źródło aktualizacji", self.v_upd)
-            note("puste = GitHub (zalecane). Zapisuje się tylko na tym komputerze.")
+            note("Puste pole oznacza GitHub (zalecane). Zapisuje się tylko na tym komputerze.")
 
         bar = tk.Frame(self, bg=SURFACE, padx=22, pady=12)
         bar.pack(fill="x")
@@ -165,7 +165,7 @@ class SettingsDialog(tk.Toplevel):
         self.destroy()
 
     def test(self):
-        """Mail testowy przez serwer firmy – na adres zalogowanego administratora."""
+        """E-mail testowy przez serwer firmy – na adres zalogowanego administratora."""
         me = getattr(self.master.session, "email", "")
         if not me:
             messagebox.showwarning("Test", "Zaloguj się ponownie – brak adresu konta.", parent=self)
@@ -174,7 +174,7 @@ class SettingsDialog(tk.Toplevel):
             mailer.send_server(self.master.session, "Test – Integra 7 ↔ CRM",
                                "To jest wiadomość testowa z programu kontroli eksportu zleceń.\n"
                                "Wysyłka z serwera działa.", [me], False)
-            messagebox.showinfo("Test", f"Mail testowy wysłany na {me} – sprawdź skrzynkę (także SPAM).",
+            messagebox.showinfo("Test", f"E-mail testowy wysłany na adres {me} – sprawdź skrzynkę (także folder SPAM).",
                                 parent=self)
         except Exception as e:
             messagebox.showerror("Test", f"Nie udało się wysłać:\n{e}", parent=self)

@@ -1,7 +1,7 @@
-"""WYNIKI – obliczenia bez okna (te same wzory co wykres w mailu MARŻY, silnik_*._generuj_wykres_png).
+"""WYNIKI – obliczenia bez okna (te same wzory co wykres w e-mailu MARŻY, silnik_*._generuj_wykres_png).
 
 Dni sprzedażowe: wszystkie dni miesiąca poza niedzielami i świętami z kalkulatora (arkusz „Święta PL”).
-Dzień dzisiejszy liczy się jako jeszcze do zrobienia (jak w kalkulatorze i mailu).
+Dzień dzisiejszy liczy się jako jeszcze do zrobienia (jak w kalkulatorze i e-mailu).
 """
 import calendar
 import datetime
@@ -12,7 +12,7 @@ ODDZIAL_KONTA = {"Latex Wrocław": "wroclaw", "Latex Opole": "opole"}
 
 
 def zl(v) -> str:
-    """Kwota jak w mailu: „128 450 zł”; brak wartości → „—”."""
+    """Kwota jak w e-mailu: „128 450 zł”; brak wartości → „—”."""
     if v is None:
         return "—"
     return f"{float(v):,.0f} zł".replace(",", " ")

@@ -109,7 +109,7 @@ class UserDialog(tk.Toplevel):
 
 
 class AuditWindow(tk.Toplevel):
-    """Dziennik zmian: kto, kiedy i co zrobił (auta, wpisy serwisowe, sprawdzenia, maile, użytkownicy)."""
+    """Dziennik zmian: kto, kiedy i co zrobił (auta, wpisy serwisowe, sprawdzenia, e-maile, użytkownicy)."""
 
     def __init__(self, app):
         super().__init__(app)
@@ -131,7 +131,7 @@ class AuditWindow(tk.Toplevel):
         self.msg.pack(side="left", padx=12)
         cols = ("at", "email", "action", "entity", "label", "detail")
         self.tv = ttk.Treeview(self, columns=cols, show="headings")
-        for c, h, w in zip(cols, ("Kiedy", "Kto", "Co", "Czego", "Dotyczy", "Szczegóły"),
+        for c, h, w in zip(cols, ("Kiedy", "Kto", "Czynność", "Obiekt", "Dotyczy", "Szczegóły"),
                            (130, 200, 90, 120, 160, 430)):
             self.tv.heading(c, text=h, anchor="w")
             self.tv.column(c, width=w, anchor="w")
@@ -166,6 +166,6 @@ class AuditWindow(tk.Toplevel):
             d = r.get("detail") or {}
             det = "  ·  ".join(f"{k}: {', '.join(map(str, v)) if isinstance(v, list) else v}"
                                for k, v in d.items() if v not in (None, "", []))
-            self.tv.insert("", "end", values=(t, r.get("email") or "", r.get("action") or "",
+            self.tv.insert("", "end", values=(t, r.get("email") or "", "e-mail" if r.get("action") == "mail" else (r.get("action") or ""),
                                               r.get("entity") or "", r.get("label") or "", det))
         self.msg.config(text=f"Pozycji: {len(rows)} (najnowsze na górze, do 1000)", fg=MUTED)
