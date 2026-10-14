@@ -15,7 +15,7 @@ ANON_KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 TIMEOUT = 20
 SESSION_FILE = paths.DATA_DIR / "sesja.json"
 
-MODULES = [("crm", "Kontrola CRM"), ("marza", "MARŻA"), ("serwis", "SERWIS QR")]
+MODULES = [("crm", "Kontrola CRM"), ("marza", "MARŻA"), ("wyniki", "Wyniki"), ("serwis", "SERWIS QR")]
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 
 

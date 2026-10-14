@@ -16,7 +16,8 @@ import shutil
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SESSION = None   # po zalogowaniu (ustawia okno programu): maile przez serwer, wyniki i kopie plików w chmurze
+SESSION = None   # po zalogowaniu (ustawia okno programu): maile przez serwer, wyniki, miesiące dla zakładki WYNIKI
+#                  i kopie plików w chmurze
 
 ODDZIALY = [
     # klucz, nazwa, podfolder, moduł silnika, moduł podglądu
@@ -235,7 +236,7 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
     try:
         eng.main()
         if captured is not None:
-            _cloud_save(eng, key, folder, captured)
+            _cloud_save(eng, key, folder, captured, pod)
         return 0
     except SystemExit as e:
         return int(e.code or 0) if isinstance(e.code, int) else 1
@@ -324,8 +325,9 @@ def _cloud_hooks(eng) -> dict:
     return cap
 
 
-def _cloud_save(eng, key, folder, cap):
-    """Po udanym przebiegu: kopia kalkulatora i raportów w schowku + wyniki do bazy. Błąd chmury nie psuje przebiegu."""
+def _cloud_save(eng, key, folder, cap, pod=None):
+    """Po udanym przebiegu: kopia kalkulatora i raportów w schowku, wyniki do bazy, miesiące dla zakładki WYNIKI.
+    Każdy krok ma osobną obsługę błędu – błąd chmury nie psuje przebiegu (kalkulator jest już zapisany)."""
     if not cap["reports"] and not cap["podglad"]:
         return
     if os.environ.get("LATEX_TRYB_TESTOWY") == "1":
@@ -333,8 +335,8 @@ def _cloud_save(eng, key, folder, cap):
         return
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     base = f"{key}/{stamp[:4]}/{stamp}"
+    xlsx = os.path.join(folder, eng.XLSX_NAME)
     try:
-        xlsx = os.path.join(folder, eng.XLSX_NAME)
         if os.path.isfile(xlsx):
             with open(xlsx, "rb") as f:
                 SESSION.upload("marza", f"{base}/{eng.XLSX_NAME}", f.read(),
@@ -366,3 +368,144 @@ def _cloud_save(eng, key, folder, cap):
         print("Wyniki zapisane w bazie (widoczne w programie na każdym komputerze).")
     except Exception as e:
         print(f"Uwaga: zapis wyników w bazie nie powiódł się: {e}")
+    if pod is not None:
+        _save_months(pod, key, xlsx)
+
+
+# ---------- zakładka WYNIKI: tabela miesięcy z kalkulatora → baza (marza_months) ----------
+MONTHS_PL = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec",
+             "Lipiec", "Sierpień", "Wrzesień", "Październik", "Listopad", "Grudzień"]   # jak w silnikach
+_MONTHS_LOWER = [m.lower() for m in MONTHS_PL]
+
+
+def _label_ym(label):
+    """„Październik 2026” → (2026, 10). Etykieta, której nie da się odczytać (np. „Razem”) → None."""
+    if not isinstance(label, str):
+        return None
+    parts = label.split()
+    if len(parts) != 2 or parts[0].lower() not in _MONTHS_LOWER or not (parts[1].isascii() and parts[1].isdecimal()):
+        return None
+    year = int(parts[1])
+    if not 2000 <= year <= 2100:
+        return None
+    return year, _MONTHS_LOWER.index(parts[0].lower()) + 1
+
+
+def _liczba(v):
+    """Wartość komórki → float (2 miejsca po przecinku). Puste, tekst, formuła bez wyniku → None (nigdy 0)."""
+    if v is None or isinstance(v, bool):
+        return None
+    if isinstance(v, str):
+        v = v.strip().replace("\xa0", "").replace(" ", "").replace(",", ".")
+        if not v or v.startswith("="):
+            return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    if f != f or f in (float("inf"), float("-inf")):   # NaN / nieskończoność – baza ich nie przyjmie
+        return None
+    return round(f, 2)
+
+
+def _stored_values(xlsx):
+    """{etykieta: (cel, aktualna)} – wartości ZAPISANE w pliku (openpyxl data_only=True): liczby wpisane ręcznie
+    i wyniki formuł z ostatniego zapisu w Excelu. openpyxl nie przelicza formuł, a zapis pliku przez silnik
+    kasuje ich zapisane wyniki – wtedy formuła daje None."""
+    import openpyxl
+    wb = openpyxl.load_workbook(xlsx, data_only=True)
+    ws = wb["Kalkulator marży"]
+    header = None
+    for row in ws.iter_rows(min_row=1, max_row=60):   # ten sam nagłówek, którego szuka silnik i podgląd
+        for cell in row:
+            if cell.value == "Miesiąc":
+                header = cell.row
+                break
+        if header:
+            break
+    out = {}
+    if header is None:
+        return out
+    r = header + 1
+    while True:
+        label = ws.cell(row=r, column=2).value
+        if label is None or label == "":
+            break
+        out[label] = (ws.cell(row=r, column=3).value, ws.cell(row=r, column=4).value)
+        r += 1
+    return out
+
+
+def _holiday_dates(holidays):
+    out = set()
+    for d in holidays or ():
+        if isinstance(d, datetime.datetime):
+            d = d.date()
+        elif isinstance(d, str):
+            try:
+                d = datetime.date.fromisoformat(d.strip()[:10])
+            except ValueError:
+                continue
+        if isinstance(d, datetime.date):
+            out.add(d)
+    return out
+
+
+def _months_rows(pod, key, xlsx, now=None):
+    """Wiersze tabeli marza_months dla oddziału. Zwraca (wiersze, ile pól to formuły bez zapisanego wyniku).
+
+    Miesiące i święta – z podglądu dla handlowców (pod._read_source_months), żeby WYNIKI miały te same miesiące
+    co podgląd. Liczby – z wartości zapisanych w pliku (_stored_values): liczba → float, puste → None,
+    formuła z wynikiem zapisanym przez Excel → ten wynik, formuła bez wyniku → None."""
+    months, holidays = pod._read_source_months(xlsx)
+    stored = _stored_values(xlsx)
+    days = _holiday_dates(holidays)
+    now = now or datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+    rows, no_value = {}, 0
+    for label, cel, aktualna in months:
+        ym = _label_ym(label)
+        if ym is None:
+            continue
+        year, month = ym
+        s_cel, s_akt = stored.get(label, (None, None))
+        target, done = _liczba(s_cel), _liczba(s_akt)
+        for raw, val in ((cel, target), (aktualna, done)):
+            if isinstance(raw, str) and raw.startswith("=") and val is None:
+                no_value += 1
+        # ten sam miesiąc dwa razy w tabeli → ostatni wiersz (tak jak silnik: find_month_rows)
+        rows[(year, month)] = {
+            "branch": key, "year": year, "month": month, "label": f"{MONTHS_PL[month - 1]} {year}",
+            "target": target, "done": done,
+            "holidays": sorted(d.isoformat() for d in days if (d.year, d.month) == (year, month)),
+            "updated_at": now,
+        }
+    return [rows[k] for k in sorted(rows)], no_value
+
+
+def _ile_miesiecy(n):
+    if n == 1:
+        return "1 miesiąc"
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return f"{n} miesiące"
+    return f"{n} miesięcy"
+
+
+def _save_months(pod, key, xlsx):
+    """Zakładka WYNIKI: cała tabela miesięcy kalkulatora oddziału → baza (nadpisuje oddział+rok+miesiąc).
+    Błąd = tylko linia w dzienniku przebiegu; kalkulator, podgląd i mail są już zrobione."""
+    if SESSION is None:
+        return
+    try:
+        if not os.path.isfile(xlsx):
+            raise ValueError(f"nie ma pliku {os.path.basename(xlsx)}")
+        rows, no_value = _months_rows(pod, key, xlsx)
+        if not rows:
+            raise ValueError("w kalkulatorze nie ma miesięcy w postaci „Październik 2026”")
+        SESSION.call("POST", "/rest/v1/marza_months?on_conflict=branch,year,month", rows,
+                     prefer="resolution=merge-duplicates,return=minimal")
+        print(f"Zakładka WYNIKI: zapisano {_ile_miesiecy(len(rows))} ({BRANCH_NAMES.get(key, key)}).")
+        if no_value:
+            print(f"Uwaga: niektóre pola celu/marży w kalkulatorze ({no_value}) to formuły bez wyliczonej "
+                  f"wartości – w zakładce WYNIKI zostaną puste.")
+    except Exception as e:
+        print(f"Uwaga: wyniki dla zakładki WYNIKI nie zostały zapisane: {e}")

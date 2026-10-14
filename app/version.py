@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.19.0"
+VERSION = "0.20.0"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,18 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.20.0",
+        "date": "2026-10-14",
+        "changes": [
+            "Nowa zakładka WYNIKI: aktualny wynik marży oddziału – zrobione, cel, % realizacji celu, plan na dziś, "
+            "tempo, prognoza, ile trzeba dziennie, wykres narastająco i poprzednie miesiące",
+            "Handlowiec z modułem „Wyniki” widzi tylko swój oddział (Wrocław albo Opole), administrator – oba",
+            "MARŻA po każdej aktualizacji zapisuje tabelę miesięcy z kalkulatora (dla zakładki WYNIKI); "
+            "mail z wykresem i arkusz na Dysku Google działają jak dotąd",
+            "Nagłówek i Pomoc dopasowane do uprawnień konta (instrukcja tylko dostępnych modułów)",
+        ],
+    },
     {
         "version": "0.19.0",
         "date": "2026-10-14",

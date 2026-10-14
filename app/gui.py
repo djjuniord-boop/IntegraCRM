@@ -33,6 +33,7 @@ from kontrola.zakladka import KontrolaMixin
 from marza.zakladka import MarzaMixin
 from serwis.zakladka import SerwisMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
+from wyniki.zakladka import WynikiMixin
 
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -40,19 +41,47 @@ STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikato
               "(ile numerów, ile braków, czas sprawdzenia). Nie wysyła numerów rejestracyjnych, adresów e-mail, "
               "haseł, nazw plików ani treści maili. Można to wyłączyć w Ustawieniach.")
 
+# po zalogowaniu statystyki nie idą do arkusza – zdarzenia i błędy zapisuje dziennik firmy (stats.SESSION)
+DZIENNIK_INFO = ("Program zapisuje w dzienniku firmy: logowania (z wersją programu), sprawdzenia, wysłane maile, "
+                 "zmiany w SERWIS QR, aktualizacje MARŻY, zmiany uprawnień i ustawień oraz błędy programu. "
+                 "Dziennik widzi tylko administrator.")
+
 HELP_STEPS = [
     ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
-                   "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia: Latex Wrocław, "
-                   "Latex Opole, Stangum Opole – wybór jest zapamiętywany. Można też wkleić wycinek "
+                   "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
+                   "swoje oddziały) – wybór jest zapamiętywany. Można też wkleić wycinek "
                    "tabeli (Win+Shift+S, potem Ctrl+V)."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
     ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
 ]
 
+# Pomoc: instrukcje tylko modułów, do których konto ma dostęp
+HELP_MODULES = [
+    ("crm", "Kontrola CRM", HELP_STEPS),
+    ("wyniki", "Wyniki marży", [
+        ("Zakładka WYNIKI", "Pokazuje wynik marży Twojego oddziału w bieżącym miesiącu: zrobione, cel, % realizacji "
+                            "celu i ile trzeba robić dziennie do końca miesiąca."),
+        ("Plan na dziś i tempo", "Biały znacznik na pasku to miejsce, w którym powinniśmy być dziś według dni "
+                                 "roboczych (bez niedziel i świąt). Tempo powyżej 100% – jesteśmy przed planem."),
+        ("Aktualność", "Wyniki zmieniają się po każdej aktualizacji MARŻY w biurze – data jest w prawym górnym "
+                       "rogu. Gdy zakładka jest otwarta, odświeża się sama co 5 minut (albo kliknij „Odśwież”)."),
+    ]),
+    ("marza", "MARŻA", [
+        ("Raporty sprzedaży", "Przeciągnij „Raport sprzedaży towarów i usług” z Integry (Wrocław, Opole) na "
+                              "zakładkę MARŻA i kliknij „AKTUALIZUJ WSZYSTKO”."),
+        ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i maile do zaznaczonych odbiorców aktualizują się "
+                            "same; wyniki trafiają też do zakładki WYNIKI."),
+    ]),
+    ("serwis", "SERWIS QR", [
+        ("Wpis serwisowy", "W zakładce SERWIS QR dodaj wpis (numer, przebieg, olej, filtry) i wydrukuj naklejkę "
+                           "z kodem QR – klient zeskanuje ją telefonem i zobaczy historię auta."),
+    ]),
+]
+
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixin, tk.Tk):
+class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, UzytkownicyMixin, tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
     def __init__(self, session=None):
@@ -252,9 +281,13 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
             tk.Label(head, text="LATEX", bg=SURFACE, fg=RED, font=(f.family, 20, "bold")).pack(side="left")
         titles = tk.Frame(head, bg=SURFACE)
         titles.pack(side="left", padx=(18, 0))
-        tk.Label(titles, text="Kontrola eksportu zleceń", bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
-        tk.Label(titles, text=f"Integra 7 → CRM   ·   wersja {VERSION}", bg=SURFACE, fg=MUTED,
-                 font=f.small).pack(anchor="w")
+        if self.session is None or self.session.can("crm"):
+            title, sub = "Kontrola eksportu zleceń", f"Integra 7 → CRM   ·   wersja {VERSION}"
+        else:   # konto bez Kontroli CRM (np. handlowiec z zakładką WYNIKI)
+            names = [n for k, n, _ in HELP_MODULES if self.session.can(k)]
+            title, sub = "Panel Latex Serwis", f"{', '.join(names) or 'konto'}   ·   wersja {VERSION}"
+        tk.Label(titles, text=title, bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
+        tk.Label(titles, text=sub, bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
         FlatButton(head, "⚙  Ustawienia", lambda: SettingsDialog(self), "ghost", f.body, 14, 7).pack(side="right")
         if self.session:
             FlatButton(head, "Wyloguj", self.logout, "ghost", f.body, 14, 7).pack(side="right", padx=(0, 8))
@@ -276,6 +309,8 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
             tab_list += [("main", "KONTROLA"), ("hist", "HISTORIA")]
         if can("marza"):
             tab_list.append(("marza", "MARŻA"))
+        if can("wyniki") or can("marza"):   # wyniki marży: handlowcy swojego oddziału, MARŻA i admin – oba
+            tab_list.append(("wyniki", "WYNIKI"))
         if can("serwis"):
             tab_list.append(("serwis", "SERWIS QR  β"))
         if self.session and self.session.is_admin:
@@ -300,6 +335,8 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
             self._build_users(self.pages["users"])
         if "marza" in self.pages:
             self._build_marza(self.pages["marza"])
+        if "wyniki" in self.pages:
+            self._build_wyniki(self.pages["wyniki"])
         if "serwis" in self.pages:
             try:
                 self._build_serwis(self.pages["serwis"])
@@ -373,19 +410,42 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
         if self.session is None or self.session.is_admin:   # cofnięcie wersji tylko administrator
             FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
 
-        tk.Label(top, text="Prywatność: " + STATS_INFO, bg=SURFACE, fg=MUTED, font=f.small,
+        tk.Label(top, text="Prywatność: " + (DZIENNIK_INFO if self.session else STATS_INFO), bg=SURFACE, fg=MUTED,
+                 font=f.small,
                  wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
         how = card(page, padx=18, pady=14)
         how.pack(fill="x", pady=12)
-        tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 8))
-        for i, (t, d) in enumerate(HELP_STEPS, 1):
-            row = tk.Frame(how, bg=SURFACE)
-            row.pack(fill="x", pady=3)
-            step_badge(row, i, f).pack(side="left", anchor="n")
-            tx = tk.Frame(row, bg=SURFACE)
-            tx.pack(side="left", padx=10, fill="x")
-            tk.Label(tx, text=t, bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
-            tk.Label(tx, text=d, bg=SURFACE, fg=INK, font=f.body, wraplength=780, justify="left").pack(anchor="w")
+        tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 4))
+        mods = [(k, n, st) for k, n, st in HELP_MODULES if self.session is None or self.session.can(k)]
+        steps_box = tk.Frame(how, bg=SURFACE)
+        btns = {}
+
+        def show(key):   # instrukcja jednego modułu naraz – przy kilku modułach strona się nie przepełnia
+            for w in steps_box.winfo_children():
+                w.destroy()
+            for k, b in btns.items():
+                b.config(bg=RED if k == key else SURFACE, fg="white" if k == key else INK)
+            steps = next(st for k, _, st in mods if k == key)
+            for i, (t, d) in enumerate(steps, 1):
+                row = tk.Frame(steps_box, bg=SURFACE)
+                row.pack(fill="x", pady=3)
+                step_badge(row, i, f).pack(side="left", anchor="n")
+                tx = tk.Frame(row, bg=SURFACE)
+                tx.pack(side="left", padx=10, fill="x")
+                tk.Label(tx, text=t, bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
+                tk.Label(tx, text=d, bg=SURFACE, fg=INK, font=f.body, wraplength=780, justify="left").pack(anchor="w")
+        if len(mods) > 1:
+            sel = tk.Frame(how, bg=SURFACE)
+            sel.pack(anchor="w", pady=(0, 8))
+            for k, name, _ in mods:
+                b = tk.Label(sel, text=name, font=f.small, padx=12, pady=4, cursor="hand2",
+                             highlightthickness=1, highlightbackground=LINE)
+                b.pack(side="left", padx=(0, 6))
+                b.bind("<Button-1>", lambda e, k=k: show(k))
+                btns[k] = b
+        steps_box.pack(fill="x")
+        if mods:
+            show(mods[0][0])
 
         log = card(page, padx=18, pady=14)
         log.pack(fill="both", expand=True)

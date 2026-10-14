@@ -12,7 +12,7 @@ Uprawnienie: moduł `marza`.
 |---|---|
 | `zakladka.py` | `MarzaMixin` – zakładka MARŻA: folder, kolejka raportów, „AKTUALIZUJ WSZYSTKO” (wątek), dziennik przebiegu |
 | `okna.py` | okna: Odbiorcy maili (zapis firmowy), Wyniki online, Kopie w chmurze (pobieranie) |
-| `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`) |
+| `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
 | `rozdziel.py` | rozdziela raporty na oddziały i podsumowuje przebieg |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |
 | `podglad_wroclaw.py`, `podglad_opole.py` | podgląd dla handlowców (`PODGLAD_dla_handlowcow.xlsx`, kopia na Dysk Google) |
@@ -30,11 +30,22 @@ Uprawnienie: moduł `marza`.
 ## Dane w bazie
 
 - `marza_results` – wynik każdej aktualizacji (oddział, miesiąc, marża, cel, zrobione, plik źródłowy, folder kopii).
+- `marza_months` – dane zakładki WYNIKI: cała tabela miesięcy kalkulatora oddziału (`branch`, `year`, `month`, `label`,
+  `target`, `done`, `holidays` = święta z arkusza „Święta PL” w tym miesiącu, `updated_at`). Zapis po każdym udanym
+  przebiegu silnika (po zalogowaniu, nie w trybie testowym), nadpisuje oddział+rok+miesiąc
+  (`on_conflict=branch,year,month`). Błąd zapisu = tylko „Uwaga: …” w dzienniku przebiegu.
+  - Miesiące i święta – `podglad_*._read_source_months` (te same co w podglądzie dla handlowców); wiersz z etykietą
+    innej postaci niż „Październik 2026” jest pomijany; ten sam miesiąc dwa razy → ostatni wiersz (tam pisze silnik).
+  - Liczby – z wartości **zapisanych w pliku** (`openpyxl data_only=True`): liczba → float, pusta komórka → `None`
+    (podgląd i mail pokazują wtedy 0). **Formuła** w kolumnie celu/marży daje wynik tylko, jeśli zapisał go Excel –
+    openpyxl formuł nie liczy, a zapis kalkulatora przez silnik kasuje zapisane wyniki, więc po imporcie raportu
+    formuła = `None` (+ „Uwaga: … formuły bez wyliczonej wartości” w dzienniku). Cele trzeba wpisywać liczbami.
 - Schowek plików `marza` (Supabase Storage, prywatny): `<oddział>/<rok>/<data_godzina>/` kalkulator + PDF-y.
 
 ## Testy
 
 - `app/selftest.py` – biblioteki i wykres do maila (`marza_chart_bytes`).
 - `tests/test_marza.py` – podsłuch silnika na udawanym silniku i udawanej sesji: wysyłka przez serwer, kopia plików,
-  zapis wyniku, przywrócenie `smtplib`.
+  zapis wyniku, przywrócenie `smtplib`; miesiące dla WYNIKÓW na kalkulatorze testowym (formuła z wynikiem Excela
+  i bez, święta tylko z danego miesiąca i roku, błąd sesji/odczytu nie przerywa przebiegu, tryb testowy nic nie wysyła).
 - `tests/ui_smoke.py` – zakładka i trzy okna MARŻY.

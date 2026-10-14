@@ -52,6 +52,32 @@ COMPANY = {"recipients": ["odbiorca@example.com"], "sender_name": "Kontrola eksp
                      "opole": [{"email": "b@example.com", "on": False}]}}
 
 
+def _wyniki_dane():
+    """Przykładowe wyniki marży: bieżący miesiąc i 3 poprzednie dla obu oddziałów + aktualizacje z tego miesiąca."""
+    import datetime
+    t = datetime.date.today()
+    names = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień",
+             "Październik", "Listopad", "Grudzień"]
+    months, runs = [], []
+    for branch, cel, frac in (("wroclaw", 300000, 0.43), ("opole", 160000, 0.39)):
+        y, m = t.year, t.month
+        for k in range(4):
+            done = round(cel * (frac if k == 0 else (0.9 + 0.06 * k)), 2)
+            months.append({"branch": branch, "year": y, "month": m, "label": f"{names[m - 1]} {y}", "target": cel,
+                           "done": done, "holidays": [], "updated_at": f"{t.isoformat()}T05:40:00Z"})
+            y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+        for day in (1, 3, 6):
+            if day < t.day:
+                runs.append({"branch": branch, "month_label": months[-4]["label"], "target": cel,
+                             "done": round(cel * frac * day / max(t.day, 1), 2),
+                             "run_at": t.replace(day=day).isoformat() + "T07:00:00Z"})
+    return months, runs
+
+
+WYNIKI_MONTHS, WYNIKI_RUNS = _wyniki_dane()
+_WYN_BRANCH = {"wroclaw": "Latex Wrocław", "opole": "Latex Opole"}
+
+
 class FakeSession(cloud.Session):
     """Sesja bez sieci: odpowiada przykładowymi danymi."""
 
@@ -64,6 +90,12 @@ class FakeSession(cloud.Session):
     def call(self, method, path, body=None, prefer=None):
         if "app_config" in path and "crm" in path and method == "GET":
             return [{"value": COMPANY}]
+        if ("marza_months" in path or "marza_results" in path) and method == "GET" and (
+                "marza_months" in path or "month_label,done" in path):   # jak can_see_marza w bazie
+            rows = WYNIKI_MONTHS if "marza_months" in path else WYNIKI_RUNS
+            mods = self.profile["modules"]
+            return [r for r in rows if self.is_admin or "marza" in mods or
+                    ("wyniki" in mods and _WYN_BRANCH[r["branch"]] in self.profile["branches"])]
         if "marza_results" in path and method == "GET":
             return [{"branch": "wroclaw", "month_label": "Październik 2026", "period_from": "2026-10-01",
                      "margin": 12345.5, "target": 300000, "done": 120000.5, "run_at": "2026-10-13T15:40:00Z",
@@ -102,6 +134,8 @@ SCENARIOS = [
     ("admin", FakeSession("admin", [], [])),
     ("kontrola_opole", FakeSession("user", ["crm"], ["Latex Opole"])),
     ("marza_serwis", FakeSession("user", ["marza", "serwis"], ["Latex Wrocław"])),
+    ("handlowiec_wroclaw", FakeSession("user", ["wyniki"], ["Latex Wrocław"])),
+    ("handlowiec_stangum", FakeSession("user", ["wyniki"], ["Stangum Opole"])),
 ]
 
 
@@ -182,6 +216,11 @@ def run_scenario(label, sess):
             info["users_rows"] = len(app.users_tv.get_children())
         if "hist" in app.pages:
             info["history_rows"] = len(app.hist_tree.get_children())
+        if "wyniki" in app.pages:
+            info["wyniki_oddzialy"] = list(app.wyn_branches)
+            info["wyniki_dane"] = sorted(app.wyn_data)
+            info["wyniki_pokazane"] = bool(app.wyn_main.winfo_ismapped()) if app.wyn_data else False
+            info["wyniki_procent"] = app.wyn_pct.cget("text")
     steps.append((collect, 10))
 
     def run(i=0):
@@ -268,7 +307,7 @@ def main():
         all_shots += d["shots"]
     checks = {
         "admin_ma_wszystkie_zakladki": all(t in result.get("admin", {}).get("tabs", []) for t in
-                                           ("main", "hist", "marza", "serwis", "users", "help")),
+                                           ("main", "hist", "marza", "wyniki", "serwis", "users", "help")),
         "admin_lista_uzytkownikow": result.get("admin", {}).get("users_rows") == 2,
         "okno_logowania": result.get("logowanie", {}).get("shown") is True,
         "historia_z_bazy": result.get("admin", {}).get("history_rows") == 2,
@@ -276,6 +315,12 @@ def main():
         "opole_tylko_kontrola": result.get("kontrola_opole", {}).get("tabs") == ["main", "hist", "help"],
         "opole_tylko_swoj_oddzial": result.get("kontrola_opole", {}).get("branches_crm") == ["Latex Opole"],
         "marza_serwis_bez_kontroli": "main" not in result.get("marza_serwis", {}).get("tabs", ["main"]),
+        "admin_wyniki_oba_oddzialy": result.get("admin", {}).get("wyniki_dane") == ["opole", "wroclaw"],
+        "handlowiec_tylko_wyniki": result.get("handlowiec_wroclaw", {}).get("tabs") == ["wyniki", "help"],
+        "handlowiec_tylko_wroclaw": (result.get("handlowiec_wroclaw", {}).get("wyniki_oddzialy") == ["wroclaw"]
+                                     and result.get("handlowiec_wroclaw", {}).get("wyniki_dane") == ["wroclaw"]),
+        "handlowiec_widzi_wynik": result.get("handlowiec_wroclaw", {}).get("wyniki_procent") == "43%",
+        "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }
     report = {"ok": not all_err and all(checks.values()), "checks": checks, "scenarios": result,
               "errors": all_err, "messages": all_notes, "screenshots": all_shots}
