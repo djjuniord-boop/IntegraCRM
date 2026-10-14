@@ -15,6 +15,7 @@ CHANGELOG = [
         "version": "0.20.0",
         "date": "2026-10-14",
         "changes": [
+            "Naprawione: zakładka HISTORIA mogła po starcie programu zostać pusta (do kliknięcia „Odśwież”)",
             "Nowa zakładka WYNIKI: aktualny wynik marży oddziału – zrobione, cel, % realizacji celu, plan na dziś, "
             "tempo, prognoza, ile trzeba dziennie, wykres narastająco i poprzednie miesiące",
             "Handlowiec z modułem „Wyniki” widzi tylko swój oddział (Wrocław albo Opole), administrator – oba",

@@ -41,7 +41,8 @@ class HistoriaMixin:
         tk.Label(page, text="Numery zgłoszone już wcześniej są oznaczane przy kolejnych sprawdzeniach "
                  "(„zgłoszony …”), żeby nie wysyłać ich ponownie bez potrzeby.",
                  bg=BG, fg=MUTED, font=f.small, wraplength=900, justify="left").pack(anchor="w", pady=(8, 0))
-        self.refresh_history()
+        # wątek dopiero po starcie pętli okna – after() z wątku przed mainloop gubi wynik (pusta historia)
+        self.after(0, self.refresh_history)
 
     def refresh_history(self):
         if history is None:
@@ -52,7 +53,10 @@ class HistoriaMixin:
                 rows = history.read_all()
             except Exception as e:
                 rows = [{"data": "", "plik_pdf": f"Nie udało się wczytać historii: {e}"}]
-            self.after(0, self._show_history, rows)
+            try:
+                self.after(0, self._show_history, rows)
+            except RuntimeError:   # okno zamknięte albo pętla okna jeszcze nie działa
+                pass
         threading.Thread(target=work, daemon=True).start()
 
     def _show_history(self, rows):
