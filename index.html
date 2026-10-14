@@ -254,7 +254,12 @@ const SUPABASE_ANON_KEY = (CFG.key || "").trim();
 /* ====================================== */
 
 const DEMO = !SUPABASE_URL;
-const sb = DEMO ? null : (window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null);
+/* SSO: w programie IntegraCRM panel nie loguje się sam – token podaje program (i sam go odświeża) */
+const SSO = !DEMO && !!CFG.sso;
+async function ssoToken(){
+  for(let i=0;i<100&&!(window.pywebview&&window.pywebview.api&&window.pywebview.api.get_token);i++)await new Promise(r=>setTimeout(r,100));
+  try{return await window.pywebview.api.get_token()||null}catch(e){return null}}
+const sb = DEMO ? null : (window.supabase ? supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, SSO?{accessToken:ssoToken}:{}) : null);
 if(!DEMO&&!sb)document.addEventListener("DOMContentLoaded",()=>document.body.insertAdjacentHTML("afterbegin",'<div class="demo">Nie udało się wczytać biblioteki bazy danych. Sprawdź internet i odśwież stronę.</div>'));
 const $ = id => document.getElementById(id);
 const FIELD_LABELS = {oil:"Olej",filters:"Filtry",done:"Data i przebieg wymiany",vin:"VIN",foot:"Stopka"};
@@ -582,11 +587,11 @@ function pubTab(k){["S","H"].forEach(x=>{$("pb"+x).classList.toggle("hidden",x!=
 /* ---------- logowanie i start ---------- */
 async function doLogin(){if(!$("lgEmail").value||!$("lgPass").value){$("lgErr").textContent="Wpisz e-mail i hasło.";return}const {error}=await sb.auth.signInWithPassword({email:$("lgEmail").value,password:$("lgPass").value});
   if(error){$("lgErr").textContent="Nieprawidłowe dane logowania.";return}$("loginView").classList.add("hidden");startAdmin()}
-async function doLogout(){await sb.auth.signOut();location.reload()}
+async function doLogout(){if(SSO){alert("Wylogowanie odbywa się w programie (przycisk „Wyloguj” u góry okna).");return}await sb.auth.signOut();location.reload()}
 let ME=null;   // zalogowany pracownik: oddziały (nowe auta trafiają do jego pierwszego oddziału)
 async function startAdmin(){$("adminView").classList.remove("hidden");
   if(!DEMO){try{const {data}=await sb.rpc("me");ME=data}catch(e){}
-    if(!ME||!ME.email){alert("To konto nie ma dostępu do SERWIS QR. Skontaktuj się z administratorem.");return doLogout()}}
+    if(!ME||!ME.email){alert("To konto nie ma dostępu do SERWIS QR. Skontaktuj się z administratorem.");return SSO?null:doLogout()}}
   await loadCars();show("list")}
 (async()=>{
   if(!DEMO&&!sb)return;
@@ -597,6 +602,7 @@ async function startAdmin(){$("adminView").classList.remove("hidden");
     let last="";try{last=localStorage.getItem("latex_lastBackup")||""}catch(e){}
     if(store.load("cars",[]).length&&(!last||(new Date(todayStr())-new Date(last))>7*864e5))$("backupMsg").textContent=last?` Ostatnia kopia: ${fmtD(last)} – zrób nową.`:" Nie masz jeszcze kopii zapasowej.";
     return startAdmin()}
+  if(SSO){$("logoutBtn")?.classList.add("hidden");return startAdmin()}
   const {data}=await sb.auth.getSession();
   data.session?startAdmin():$("loginView").classList.remove("hidden");
 })();
