@@ -232,7 +232,7 @@ jobs:
           if ($LASTEXITCODE -eq 0) {
             gh release upload "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
           } else {
-            gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
+            gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target main --latest --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
 
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
