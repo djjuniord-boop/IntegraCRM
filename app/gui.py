@@ -34,6 +34,7 @@ from marza.zakladka import MarzaMixin
 from serwis.zakladka import SerwisMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
+from statystyki.zakladka import StatystykiMixin
 
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -50,8 +51,7 @@ HELP_STEPS = [
     ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
                    "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
-                   "swoje oddziały) – wybór jest zapamiętywany. Można też wkleić wycinek "
-                   "tabeli (Win+Shift+S, potem Ctrl+V)."),
+                   "swoje oddziały) – wybór jest zapamiętywany."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
     ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
 ]
@@ -59,6 +59,16 @@ HELP_STEPS = [
 # Pomoc: instrukcje tylko modułów, do których konto ma dostęp
 HELP_MODULES = [
     ("crm", "Kontrola CRM", HELP_STEPS),
+    ("historia", "Historia", [
+        ("Zakładka HISTORIA", "Lista wszystkich sprawdzeń Twoich oddziałów: kto i kiedy sprawdzał, ile zleceń, "
+                              "czego brakowało i do kogo poszedł mail. „Otwórz w Excelu” zapisuje całość do pliku."),
+    ]),
+    ("statystyki", "Statystyki", [
+        ("Zakładka STATYSTYKI", "Ile list kontrolnych w CRM przypada na 10 zleceń z Integry – w ostatnich 90 dniach "
+                                "i w każdym miesiącu. Dane zbierają się przy sprawdzeniach w KONTROLI."),
+        ("Prognoza", "Wpisz liczbę zleceń (np. 1000) – program pokaże, ile list kontrolnych się spodziewać, "
+                     "z widełkami od najsłabszego do najlepszego miesiąca."),
+    ]),
     ("wyniki", "Wyniki marży", [
         ("Zakładka WYNIKI", "Pokazuje wynik marży Twojego oddziału w bieżącym miesiącu: zrobione, cel, % realizacji "
                             "celu i ile trzeba robić dziennie do końca miesiąca."),
@@ -81,7 +91,8 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, UzytkownicyMixin, tk.Tk):
+class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, UzytkownicyMixin,
+          tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
     def __init__(self, session=None):
@@ -136,7 +147,6 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, Uz
         set_icon(self)
         self._style()
         self.pdf_path = tk.StringVar()
-        self.crm_img = None
         self.crm_rows = None     # raport .xlsx z „Listy kontrolne”
         self.crm_file = ""
         self.branch_vars = {}
@@ -305,11 +315,16 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, Uz
         shot = bool(os.environ.get("INTEGRA_SHOT"))
         can = (lambda m: shot or self.session.can(m)) if self.session else (lambda m: True)
         tab_list = []
+        # każda zakładka to osobny moduł włączany w uprawnieniach konta (admin ma wszystkie)
         if can("crm"):
-            tab_list += [("main", "KONTROLA"), ("hist", "HISTORIA")]
+            tab_list.append(("main", "KONTROLA"))
+        if can("historia"):
+            tab_list.append(("hist", "HISTORIA"))
+        if can("statystyki"):
+            tab_list.append(("stat", "STATYSTYKI"))
         if can("marza"):
             tab_list.append(("marza", "MARŻA"))
-        if can("wyniki") or can("marza"):   # wyniki marży: handlowcy swojego oddziału, MARŻA i admin – oba
+        if can("wyniki") or can("marza"):   # baza też daje wyniki kontom z MARŻĄ
             tab_list.append(("wyniki", "WYNIKI"))
         if can("serwis"):
             tab_list.append(("serwis", "SERWIS QR  β"))
@@ -324,12 +339,11 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, Uz
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
-        if "main" in self.pages:
-            self._build_main(self.pages["main"])
-            self._build_history(self.pages["hist"])
-        else:   # bez modułu kontroli – elementy używane przez inne funkcje okna
-            self._build_main(tk.Frame(self))
-            self._build_history(tk.Frame(self))
+        # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
+        self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
+        self._build_history(self.pages["hist"] if "hist" in self.pages else tk.Frame(self))
+        if "stat" in self.pages:
+            self._build_statystyki(self.pages["stat"])
         self._build_help(self.pages["help"])
         if "users" in self.pages:
             self._build_users(self.pages["users"])
@@ -635,14 +649,11 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, Uz
                 self.set_report(fp)
                 used = True
             elif low.endswith((".png", ".jpg", ".jpeg", ".bmp")):
-                try:
-                    from PIL import Image
-                    self.set_image(Image.open(fp))
-                    used = True
-                except Exception as e:
-                    messagebox.showerror("Obraz", f"Nie udało się otworzyć obrazu:\n{e}")
+                messagebox.showinfo("Zrzut ekranu", "Zrzuty ekranu z CRM nie są już obsługiwane – pobierz w CRM "
+                                    "raport .xlsx z „Listy kontrolne” i przeciągnij go na okno.")
+                used = True
         if not used:
-            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry, raport .xlsx z CRM albo obraz (zrzut z CRM).")
+            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry albo raport .xlsx z CRM.")
 
     # ---------- logika ----------
     def say(self, text):

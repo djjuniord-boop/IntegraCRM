@@ -29,6 +29,11 @@ def daily_stats(visits, rows, rng=None) -> list[dict]:
     for x in rows:
         if x.get("date"):
             crm_by_day.setdefault(x["date"].isoformat(), []).append(plates.normalize(x["plate"]))
+    if crm_by_day:   # tylko dni objęte raportem CRM – krótszy raport nie nadpisze innych dni zerami
+        lo, hi = min(crm_by_day), max(crm_by_day)
+        days = [d for d in days if lo <= d <= hi]
+    else:
+        days = []
     out = []
     for d in days:
         v = [plates.normalize(p) for dd, p in visits if dd == d]

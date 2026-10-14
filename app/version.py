@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.20.0"
+VERSION = "0.21.0"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,19 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.21.0",
+        "date": "2026-10-14",
+        "changes": [
+            "Nowa zakładka STATYSTYKI: ile list kontrolnych przypada na 10 zleceń (90 dni i każdy miesiąc), "
+            "ile zleceń bez listy oraz prognoza – np. „przy 1000 zleceń spodziewaj się ok. 870 list”",
+            "Liczby do statystyk zbierają się same przy każdym sprawdzeniu w KONTROLI (raport .xlsx z CRM, "
+            "jeden zaznaczony oddział)",
+            "Każda zakładka (Kontrola, Historia, Statystyki, Marża, Wyniki, Serwis QR) włączana osobno "
+            "w uprawnieniach konta",
+            "KONTROLA przyjmuje już tylko raport .xlsx z CRM – wycinek ekranu (zdjęcie) nie jest obsługiwany",
+        ],
+    },
     {
         "version": "0.20.0",
         "date": "2026-10-14",

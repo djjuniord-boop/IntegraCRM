@@ -170,3 +170,13 @@ def test_zapis_statystyk_jeden_oddzial_i_brak_przy_dwoch():
     finally:
         history.SESSION = stara
     assert history.save_visit_stats("Latex Wrocław", res["daily"]) is None   # bez sesji – nic
+
+
+def test_daily_stats_tylko_dni_z_raportu_crm():
+    from datetime import date
+    from kontrola import analyze
+    visits = [("2026-10-01", "DW1"), ("2026-10-10", "DW2")]
+    rows = [{"date": date(2026, 10, 10), "plate": "DW2"}]
+    out = analyze.daily_stats(visits, rows, ("2026-10-01", "2026-10-14"))
+    assert [d["day"] for d in out] == ["2026-10-10"] and out[0]["missing"] == 0
+    assert analyze.daily_stats(visits, [], ("2026-10-01", "2026-10-14")) == []

@@ -1,6 +1,6 @@
 # Moduł UŻYTKOWNICY (+ Dziennik zmian)
 
-**Co robi:** administrator zakłada konta, nadaje moduły (`crm`, `marza`, `wyniki`, `serwis`) i oddziały (Latex Wrocław,
+**Co robi:** administrator zakłada konta, nadaje moduły (`crm`, `historia`, `statystyki`, `marza`, `wyniki`, `serwis` – każda zakładka osobno) i oddziały (Latex Wrocław,
 Latex Opole, Stangum Opole), blokuje konta, zmienia hasła i przegląda Dziennik zmian. Tylko rola `admin`.
 
 ## Pliki

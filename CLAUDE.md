@@ -17,6 +17,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | **Kontrola CRM** | `app/kontrola/` | → [`app/kontrola/README.md`](app/kontrola/README.md) |
 | **MARŻA** | `app/marza/` | → [`app/marza/README.md`](app/marza/README.md) |
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
+| **STATYSTYKI** | `app/statystyki/` | → [`app/statystyki/README.md`](app/statystyki/README.md) – listy kontrolne na 10 zleceń, prognoza |
 | **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) |
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
 | Baza i serwer | `supabase/` | → [`supabase/README.md`](supabase/README.md) |
@@ -72,7 +73,7 @@ apt-get install -y python3-tk             # raz
 python3.12 -m venv /tmp/venv && /tmp/venv/bin/pip install pdfplumber pytesseract Pillow openpyxl pypdf matplotlib pyflakes reportlab
 /tmp/venv/bin/python -m pyflakes app                      # brakujące nazwy, literówki
 /tmp/venv/bin/python tests/check_imports.py               # każdy import wskazuje istniejący moduł
-/tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|serwis|rdzen]   # testy modułów (bez okna)
+/tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|statystyki|serwis|rdzen]   # testy modułów (bez okna)
 /tmp/venv/bin/python tools/make_fixtures.py /tmp/fx      # dane testowe (bez prawdziwych danych firmy)
 INTEGRA_SELFTEST=/tmp/fx xvfb-run -a /tmp/venv/bin/python app/start.py   # ścieżka PDF→OCR→porównanie→mail
 xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/venv/bin/python tests/ui_smoke.py . /tmp/zrzuty  # okno jak nowy użytkownik

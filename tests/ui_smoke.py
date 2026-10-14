@@ -106,6 +106,13 @@ class FakeSession(cloud.Session):
                     {"created_at": "2026-10-13T11:00:00Z", "pdf_name": "opole.pdf", "n_integra": 5, "n_crm": 5,
                      "missing": [], "uncertain": [], "user_email": "opole@example.com", "branches": ["Latex Opole"]}]
             return [r for r in rows if self.is_admin or set(r["branches"]) & set(self.profile["branches"])]
+        if "visit_stats" in path and method == "GET":   # jak zasada stats_read: moduł statystyki + oddział
+            if not (self.is_admin or "statystyki" in self.profile["modules"]):
+                return []
+            rows = [{"branch": b, "day": f"2026-{m:02d}-{d:02d}", "visits": v, "lists": l_, "missing": v - l_}
+                    for b, k in (("Latex Wrocław", 1), ("Latex Opole", 2))
+                    for m in (8, 9, 10) for d, v, l_ in ((6, 40 * k, 36 * k - m + 8), (7, 35 * k, 30 * k))]
+            return [r for r in rows if self.is_admin or r["branch"] in self.profile["branches"]]
         if "audit_log" in path:
             return [{"at": "2026-10-13T15:40:00Z", "email": "test@example.com", "action": "mail",
                      "entity": "sprawdzenie", "label": "test.pdf", "detail": {"do": "a@example.com"}}]
@@ -131,7 +138,8 @@ class FakeSession(cloud.Session):
 
 SCENARIOS = [
     ("admin", FakeSession("admin", [], [])),
-    ("kontrola_opole", FakeSession("user", ["crm"], ["Latex Opole"])),
+    ("kontrola_opole", FakeSession("user", ["crm", "historia"], ["Latex Opole"])),
+    ("statystyki_wroclaw", FakeSession("user", ["statystyki"], ["Latex Wrocław"])),
     ("marza_serwis", FakeSession("user", ["marza", "serwis"], ["Latex Wrocław"])),
     ("handlowiec_wroclaw", FakeSession("user", ["wyniki"], ["Latex Wrocław"])),
     ("handlowiec_stangum", FakeSession("user", ["wyniki"], ["Stangum Opole"])),
@@ -215,6 +223,10 @@ def run_scenario(label, sess):
             info["users_rows"] = len(app.users_tv.get_children())
         if "hist" in app.pages:
             info["history_rows"] = len(app.hist_tree.get_children())
+        if "stat" in app.pages:
+            info["stat_oddzialy"] = sorted({r["branch"] for r in app.st_rows})
+            info["stat_miesiace"] = len(app.st_tree.get_children())
+            info["stat_prognoza"] = app.st_wynik.cget("text")
         if "wyniki" in app.pages:
             info["wyniki_oddzialy"] = list(app.wyn_branches)
             info["wyniki_dane"] = sorted(app.wyn_data)
@@ -306,7 +318,7 @@ def main():
         all_shots += d["shots"]
     checks = {
         "admin_ma_wszystkie_zakladki": all(t in result.get("admin", {}).get("tabs", []) for t in
-                                           ("main", "hist", "marza", "wyniki", "serwis", "users", "help")),
+                                           ("main", "hist", "stat", "marza", "wyniki", "serwis", "users", "help")),
         "admin_lista_uzytkownikow": result.get("admin", {}).get("users_rows") == 2,
         "okno_logowania": result.get("logowanie", {}).get("shown") is True,
         "historia_z_bazy": result.get("admin", {}).get("history_rows") == 2,
@@ -314,6 +326,12 @@ def main():
         "opole_tylko_kontrola": result.get("kontrola_opole", {}).get("tabs") == ["main", "hist", "help"],
         "opole_tylko_swoj_oddzial": result.get("kontrola_opole", {}).get("branches_crm") == ["Latex Opole"],
         "marza_serwis_bez_kontroli": "main" not in result.get("marza_serwis", {}).get("tabs", ["main"]),
+        "marza_ma_wyniki": "wyniki" in result.get("marza_serwis", {}).get("tabs", []),
+        "admin_statystyki_oba": result.get("admin", {}).get("stat_oddzialy") == ["Latex Opole", "Latex Wrocław"],
+        "statystyki_tylko_swoje": (result.get("statystyki_wroclaw", {}).get("tabs") == ["stat", "help"]
+                                   and result.get("statystyki_wroclaw", {}).get("stat_oddzialy") == ["Latex Wrocław"]
+                                   and result.get("statystyki_wroclaw", {}).get("stat_miesiace") == 3),
+        "statystyki_prognoza": "list kontrolnych" in result.get("statystyki_wroclaw", {}).get("stat_prognoza", ""),
         "admin_wyniki_oba_oddzialy": result.get("admin", {}).get("wyniki_dane") == ["opole", "wroclaw"],
         "handlowiec_tylko_wyniki": result.get("handlowiec_wroclaw", {}).get("tabs") == ["wyniki", "help"],
         "handlowiec_tylko_wroclaw": (result.get("handlowiec_wroclaw", {}).get("wyniki_oddzialy") == ["wroclaw"]
