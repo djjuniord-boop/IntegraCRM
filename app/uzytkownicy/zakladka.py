@@ -22,9 +22,9 @@ class UzytkownicyMixin:
         FlatButton(bar, "Dziennik zmian", lambda: AuditWindow(self), "dark", f.body, 14, 8).pack(side="right")
         self.users_msg = tk.Label(page, text="", bg=BG, fg=MUTED, font=f.small, anchor="w")
         self.users_msg.pack(fill="x")
-        cols = ("email", "name", "role", "modules", "branches", "active", "last", "ver")
-        heads = ("E-mail", "Imię i nazwisko", "Rola", "Moduły", "Oddziały", "Status", "Ostatnie logowanie", "Wersja")
-        widths = (220, 160, 100, 180, 260, 120, 140, 70)
+        cols = ("email", "name", "role", "modules", "branches", "active", "last", "ver", "dev", "ip")
+        heads = ("E-mail", "Imię i nazwisko", "Rola", "Moduły", "Oddziały", "Status", "Logowanie", "Wersja", "Komputer", "IP")
+        widths = (190, 130, 100, 150, 170, 105, 125, 55, 150, 105)
         self.users_tv = ttk.Treeview(page, columns=cols, show="headings", height=18)
         for c, h, w in zip(cols, heads, widths):
             self.users_tv.heading(c, text=h)
@@ -59,7 +59,8 @@ class UzytkownicyMixin:
                 u["email"], u.get("name") or "", "administrator" if adm else "użytkownik",
                 "wszystkie" if adm else ", ".join(names.get(m, m) for m in u.get("modules") or []),
                 "wszystkie" if adm else ", ".join(u.get("branches") or []),
-                "aktywne" if u.get("active") else "ZABLOKOWANE", last or "nigdy", u.get("app_version") or ""))
+                "aktywne" if u.get("active") else "zablokowane", last or "nigdy", u.get("app_version") or "",
+                u.get("last_device") or "", u.get("last_ip") or ""))
         self.users_msg.config(text=info or f"Kont: {len(users)}", fg=OK if info else MUTED)
 
     def _edit_user(self):

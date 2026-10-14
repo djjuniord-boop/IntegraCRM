@@ -57,6 +57,7 @@ Deno.serve(async (req) => {
   const { data: cfgRows } = await sb.from("app_config").select("value").eq("key", "crm");
   const cfg = (cfgRows?.[0]?.value ?? {}) as { recipients?: string[]; by_branch?: Record<string, string[]>; sender_name?: string };
   const allowed = new Set<string>([...(cfg.recipients ?? []), ...Object.values(cfg.by_branch ?? {}).flat()].map((x) => x.toLowerCase()));
+  allowed.add(String(me?.email ?? "").toLowerCase());   // do siebie zawsze wolno (mail testowy z Ustawień)
   const bad = to.filter((x) => !allowed.has(x));
   if (bad.length) return json({ error: `Adres spoza listy odbiorców firmy: ${bad.join(", ")} – administrator ustawia ją w Ustawieniach.` }, 400);
 

@@ -44,3 +44,24 @@ def test_okno_sklada_wszystkie_moduly():
     for n in ("_build_main", "_build_history", "_build_marza", "_build_serwis", "_build_users", "check", "send_mail",
               "marza_run", "serwis_start", "refresh_users", "show_tab", "_on_close"):
         assert hasattr(gui.App, n), n
+
+
+def test_logowanie_z_komputerem_i_starsza_baza():
+    import cloud
+    calls = []
+
+    def fake(method, path, body=None, token=None, prefer=""):
+        calls.append(body)
+        if "p_device" in (body or {}) and old[0]:
+            raise cloud.CloudError("Could not find the function public.app_login(p_device, p_version)")
+        return {"email": "a@b.pl", "modules": ["crm"]}
+    orig = cloud._http
+    cloud._http = fake
+    try:
+        s = cloud.Session({"access_token": "x", "refresh_token": "y"})
+        old = [False]
+        assert s.load_profile("0.21.2")["email"] == "a@b.pl" and "p_device" in calls[-1]
+        old[0] = True
+        assert s.load_profile("0.21.2")["email"] == "a@b.pl" and calls[-1] == {"p_version": "0.21.2"}
+    finally:
+        cloud._http = orig

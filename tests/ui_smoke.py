@@ -125,7 +125,7 @@ class FakeSession(cloud.Session):
         pass
 
     def list_users(self):
-        return [{"email": "admin@example.com", "role": "admin", "active": True, "last_seen": "2026-10-13T15:00:00"},
+        return [{"email": "admin@example.com", "role": "admin", "active": True, "last_seen": "2026-10-13T15:00:00", "app_version": "0.21.2", "last_device": "PC-BIURO / Daniel", "last_ip": "83.1.2.3"},
                 {"email": "opole@example.com", "name": "Jan", "role": "user", "modules": ["crm"],
                  "branches": ["Latex Opole"], "active": False}]
 

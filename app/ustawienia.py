@@ -165,15 +165,16 @@ class SettingsDialog(tk.Toplevel):
         self.destroy()
 
     def test(self):
-        """Mail testowy przez serwer firmy do odbiorców domyślnych (tylko administrator)."""
-        to = self.collect()["recipients"]
-        if not to:
-            messagebox.showwarning("Test", "Wpisz odbiorców domyślnych.", parent=self)
+        """Mail testowy przez serwer firmy – na adres zalogowanego administratora."""
+        me = getattr(self.master.session, "email", "")
+        if not me:
+            messagebox.showwarning("Test", "Zaloguj się ponownie – brak adresu konta.", parent=self)
             return
         try:
             mailer.send_server(self.master.session, "Test – Integra 7 ↔ CRM",
-                               "To jest wiadomość testowa z programu kontroli eksportu zleceń.", to,
-                               bool(self.v_cc.get()))
-            messagebox.showinfo("Test", f"Mail testowy wysłany do: {', '.join(to)}", parent=self)
+                               "To jest wiadomość testowa z programu kontroli eksportu zleceń.\n"
+                               "Wysyłka z serwera działa.", [me], False)
+            messagebox.showinfo("Test", f"Mail testowy wysłany na {me} – sprawdź skrzynkę (także SPAM).",
+                                parent=self)
         except Exception as e:
             messagebox.showerror("Test", f"Nie udało się wysłać:\n{e}", parent=self)

@@ -95,7 +95,14 @@ class Session:
 
     def load_profile(self, version: str) -> dict:
         """Profil z bazy (i zapis ostatniego logowania). Brak konta / zablokowane → CloudError."""
-        p = self.rpc("app_login", p_version=version)
+        import os
+        dev = " / ".join(v for v in (os.environ.get("COMPUTERNAME", ""), os.environ.get("USERNAME", "")) if v)
+        try:   # nowa wersja w bazie zapisuje komputer i IP; starsza baza – zwykłe logowanie
+            p = self.rpc("app_login", p_version=version, p_device=dev[:80])
+        except CloudError as e:
+            if "app_login" not in str(e) and "function" not in str(e).lower():
+                raise
+            p = self.rpc("app_login", p_version=version)
         if not p or not p.get("email"):
             raise CloudError("To konto nie ma dostępu do programu albo zostało zablokowane. "
                              "Skontaktuj się z administratorem.")
