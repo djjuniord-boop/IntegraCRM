@@ -87,3 +87,86 @@ def test_odbiorcy_wg_oddzialow():
         assert konfig.recipients_for(["Latex Wrocław"]) == ["domyslny@example.com"]
     finally:
         konfig.COMPANY.clear()
+
+
+def test_wizyty_z_data_bez_odduplikowania():
+    from kontrola import plates
+    txt = ("8.10.2026 1/Z/SP1/26 (Zak.) DW12345 - VW\n8.10.2026 2/Z/SP1/26 (Zak.) DW12345 - VW\n"
+           "9.10.2026 3/Z/SP1/26 (Zak.) WE9LF81 - SKODA\n9.10.2026 () 0,00\n")
+    assert plates.extract_integra_visits(txt) == [("2026-10-08", "DW12345"), ("2026-10-08", "DW12345"),
+                                                  ("2026-10-09", "WE9LF81")]
+    assert plates.extract_integra_plates(txt) == (["DW12345", "WE9LF81"], True)   # bez zmian
+
+
+def test_liczniki_dzienne():
+    from kontrola import analyze
+    visits = [("2026-10-08", "DW12345"), ("2026-10-08", "DW12345"), ("2026-10-08", "PO9AB12"),
+              ("2026-10-09", "WE9LF81"), ("2026-10-12", "KT2277E")]
+    rows = [{"date": date(2026, 10, 8), "plate": "DW12345", "branch": "W"},
+            {"date": date(2026, 10, 8), "plate": "DW77777", "branch": "W"},
+            {"date": date(2026, 10, 9), "plate": "DW12345", "branch": "W"},   # inny dzień – nie liczy się dla 9.10
+            {"date": date(2026, 10, 9), "plate": "DW12345", "branch": "W"},
+            {"date": date(2026, 10, 20), "plate": "XX12345", "branch": "W"}]  # poza zakresem Integry
+    d = analyze.daily_stats(visits, rows, ("2026-10-08", "2026-10-10"))
+    assert d == [{"day": "2026-10-08", "visits": 3, "lists": 2, "missing": 1},
+                 {"day": "2026-10-09", "visits": 1, "lists": 2, "missing": 1},
+                 {"day": "2026-10-10", "visits": 0, "lists": 0, "missing": 0}], d
+    # bez zakresu – dni z wizytami
+    assert [x["day"] for x in analyze.daily_stats(visits, rows)] == ["2026-10-08", "2026-10-09", "2026-10-12"]
+
+
+def test_run_zwraca_liczniki_dzienne():
+    from kontrola import analyze
+    stary = analyze.extract.text_from_pdf
+    analyze.extract.text_from_pdf = lambda *a, **k: (
+        "Zakres dat: od 2026-10-13 do 2026-10-13\n13.10.2026 1/Z/SP1/26 (Zak.) DW12345 - VW\n"
+        "13.10.2026 2/Z/SP1/26 (Zak.) DW12345 - VW\n13.10.2026 3/Z/SP1/26 (Zak.) PO9AB12 - VW\n")
+    try:
+        rows = [{"date": date(2026, 10, 13), "plate": "DW12345", "branch": "W"}]
+        r = analyze.run("x.pdf", {"rows": rows, "branches": ["W"]})
+    finally:
+        analyze.extract.text_from_pdf = stary
+    assert r["daily"] == [{"day": "2026-10-13", "visits": 3, "lists": 1, "missing": 1}], r["daily"]
+
+
+class _Sesja:
+    def __init__(self):
+        self.calls = []
+
+    def rpc(self, fn, **args):
+        self.calls.append((fn, args))
+
+
+class _Okno:
+    """Minimum pól okna potrzebne _save_daily (bez Tk)."""
+    def __init__(self):
+        self.lines, self.hist_index = [], 7
+
+    def say(self, t):
+        self.lines.append(t)
+
+
+def test_zapis_statystyk_jeden_oddzial_i_brak_przy_dwoch():
+    temp_data()
+    from kontrola import history
+    from kontrola.zakladka import KontrolaMixin
+    res = {"daily": [{"day": "2026-10-13", "visits": 3, "lists": 1, "missing": 1}], "no_overlap": False}
+    s = _Sesja()
+    stara = history.SESSION
+    history.SESSION = s
+    try:
+        w = _Okno()
+        KontrolaMixin._save_daily(w, res, ["Latex Wrocław", "Latex Opole"])
+        assert s.calls == [] and "kilka serwisów" in w.lines[-1]
+        KontrolaMixin._save_daily(w, res, ["Latex Wrocław"])
+        assert s.calls == [("save_visit_stats", {"p_branch": "Latex Wrocław", "p_day": "2026-10-13", "p_visits": 3,
+                                                 "p_lists": 1, "p_missing": 1, "p_check_id": 7})], s.calls
+
+        def zly(*a, **k):
+            raise RuntimeError("brak sieci")
+        s.rpc = zly
+        KontrolaMixin._save_daily(w, res, ["Latex Wrocław"])   # błąd zapisu → tylko linia w Szczegółach
+        assert "nie zapisano (brak sieci)" in w.lines[-1]
+    finally:
+        history.SESSION = stara
+    assert history.save_visit_stats("Latex Wrocław", res["daily"]) is None   # bez sesji – nic

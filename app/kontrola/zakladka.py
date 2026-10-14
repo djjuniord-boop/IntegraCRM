@@ -1,10 +1,10 @@
-"""Zakładka KONTROLA: PDF z Integry + raport/wycinek z CRM → braki → mail."""
+"""Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → mail (+ liczniki dzienne)."""
 import os
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import paths
-from kontrola import analyze, crm_report, extract, mailer
+from kontrola import analyze, crm_report, mailer
 from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, step_badge
 from konfig import load_config, recipients_for, save_config
 from ustawienia import SettingsDialog
@@ -15,7 +15,7 @@ except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
 
 
 class KontrolaMixin:
-    """Zakładka KONTROLA: PDF z Integry + raport/wycinek z CRM → braki → mail.
+    """Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → mail.
     Część klasy okna programu (App) – metody korzystają z jej pól (self.*)."""
 
     def _build_main(self, page):
@@ -44,17 +44,15 @@ class KontrolaMixin:
         h = tk.Frame(c2, bg=SURFACE)
         h.pack(fill="x")
         step_badge(h, 2, f).pack(side="left")
-        tk.Label(h, text="Dane z CRM – raport lub wycinek", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        self.preview = tk.Label(c2, text="Przeciągnij raport .xlsx z „Listy kontrolne”\n"
-                                "albo naciśnij Ctrl+V po zrobieniu wycinka (Win+Shift+S)",
+        tk.Label(h, text="Raport z CRM (.xlsx)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
+        self.preview = tk.Label(c2, text="Przeciągnij tutaj raport .xlsx z „Listy kontrolne”\n"
+                                "albo kliknij, aby wybrać",
                                 bg=BG, fg=MUTED, font=f.body, pady=6, cursor="hand2", justify="center")
         self.preview.pack(fill="x", pady=(8, 8))
-        self.preview.bind("<Button-1>", lambda e: self.paste())
+        self.preview.bind("<Button-1>", lambda e: self.pick_report())
         r = tk.Frame(c2, bg=SURFACE)
         r.pack(fill="x")
         FlatButton(r, "Raport z CRM (.xlsx)…", self.pick_report, "dark", f.body, 14, 6).pack(side="left")
-        FlatButton(r, "Wklej wycinek", self.paste, "ghost", f.body, 12, 6).pack(side="left", padx=8)
-        FlatButton(r, "Obraz z pliku…", self.pick_img, "ghost", f.body, 12, 6).pack(side="left")
         bl = tk.Frame(c2, bg=SURFACE)
         bl.pack(fill="x", pady=(8, 0))
         tk.Label(bl, text="Sprawdzaj serwisy:", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
@@ -67,7 +65,7 @@ class KontrolaMixin:
         self.btn_check.pack(fill="x", pady=(10, 8))
 
         # wynik
-        self.banner = tk.Label(page, text="Wybierz PDF i wklej wycinek z CRM, potem kliknij „Sprawdź”.",
+        self.banner = tk.Label(page, text="Wybierz PDF z Integry i raport .xlsx z CRM, potem kliknij „Sprawdź”.",
                                bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
                                highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
         self.banner.pack(fill="x")
@@ -178,11 +176,8 @@ class KontrolaMixin:
                 u.bind("<Button-1>", lambda e, v=a: self.copy_text(v))
 
     def _on_ctrl_v(self, event):
-        # w polach tekstowych (temat, treść maila) Ctrl+V ma wklejać tekst, nie obraz
-        if isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
-            return None
-        self.paste()
-        return "break"
+        # Ctrl+V działa zwyczajnie (wkleja tekst w polach maila) – wycinków ekranu już nie wklejamy
+        return None
 
     # ---------- pliki / schowek ----------
     def pick_pdf(self):
@@ -251,52 +246,31 @@ class KontrolaMixin:
         self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} numerów",
                             fg=OK if n else WARN, bg=OK_BG if n else WARN_BG)
 
-    def pick_img(self):
-        p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg *.bmp")])
-        if p:
-            from PIL import Image
-            self.set_image(Image.open(p))
-
-    def paste(self):
-        img = extract.image_from_clipboard()
-        if img is None:
-            messagebox.showwarning("Schowek", "W schowku nie ma obrazu.\n"
-                                   "Zrób wycinek ekranu (Win+Shift+S) i wklej ponownie.")
-            return
-        self.set_image(img)
-
-    def set_image(self, img):
-        from PIL import ImageTk
-        self.crm_img = img.copy()
-        self.crm_rows = None
-        th = img.copy()
-        th.thumbnail((420, 110))
-        self._thumb = ImageTk.PhotoImage(th)
-        self.preview.config(image=self._thumb, text="", bg=OK_BG, pady=6)
+    def set_image(self, img=None):
+        """Wywoływane przez okno po upuszczeniu obrazu – wycinki ekranu nie są już obsługiwane."""
+        messagebox.showinfo("Raport z CRM", "Zrzuty i wycinki ekranu z CRM nie są już obsługiwane.\n\n"
+                            "W CRM otwórz „Listy kontrolne”, pobierz raport do Excela (.xlsx) "
+                            "i przeciągnij go tutaj albo kliknij „Raport z CRM (.xlsx)…”.")
 
     def check(self):
         if not self.pdf_path.get():
             messagebox.showwarning("Brak PDF", "Wybierz raport PDF z Integry.")
             return
-        if self.crm_img is None and not self.crm_rows:
-            messagebox.showwarning("Brak danych z CRM", "Wczytaj raport .xlsx z „Listy kontrolne” "
-                                   "albo wklej wycinek ekranu z CRM (Ctrl+V).")
+        if not self.crm_rows:
+            messagebox.showwarning("Brak danych z CRM", "Wczytaj raport .xlsx z „Listy kontrolne” w CRM.")
             return
-        if self.crm_rows is not None and not self.chosen_branches():
+        if not self.chosen_branches():
             messagebox.showwarning("Serwisy", "Zaznacz co najmniej jeden serwis do sprawdzenia.")
             return
         self.btn_check.set_enabled(False, "SPRAWDZAM…")
         self.btn_send.set_enabled(False)
         self.log.delete("1.0", "end")
         self.set_chips([], [])
-        self.set_banner("busy", "Sprawdzam… odczyt wycinka może potrwać kilka sekund.")
+        self.set_banner("busy", "Sprawdzam…")
         # Tkinter nie jest bezpieczny dla wątków – wszystko z okna odczytujemy tutaj
         pdf = self.pdf_path.get()
-        if self.crm_rows is not None:
-            br = self.chosen_branches()
-            src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
-        else:
-            src = self.crm_img
+        br = self.chosen_branches()
+        src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
         threading.Thread(target=self._check_work, args=(pdf, src), daemon=True).start()
 
     def _check_work(self, pdf, src):
@@ -318,10 +292,7 @@ class KontrolaMixin:
                         "rejestracyjnego – sprawdź, czy to właściwy plik.")
                 return
             if not crm:
-                self.ui(self.set_banner, "warn", "⚠  W raporcie z CRM nie ma numerów dla zaznaczonych serwisów."
-                        if res.get("crm_source") == "report" else
-                        "⚠  Na wycinku z CRM nie odczytano numerów – zrób wycinek "
-                        "tabeli z kolumną „Rejestracja” i wklej ponownie.")
+                self.ui(self.set_banner, "warn", "⚠  W raporcie z CRM nie ma numerów dla zaznaczonych serwisów.")
                 return
             for w in warn:
                 self.say("⚠ " + w)
@@ -333,17 +304,14 @@ class KontrolaMixin:
                     raise RuntimeError("brak modułu historii – pobierz nową wersję .exe")
                 name = os.path.basename(pdf)
                 self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain,
-                                                    src.get("branches", []) if isinstance(src, dict) else [])
-                self.last_branches = src.get("branches", []) if isinstance(src, dict) else []
+                                                    src.get("branches", []))
+                self.last_branches = src.get("branches", [])
                 self.ui(self.refresh_history)
             except Exception as e:
                 self.say(f"Historia: nie zapisano ({e})")
+            self._save_daily(res, src.get("branches", []))
             self.ui(self.set_chips, missing, uncertain)
             wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
-            fixed = res.get("autofix", [])
-            if fixed:
-                wtxt = (f"\nℹ  {len(fixed)} numer(y) dopasowano mimo błędu odczytu wycinka: "
-                        + ", ".join(f"{a} (odczyt: {b})" for a, b in fixed)) + wtxt
             if not missing and not uncertain:
                 self.ui(self.set_banner, "warn" if warn else "ok",
                         f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")
@@ -382,6 +350,27 @@ class KontrolaMixin:
             self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
+
+    def _save_daily(self, res, branches):
+        """Liczniki dzienne do STATYSTYK (w wątku roboczym). Błąd zapisu nie psuje sprawdzenia."""
+        daily = res.get("daily") or []
+        if history is None or history.SESSION is None or not daily:
+            return
+        if len(branches) != 1:
+            self.say("Statystyki: nie zapisano – zaznaczono kilka serwisów, a raport z Integry dotyczy jednego. "
+                     "Aby zapisać statystyki, zaznacz tylko jeden serwis.")
+            return
+        if res.get("no_overlap"):
+            self.say("Statystyki: nie zapisano – dane z CRM nie pasują do raportu z Integry.")
+            return
+        try:
+            idx = self.hist_index if isinstance(self.hist_index, int) else None
+            n = history.save_visit_stats(branches[0], daily, idx)
+            self.say(f"Statystyki: zapisano {n} dzień/dni dla {branches[0]} ("
+                     + ", ".join(f"{d['day']}: wizyty {d['visits']}, listy {d['lists']}, braki {d['missing']}"
+                                 for d in daily) + ")")
+        except Exception as e:
+            self.say(f"Statystyki: nie zapisano ({e})")
 
     def send_mail(self):
         if not self.result or not (self.result[0] or self.result[1]):

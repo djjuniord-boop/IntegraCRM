@@ -1,7 +1,7 @@
-"""Test całej ścieżki (PDF → OCR wycinka → porównanie → mail) bez okna.
+"""Test całej ścieżki (PDF → raport .xlsx z CRM → porównanie → liczniki dzienne → mail) bez okna.
 
 Uruchamiany w GitHub Actions na gotowym IntegraCRM.exe:  INTEGRA_SELFTEST=<folder>
-W folderze muszą być: integra.pdf, crm.png, expected.json  {"missing": [...]}.
+W folderze muszą być: integra.pdf, crm.xlsx, expected.json  {"missing": [...], "branch": ..., "daily": [...]}.
 Wynik zapisuje do <folder>/result.json, kod wyjścia 0 = OK.
 """
 import json
@@ -41,22 +41,24 @@ def run(folder: str) -> int:
     _isolate_data(d)
     res = {"ok": False}
     try:
-        from kontrola import extract
+        from kontrola import crm_report
         from kontrola import mailer
         import paths
-        from kontrola import plates
         t0 = time.time()
         tess = paths.find_tesseract("")
         res["tesseract"] = tess
         res["root"] = str(paths.ROOT)
         from kontrola import analyze
-        a = analyze.run(str(d / "integra.pdf"), str(d / "crm.png"), tess)
+        exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
+        rows = crm_report.load(d / "crm.xlsx")
+        a = analyze.run(str(d / "integra.pdf"), {"rows": crm_report.select(rows, [exp["branch"]]),
+                                                 "branches": [exp["branch"]]}, tess)
         integra, crm, missing, uncertain = a["integra"], a["crm"], a["missing"], a["uncertain"]
         res["layout_ok"] = a["layout_ok"]
         res["warnings"] = a["warnings"]
-        res["autofix"] = a.get("autofix", [])
+        res["daily"] = a["daily"]
+        res["daily_ok"] = a["daily"] == exp["daily"]
         subj, body = mailer.compose(missing, uncertain)
-        exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
                    subject=subj, seconds=round(time.time() - t0, 1))
         # raport .xlsx z CRM: porównanie dokładne (podobny numer innego auta nie ukrywa braku)
@@ -127,7 +129,7 @@ def run(folder: str) -> int:
         res["serwis_window"] = serwis_window.is_available() == ""
         res["ok"] = (res["ui_ok"] and res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
-                     and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
+                     and res["daily_ok"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1
                      and res["reported"] == sorted(missing) and res["mail_marks_reported"])
     except Exception:

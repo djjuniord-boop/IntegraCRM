@@ -1,5 +1,6 @@
 """Wyciąganie i porównywanie polskich numerów rejestracyjnych."""
 import re
+from datetime import date
 
 # Polskie tablice: 2-3 znaki wyróżnika powiatu + 4-5 znaków (litery/cyfry),
 # np. DW 12345, WR 1234A, DWR 1234, PO 12AB3. Dopuszczamy spację/myślnik w środku.
@@ -36,6 +37,8 @@ def extract_crm_plates(text: str) -> list[str]:
 # Wiersze sprzedaży bez pojazdu mają puste „()” i są pomijane.
 INTEGRA_ROW_RE = re.compile(
     r"\d+/[A-Z]+/[A-Z0-9]+/\d+\s+\([^)]*\)\s+([A-Z0-9]{2,8})\s+-\s")
+# Ten sam wiersz z datą na początku („8.10.2026 3576/Z/…”) – do liczników dziennych (wizyty)
+INTEGRA_VISIT_RE = re.compile(r"(\d{1,2})\.(\d{1,2})\.(\d{4})\s+" + INTEGRA_ROW_RE.pattern)
 INTEGRA_RANGE_RE = re.compile(r"Zakres dat:\s*od\s+(\d{4}-\d{2}-\d{2})\s+do\s+(\d{4}-\d{2}-\d{2})")
 
 
@@ -50,6 +53,21 @@ def extract_integra_plates(text: str) -> tuple[list[str], bool]:
     if found:
         return found, True
     return extract_plates(text), False
+
+
+def extract_integra_visits(text: str) -> list[tuple[str, str]]:
+    """Wszystkie wiersze zleceń z pojazdem jako (dzień 'RRRR-MM-DD', numer) – BEZ odduplikowania
+    (to samo auto dwa razy = dwie wizyty). Wiersze bez poprawnej daty są pomijane."""
+    out = []
+    for m in INTEGRA_VISIT_RE.finditer(text.upper()):
+        d, mo, y, p = m.groups()
+        if not any(c.isdigit() for c in p):
+            continue
+        try:
+            out.append((date(int(y), int(mo), int(d)).isoformat(), p))
+        except ValueError:
+            pass
+    return out
 
 
 def integra_date_range(text: str):

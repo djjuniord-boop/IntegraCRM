@@ -183,3 +183,16 @@ def migrate_local() -> int:
         HISTORY.replace(HISTORY.with_suffix(".przeniesione.csv"))
         n += len(rows)
     return n
+
+
+def save_visit_stats(branch, daily, check_id=None):
+    """Liczniki dzienne (wizyty / listy kontrolne / braki) do statystyk – jeden oddział.
+    Bez sesji (testy) nic nie zapisuje i zwraca None; inaczej liczbę zapisanych dni.
+    Wywoływać w wątku roboczym (sieć)."""
+    if SESSION is None:
+        return None
+    cid = check_id if isinstance(check_id, int) and check_id >= 0 else None
+    for d in daily:
+        SESSION.rpc("save_visit_stats", p_branch=branch, p_day=d["day"], p_visits=int(d["visits"]),
+                    p_lists=int(d["lists"]), p_missing=int(d["missing"]), p_check_id=cid)
+    return len(daily)
