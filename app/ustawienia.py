@@ -23,8 +23,16 @@ class SettingsDialog(tk.Toplevel):
         cfg = load_config()
 
         tk.Frame(self, bg=RED, height=4).pack(fill="x")
-        body = tk.Frame(self, bg=SURFACE, padx=22, pady=16)
-        body.pack(fill="both")
+        # treść w przewijanym obszarze – na małych ekranach (laptop 1366×768, skala 125%) przyciski
+        # Zapisz/Anuluj zostają widoczne pod spodem
+        outer = tk.Frame(self, bg=SURFACE)
+        outer.pack(fill="both", expand=True)
+        self._canvas = tk.Canvas(outer, bg=SURFACE, highlightthickness=0)
+        self._sb = ttk.Scrollbar(outer, orient="vertical", command=self._canvas.yview)
+        self._canvas.configure(yscrollcommand=self._sb.set)
+        self._canvas.pack(side="left", fill="both", expand=True)
+        body = tk.Frame(self._canvas, bg=SURFACE, padx=22, pady=16)
+        self._canvas.create_window((0, 0), window=body, anchor="nw")
         tk.Label(body, text="Ustawienia", bg=SURFACE, fg=BLACK, font=f.h1).grid(
             row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
 
@@ -108,15 +116,31 @@ class SettingsDialog(tk.Toplevel):
                    "(hasło zaszyfrowane);\nnadawca i odbiorcy – dla całej firmy."
                    if self.company_mode == "admin" else
                    "Ustawienia zapisują się tylko na tym komputerze, hasło jest zaszyfrowane (Windows)."))
-        tk.Label(body, text=hint, bg=BG, fg=MUTED, font=f.small, justify="left",
-                 padx=10, pady=8).grid(row=r[0], column=0, columnspan=2, sticky="we", pady=(12, 14))
+        tk.Label(body, text=hint, bg=BG, fg=MUTED, font=f.small, justify="left", anchor="w",
+                 padx=10, pady=8).grid(row=r[0], column=0, columnspan=2, sticky="we", pady=(12, 4))
         r[0] += 1
 
-        btns = tk.Frame(body, bg=SURFACE)
-        btns.grid(row=r[0], column=0, columnspan=2, sticky="e")
+        bar = tk.Frame(self, bg=SURFACE, padx=22, pady=12)
+        bar.pack(fill="x")
+        btns = tk.Frame(bar, bg=SURFACE)
+        btns.pack(side="right")
         FlatButton(btns, "Wyślij test", self.test, "ghost", f.body, 14, 6).pack(side="left", padx=4)
         FlatButton(btns, "Anuluj", self.destroy, "ghost", f.body, 14, 6).pack(side="left", padx=4)
         FlatButton(btns, "Zapisz", self.save, "primary", f.label, 18, 6).pack(side="left", padx=(4, 0))
+        self._fit(body)
+
+    def _fit(self, body):
+        """Okno nie wyższe niż ekran; gdy treść się nie mieści – pasek przewijania i kółko myszy."""
+        self.update_idletasks()
+        bw, bh = body.winfo_reqwidth(), body.winfo_reqheight()
+        maxh = max(300, self.winfo_screenheight() - 220)   # miejsce na pasek tytułu, przyciski i pasek zadań
+        self._canvas.configure(width=bw, height=min(bh, maxh), scrollregion=(0, 0, bw, bh))
+        if bh > maxh:
+            self._sb.pack(side="right", fill="y")
+            scroll = lambda n: self._canvas.yview_scroll(n, "units")
+            self.bind("<MouseWheel>", lambda e: scroll(-1 if e.delta > 0 else 1))
+            self.bind("<Button-4>", lambda e: scroll(-1))
+            self.bind("<Button-5>", lambda e: scroll(1))
 
     def collect(self) -> dict:
         return {

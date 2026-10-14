@@ -190,15 +190,15 @@ class MarzaMixin:
             self.after(0, lambda l=line: (self.marza_log.insert("end", l + "\n"), self.marza_log.see("end")))
         try:
             cfg = load_config()
+            fresh = None
             if self.session is not None:   # odbiorcy świeżo z bazy (przy starcie mogło nie być internetu)
                 try:
-                    fresh = self.session.company()
-                    if fresh:
-                        COMPANY.clear()
-                        COMPANY.update(fresh)
+                    fresh = dict(self.session.company() or {}) or None
+                    if fresh:   # wspólny słownik okna podmieniany w wątku okna (nie w tle)
+                        self.after(0, lambda c=fresh: (COMPANY.clear(), COMPANY.update(c)))
                 except Exception as e:
                     logline(f"Uwaga: nie udało się wczytać odbiorców maili z bazy ({e}).")
-            mz = COMPANY.get("marza") or {}
+            mz = (fresh or COMPANY).get("marza") or {}
             if self.session is not None:   # odbiorcy maili MARŻY z ustawień firmowych (tylko zaznaczeni)
                 cfg["marza_recipients"] = {k: [r["email"] for r in (mz.get(k) or []) if r.get("on")]
                                            for k in ("wroclaw", "opole")}

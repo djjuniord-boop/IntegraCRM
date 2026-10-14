@@ -470,8 +470,16 @@ class App(KontrolaMixin, HistoriaMixin, MarzaMixin, SerwisMixin, UzytkownicyMixi
 
     def _update_checked(self, m, newer, manual, err):
         if err:
-            why = ("brak połączenia ze źródłem aktualizacji – sprawdź internet i spróbuj później"
-                   if isinstance(err, OSError) else str(err))
+            import urllib.error
+            if isinstance(err, urllib.error.HTTPError):
+                why = (f"serwer aktualizacji odpowiedział błędem {err.code} – spróbuj później; jeśli to się "
+                       "powtarza, zgłoś administratorowi")
+            elif isinstance(err, OSError):
+                why = "brak połączenia ze źródłem aktualizacji – sprawdź internet i spróbuj później"
+            elif isinstance(err, ValueError):
+                why = "nieprawidłowy opis aktualizacji na serwerze – zgłoś administratorowi"
+            else:
+                why = str(err)
             self.set_update_status(f"Nie udało się sprawdzić aktualizacji: {why}")
             if manual:
                 messagebox.showerror("Aktualizacje", f"Nie udało się sprawdzić aktualizacji:\n{why}")

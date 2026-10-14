@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
 VERSION = "0.19.0"
-RELEASED = "2026-10-13"
+RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -13,7 +13,7 @@ STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz3
 CHANGELOG = [
     {
         "version": "0.19.0",
-        "date": "2026-10-13",
+        "date": "2026-10-14",
         "changes": [
             "Porządki wewnętrzne: program podzielony na moduły (Kontrola, MARŻA, SERWIS QR, Użytkownicy) – "
             "zmiany w jednym module nie ruszają pozostałych; wygląd i działanie bez zmian",

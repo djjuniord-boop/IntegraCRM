@@ -8,6 +8,11 @@ on:
 permissions:
   contents: write
 
+# dwa szybkie pushe nie budują równolegle (wspólne zasoby kanal-beta i gałąź gh-pages)
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest

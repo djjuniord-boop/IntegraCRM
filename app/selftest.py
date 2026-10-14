@@ -12,8 +12,33 @@ import traceback
 from pathlib import Path
 
 
+def _isolate_data(d: Path) -> None:
+    """Selftest pracuje na własnym folderze danych – nie zmienia ustawień, historii ani sesji w data/
+    (także wzorcowego data/config.json w repozytorium). Podmienia ścieżki już wczytanych modułów programu."""
+    import paths
+    old = paths.DATA_DIR.resolve()
+    new = d / "data"
+    new.mkdir(parents=True, exist_ok=True)
+    app_dir = str(paths.APP_DIR.resolve())
+    for m in list(sys.modules.values()):
+        f = getattr(m, "__file__", None) or ""
+        try:
+            if not f or not str(Path(f).resolve()).startswith(app_dir):
+                continue
+        except OSError:
+            continue
+        for k, v in list(vars(m).items()):
+            if isinstance(v, Path):
+                try:
+                    rel = v.resolve().relative_to(old)
+                except (ValueError, OSError):
+                    continue
+                setattr(m, k, new / rel)
+
+
 def run(folder: str) -> int:
     d = Path(folder)
+    _isolate_data(d)
     res = {"ok": False}
     try:
         from kontrola import extract
