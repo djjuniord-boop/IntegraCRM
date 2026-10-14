@@ -114,8 +114,8 @@ class SerwisMixin:
         from serwis import serwis_window
         why = serwis_window.is_available()
         if why:
-            self._serwis_msg(why + "\n\nPobierz paczkę IntegraCRM-…-exe.zip z wydania „kanal-beta” na GitHubie,\n"
-                             "rozpakuj do nowego folderu i skopiuj do niego swój folder „data”.", "warn")
+            self._serwis_msg(why + "\n\nPobierz instalator IntegraCRM-setup.exe z najnowszego wydania na GitHubie\n"
+                             "i uruchom go – ustawienia i logowanie zostaną zachowane.", "warn")
             return
         cfg = load_config()
         try:

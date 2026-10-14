@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.21.2"
+VERSION = "0.21.3"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -12,21 +12,31 @@ STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz3
 
 CHANGELOG = [
     {
+        "version": "0.21.3",
+        "date": "2026-10-14",
+        "changes": [
+            "Nowa nazwa u góry okna: „Panel Latex Serwis”, a pod nią nazwa otwartej zakładki",
+            "Poprawna pisownia w całym programie: „e-mail” zamiast „mail” (np. przycisk „Wyślij e-mail”)",
+            "Poprawiona polszczyzna: odmiana liczebników („1 numer”, „5 numerów”), polskie znaki w dzienniku MARŻY "
+            "i w temacie e-maila z wynikami, jaśniejsze opisy w Ustawieniach i Dzienniku zmian",
+        ],
+    },
+    {
         "version": "0.21.2",
         "date": "2026-10-14",
         "changes": [
             "UŻYTKOWNICY: widać, z jakiego komputera (nazwa komputera i konto Windows) i z jakiego IP "
             "ktoś się ostatnio zalogował; w Dzienniku zmian – przy każdym logowaniu",
-            "„Wyślij test” w Ustawieniach wysyła mail na adres zalogowanego administratora",
+            "„Wyślij test” w Ustawieniach wysyła e-mail na adres zalogowanego administratora",
         ],
     },
     {
         "version": "0.21.1",
         "date": "2026-10-14",
         "changes": [
-            "Ustawienia uproszczone: pracownik widzi tylko, do kogo idą maile jego oddziału, kopię do siebie "
+            "Ustawienia uproszczone: pracownik widzi tylko, do kogo idą e-maile jego oddziału, kopię do siebie "
             "i statystyki użycia",
-            "Usunięte pola Gmail i hasło aplikacji – maile wysyła wyłącznie serwer firmy",
+            "Usunięte pola Gmail i hasło aplikacji – e-maile wysyła wyłącznie serwer firmy",
             "Nadawcę, odbiorców (także osobno dla każdego oddziału), test wysyłki i ustawienia zaawansowane "
             "widzi tylko administrator",
         ],
@@ -53,7 +63,7 @@ CHANGELOG = [
             "tempo, prognoza, ile trzeba dziennie, wykres narastająco i poprzednie miesiące",
             "Handlowiec z modułem „Wyniki” widzi tylko swój oddział (Wrocław albo Opole), administrator – oba",
             "MARŻA po każdej aktualizacji zapisuje tabelę miesięcy z kalkulatora (dla zakładki WYNIKI); "
-            "mail z wykresem i arkusz na Dysku Google działają jak dotąd",
+            "e-mail z wykresem i arkusz na Dysku Google działają jak dotąd",
             "Nagłówek i Pomoc dopasowane do uprawnień konta (instrukcja tylko dostępnych modułów)",
         ],
     },
@@ -64,17 +74,17 @@ CHANGELOG = [
             "Porządki wewnętrzne: program podzielony na moduły (Kontrola, MARŻA, SERWIS QR, Użytkownicy) – "
             "zmiany w jednym module nie ruszają pozostałych; wygląd i działanie bez zmian",
             "Każde wydanie przechodzi automatyczne testy wszystkich modułów",
-            "MARŻA: adresy odbiorców maili tylko w ustawieniach programu („Odbiorcy maili”), usunięte z kodu",
+            "MARŻA: adresy odbiorców e-maili tylko w ustawieniach programu („Odbiorcy e-maili”), usunięte z kodu",
             "SERWIS QR: strona dla klientów aktualizuje się automatycznie razem z programem",
-            "Wysyłka maili z serwera: lepiej zabezpieczona przed osobami spoza programu",
+            "Wysyłka e-maili z serwera: lepiej zabezpieczona przed osobami spoza programu",
         ],
     },
     {
         "version": "0.18.0",
         "date": "2026-10-13",
         "changes": [
-            "MARŻA: maile do handlowców wysyła serwer firmy (bez email_config.txt); odbiorców zaznacza się "
-            "lub dopisuje w programie – przycisk „Odbiorcy maili”",
+            "MARŻA: e-maile do handlowców wysyła serwer firmy (bez email_config.txt); odbiorców zaznacza się "
+            "lub dopisuje w programie – przycisk „Odbiorcy e-maili”",
             "MARŻA: wyniki każdej aktualizacji zapisywane w bazie – przycisk „Wyniki online” (cel, zrobione, % celu) "
             "na każdym komputerze",
             "MARŻA: kopia kalkulatora i raportów PDF w chmurze po każdej aktualizacji – „Kopie w chmurze” (pobieranie)",
@@ -85,7 +95,7 @@ CHANGELOG = [
         "version": "0.17.0",
         "date": "2026-10-13",
         "changes": [
-            "Mail z brakami wysyła serwer firmy – na komputerach nie trzeba już hasła Gmail "
+            "E-mail z brakami wysyła serwer firmy – na komputerach nie trzeba już hasła Gmail "
             "(odbiorcy tylko z listy firmowej, odpowiedzi trafiają do osoby, która wysłała)",
             "Stara historia sprawdzeń z tego komputera przenosi się do wspólnej historii w bazie",
             "Błędy programu trafiają do Dziennika zmian zamiast do arkusza Google",
@@ -100,7 +110,7 @@ CHANGELOG = [
             "SERWIS QR: panel nie wymaga osobnego logowania – korzysta z logowania programu",
             "Logowanie odświeżane automatycznie co 30 minut (program może być otwarty cały dzień)",
             "Dziennik zmian (Użytkownicy → Dziennik zmian): kto i kiedy dodał/zmienił/usunął auto lub wpis, "
-            "zrobił sprawdzenie, wysłał mail, zalogował się, zmienił uprawnienia lub ustawienia; wyszukiwanie",
+            "zrobił sprawdzenie, wysłał e-mail, zalogował się, zmienił uprawnienia lub ustawienia; wyszukiwanie",
         ],
     },
     {"version": "0.15.2", "date": "2026-10-13",
@@ -115,7 +125,7 @@ CHANGELOG = [
             "Rejestr „zgłaszany już” wspólny dla oddziałów – ten sam numer nie jest zgłaszany dwa razy; "
             "dotychczasowy rejestr z tego komputera przenosi się automatycznie",
             "Ustawienia firmowe (administrator): nadawca, odbiorcy domyślni i osobni odbiorcy dla każdego oddziału",
-            "Mail z brakami trafia do odbiorców oddziałów zaznaczonych przy sprawdzaniu",
+            "E-mail z brakami trafia do odbiorców oddziałów zaznaczonych przy sprawdzaniu",
         ],
     },
     {
@@ -136,11 +146,11 @@ CHANGELOG = [
         "date": "2026-10-13",
         "changes": [
             "Raport .xlsx z CRM: porównanie dokładne – podobny numer innego auta nie ukrywa już prawdziwego braku",
-            "Ostrzeżenie, gdy dane z CRM prawie nie pasują do Integry (zły oddział lub okres) – mail nie jest wtedy przygotowywany",
-            "Wysyłka maila w tle, z limitem czasu – okno nie zamarza przy słabym internecie",
+            "Ostrzeżenie, gdy dane z CRM prawie nie pasują do Integry (zły oddział lub okres) – e-mail nie jest wtedy przygotowywany",
+            "Wysyłka e-maila w tle, z limitem czasu – okno nie zamarza przy słabym internecie",
             "Statystyki nie blokują już okna, gdy brak internetu",
             "Rejestr „zgłaszany już”: tylko pewne braki, wpisy wygasają po 60 dniach",
-            "Bezpieczny zapis ustawień i historii (przerwanie nie psuje plików), poprawki raportów CSV i tematu maila",
+            "Bezpieczny zapis ustawień i historii (przerwanie nie psuje plików), poprawki raportów CSV i tematu e-maila",
             "SERWIS QR: zdjęcia ostatniej wizyty widoczne od razu na stronie klienta",
         ],
     },
@@ -272,7 +282,7 @@ CHANGELOG = [
         "version": "0.11.0",
         "date": "2026-10-09",
         "changes": [
-            "Anonimowe statystyki użycia (tylko liczby: uruchomienia, sprawdzenia, maile, błędy) – "
+            "Anonimowe statystyki użycia (tylko liczby: uruchomienia, sprawdzenia, e-maile, błędy) – "
             "bez numerów, adresów e-mail i haseł; do wyłączenia w Ustawieniach",
         ],
     },
@@ -280,7 +290,7 @@ CHANGELOG = [
         "version": "0.10.3",
         "date": "2026-10-09",
         "changes": [
-            "Nazwa nadawcy maila (domyślnie „Kontrola eksportu – Latex Serwis”) – do zmiany w Ustawieniach",
+            "Nazwa nadawcy e-maila (domyślnie „Kontrola eksportu – Latex Serwis”) – do zmiany w Ustawieniach",
         ],
     },
     {
@@ -297,7 +307,7 @@ CHANGELOG = [
         "changes": [
             "Kliknięcie brakującego numeru kopiuje go do schowka, przycisk „Kopiuj wszystkie”",
             "Szczegóły odczytu w osobnym, dużym oknie",
-            "Treść maila: przycisk „Powiększ” – edycja w dużym oknie",
+            "Treść e-maila: przycisk „Powiększ” – edycja w dużym oknie",
             "Okno programu otwiera się na pełnym ekranie",
         ],
     },
@@ -318,8 +328,8 @@ CHANGELOG = [
         "changes": [
             "Przeciąganie plików: PDF z Integry i zrzut z CRM można upuścić na okno (przycisk wyboru zostaje)",
             "Nowa zakładka Historia – każde sprawdzenie zapisywane, plik otwiera się w Excelu",
-            "Numery zgłoszone wcześniej są oznaczane („zgłoszony …”) na ekranie i w mailu",
-            "Kopia (DW) wysyłanego maila do nadawcy – do wyłączenia w Ustawieniach",
+            "Numery zgłoszone wcześniej są oznaczane („zgłoszony …”) na ekranie i w e-mailu",
+            "Kopia (DW) wysyłanego e-maila do nadawcy – do wyłączenia w Ustawieniach",
             "Hasło aplikacji Google zapisywane w postaci zaszyfrowanej (Windows DPAPI)",
         ],
     },
@@ -329,7 +339,7 @@ CHANGELOG = [
         "changes": [
             "Naprawa: odczyt wycinka (OCR) nie działał, gdy nazwa użytkownika Windows ma polskie znaki "
             "(np. C:\\Users\\Użytkownik)",
-            "Naprawa: Ctrl+V w temacie i treści maila wkleja tekst (wcześniej próbował wkleić obraz)",
+            "Naprawa: Ctrl+V w temacie i treści e-maila wkleja tekst (wcześniej próbował wkleić obraz)",
             "Uszkodzony plik ustawień nie blokuje już uruchomienia programu",
             "Każda wersja jest automatycznie testowana na Windows przed publikacją",
         ],
@@ -425,7 +435,7 @@ CHANGELOG = [
         "date": "2026-10-08",
         "changes": [
             "Wklejanie wycinka ekranu z CRM ze schowka (Ctrl+V)",
-            "Dwa przyciski: „Sprawdź” i „Wyślij maila”, edytowalna treść maila",
+            "Dwa przyciski: „Sprawdź” i „Wyślij e-mail”, edytowalna treść e-maila",
         ],
     },
     {
@@ -433,7 +443,7 @@ CHANGELOG = [
         "date": "2026-10-08",
         "changes": [
             "Pierwsza wersja: porównanie numerów rejestracyjnych z PDF z Integry 7 "
-            "z raportem CRM i mail do handlowców z brakującymi numerami",
+            "z raportem CRM i e-mail do handlowców z brakującymi numerami",
         ],
     },
 ]

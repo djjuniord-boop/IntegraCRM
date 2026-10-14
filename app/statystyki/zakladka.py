@@ -79,7 +79,7 @@ class StatystykiMixin:
         self.st_tree.pack(fill="both", expand=True)
         tk.Label(page, text="Dane zbierają się przy każdym sprawdzeniu w zakładce KONTROLA (raport .xlsx z CRM, jeden "
                  "zaznaczony oddział). Każde zlecenie z pojazdem w Integrze to jedna wizyta – także to samo auto "
-                 "drugi raz. „Bez listy” = brak listy w CRM z tego samego dnia. Ponowne sprawdzenie tego samego dnia nadpisuje liczby, więc nic nie liczy się podwójnie.",
+                 "drugi raz. „Bez listy” oznacza brak listy w CRM z tego samego dnia. Ponowne sprawdzenie tego samego dnia nadpisuje liczby, więc nic nie liczy się podwójnie.",
                  bg=BG, fg=MUTED, font=f.small, wraplength=1300, justify="left").pack(anchor="w", pady=(8, 0))
         self.after(300, self.statystyki_refresh)   # wątek dopiero po starcie pętli okna
 

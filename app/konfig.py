@@ -1,4 +1,4 @@
-"""Ustawienia programu: lokalne (data/config.json) i firmowe z bazy (COMPANY – odbiorcy maili,
+"""Ustawienia programu: lokalne (data/config.json) i firmowe z bazy (COMPANY – odbiorcy e-maili,
 nadawca, lista MARŻY). Po zalogowaniu firmowe mają pierwszeństwo przed lokalnymi."""
 import json
 import os
@@ -37,7 +37,7 @@ COMPANY: dict = {}   # ustawienia firmowe z bazy (odbiorcy, nadawca) – wczytyw
 
 
 def recipients_for(branches, cfg=None) -> list:
-    """Odbiorcy maila z brakami: wg oddziałów (ustawienia firmowe), inaczej domyślni."""
+    """Odbiorcy e-maila z brakami: wg oddziałów (ustawienia firmowe), inaczej domyślni."""
     by = COMPANY.get("by_branch") or {}
     out = []
     for b in branches or []:

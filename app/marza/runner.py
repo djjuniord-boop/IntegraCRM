@@ -184,10 +184,10 @@ def _run(root, cfg, ask, test_mode):
     print("=" * 64)
     print(" AKTUALIZUJ WSZYSTKO - Wrocław + Opole")
     if test_mode:
-        print(" [TRYB TESTOWY - bez maili i bez Dysku Google]")
+        print(" [TRYB TESTOWY - bez e-maili i bez Dysku Google]")
     print("=" * 64)
     print()
-    print("--- Krok 1/3: rozdzielanie raportow ---")
+    print("--- Krok 1/3: rozdzielanie raportów ---")
     licznik, odrzucone_na_wejsciu = roz.rozdziel()
 
     wyniki = {}
@@ -492,7 +492,7 @@ def _ile_miesiecy(n):
 
 def _save_months(pod, key, xlsx):
     """Zakładka WYNIKI: cała tabela miesięcy kalkulatora oddziału → baza (nadpisuje oddział+rok+miesiąc).
-    Błąd = tylko linia w dzienniku przebiegu; kalkulator, podgląd i mail są już zrobione."""
+    Błąd = tylko linia w dzienniku przebiegu; kalkulator, podgląd i e-mail są już zrobione."""
     if SESSION is None:
         return
     try:

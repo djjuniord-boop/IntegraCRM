@@ -5,7 +5,7 @@ AKTUALIZUJ KALKULATOR MARZY - skrypt lokalny (LATEX)
 ======================================================
 Dziala calkowicie samodzielnie na Twoim komputerze - nic nie wysyla nigdzie
 w internet, tylko czyta pliki PDF z folderu "Wyniki" i wpisuje kwote
-"Marza towary + sprzedaz uslug netto" do wlasciwego miesiaca w Excelu.
+"Marza towary + sprzedaz uslug netto" do wlasciwego miesiąca w Excelu.
 
 WYMAGANIA (jednorazowa instalacja):
     pip install openpyxl pypdf
@@ -22,7 +22,7 @@ Skrypt zaklada strukture folderow:
       kalkulator_marzy_latex.xlsx  <- plik kalkulatora (aktualizowany w miejscu)
       *.pdf                       <- raporty sprzedazy z Integry (wrzucasz tutaj)
 
-Kazdy PDF musi byc raportem "Raport sprzedazy towarow i uslug" z Integry,
+Każdy PDF musi byc raportem "Raport sprzedazy towarow i uslug" z Integry,
 obejmujacym DOKLADNIE JEDEN miesiac. Miesiac/rok sa rozpoznawane z daty
 POCZATKOWEJ zakresu w raporcie ("Zakres dat: od RRRR-MM-DD do ...").
 """
@@ -66,13 +66,13 @@ PODGLAD_ROK = 2026
 try:
     import openpyxl
 except ImportError:
-    print("BLAD: brak biblioteki openpyxl. Zainstaluj: pip install openpyxl")
+    print("BŁĄD: brak biblioteki openpyxl. Zainstaluj: pip install openpyxl")
     sys.exit(1)
 
 try:
     import pypdf
 except ImportError:
-    print("BLAD: brak biblioteki pypdf. Zainstaluj: pip install pypdf")
+    print("BŁĄD: brak biblioteki pypdf. Zainstaluj: pip install pypdf")
     sys.exit(1)
 
 
@@ -230,7 +230,7 @@ def _generuj_wykres_png(miesiac_etykieta, cel, zrobione, year, month, holidays=N
             import matplotlib  # noqa
         except Exception as e:
             if log_lines is not None:
-                log(f"Uwaga: nie udalo sie zainstalowac/zaimportowac matplotlib do wykresu: {e}", log_lines)
+                log(f"Uwaga: nie udało się zainstalować/zaimportować matplotlib do wykresu: {e}", log_lines)
             return None
 
     try:
@@ -367,7 +367,7 @@ def _generuj_wykres_png(miesiac_etykieta, cel, zrobione, year, month, holidays=N
     except Exception as e:
         if log_lines is not None:
             import traceback
-            log(f"Uwaga: blad podczas rysowania wykresu do maila: {e}", log_lines)
+            log(f"Uwaga: błąd podczas rysowania wykresu do e-maila: {e}", log_lines)
             log(f"Szczegoly bledu wykresu:\n{traceback.format_exc()}", log_lines)
         return None
 # --- Powiadomienie e-mail dla handlowcow -----------------------------------
@@ -406,8 +406,8 @@ def _wyslij_powiadomienie_email(updated, log_lines, label=None, cel=None, zrob=N
         return
     haslo = _wczytaj_haslo_email()
     if not haslo:
-        log(f"Uwaga: nie znaleziono hasla aplikacji w {EMAIL_CONFIG_FILE} - "
-            f"powiadomienie e-mail NIE zostalo wyslane.", log_lines)
+        log(f"Uwaga: nie znaleziono hasła aplikacji w {EMAIL_CONFIG_FILE} – "
+            f"powiadomienie e-mail NIE zostało wysłane.", log_lines)
         return
     try:
         import smtplib
@@ -426,17 +426,17 @@ def _wyslij_powiadomienie_email(updated, log_lines, label=None, cel=None, zrob=N
                 month = miesiace.index(nazwa_mies) + 1
                 png_bytes = _generuj_wykres_png(label, cel, zrob, year, month, holidays=holidays, log_lines=log_lines)
             except Exception as e:
-                log(f"Uwaga: nie udalo sie przygotowac wykresu do maila: {e}", log_lines)
+                log(f"Uwaga: nie udało się przygotować wykresu do e-maila: {e}", log_lines)
                 png_bytes = None
 
         tresc_tekst = (
-            "Wyniki zostaly zaktualizowane.\n\n"
-            "Nowy zestaw danych jest juz gotowy.\n\n"
+            "Wyniki zostały zaktualizowane.\n\n"
+            "Nowy zestaw danych jest już gotowy.\n\n"
             "To automatyczne powiadomienie - nie wymaga odpowiedzi.\n\n"
             "--\n"
             "LATEX Auto Serwis\n"
             "Opony - Felgi - Serwis\n"
-            "Wiadomosc systemowa - panel wynikow"
+            "Wiadomość systemowa – panel wyników"
         )
 
         tresc_html = """
@@ -474,7 +474,7 @@ Wiadomość systemowa - panel wyników</p>
             server.login(EMAIL_NADAWCA, haslo)
             for odbiorca in EMAIL_ODBIORCY:
                 msg = MIMEMultipart("related")
-                msg["Subject"] = "Aktualizacja wynikow"
+                msg["Subject"] = "Aktualizacja wyników"
                 msg["From"] = formataddr((EMAIL_NADAWCA_NAZWA, EMAIL_NADAWCA))
                 msg["To"] = odbiorca
                 msg["Date"] = formatdate(localtime=True)
@@ -493,15 +493,15 @@ Wiadomość systemowa - panel wyników</p>
                 server.sendmail(EMAIL_NADAWCA, [odbiorca], msg.as_string())
                 wyslano.append(odbiorca)
 
-        log(f"Wyslano {len(wyslano)} osobnych powiadomien e-mail HTML "
-            f"{'z wykresem' if png_bytes else '(bez wykresu - blad generowania)'} "
+        log(f"Wysłano {len(wyslano)} osobnych powiadomień e-mail HTML "
+            f"{'z wykresem' if png_bytes else '(bez wykresu – błąd generowania)'} "
             f"(kazdy odbiorca widzi tylko siebie w polu Do).", log_lines)
     except Exception as e:
-        log(f"Uwaga: nie udalo sie wyslac e-maila z powiadomieniem: {e}", log_lines)
+        log(f"Uwaga: nie udało się wysłać e-maila z powiadomieniem: {e}", log_lines)
 
 def _refresh_podglad(xlsx_path, log_lines):
-    """Zwraca (label, cel, zrob, holidays) do wysylki maila."""
-    """Generuje/odswieza plik podgladowy dla handlowcow z aktualnej zawartosci
+    """Zwraca (label, cel, zrob, holidays) do wysylki e-maila."""
+    """Generuje/odswieza plik podgladowy dla handlowców z aktualnej zawartosci
     xlsx_path (w tym recznie zmienionych celow) i kopiuje go na Dysk Google.
     Wywolywane zarowno po imporcie PDF-ow, jak i wtedy gdy nie ma nowych
     PDF-ow (np. po recznej zmianie celu w Excelu)."""
@@ -554,7 +554,7 @@ _MD_CHANGE_RE = re.compile(r"^  (.+?): [\d\s,.]+ -> ([\d\s,.]+) zł")
 
 
 def _wczorajsza_wartosc_z_logu(log_path, miesiac_etykieta):
-    """Zwraca ostatnia zapisana wartosc marzy dla danego miesiaca z dni PRZED
+    """Zwraca ostatnia zapisana wartosc marży dla danego miesiąca z dni PRZED
     dzisiaj, na podstawie log_aktualizacji.txt (wpisy sprzed tego uruchomienia).
     None jesli brak historii z wczesniejszych dni."""
     if not os.path.exists(log_path):
@@ -587,7 +587,7 @@ def _wczorajsza_wartosc_z_logu(log_path, miesiac_etykieta):
 
 
 def _dopisz_marze_dzisiaj(ws, log_lines, updated):
-    """Dopisuje/aktualizuje karte 'MARZA DZISIAJ' pod istniejacym wykresem
+    """Dopisuje/aktualizuje kartę 'MARZA DZISIAJ' pod istniejacym wykresem
     'Plan vs wykonanie' (wiersze 81-83), w tym samym czarnym stylu co karta
     'SREDNIA DZIENNA MARZA DO CELU'. NIE rusza zadnych innych wierszy/formul,
     zadnego wykresu ani stylu reszty arkusza."""
@@ -609,7 +609,7 @@ def _dopisz_marze_dzisiaj(ws, log_lines, updated):
                 wartosc_dzis = ws.cell(row=row, column=4).value
 
         if wartosc_dzis is None:
-            log("Uwaga: nie mozna wyliczyc marzy dzisiaj — brak danych dla biezacego miesiaca.", log_lines)
+            log("Uwaga: nie można wyliczyć marży dzisiaj — brak danych dla bieżącego miesiąca.", log_lines)
             return
 
         log_path = os.path.join(SCRIPT_DIR, LOG_NAME)
@@ -658,9 +658,9 @@ def _dopisz_marze_dzisiaj(ws, log_lines, updated):
         ws[f"B{R_VAL}"].number_format = '+#,##0" zł";-#,##0" zł"'
         ws[f"B{R_SUB}"].value = ("Stan na dziś: " + f"{wartosc_dzis:,.0f}".replace(",", " ") + " zł")
 
-        log(f"Dopisano karte 'MARZA DZISIAJ': {przyrost:+.2f} zl (stan " + f"{wartosc_dzis:,.2f}".replace(",", " ") + " zl).", log_lines)
+        log(f"Dopisano kartę 'MARZA DZISIAJ': {przyrost:+.2f} zł (stan " + f"{wartosc_dzis:,.2f}".replace(",", " ") + " zł).", log_lines)
     except Exception as e:
-        log(f"Uwaga: nie udalo sie zaktualizowac karty 'MARZA DZISIAJ': {e}", log_lines)
+        log(f"Uwaga: nie udało się zaktualizować karty 'MARZA DZISIAJ': {e}", log_lines)
 
 
 def main():

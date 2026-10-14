@@ -31,7 +31,7 @@ class HistoriaMixin:
         self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
         for c, t, w in (("data", "Data", 130), ("kto", "Kto / oddział", 280), ("plik", "Plik PDF", 170),
                         ("integra", "Integra", 70),
-                        ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "Mail wysłany do", 200)):
+                        ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "E-mail wysłany do", 200)):
             self.hist_tree.heading(c, text=t, anchor="w")
             self.hist_tree.column(c, width=w, anchor="w")
         sb = ttk.Scrollbar(box, command=self.hist_tree.yview)

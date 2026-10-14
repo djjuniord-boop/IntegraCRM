@@ -72,7 +72,7 @@ def test_historia_lokalna_i_rejestr_tylko_pewne_braki():
 def test_mail_temat_i_oznaczenie_zgloszonych():
     from kontrola import mailer
     subj, body = mailer.compose(["DW12345"], [], {"DW12345": "2026-10-12"})
-    assert "(1)" in subj and "zgłaszany już 2026-10-12" in body
+    assert "(1)" in subj and "zgłoszony już 2026-10-12" in body
     subj2, _ = mailer.compose([], [("A1", "B1")])
     assert subj2.startswith("Numery do weryfikacji")
 

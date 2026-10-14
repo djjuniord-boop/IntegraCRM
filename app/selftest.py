@@ -1,4 +1,4 @@
-"""Test całej ścieżki (PDF → raport .xlsx z CRM → porównanie → liczniki dzienne → mail) bez okna.
+"""Test całej ścieżki (PDF → raport .xlsx z CRM → porównanie → liczniki dzienne → e-mail) bez okna.
 
 Uruchamiany w GitHub Actions na gotowym IntegraCRM.exe:  INTEGRA_SELFTEST=<folder>
 W folderze muszą być: integra.pdf, crm.xlsx, expected.json  {"missing": [...], "branch": ..., "daily": [...]}.
@@ -79,7 +79,7 @@ def run(folder: str) -> int:
         res["history_rows"] = len(history.read_all())
         res["reported"] = sorted(history.reported())
         subj2, body2 = mailer.compose(missing, uncertain, history.reported())
-        res["mail_marks_reported"] = "zgłaszany już" in body2
+        res["mail_marks_reported"] = "zgłoszony już" in body2
         # kalkulator marży: biblioteki i wykres (matplotlib) w wersji .exe
         from marza import runner
         res["marza_missing"] = runner.deps_ok()

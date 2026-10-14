@@ -38,22 +38,22 @@ from statystyki.zakladka import StatystykiMixin
 
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
-              "rodzaj zdarzenia (uruchomienie, sprawdzenie, wysłany mail, błąd) i same liczby "
+              "rodzaj zdarzenia (uruchomienie, sprawdzenie, wysłany e-mail, błąd) i same liczby "
               "(ile numerów, ile braków, czas sprawdzenia). Nie wysyła numerów rejestracyjnych, adresów e-mail, "
-              "haseł, nazw plików ani treści maili. Można to wyłączyć w Ustawieniach.")
+              "haseł, nazw plików ani treści e-maili. Można to wyłączyć w Ustawieniach.")
 
 # po zalogowaniu statystyki nie idą do arkusza – zdarzenia i błędy zapisuje dziennik firmy (stats.SESSION)
-DZIENNIK_INFO = ("Program zapisuje w dzienniku firmy: logowania (z wersją programu), sprawdzenia, wysłane maile, "
+DZIENNIK_INFO = ("Program zapisuje w dzienniku firmy: logowania (z wersją programu), sprawdzenia, wysłane e-maile, "
                  "zmiany w SERWIS QR, aktualizacje MARŻY, zmiany uprawnień i ustawień oraz błędy programu. "
                  "Dziennik widzi tylko administrator.")
 
 HELP_STEPS = [
-    ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
+    ("Raport z Integry 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
                    "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
                    "swoje oddziały) – wybór jest zapamiętywany."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
-    ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
+    ("Wyślij e-mail", "Jeśli czegoś brakuje, e-mail jest gotowy – możesz go poprawić i wysłać."),
 ]
 
 # Pomoc: instrukcje tylko modułów, do których konto ma dostęp
@@ -61,12 +61,12 @@ HELP_MODULES = [
     ("crm", "Kontrola CRM", HELP_STEPS),
     ("historia", "Historia", [
         ("Zakładka HISTORIA", "Lista wszystkich sprawdzeń Twoich oddziałów: kto i kiedy sprawdzał, ile zleceń, "
-                              "czego brakowało i do kogo poszedł mail. „Otwórz w Excelu” zapisuje całość do pliku."),
+                              "czego brakowało i do kogo poszedł e-mail. „Otwórz w Excelu” zapisuje całość do pliku."),
     ]),
     ("statystyki", "Statystyki", [
         ("Zakładka STATYSTYKI", "Ile list kontrolnych w CRM przypada na 10 zleceń z Integry – w ostatnich 90 dniach "
                                 "i w każdym miesiącu. Dane zbierają się przy sprawdzeniach w KONTROLI."),
-        ("Prognoza", "Wpisz liczbę zleceń (np. 1000) – program pokaże, ile list kontrolnych się spodziewać, "
+        ("Prognoza", "Wpisz liczbę zleceń (np. 1000) – program pokaże, ilu list kontrolnych należy się spodziewać, "
                      "z widełkami od najsłabszego do najlepszego miesiąca."),
     ]),
     ("wyniki", "Wyniki marży", [
@@ -80,7 +80,7 @@ HELP_MODULES = [
     ("marza", "MARŻA", [
         ("Raporty sprzedaży", "Przeciągnij „Raport sprzedaży towarów i usług” z Integry (Wrocław, Opole) na "
                               "zakładkę MARŻA i kliknij „AKTUALIZUJ WSZYSTKO”."),
-        ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i maile do zaznaczonych odbiorców aktualizują się "
+        ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i e-maile do zaznaczonych odbiorców aktualizują się "
                             "same; wyniki trafiają też do zakładki WYNIKI."),
     ]),
     ("serwis", "SERWIS QR", [
@@ -221,7 +221,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         with open(f"{out_dir}/dnd.txt", "a", encoding="utf-8") as fh:
             fh.write(f"pdf_after_drop={self.pdf_path.get()}\n")
         self.set_chips(["DW12345", "WE7A071"], [("DX7806F", "DX78O6F")])
-        self.set_banner("bad", "✖  W CRM brakuje 2 i 1 do weryfikacji z 12 zleceń. Mail jest gotowy.")
+        self.set_banner("bad", "✖  W CRM brakuje 2 i 1 do weryfikacji z 12 zleceń. E-mail jest gotowy.")
         self.subject.set("Brak zleceń w CRM – prośba o eksport")
         self.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
         self.btn_send.set_enabled(True)
@@ -291,13 +291,9 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             tk.Label(head, text="LATEX", bg=SURFACE, fg=RED, font=(f.family, 20, "bold")).pack(side="left")
         titles = tk.Frame(head, bg=SURFACE)
         titles.pack(side="left", padx=(18, 0))
-        if self.session is None or self.session.can("crm"):
-            title, sub = "Kontrola eksportu zleceń", f"Integra 7 → CRM   ·   wersja {VERSION}"
-        else:   # konto bez Kontroli CRM (np. handlowiec z zakładką WYNIKI)
-            names = [n for k, n, _ in HELP_MODULES if self.session.can(k)]
-            title, sub = "Panel Latex Serwis", f"{', '.join(names) or 'konto'}   ·   wersja {VERSION}"
-        tk.Label(titles, text=title, bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
-        tk.Label(titles, text=sub, bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
+        tk.Label(titles, text="Panel Latex Serwis", bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
+        self.head_sub = tk.Label(titles, text=f"wersja {VERSION}", bg=SURFACE, fg=MUTED, font=f.small)
+        self.head_sub.pack(anchor="w")   # nazwa otwartej zakładki – uzupełnia show_tab
         FlatButton(head, "⚙  Ustawienia", lambda: SettingsDialog(self), "ghost", f.body, 14, 7).pack(side="right")
         if self.session:
             FlatButton(head, "Wyloguj", self.logout, "ghost", f.body, 14, 7).pack(side="right", padx=(0, 8))
@@ -309,7 +305,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         # zakładki jako przyciski (czytelniejsze niż systemowy Notebook)
         tabs = tk.Frame(self, bg=BLACK)
         tabs.pack(fill="x")
-        self.pages, self.tab_btns = {}, {}
+        self.pages, self.tab_btns, self.tab_names = {}, {}, {}
         holder = tk.Frame(self, bg=BG)
         holder.pack(fill="both", expand=True)
         shot = bool(os.environ.get("INTEGRA_SHOT"))
@@ -338,6 +334,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             b.pack(side="left")
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
+            nazwa = label.replace("β", "").strip()
+            self.tab_names[key] = nazwa if nazwa == "SERWIS QR" else nazwa.capitalize()
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
         # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
         self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
@@ -399,6 +397,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.current_tab = key
         self.pages[key].pack(fill="both", expand=True)
         self.tab_btns[key].config(fg="white", bg=RED)
+        if hasattr(self, "head_sub"):
+            self.head_sub.config(text=f"{self.tab_names.get(key, '')}   ·   wersja {VERSION}")
         if "serwis" in self.pages and hasattr(self, "serwis_host"):
             try:
                 if key == "serwis":
@@ -424,7 +424,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         if self.session is None or self.session.is_admin:   # cofnięcie wersji tylko administrator
             FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
 
-        tk.Label(top, text="Prywatność: " + (DZIENNIK_INFO if self.session else STATS_INFO), bg=SURFACE, fg=MUTED,
+        tk.Label(top, text="Prywatność: " + (DZIENNIK_INFO if self.session else STATS_INFO)[:1].lower() + (DZIENNIK_INFO if self.session else STATS_INFO)[1:], bg=SURFACE, fg=MUTED,
                  font=f.small,
                  wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
         how = card(page, padx=18, pady=14)
@@ -549,7 +549,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 why = (f"serwer aktualizacji odpowiedział błędem {err.code} – spróbuj później; jeśli to się "
                        "powtarza, zgłoś administratorowi")
             elif isinstance(err, OSError):
-                why = "brak połączenia ze źródłem aktualizacji – sprawdź internet i spróbuj później"
+                why = "brak połączenia ze źródłem aktualizacji – sprawdź połączenie z internetem i spróbuj później."
             elif isinstance(err, ValueError):
                 why = "nieprawidłowy opis aktualizacji na serwerze – zgłoś administratorowi"
             else:

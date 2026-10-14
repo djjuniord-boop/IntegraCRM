@@ -31,7 +31,7 @@ class UzytkownicyMixin:
             self.users_tv.column(c, width=w, anchor="w")
         self.users_tv.pack(fill="both", expand=True, pady=(6, 0))
         self.users_tv.bind("<Double-1>", lambda e: self._edit_user())
-        tk.Label(page, text="Kliknij dwukrotnie użytkownika, żeby zmienić uprawnienia, hasło albo zablokować konto. "
+        tk.Label(page, text="Kliknij dwukrotnie wiersz z użytkownikiem, żeby zmienić uprawnienia, hasło albo zablokować konto. "
                  "Administrator ma zawsze dostęp do wszystkich modułów i oddziałów.",
                  bg=BG, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 0))
         self._users = []

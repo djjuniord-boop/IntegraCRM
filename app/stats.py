@@ -2,7 +2,7 @@
 
 Wysyłane: losowy identyfikator instalacji (nie da się z niego ustalić osoby), wersja programu,
 rodzaj zdarzenia i liczby (ile numerów, ile braków, czas sprawdzenia, rodzaj błędu).
-NIE są wysyłane: numery rejestracyjne, adresy e-mail, hasła, nazwy plików, treści maili, obrazy.
+NIE są wysyłane: numery rejestracyjne, adresy e-mail, hasła, nazwy plików, treści e-maili, obrazy.
 Bez internetu zdarzenia czekają w kolejce (data/statystyki_kolejka.jsonl) i wysyłają się później.
 """
 import json
@@ -145,7 +145,7 @@ def _trace(exc) -> str:
 
 
 def report_exception(exc, where: str, cfg: dict, wait: bool = False) -> None:
-    """Zgłasza błąd: rodzaj (np. SMTPAuthenticationError), miejsce (np. „wysyłka maila”) i ślad w kodzie."""
+    """Zgłasza błąd: rodzaj (np. SMTPAuthenticationError), miejsce (np. „wysyłka e-maila”) i ślad w kodzie."""
     try:
         event("error", cfg, error=type(exc).__name__, where=where, detail=_trace(exc))
         if wait:

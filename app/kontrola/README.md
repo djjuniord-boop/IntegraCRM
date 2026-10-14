@@ -17,7 +17,7 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | `crm_report.py` | odczyt raportu CRM `.xlsx/.csv` (kolumny Data, Rejestracja, Oddział), wybór oddziałów |
 | `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu nieużywane od 0.21.0 |
 | `mailer.py` | treść maila, wysyłka przez serwer (`send_server`) albo awaryjnie Gmail z komputera |
-| `history.py` | historia sprawdzeń i rejestr „zgłaszany już” – w bazie po zalogowaniu, lokalnie bez sesji (testy); `save_visit_stats` |
+| `history.py` | historia sprawdzeń i rejestr „zgłoszony już” – w bazie po zalogowaniu, lokalnie bez sesji (testy); `save_visit_stats` |
 
 ## Dane w bazie
 
@@ -36,7 +36,7 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 
 - **Raport `.xlsx` porównujemy dokładnie** – bez tolerancji na błędy OCR (`ocr_equal`, `_dist_le1`). Inaczej podobny numer innego auta ukryje prawdziwy brak (błąd z audytu 0.13.8).
 - Gdy dane z CRM prawie nie pokrywają się z Integrą (`no_overlap`) – ostrzeżenie i **brak gotowego maila**.
-- Do rejestru „zgłaszany już” trafiają tylko pewne braki, nie „do weryfikacji”.
+- Do rejestru „zgłoszony już” trafiają tylko pewne braki, nie „do weryfikacji”.
 - `_check_work` działa w wątku – nie czyta pól okna (dostaje `pdf`, `src` jako argumenty).
 
 ## Testy

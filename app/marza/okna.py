@@ -1,4 +1,4 @@
-"""Okna MARŻY w chmurze: odbiorcy maili, wyniki online, kopie plików."""
+"""Okna MARŻY w chmurze: odbiorcy e-maili, wyniki online, kopie plików."""
 import os
 import threading
 import tkinter as tk
@@ -12,12 +12,12 @@ MARZA_BRANCHES = [("wroclaw", "Wrocław"), ("opole", "Opole")]
 
 
 class MarzaRecipientsDialog(tk.Toplevel):
-    """Odbiorcy maili MARŻY: zaznacz, kto ma dostawać, albo dopisz nowy adres (zapis dla całej firmy)."""
+    """Odbiorcy e-maili MARŻY: zaznacz, kto ma dostawać, albo dopisz nowy adres (zapis dla całej firmy)."""
 
     def __init__(self, app):
         super().__init__(app)
         self.app = app
-        self.title("Odbiorcy maili MARŻA")
+        self.title("Odbiorcy e-maili – MARŻA")
         self.configure(bg=SURFACE, padx=22, pady=16)
         self.transient(app)
         self.resizable(False, False)
@@ -26,7 +26,7 @@ class MarzaRecipientsDialog(tk.Toplevel):
         self.admin = app.session.is_admin
         data = COMPANY.get("marza") or {}
         self.rows = {}
-        tk.Label(self, text="Kto dostaje mail po aktualizacji MARŻY", bg=SURFACE, fg=BLACK,
+        tk.Label(self, text="Kto dostaje e-mail po aktualizacji MARŻY", bg=SURFACE, fg=BLACK,
                  font=f.h2).pack(anchor="w", pady=(0, 8))
         for key, name in MARZA_BRANCHES:
             box = tk.LabelFrame(self, text=f"  {name}  ", bg=SURFACE, fg=INK, font=f.label, padx=10, pady=6)

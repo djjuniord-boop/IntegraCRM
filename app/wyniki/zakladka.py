@@ -113,7 +113,7 @@ class WynikiMixin:
         ch.pack(side="left", fill="both", expand=True)
         hd = tk.Frame(ch, bg=SURFACE)
         hd.pack(fill="x")
-        tk.Label(hd, text="Plan vs wykonanie (narastająco)", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
+        tk.Label(hd, text="Plan i wykonanie (narastająco)", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
         leg = tk.Frame(hd, bg=SURFACE)
         leg.pack(side="right")
         tk.Label(leg, text="■ wykonanie", bg=SURFACE, fg=RED, font=f.small).pack(side="left", padx=6)

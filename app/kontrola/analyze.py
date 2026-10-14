@@ -88,7 +88,7 @@ def run(pdf_path, crm, tesseract_cmd=None, log=lambda s: None) -> dict:
     if r["no_overlap"]:
         r["warnings"].insert(0, f"Tylko {common} z {len(integra)} numerów z Integry jest w raporcie z CRM – "
                                 "prawdopodobnie wybrano zły oddział albo raport za inny okres. "
-                                "Sprawdź dane przed wysłaniem maila.")
+                                "Sprawdź dane przed wysłaniem e-maila.")
 
     # Raport .xlsx to dokładne dane – żadnego „rozmytego” dopasowania,
     # inaczej inny samochód o podobnym numerze ukryłby prawdziwy brak.
