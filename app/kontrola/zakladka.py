@@ -7,7 +7,6 @@ import paths
 from kontrola import analyze, crm_report, mailer
 from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, step_badge
 from konfig import load_config, recipients_for, save_config
-from ustawienia import SettingsDialog
 try:
     from kontrola import history
 except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
@@ -383,9 +382,8 @@ class KontrolaMixin:
         if server and not cfg["recipients"]:
             messagebox.showwarning("Odbiorcy", "Brak odbiorców – administrator ustawia ich w Ustawieniach.")
             return
-        if not server and not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
-            messagebox.showwarning("Ustawienia", "Uzupełnij swój Gmail, hasło aplikacji i odbiorców.")
-            SettingsDialog(self)
+        if not server:
+            messagebox.showwarning("Wyślij maila", "Mail wysyła serwer firmy – zaloguj się ponownie.")
             return
         if not messagebox.askyesno("Wyślij maila", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
             return
@@ -398,18 +396,11 @@ class KontrolaMixin:
 
         def work():   # wysyłka w tle – okno nie zamarza przy wolnym internecie
             try:
-                sent = False
-                if server:
-                    try:
-                        frm = mailer.send_server(self.session, subj, body, cfg["recipients"], cfg.get("cc_self", True))
-                        cfg["gmail_user"] = self.session.email if cfg.get("cc_self", True) else frm
-                        sent = True
-                    except mailer.NotConfigured:
-                        if not (cfg["gmail_user"] and cfg["gmail_app_password"]):
-                            raise RuntimeError("Wysyłka z serwera nie jest jeszcze skonfigurowana, a na tym "
-                                               "komputerze nie ma ustawionego Gmaila.") from None
-                if not sent:
-                    mailer.send(subj, body, cfg)
+                try:
+                    mailer.send_server(self.session, subj, body, cfg["recipients"], cfg.get("cc_self", True))
+                except mailer.NotConfigured:
+                    raise RuntimeError("Wysyłka z serwera nie jest skonfigurowana – powiadom administratora.") from None
+                cfg["gmail_user"] = self.session.email
             except Exception as e:
                 self._report(e, "wysyłka maila")
                 self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
