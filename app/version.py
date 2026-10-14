@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.13.0"
-RELEASED = "2026-10-13"
+VERSION = "0.21.2"
+RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -12,7 +12,140 @@ STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz3
 
 CHANGELOG = [
     {
-        "version": "0.13.0",
+        "version": "0.21.2",
+        "date": "2026-10-14",
+        "changes": [
+            "UŻYTKOWNICY: widać, z jakiego komputera (nazwa komputera i konto Windows) i z jakiego IP "
+            "ktoś się ostatnio zalogował; w Dzienniku zmian – przy każdym logowaniu",
+            "„Wyślij test” w Ustawieniach wysyła mail na adres zalogowanego administratora",
+        ],
+    },
+    {
+        "version": "0.21.1",
+        "date": "2026-10-14",
+        "changes": [
+            "Ustawienia uproszczone: pracownik widzi tylko, do kogo idą maile jego oddziału, kopię do siebie "
+            "i statystyki użycia",
+            "Usunięte pola Gmail i hasło aplikacji – maile wysyła wyłącznie serwer firmy",
+            "Nadawcę, odbiorców (także osobno dla każdego oddziału), test wysyłki i ustawienia zaawansowane "
+            "widzi tylko administrator",
+        ],
+    },
+    {
+        "version": "0.21.0",
+        "date": "2026-10-14",
+        "changes": [
+            "Nowa zakładka STATYSTYKI: ile list kontrolnych przypada na 10 zleceń (90 dni i każdy miesiąc), "
+            "ile zleceń bez listy oraz prognoza – np. „przy 1000 zleceń spodziewaj się ok. 870 list”",
+            "Liczby do statystyk zbierają się same przy każdym sprawdzeniu w KONTROLI (raport .xlsx z CRM, "
+            "jeden zaznaczony oddział)",
+            "Każda zakładka (Kontrola, Historia, Statystyki, Marża, Wyniki, Serwis QR) włączana osobno "
+            "w uprawnieniach konta",
+            "KONTROLA przyjmuje już tylko raport .xlsx z CRM – wycinek ekranu (zdjęcie) nie jest obsługiwany",
+        ],
+    },
+    {
+        "version": "0.20.0",
+        "date": "2026-10-14",
+        "changes": [
+            "Naprawione: zakładka HISTORIA mogła po starcie programu zostać pusta (do kliknięcia „Odśwież”)",
+            "Nowa zakładka WYNIKI: aktualny wynik marży oddziału – zrobione, cel, % realizacji celu, plan na dziś, "
+            "tempo, prognoza, ile trzeba dziennie, wykres narastająco i poprzednie miesiące",
+            "Handlowiec z modułem „Wyniki” widzi tylko swój oddział (Wrocław albo Opole), administrator – oba",
+            "MARŻA po każdej aktualizacji zapisuje tabelę miesięcy z kalkulatora (dla zakładki WYNIKI); "
+            "mail z wykresem i arkusz na Dysku Google działają jak dotąd",
+            "Nagłówek i Pomoc dopasowane do uprawnień konta (instrukcja tylko dostępnych modułów)",
+        ],
+    },
+    {
+        "version": "0.19.0",
+        "date": "2026-10-14",
+        "changes": [
+            "Porządki wewnętrzne: program podzielony na moduły (Kontrola, MARŻA, SERWIS QR, Użytkownicy) – "
+            "zmiany w jednym module nie ruszają pozostałych; wygląd i działanie bez zmian",
+            "Każde wydanie przechodzi automatyczne testy wszystkich modułów",
+            "MARŻA: adresy odbiorców maili tylko w ustawieniach programu („Odbiorcy maili”), usunięte z kodu",
+            "SERWIS QR: strona dla klientów aktualizuje się automatycznie razem z programem",
+            "Wysyłka maili z serwera: lepiej zabezpieczona przed osobami spoza programu",
+        ],
+    },
+    {
+        "version": "0.18.0",
+        "date": "2026-10-13",
+        "changes": [
+            "MARŻA: maile do handlowców wysyła serwer firmy (bez email_config.txt); odbiorców zaznacza się "
+            "lub dopisuje w programie – przycisk „Odbiorcy maili”",
+            "MARŻA: wyniki każdej aktualizacji zapisywane w bazie – przycisk „Wyniki online” (cel, zrobione, % celu) "
+            "na każdym komputerze",
+            "MARŻA: kopia kalkulatora i raportów PDF w chmurze po każdej aktualizacji – „Kopie w chmurze” (pobieranie)",
+            "Naprawiony błąd dziennika zmian, który mógł blokować zapis w SERWIS QR i ustawień firmowych",
+        ],
+    },
+    {
+        "version": "0.17.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Mail z brakami wysyła serwer firmy – na komputerach nie trzeba już hasła Gmail "
+            "(odbiorcy tylko z listy firmowej, odpowiedzi trafiają do osoby, która wysłała)",
+            "Stara historia sprawdzeń z tego komputera przenosi się do wspólnej historii w bazie",
+            "Błędy programu trafiają do Dziennika zmian zamiast do arkusza Google",
+        ],
+    },
+    {"version": "0.16.1", "date": "2026-10-13",
+     "changes": ["SERWIS QR: panel naprawdę korzysta z logowania programu (wcześniej prosił o ponowne logowanie)"]},
+    {
+        "version": "0.16.0",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: panel nie wymaga osobnego logowania – korzysta z logowania programu",
+            "Logowanie odświeżane automatycznie co 30 minut (program może być otwarty cały dzień)",
+            "Dziennik zmian (Użytkownicy → Dziennik zmian): kto i kiedy dodał/zmienił/usunął auto lub wpis, "
+            "zrobił sprawdzenie, wysłał mail, zalogował się, zmienił uprawnienia lub ustawienia; wyszukiwanie",
+        ],
+    },
+    {"version": "0.15.2", "date": "2026-10-13",
+     "changes": ["SERWIS QR: nowe auto zapisuje się w oddziale zalogowanego pracownika (wcześniej zawsze Wrocław)"]},
+    {"version": "0.15.1", "date": "2026-10-13",
+     "changes": ["Naprawiony zapis ustawień firmowych (odbiorcy, nadawca) przez administratora"]},
+    {
+        "version": "0.15.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Historia sprawdzeń wspólna dla wszystkich komputerów (w bazie) – z informacją kto i dla którego oddziału",
+            "Rejestr „zgłaszany już” wspólny dla oddziałów – ten sam numer nie jest zgłaszany dwa razy; "
+            "dotychczasowy rejestr z tego komputera przenosi się automatycznie",
+            "Ustawienia firmowe (administrator): nadawca, odbiorcy domyślni i osobni odbiorcy dla każdego oddziału",
+            "Mail z brakami trafia do odbiorców oddziałów zaznaczonych przy sprawdzaniu",
+        ],
+    },
+    {
+        "version": "0.14.0",
+        "date": "2026-10-13",
+        "changes": [
+            "Logowanie przy starcie (konto zakłada administrator), opcja „Zapamiętaj mnie na tym komputerze”",
+            "Zakładki według uprawnień konta: Kontrola CRM, MARŻA, SERWIS QR",
+            "Oddziały w kontroli CRM ograniczone do przydzielonych użytkownikowi",
+            "Zakładka UŻYTKOWNICY dla administratora: dodawanie kont, moduły, oddziały, blokowanie, zmiana hasła, "
+            "ostatnie logowanie i wersja programu",
+            "SERWIS QR: auta przypisane do oddziałów – pracownik widzi tylko swoje",
+            "Program wymaga internetu; zbyt stara wersja sama się aktualizuje",
+        ],
+    },
+    {
+        "version": "0.13.9",
+        "date": "2026-10-13",
+        "changes": [
+            "Raport .xlsx z CRM: porównanie dokładne – podobny numer innego auta nie ukrywa już prawdziwego braku",
+            "Ostrzeżenie, gdy dane z CRM prawie nie pasują do Integry (zły oddział lub okres) – mail nie jest wtedy przygotowywany",
+            "Wysyłka maila w tle, z limitem czasu – okno nie zamarza przy słabym internecie",
+            "Statystyki nie blokują już okna, gdy brak internetu",
+            "Rejestr „zgłaszany już”: tylko pewne braki, wpisy wygasają po 60 dniach",
+            "Bezpieczny zapis ustawień i historii (przerwanie nie psuje plików), poprawki raportów CSV i tematu maila",
+            "SERWIS QR: zdjęcia ostatniej wizyty widoczne od razu na stronie klienta",
+        ],
+    },
+    {
+        "version": "0.13.8",
         "date": "2026-10-13",
         "changes": [
             "Krok 2: można wczytać raport .xlsx z „Listy kontrolne” w CRM (przycisk albo przeciągnięcie) – "
@@ -20,6 +153,75 @@ CHANGELOG = [
             "Wybór serwisów do sprawdzenia: Latex Wrocław, Latex Opole, Stangum Opole (zapamiętywany)",
             "Ostrzeżenie, gdy raport z CRM nie obejmuje wszystkich dni z raportu Integry",
             "Wklejanie wycinka ekranu (Ctrl+V) działa jak dotąd",
+        ],
+    },
+    {
+        "version": "0.13.7",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: po „Uruchom ponownie” panel nie zostaje już porzucony poza ekranem "
+            "(znikają „martwe” pozycje na pasku zadań i fałszywy komunikat „Panel został zamknięty”).",
+            "SERWIS QR: okno panelu czekające na osadzenie nie pokazuje się na pasku zadań; zamykanie panelu "
+            "kończy też procesy Edge WebView2.",
+            "SERWIS QR: pewniejsze wyszukiwanie okna panelu i dziennik kroków osadzania w data\\serwis.log.",
+        ],
+    },
+    {
+        "version": "0.13.6",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: panel działa wewnątrz zakładki programu (jedno okno) – uruchamia się sam przy wejściu "
+            "w zakładkę, chowa przy przejściu na inną i zamyka razem z programem.",
+            "SERWIS QR: ustawienia panelu pod przyciskiem „Ustawienia panelu”, przycisk „Uruchom ponownie”.",
+        ],
+    },
+    {
+        "version": "0.13.5",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: naprawiony błąd „Failed to resolve Python.Runtime.Loader.Initialize” – program sam zdejmuje "
+            "z bibliotek okna znacznik Windows „pobrano z internetu”.",
+        ],
+    },
+    {
+        "version": "0.13.4",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: naprawione otwieranie okna panelu (błąd biblioteki okna przy funkcjach programu "
+            "i blokada przy wysuwaniu okna na wierzch). Panel działa wyłącznie w oknie programu.",
+        ],
+    },
+    {
+        "version": "0.13.3",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: program śledzi uruchamianie okna panelu (etapy, czas) zamiast od razu pisać „otwarty”; "
+            "przy problemie pokazuje przyczynę z dziennika data\\serwis.log i proponuje przeglądarkę.",
+            "SERWIS QR: okno panelu wysuwa się na wierzch po otwarciu.",
+        ],
+    },
+    {
+        "version": "0.13.2",
+        "date": "2026-10-13",
+        "changes": [
+            "SERWIS QR: poprawny opis trybu lokalnego w oknie programu; ikona Latex w oknie panelu i na pasku zadań.",
+        ],
+    },
+    {
+        "version": "0.13.1",
+        "date": "2026-10-13",
+        "changes": [
+            "BETA SERWIS QR: panel otwiera się jako okno programu (bez przeglądarki). Wymaga nowej paczki .exe.",
+            "SERWIS QR: dane panelu zapisywane w folderze programu (data\\serwis_webview), kopia zapasowa przez okno „Zapisz jako”.",
+        ],
+    },
+    {
+        "version": "0.13.0",
+        "date": "2026-10-13",
+        "changes": [
+            "BETA (kanał testowy): zakładka SERWIS QR – historia wymian oleju i innych prac, naklejka z kodem QR "
+            "pod maskę, strona historii dla klienta. Włączana w Ustawieniach.",
+            "SERWIS QR: tryb lokalny (dane w przeglądarce) z kopią zapasową albo baza Supabase.",
         ],
     },
     {

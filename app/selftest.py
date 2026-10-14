@@ -1,7 +1,7 @@
-"""Test całej ścieżki (PDF → OCR wycinka → porównanie → mail) bez okna.
+"""Test całej ścieżki (PDF → raport .xlsx z CRM → porównanie → liczniki dzienne → mail) bez okna.
 
 Uruchamiany w GitHub Actions na gotowym IntegraCRM.exe:  INTEGRA_SELFTEST=<folder>
-W folderze muszą być: integra.pdf, crm.png, expected.json  {"missing": [...]}.
+W folderze muszą być: integra.pdf, crm.xlsx, expected.json  {"missing": [...], "branch": ..., "daily": [...]}.
 Wynik zapisuje do <folder>/result.json, kod wyjścia 0 = OK.
 """
 import json
@@ -12,30 +12,63 @@ import traceback
 from pathlib import Path
 
 
+def _isolate_data(d: Path) -> None:
+    """Selftest pracuje na własnym folderze danych – nie zmienia ustawień, historii ani sesji w data/
+    (także wzorcowego data/config.json w repozytorium). Podmienia ścieżki już wczytanych modułów programu."""
+    import paths
+    old = paths.DATA_DIR.resolve()
+    new = d / "data"
+    new.mkdir(parents=True, exist_ok=True)
+    app_dir = str(paths.APP_DIR.resolve())
+    for m in list(sys.modules.values()):
+        f = getattr(m, "__file__", None) or ""
+        try:
+            if not f or not str(Path(f).resolve()).startswith(app_dir):
+                continue
+        except OSError:
+            continue
+        for k, v in list(vars(m).items()):
+            if isinstance(v, Path):
+                try:
+                    rel = v.resolve().relative_to(old)
+                except (ValueError, OSError):
+                    continue
+                setattr(m, k, new / rel)
+
+
 def run(folder: str) -> int:
     d = Path(folder)
+    _isolate_data(d)
     res = {"ok": False}
     try:
-        import extract
-        import mailer
+        from kontrola import crm_report
+        from kontrola import mailer
         import paths
-        import plates
-
         t0 = time.time()
         tess = paths.find_tesseract("")
         res["tesseract"] = tess
         res["root"] = str(paths.ROOT)
-        import analyze
-        a = analyze.run(str(d / "integra.pdf"), str(d / "crm.png"), tess)
+        from kontrola import analyze
+        exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
+        rows = crm_report.load(d / "crm.xlsx")
+        a = analyze.run(str(d / "integra.pdf"), {"rows": crm_report.select(rows, [exp["branch"]]),
+                                                 "branches": [exp["branch"]]}, tess)
         integra, crm, missing, uncertain = a["integra"], a["crm"], a["missing"], a["uncertain"]
         res["layout_ok"] = a["layout_ok"]
         res["warnings"] = a["warnings"]
-        res["autofix"] = a.get("autofix", [])
+        res["daily"] = a["daily"]
+        res["daily_ok"] = a["daily"] == exp["daily"]
         subj, body = mailer.compose(missing, uncertain)
-        exp = json.loads((d / "expected.json").read_text(encoding="utf-8"))
         res.update(integra=integra, crm=crm, missing=missing, uncertain=uncertain,
                    subject=subj, seconds=round(time.time() - t0, 1))
-        import history
+        # raport .xlsx z CRM: porównanie dokładne (podobny numer innego auta nie ukrywa braku)
+        from datetime import date as _d
+        xr = analyze.run(str(d / "integra.pdf"), {"rows": [{"date": _d(2026, 1, 1), "plate": p, "branch": "T"}
+                                                           for p in integra if p != integra[0]] + [
+            {"date": _d(2026, 1, 1), "plate": integra[0][:-1] + ("X" if integra[0][-1] != "X" else "Y"), "branch": "T"}],
+            "branches": ["T"]}, tess)
+        res["xlsx_exact"] = integra[0] in xr["missing"] and not xr["autofix"] and not xr["uncertain"]
+        from kontrola import history
         import vault
         enc = vault.protect("abcd efgh ijkl mnop")
         res["vault_encrypted"] = enc.startswith(vault.PREFIX) or os.name != "nt"
@@ -55,9 +88,48 @@ def run(folder: str) -> int:
         import marza.podglad_wroclaw as _pw  # noqa: F401
         png = _sw._generuj_wykres_png("Październik 2026", 300000, 120000, 2026, 10, holidays=set(), log_lines=[])
         res["marza_chart_bytes"] = len(png or b"")
-        res["ok"] = (res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
+        # SERWIS QR (beta): pliki panelu w paczce i zapis ustawień dla przeglądarki
+        from serwis import serwis_qr
+        res["serwis_panel"] = serwis_qr.PANEL.exists() and (serwis_qr.PANEL.parent / "qrcode.min.js").exists()
+        js = serwis_qr.write_config({"serwis_base": "https://serwis.example.pl/", "serwis_sb_url": "", "serwis_sb_key": ""})
+        res["serwis_config"] = "https://serwis.example.pl/" in js.read_text(encoding="utf-8")
+        res["serwis_checks"] = (serwis_qr.check_base("serwis.pl") != "" and serwis_qr.check_base("https://serwis.latex.net.pl/") == ""
+                                and serwis_qr.check_supabase("https://abc.supabase.co", "") != "")
+        js.unlink()
+        # etap 1: okno programu dla admina i pracownika (udawana sesja, bez sieci)
+        import cloud
+        import gui
+
+        class _S(cloud.Session):
+            def __init__(self, role, mods, brs):
+                self.access = self.refresh_token = "x"
+                self.email = "test@example.com"
+                self.profile = {"role": role, "modules": mods, "branches": brs, "name": "Test"}
+
+            def list_users(self):
+                return [{"email": "a@example.com", "role": "admin", "active": True},
+                        {"email": "b@example.com", "role": "user", "modules": ["serwis"],
+                         "branches": ["Latex Opole"], "active": False}]
+        ui = {}
+        for nm, ss in (("admin", _S("admin", [], [])), ("user", _S("user", ["crm"], ["Latex Opole"]))):
+            app = gui.App(ss)
+            app.update()
+            ui[nm] = {"tabs": list(app.pages), "branches": list(app.branch_vars)}
+            if "users" in app.pages:
+                app._show_users(ss.list_users(), "")
+                gui.UserDialog(app, ss.list_users()[1]).destroy()
+                ui[nm]["rows"] = len(app.users_tv.get_children())
+            app.destroy()
+        res["ui"] = ui
+        res["ui_ok"] = ("users" in ui["admin"]["tabs"] and "serwis" in ui["admin"]["tabs"]
+                        and ui["admin"].get("rows") == 2 and "users" not in ui["user"]["tabs"]
+                        and "serwis" not in ui["user"]["tabs"] and "main" in ui["user"]["tabs"]
+                        and ui["user"]["branches"] == ["Latex Opole"])
+        from serwis import serwis_window
+        res["serwis_window"] = serwis_window.is_available() == ""
+        res["ok"] = (res["ui_ok"] and res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
-                     and [x for x, _ in res["autofix"]] == ["WE9LF81"] and res["vault_encrypted"]
+                     and res["daily_ok"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1
                      and res["reported"] == sorted(missing) and res["mail_marks_reported"])
     except Exception:

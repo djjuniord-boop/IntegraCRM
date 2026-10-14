@@ -21,7 +21,11 @@ TIMEOUT = 15
 
 
 def _ver(v: str) -> tuple:
-    return tuple(int(x) for x in v.strip().split("."))
+    out = []
+    for x in v.strip().lstrip("vV").split("-")[0].split("."):
+        m = re.match(r"\d+", x)
+        out.append(int(m.group()) if m else 0)
+    return tuple(out)
 
 
 def _is_url(s: str) -> bool:

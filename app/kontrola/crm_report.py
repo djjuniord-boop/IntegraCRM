@@ -2,8 +2,7 @@
 import csv
 from datetime import date, datetime
 
-import plates
-
+from kontrola import plates
 # Serwisy pokazywane zawsze w oknie (kolejne, nieznane, dochodzą z wczytanego pliku)
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 
@@ -42,7 +41,10 @@ def _rows(path):
             txt = raw.decode("utf-8-sig")
         except UnicodeDecodeError:
             txt = raw.decode("cp1250")
-        dialect = csv.Sniffer().sniff(txt[:2000], delimiters=",;\t")
+        try:
+            dialect = csv.Sniffer().sniff(txt[:2000], delimiters=",;\t")
+        except csv.Error:   # np. plik z jedną kolumną
+            return list(csv.reader(txt.splitlines(), delimiter=";"))
         return list(csv.reader(txt.splitlines(), dialect))
     import openpyxl
     wb = openpyxl.load_workbook(path, read_only=True, data_only=True)

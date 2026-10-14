@@ -2,11 +2,16 @@ name: Zbuduj IntegraCRM.exe
 
 on:
   push:
-    branches: [main]
+    branches: [main, beta]   # beta = kanał testowy (pre-release, nie trafia do zwykłych użytkowników)
   workflow_dispatch:
 
 permissions:
   contents: write
+
+# dwa szybkie pushe nie budują równolegle (wspólne zasoby kanal-beta i gałąź gh-pages)
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -23,6 +28,13 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r app/requirements.txt pyinstaller reportlab
 
+      - name: Testy modułów (bez okna) i importy
+        env:
+          PYTHONIOENCODING: utf-8   # konsola Windows (cp1252) nie ma polskich znaków
+        run: |
+          python tests/check_imports.py
+          python tests/run_tests.py
+
       - name: Tesseract OCR
         run: choco install tesseract -y --no-progress
 
@@ -34,7 +46,7 @@ jobs:
           "version=$v" >> $env:GITHUB_OUTPUT
 
       - name: PyInstaller
-        run: pyinstaller --noconfirm --windowed --name IntegraCRM --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all matplotlib launcher.py
+        run: pyinstaller --noconfirm --windowed --name IntegraCRM --icon app/assets/icon.ico --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
 
       - name: Paczka
         shell: pwsh
@@ -55,6 +67,24 @@ jobs:
           python tools/publish.py
           Copy-Item release/* .
 
+      - name: Instalator (IntegraCRM-setup.exe)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.version }}" tools/installer.iss
+          if (-not (Test-Path IntegraCRM-setup.exe)) { throw "Brak instalatora" }
+          $mb = [math]::Round((Get-Item IntegraCRM-setup.exe).Length / 1MB, 1)
+          $zmb = [math]::Round((Get-Item "IntegraCRM-${{ steps.ver.outputs.version }}-exe.zip").Length / 1MB, 1)
+          $n = (Get-ChildItem -Recurse -File pkg/IntegraCRM).Count
+          $smb = [math]::Round(((Get-ChildItem -Recurse -File pkg/IntegraCRM | Measure-Object Length -Sum).Sum) / 1MB, 1)
+          Write-Host "Instalator: $mb MB, zip: $zmb MB, po instalacji: $smb MB w $n plikach"
+          # próba instalacji bez okien do folderu z polskimi znakami
+          $dir = "C:\Testy\Instalacja Łódź"
+          $p = Start-Process -FilePath .\IntegraCRM-setup.exe -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=`"$dir`"", "/TASKS=" -PassThru -Wait
+          if ($p.ExitCode -ne 0) { throw "Instalacja: kod $($p.ExitCode)" }
+          foreach ($f in "IntegraCRM.exe", "app\version.py", "app\start.py") { if (-not (Test-Path "$dir\$f")) { throw "Po instalacji brak $f" } }
+          Write-Host "Instalacja OK"
+
       - name: Test działania (ścieżka z polskimi znakami)
         shell: pwsh
         run: |
@@ -72,6 +102,76 @@ jobs:
           Get-Content "$fx\result.json"
           $r = Get-Content "$fx\result.json" -Raw | ConvertFrom-Json
           if (-not $r.ok) { throw "Test nie przeszedł" }
+          Remove-Item -Recurse -Force "$dir" -ErrorAction SilentlyContinue
+
+      - name: Test okna SERWIS QR (WebView2, zapis danych między uruchomieniami)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force shots | Out-Null
+          $exe = (Resolve-Path pkg/IntegraCRM/IntegraCRM.exe).Path
+          $data = "pkg/IntegraCRM/data"
+          function Show-Logs { foreach ($f in "$data/serwis.log", "$data/error.log", "$data/serwis_status.json") { if (Test-Path $f) { Write-Host "----- $f"; Get-Content $f } } }
+          function Wait-Loaded([int]$secs) {
+            $st = "$data/serwis_status.json"; Remove-Item $st -ErrorAction SilentlyContinue
+            $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
+            $state = ""
+            for ($i = 0; $i -lt $secs; $i++) {
+              Start-Sleep -Seconds 1
+              if (Test-Path $st) { try { $state = (Get-Content $st -Raw | ConvertFrom-Json).state } catch {} }
+              if ($state -eq "loaded" -or $state -eq "error" -or $p.HasExited) { break }
+            }
+            Write-Host "Stan okna: '$state' po $i s, zakończony=$($p.HasExited) kod=$(if ($p.HasExited) { $p.ExitCode })"
+            if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }
+            return $state
+          }
+          # 0) jak u użytkownika: paczka pobrana z internetu i rozpakowana w Eksploratorze –
+          #    wszystkie pliki dostają znacznik Zone.Identifier (ZoneId=3, „Internet”)
+          $tagged = 0
+          Get-ChildItem -Recurse -File pkg/IntegraCRM | Where-Object { $_.Name -ne "IntegraCRM.exe" } | ForEach-Object {
+            Set-Content -Path $_.FullName -Stream Zone.Identifier -Value "[ZoneTransfer]`r`nZoneId=3`r`nHostUrl=https://github.com/"
+            $tagged++
+          }
+          Write-Host "Oznaczono jako pobrane z internetu: $tagged plików"
+          # kontrola: bez odblokowania błąd musi wystąpić (to ten sam błąd co u użytkownika)
+          $env:INTEGRA_NO_UNBLOCK = "1"
+          $state = Wait-Loaded 40
+          $env:INTEGRA_NO_UNBLOCK = $null
+          $err = ""; if (Test-Path "$data/serwis_status.json") { $err = (Get-Content "$data/serwis_status.json" -Raw | ConvertFrom-Json).error }
+          Write-Host "Bez odblokowania: stan '$state', błąd: $err"
+          if ($state -ne "error" -or $err -notmatch "Python.Runtime") { throw "Nie odtworzono błędu użytkownika – test nie sprawdza poprawki" }
+          # tak jak w programie: główne okno odblokowuje pliki, dopiero potem startuje okno panelu
+          $u = Start-Process -FilePath $exe -ArgumentList "--unblock" -PassThru; $u.WaitForExit(60000) | Out-Null
+          $left = (Get-ChildItem -Recurse -File pkg/IntegraCRM/_internal/pythonnet, pkg/IntegraCRM/_internal/clr_loader, pkg/IntegraCRM/_internal/webview | Where-Object { Get-Item $_.FullName -Stream Zone.Identifier -ErrorAction SilentlyContinue } | Where-Object { $_.Extension -in ".dll", ".exe" }).Count
+          Write-Host "Po odblokowaniu zostało oznaczonych bibliotek: $left"
+          $env:INTEGRA_NO_UNBLOCK = "1"
+          $state = Wait-Loaded 60
+          $env:INTEGRA_NO_UNBLOCK = $null
+          Write-Host "Po odblokowaniu przez program: stan '$state'"
+          if ($state -ne "loaded") { Show-Logs; throw "Po odblokowaniu okno nadal się nie wczytuje (stan: '$state')" }
+          # 1) zwykłe uruchomienie – tak jak z przycisku w programie; 3 razy pod rząd (stabilność)
+          $env:PYWEBVIEW_LOG = "debug"
+          foreach ($k in 1,2,3) {
+            $state = Wait-Loaded 60
+            if ($state -ne "loaded") { Show-Logs; throw "Zwykłe uruchomienie okna ($k/3) nie doszło do wczytania panelu (stan: '$state')" }
+          }
+          $env:PYWEBVIEW_LOG = $null
+          # 2) test działania + trwałość danych (dwa uruchomienia)
+          foreach ($n in 1,2) {
+            $env:INTEGRA_SERWIS_TEST = "$PWD\serwis_test_$n.json"
+            if ($n -eq 2) { $env:INTEGRA_SHOT = (Resolve-Path shots).Path }
+            $p = Start-Process -FilePath $exe -ArgumentList "--serwis" -PassThru
+            $done = $p.WaitForExit(120000)
+            if (-not $done) { Stop-Process -Id $p.Id -Force }
+            $env:INTEGRA_SHOT = $null
+            $env:INTEGRA_SERWIS_TEST = $null
+            if (Test-Path "serwis_test_$n.json") { Get-Content "serwis_test_$n.json" } else { Show-Logs; throw "Test okna ($n): brak wyniku (zakończony=$done)" }
+            $r = Get-Content "serwis_test_$n.json" -Raw | ConvertFrom-Json
+            if (-not $r.ok) { Show-Logs; throw "Test okna SERWIS QR nie przeszedł ($n)" }
+          }
+          $r1 = Get-Content serwis_test_1.json -Raw | ConvertFrom-Json
+          $r2 = Get-Content serwis_test_2.json -Raw | ConvertFrom-Json
+          if ($r2.cars_before -lt $r1.cars_after) { throw "Dane panelu nie przetrwały ponownego uruchomienia" }
+          Remove-Item -Recurse -Force "$data/serwis_webview", "$data/serwis_config.js", "$data/serwis_status.json", "$data/serwis.log" -ErrorAction SilentlyContinue
 
       - name: Zrzuty ekranu (kontrola wyglądu)
         continue-on-error: true
@@ -86,6 +186,16 @@ jobs:
           if (Test-Path shots/dnd.txt) { Get-Content shots/dnd.txt }
           $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
+      - name: Kontrola – panel SERWIS QR osadzony w zakładce programu
+        shell: pwsh
+        run: |
+          if (-not (Test-Path shots/serwis_embed.txt)) { throw "Brak wyniku osadzania panelu" }
+          Get-Content shots/serwis_embed.txt
+          if (-not (Select-String -Path shots/serwis_embed.txt -Pattern "embedded=True" -Quiet)) {
+            $log = "pkg/IntegraCRM/data/serwis.log"; if (Test-Path $log) { Get-Content $log }
+            throw "Panel nie został osadzony w zakładce programu"
+          }
+
       - uses: actions/upload-artifact@v4
         with:
           name: zrzuty
@@ -96,6 +206,7 @@ jobs:
           name: IntegraCRM-${{ steps.ver.outputs.version }}
           path: |
             IntegraCRM-*-exe.zip
+            IntegraCRM-setup.exe
             integra-*.zip
             version.json
 
@@ -105,9 +216,44 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $v = "${{ steps.ver.outputs.version }}"
+          if ("${{ github.ref_name }}" -eq "beta") {
+            # Kanał beta: stały tag "kanal-beta", oznaczony jako pre-release – NIE jest "latest",
+            # więc zwykłe instalacje (releases/latest/...) go nie widzą.
+            gh release view kanal-beta 2>$null
+            if ($LASTEXITCODE -eq 0) {
+              gh release upload kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
+              gh release edit kanal-beta --prerelease --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
+            } else {
+              gh release create kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
+            }
+            exit 0
+          }
           gh release view "v$v" 2>$null
           if ($LASTEXITCODE -eq 0) {
-            gh release upload "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --clobber
+            gh release upload "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
           } else {
-            gh release create "v$v" "IntegraCRM-$v-exe.zip" "integra-$v.zip" version.json --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
+            gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target main --latest --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
+
+      - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
+        if: github.ref_name == 'beta'   # jedna gałąź publikuje stronę klientów (inaczej strona przełączałaby się między wersjami)
+        shell: pwsh
+        run: |
+          # jedno źródło: panel z programu → gałąź gh-pages (strona dla klientów z kodów QR)
+          git fetch --depth 1 origin gh-pages
+          git worktree add pages_out FETCH_HEAD
+          python tools/build_pages.py pages_out
+          # kontrola przed publikacją: widok klienta, konfiguracja, brak indeksowania
+          $html = Get-Content pages_out/index.html -Raw -Encoding UTF8
+          foreach ($need in @('rpc("get_car"', '<script src="config.js"></script>', 'content="noindex"')) {
+            if (-not $html.Contains($need)) { throw "Zbudowana strona nie zawiera: $need" }
+          }
+          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js)) { throw "Brak plików strony" }
+          Set-Location pages_out
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) { Write-Host "Strona bez zmian"; exit 0 }
+          git commit -m "Strona SERWIS QR z wersji ${{ steps.ver.outputs.version }}"
+          git push origin HEAD:gh-pages

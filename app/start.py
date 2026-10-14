@@ -9,6 +9,24 @@ sys.path.insert(0, str(APP))
 
 
 def main():
+    if "--unblock" in sys.argv:   # test: odblokowanie bibliotek okna panelu (jak robi to główne okno)
+        from serwis import serwis_window
+        sys.exit(0 if serwis_window.unblock_runtime() >= 0 else 1)
+    if "--serwis" in sys.argv:   # okno panelu SERWIS QR (osobny proces)
+        try:
+            from serwis import serwis_window
+            sys.exit(serwis_window.run())
+        except SystemExit:
+            raise
+        except Exception:
+            log = APP.parent / "data" / "error.log"
+            try:
+                log.parent.mkdir(parents=True, exist_ok=True)
+                with open(log, "a", encoding="utf-8") as f:
+                    f.write(f"\n[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] SERWIS QR\n{traceback.format_exc()}")
+            except OSError:
+                pass
+            sys.exit(3)
     try:
         import gui
         gui.main()

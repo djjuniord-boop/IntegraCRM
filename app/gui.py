@@ -1,39 +1,25 @@
-"""Integra 7 ↔ CRM: kontrola eksportu zleceń po numerach rejestracyjnych (okno programu).
+"""IntegraCRM – okno główne programu (rdzeń).
 
-Wygląd zgodny z identyfikacją Latex Auto Serwis (wroclaw.latex.net.pl):
-czerń + czerwień #E30613, białe tło, jasnoszare sekcje, font Poppins (gdy zainstalowany).
+Moduły (każdy ma README.md): kontrola/ (Kontrola CRM + Historia), marza/ (MARŻA), serwis/ (SERWIS QR),
+uzytkownicy/ (Użytkownicy i dziennik). Wspólne: ui.py (wygląd), konfig.py (ustawienia), cloud.py (baza),
+logowanie.py, ustawienia.py, updater.py. Mapa całości: CLAUDE.md w głównym folderze repozytorium.
 """
-import json
 import os
 import threading
 import tkinter as tk
-try:
-    import tkinter.font as tkfont
-except ImportError:   # starsze IntegraCRM.exe nie mają tego modułu
-    tkfont = None
-from tkinter import filedialog, messagebox, ttk
-
-import analyze
-import crm_report
-import extract
-import mailer
+from tkinter import messagebox, ttk
+import cloud
 import paths
-import plates
 import updater
-
-# Moduły dodane w 0.9.0 – starsze IntegraCRM.exe mogą nie mieć potrzebnych bibliotek
-# standardowych (np. csv). Wtedy program działa dalej, tylko bez tych funkcji.
+from version import CHANGELOG, RELEASED, VERSION
+from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, set_icon, step_badge
+from konfig import COMPANY, load_config, migrate_config, save_config, update_source
+from ustawienia import SettingsDialog
+from logowanie import login_flow
 try:
-    import history
-except Exception:   # pragma: no cover
+    from kontrola import history
+except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
     history = None
-try:
-    import vault
-except Exception:   # pragma: no cover
-    class vault:   # noqa: N801 – zastępstwo bez szyfrowania
-        PREFIX = "dpapi:"
-        protect = staticmethod(lambda x: x)
-        unprotect = staticmethod(lambda x: "" if (x or "").startswith("dpapi:") else (x or ""))
 try:
     import stats
 except Exception:   # pragma: no cover
@@ -42,282 +28,113 @@ try:
     import dnd
 except Exception:   # pragma: no cover
     dnd = None
-from version import CHANGELOG, DEFAULT_UPDATE_SOURCE, RELEASED, VERSION
+from kontrola.historia_zakladka import HistoriaMixin
+from kontrola.zakladka import KontrolaMixin
+from marza.zakladka import MarzaMixin
+from serwis.zakladka import SerwisMixin
+from uzytkownicy.zakladka import UzytkownicyMixin
+from wyniki.zakladka import WynikiMixin
+from statystyki.zakladka import StatystykiMixin
 
-# ---------- identyfikacja wizualna ----------
-RED, RED_DARK = "#E30613", "#B8050F"
-BLACK, INK, MUTED = "#111111", "#313131", "#7A7A7A"
-BG, SURFACE, LINE = "#F5F5F5", "#FFFFFF", "#E4E4E4"
-OK, OK_BG = "#1E7D32", "#E8F5E9"
-WARN, WARN_BG = "#8A5A00", "#FFF4E0"
-ERR_BG = "#FDECEC"
-ASSETS = paths.APP_DIR / "assets"
-
-DEFAULTS = {
-    "gmail_user": "",
-    "gmail_app_password": "",
-    "recipients": [],
-    "tesseract_cmd": "",       # puste = automatycznie (folder programu / Program Files)
-    "update_source": "",       # puste = DEFAULT_UPDATE_SOURCE z version.py
-    "cc_self": True,           # kopia (DW) wysyłanego maila do nadawcy
-    "sender_name": "",         # nazwa nadawcy widoczna u odbiorcy (puste = domyślna)
-    "stats_enabled": True,     # anonimowe statystyki użycia (tylko liczby)
-    "marza_enabled": False,    # zakładka MARŻA (kalkulator marży Wrocław + Opole) – tylko dla właściciela
-    "marza_folder": "",        # folder „LATEX Wyniki”
-    "crm_branches": list(crm_report.BRANCHES),   # oddziały liczone z raportu CRM (.xlsx)
-}
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
               "rodzaj zdarzenia (uruchomienie, sprawdzenie, wysłany mail, błąd) i same liczby "
               "(ile numerów, ile braków, czas sprawdzenia). Nie wysyła numerów rejestracyjnych, adresów e-mail, "
               "haseł, nazw plików ani treści maili. Można to wyłączyć w Ustawieniach.")
 
+# po zalogowaniu statystyki nie idą do arkusza – zdarzenia i błędy zapisuje dziennik firmy (stats.SESSION)
+DZIENNIK_INFO = ("Program zapisuje w dzienniku firmy: logowania (z wersją programu), sprawdzenia, wysłane maile, "
+                 "zmiany w SERWIS QR, aktualizacje MARŻY, zmiany uprawnień i ustawień oraz błędy programu. "
+                 "Dziennik widzi tylko administrator.")
+
 HELP_STEPS = [
     ("Raport z Integra 7", "Przeciągnij plik PDF na okno programu albo kliknij „Wybierz PDF”."),
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
-                   "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia: Latex Wrocław, "
-                   "Latex Opole, Stangum Opole – wybór jest zapamiętywany. Można też wkleić wycinek "
-                   "tabeli (Win+Shift+S, potem Ctrl+V)."),
+                   "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
+                   "swoje oddziały) – wybór jest zapamiętywany."),
     ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
     ("Wyślij maila", "Jeśli czegoś brakuje, mail jest gotowy – możesz go poprawić i wysłać."),
 ]
 
-
-def load_config() -> dict:
-    cfg = dict(DEFAULTS)
-    if paths.CONFIG_PATH.exists():
-        try:
-            cfg.update(json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8")))
-        except (ValueError, OSError):   # uszkodzony plik – zachowaj kopię i pracuj na domyślnych
-            try:
-                paths.CONFIG_PATH.replace(paths.CONFIG_PATH.with_suffix(".bad.json"))
-            except OSError:
-                pass
-    cfg["gmail_app_password"] = vault.unprotect(cfg.get("gmail_app_password", ""))
-    return cfg
-
-
-def migrate_config() -> None:
-    """Usuwa stare źródło aktualizacji (Dysk Google) i szyfruje hasło zapisane jawnym tekstem."""
-    try:
-        raw = json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8")) if paths.CONFIG_PATH.exists() else {}
-        cfg = load_config()
-        changed = False
-        if "drive.google.com" in (cfg.get("update_source") or ""):
-            cfg["update_source"] = ""
-            changed = True
-        pw = raw.get("gmail_app_password") or ""
-        if pw and not pw.startswith(vault.PREFIX) and vault.protect(pw) != pw:
-            changed = True
-        if changed:
-            save_config(cfg)
-    except Exception:
-        pass
-
-
-def save_config(cfg: dict) -> None:
-    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
-    out = dict(cfg)
-    out["gmail_app_password"] = vault.protect(out.get("gmail_app_password", ""))
-    paths.CONFIG_PATH.write_text(json.dumps(out, indent=2, ensure_ascii=False), encoding="utf-8")
+# Pomoc: instrukcje tylko modułów, do których konto ma dostęp
+HELP_MODULES = [
+    ("crm", "Kontrola CRM", HELP_STEPS),
+    ("historia", "Historia", [
+        ("Zakładka HISTORIA", "Lista wszystkich sprawdzeń Twoich oddziałów: kto i kiedy sprawdzał, ile zleceń, "
+                              "czego brakowało i do kogo poszedł mail. „Otwórz w Excelu” zapisuje całość do pliku."),
+    ]),
+    ("statystyki", "Statystyki", [
+        ("Zakładka STATYSTYKI", "Ile list kontrolnych w CRM przypada na 10 zleceń z Integry – w ostatnich 90 dniach "
+                                "i w każdym miesiącu. Dane zbierają się przy sprawdzeniach w KONTROLI."),
+        ("Prognoza", "Wpisz liczbę zleceń (np. 1000) – program pokaże, ile list kontrolnych się spodziewać, "
+                     "z widełkami od najsłabszego do najlepszego miesiąca."),
+    ]),
+    ("wyniki", "Wyniki marży", [
+        ("Zakładka WYNIKI", "Pokazuje wynik marży Twojego oddziału w bieżącym miesiącu: zrobione, cel, % realizacji "
+                            "celu i ile trzeba robić dziennie do końca miesiąca."),
+        ("Plan na dziś i tempo", "Biały znacznik na pasku to miejsce, w którym powinniśmy być dziś według dni "
+                                 "roboczych (bez niedziel i świąt). Tempo powyżej 100% – jesteśmy przed planem."),
+        ("Aktualność", "Wyniki zmieniają się po każdej aktualizacji MARŻY w biurze – data jest w prawym górnym "
+                       "rogu. Gdy zakładka jest otwarta, odświeża się sama co 5 minut (albo kliknij „Odśwież”)."),
+    ]),
+    ("marza", "MARŻA", [
+        ("Raporty sprzedaży", "Przeciągnij „Raport sprzedaży towarów i usług” z Integry (Wrocław, Opole) na "
+                              "zakładkę MARŻA i kliknij „AKTUALIZUJ WSZYSTKO”."),
+        ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i maile do zaznaczonych odbiorców aktualizują się "
+                            "same; wyniki trafiają też do zakładki WYNIKI."),
+    ]),
+    ("serwis", "SERWIS QR", [
+        ("Wpis serwisowy", "W zakładce SERWIS QR dodaj wpis (numer, przebieg, olej, filtry) i wydrukuj naklejkę "
+                           "z kodem QR – klient zeskanuje ją telefonem i zobaczy historię auta."),
+    ]),
+]
 
 
-def update_source(cfg: dict) -> str:
-    src = (cfg.get("update_source") or "").strip()
-    if "drive.google.com" in src:   # stare źródło (Dysk Google) – od 0.8.3 aktualizacje są na GitHubie
-        src = ""
-    return src or DEFAULT_UPDATE_SOURCE
-
-
-# ---------- elementy interfejsu ----------
-class Fonts:
-    def __init__(self, root):
-        fams = set(tkfont.families(root)) if tkfont else set(root.tk.splitlist(root.tk.call("font", "families")))
-        base = next((f for f in ("Poppins", "Segoe UI", "Helvetica") if f in fams), "TkDefaultFont")
-        self.family = base
-        self.body = (base, 10)
-        self.small = (base, 9)
-        self.label = (base, 10, "bold")
-        self.h1 = (base, 15, "bold")
-        self.h2 = (base, 12, "bold")
-        self.btn = (base, 11, "bold")
-        self.big = (base, 13, "bold")
-        self.mono = ("Consolas", 10)
-
-
-class FlatButton(tk.Label):
-    """Płaski przycisk w stylu strony (czerwony / czarny / obrys) z efektem najechania."""
-
-    STYLES = {
-        "primary": (RED, "white", RED_DARK),
-        "dark": (BLACK, "white", "#333333"),
-        "ghost": (SURFACE, BLACK, "#EFEFEF"),
-    }
-
-    def __init__(self, parent, text, command, kind="primary", font=None, padx=18, pady=9):
-        bg, fg, hover = self.STYLES[kind]
-        super().__init__(parent, text=text, bg=bg, fg=fg, font=font, padx=padx, pady=pady,
-                         cursor="hand2", highlightthickness=1 if kind == "ghost" else 0,
-                         highlightbackground=LINE)
-        self._c = (bg, fg, hover)
-        self._cmd = command
-        self._enabled = True
-        self.bind("<Enter>", lambda e: self._enabled and self.config(bg=hover))
-        self.bind("<Leave>", lambda e: self.config(bg=bg if self._enabled else "#BDBDBD"))
-        self.bind("<Button-1>", lambda e: self._enabled and self._cmd())
-
-    def set_enabled(self, on: bool, text: str | None = None):
-        self._enabled = on
-        self.config(bg=self._c[0] if on else "#BDBDBD", cursor="hand2" if on else "arrow")
-        if text:
-            self.config(text=text)
-
-
-def card(parent, **kw):
-    return tk.Frame(parent, bg=SURFACE, highlightthickness=1, highlightbackground=LINE, **kw)
-
-
-def step_badge(parent, n, fonts, bg=SURFACE):
-    c = tk.Canvas(parent, width=28, height=28, bg=bg, highlightthickness=0)
-    c.create_oval(1, 1, 27, 27, fill=RED, outline=RED)
-    c.create_text(14, 14, text=str(n), fill="white", font=(fonts.family, 10, "bold"))
-    return c
-
-
-def set_icon(win):
-    try:
-        if (ASSETS / "icon.ico").exists():
-            win.iconbitmap(str(ASSETS / "icon.ico"))
-    except tk.TclError:
-        pass
-
-
-# ---------- ustawienia ----------
-class SettingsDialog(tk.Toplevel):
-    """Konfiguracja maila, OCR i aktualizacji – zapisywana u użytkownika w data/config.json."""
-
-    def __init__(self, parent):
-        super().__init__(parent)
-        f = parent.fonts
-        self.title("Ustawienia")
-        self.resizable(False, False)
-        self.configure(bg=SURFACE)
-        self.transient(parent)
-        self.grab_set()
-        set_icon(self)
-        cfg = load_config()
-
-        tk.Frame(self, bg=RED, height=4).pack(fill="x")
-        body = tk.Frame(self, bg=SURFACE, padx=22, pady=16)
-        body.pack(fill="both")
-        tk.Label(body, text="Ustawienia", bg=SURFACE, fg=BLACK, font=f.h1).grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
-
-        self.v_user = tk.StringVar(value=cfg["gmail_user"])
-        self.v_pass = tk.StringVar(value=cfg["gmail_app_password"])
-        self.v_to = tk.StringVar(value=", ".join(cfg["recipients"]))
-        self.v_tess = tk.StringVar(value=cfg["tesseract_cmd"])
-        self.v_upd = tk.StringVar(value=cfg["update_source"])
-
-        r = [1]
-
-        def section(title):
-            tk.Label(body, text=title.upper(), bg=SURFACE, fg=RED, font=f.small).grid(
-                row=r[0], column=0, columnspan=2, sticky="w", pady=(10, 2))
-            r[0] += 1
-
-        def row(label, var, show=None):
-            tk.Label(body, text=label, bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(
-                row=r[0], column=0, sticky="w", pady=4)
-            e = ttk.Entry(body, textvariable=var, width=46, show=show, font=f.body)
-            e.grid(row=r[0], column=1, pady=4, padx=(12, 0), ipady=3)
-            r[0] += 1
-            return e
-
-        section("Poczta")
-        self.v_name = tk.StringVar(value=cfg.get("sender_name") or mailer.DEFAULT_SENDER)
-        row("Nazwa nadawcy", self.v_name)
-        row("Twój Gmail (nadawca)", self.v_user)
-        self.pass_entry = row("Hasło aplikacji Google", self.v_pass, show="•")
-        self.show = tk.BooleanVar()
-        ttk.Checkbutton(body, text="Pokaż hasło", variable=self.show,
-                        command=lambda: self.pass_entry.config(show="" if self.show.get() else "•")
-                        ).grid(row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
-        row("Odbiorcy (po przecinku)", self.v_to)
-        self.v_cc = tk.BooleanVar(value=bool(cfg.get("cc_self", True)))
-        ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
-                        ).grid(row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
-        self.v_stats = tk.BooleanVar(value=bool(cfg.get("stats_enabled", True)))
-        ttk.Checkbutton(body, text="Wysyłaj anonimowe statystyki użycia (tylko liczby)", variable=self.v_stats
-                        ).grid(row=r[0], column=1, sticky="w", padx=12, pady=(6, 0))
-        r[0] += 1
-        section("Kalkulator marży")
-        self.v_marza = tk.BooleanVar(value=bool(cfg.get("marza_enabled", False)))
-        ttk.Checkbutton(body, text="Pokaż zakładkę MARŻA (Wrocław + Opole)", variable=self.v_marza
-                        ).grid(row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
-        section("Zaawansowane")
-        row("Tesseract (puste = auto)", self.v_tess)
-        row("Źródło aktualizacji", self.v_upd)
-        tk.Label(body, text="puste = GitHub (zalecane)", bg=SURFACE, fg=MUTED, font=f.small).grid(
-            row=r[0], column=1, sticky="w", padx=12)
-        r[0] += 1
-
-        hint = ("Hasło aplikacji to 16 znaków z konta Google (nie zwykłe hasło do Gmaila):\n"
-                "Konto Google → Bezpieczeństwo → Weryfikacja dwuetapowa → Hasła aplikacji.\n"
-                "Ustawienia zapisują się tylko na tym komputerze, hasło jest zaszyfrowane (Windows).")
-        tk.Label(body, text=hint, bg=BG, fg=MUTED, font=f.small, justify="left",
-                 padx=10, pady=8).grid(row=r[0], column=0, columnspan=2, sticky="we", pady=(12, 14))
-        r[0] += 1
-
-        btns = tk.Frame(body, bg=SURFACE)
-        btns.grid(row=r[0], column=0, columnspan=2, sticky="e")
-        FlatButton(btns, "Wyślij test", self.test, "ghost", f.body, 14, 6).pack(side="left", padx=4)
-        FlatButton(btns, "Anuluj", self.destroy, "ghost", f.body, 14, 6).pack(side="left", padx=4)
-        FlatButton(btns, "Zapisz", self.save, "primary", f.label, 18, 6).pack(side="left", padx=(4, 0))
-
-    def collect(self) -> dict:
-        return {
-            "gmail_user": self.v_user.get().strip(),
-            "gmail_app_password": self.v_pass.get().strip(),
-            "recipients": [x.strip() for x in self.v_to.get().split(",") if x.strip()],
-            "tesseract_cmd": self.v_tess.get().strip(),
-            "update_source": self.v_upd.get().strip(),
-            "cc_self": bool(self.v_cc.get()),
-            "sender_name": self.v_name.get().strip(),
-            "stats_enabled": bool(self.v_stats.get()),
-            "marza_enabled": bool(self.v_marza.get()),
-            "marza_folder": load_config().get("marza_folder", ""),
-        }
-
-    def save(self):
-        before = bool(load_config().get("marza_enabled", False))
-        cfg = self.collect()
-        save_config(cfg)
-        self.destroy()
-        if cfg["marza_enabled"] != before:
-            messagebox.showinfo("Ustawienia", "Zmiana zakładki MARŻA będzie widoczna po ponownym uruchomieniu programu.")
-
-    def test(self):
-        cfg = self.collect()
-        if not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
-            messagebox.showwarning("Test", "Uzupełnij Gmail, hasło aplikacji i odbiorców.", parent=self)
-            return
-        try:
-            mailer.send("Test – Integra 7 ↔ CRM",
-                        "To jest wiadomość testowa z programu kontroli eksportu zleceń.", cfg)
-            messagebox.showinfo("Test", "Mail testowy wysłany.", parent=self)
-        except Exception as e:
-            messagebox.showerror("Test", f"Nie udało się wysłać:\n{e}", parent=self)
-
-
-# ---------- okno główne ----------
-class App(tk.Tk):
-    def __init__(self):
+# ---------- okno główne: rdzeń + zakładki modułów ----------
+class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, UzytkownicyMixin,
+          tk.Tk):
+    """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
+    tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
+    def __init__(self, session=None):
         super().__init__()
+        self.session = session   # zalogowany użytkownik (rola, moduły, oddziały)
         migrate_config()
+        if session and history is not None:   # historia i rejestr zgłoszeń – wspólne, w bazie
+            history.SESSION = session
+            try:
+                from marza import runner as _mr
+                _mr.SESSION = session
+            except Exception:
+                pass
+            if stats is not None:
+                stats.SESSION = session
+            try:
+                COMPANY.update(session.company())
+            except Exception:
+                pass
+
+            def _sync():
+                try:
+                    n = history.migrate_local()
+                    history.reported(refresh=True)
+                    if n:
+                        self.after(0, lambda: self.say(f"Przeniesiono do bazy {n} pozycji (stara historia "
+                                                       "i zgłoszone numery)."))
+                        self.after(0, self.refresh_history)
+                except Exception:
+                    pass
+            threading.Thread(target=_sync, daemon=True).start()
+        if session:   # SERWIS QR korzysta z tej samej bazy co logowanie
+            try:
+                _c = load_config()
+                if not _c.get("serwis_sb_url"):
+                    _c.update(serwis_sb_url=cloud.URL, serwis_sb_key=cloud.ANON_KEY)
+                    _c.setdefault("serwis_base", "")
+                    if not _c.get("serwis_base"):
+                        _c["serwis_base"] = "https://djjuniord-boop.github.io/IntegraCRM/"
+                    save_config(_c)
+            except Exception:
+                pass
         self.fonts = Fonts(self)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
         self.geometry("1000x820")
@@ -330,7 +147,6 @@ class App(tk.Tk):
         set_icon(self)
         self._style()
         self.pdf_path = tk.StringVar()
-        self.crm_img = None
         self.crm_rows = None     # raport .xlsx z „Listy kontrolne”
         self.crm_file = ""
         self.branch_vars = {}
@@ -347,9 +163,11 @@ class App(tk.Tk):
             self.after(2500, self._screenshots, shot)
             return
         _c = load_config()
-        if not (_c["gmail_user"] and _c["gmail_app_password"]):
+        if not self.session and not (_c["gmail_user"] and _c["gmail_app_password"]):   # po zalogowaniu maile wysyła serwer
             self.after(400, lambda: SettingsDialog(self))
         self.after(900, lambda: self.check_updates(manual=False))
+        if self.session:
+            self.after(30 * 60 * 1000, self._keep_session)
         self._stat("start")
 
     def _screenshots(self, out_dir):
@@ -419,6 +237,24 @@ class App(tk.Tk):
         if "marza" in self.pages:
             self.show_tab("marza")
             grab(self, "7-marza")
+        if "serwis" in self.pages:
+            import time
+            self.show_tab("serwis")
+            t_end = time.time() + 60
+            while time.time() < t_end and not self._serwis_hwnd:
+                self.update()
+                time.sleep(0.1)
+            for _ in range(20):
+                self.update()
+                time.sleep(0.1)
+            with open(f"{out_dir}/serwis_embed.txt", "w", encoding="utf-8") as fh:
+                fh.write(f"embedded={bool(self._serwis_hwnd)}\nmsg={self.serwis_msg.cget('text')}\n")
+            grab(self, "8-serwis")
+            self.show_tab("hist")
+            self.update()
+            time.sleep(0.5)
+            grab(self, "8b-serwis-ukryty")
+            self.serwis_stop()
         d = SettingsDialog(self)
         d.attributes("-topmost", True)
         grab(d, "4-ustawienia")
@@ -455,10 +291,19 @@ class App(tk.Tk):
             tk.Label(head, text="LATEX", bg=SURFACE, fg=RED, font=(f.family, 20, "bold")).pack(side="left")
         titles = tk.Frame(head, bg=SURFACE)
         titles.pack(side="left", padx=(18, 0))
-        tk.Label(titles, text="Kontrola eksportu zleceń", bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
-        tk.Label(titles, text=f"Integra 7 → CRM   ·   wersja {VERSION}", bg=SURFACE, fg=MUTED,
-                 font=f.small).pack(anchor="w")
+        if self.session is None or self.session.can("crm"):
+            title, sub = "Kontrola eksportu zleceń", f"Integra 7 → CRM   ·   wersja {VERSION}"
+        else:   # konto bez Kontroli CRM (np. handlowiec z zakładką WYNIKI)
+            names = [n for k, n, _ in HELP_MODULES if self.session.can(k)]
+            title, sub = "Panel Latex Serwis", f"{', '.join(names) or 'konto'}   ·   wersja {VERSION}"
+        tk.Label(titles, text=title, bg=SURFACE, fg=BLACK, font=f.h1).pack(anchor="w")
+        tk.Label(titles, text=sub, bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
         FlatButton(head, "⚙  Ustawienia", lambda: SettingsDialog(self), "ghost", f.body, 14, 7).pack(side="right")
+        if self.session:
+            FlatButton(head, "Wyloguj", self.logout, "ghost", f.body, 14, 7).pack(side="right", padx=(0, 8))
+            who = self.session.profile.get("name") or self.session.email
+            tk.Label(head, text=f"{who}\n{'administrator' if self.session.is_admin else 'użytkownik'}",
+                     bg=SURFACE, fg=MUTED, font=f.small, justify="right").pack(side="right", padx=12)
         tk.Frame(self, bg=RED, height=4).pack(fill="x")
 
         # zakładki jako przyciski (czytelniejsze niż systemowy Notebook)
@@ -467,11 +312,26 @@ class App(tk.Tk):
         self.pages, self.tab_btns = {}, {}
         holder = tk.Frame(self, bg=BG)
         holder.pack(fill="both", expand=True)
-        tab_list = [("main", "KONTROLA"), ("hist", "HISTORIA")]
-        if load_config().get("marza_enabled") or os.environ.get("INTEGRA_SHOT"):
+        shot = bool(os.environ.get("INTEGRA_SHOT"))
+        can = (lambda m: shot or self.session.can(m)) if self.session else (lambda m: True)
+        tab_list = []
+        # każda zakładka to osobny moduł włączany w uprawnieniach konta (admin ma wszystkie)
+        if can("crm"):
+            tab_list.append(("main", "KONTROLA"))
+        if can("historia"):
+            tab_list.append(("hist", "HISTORIA"))
+        if can("statystyki"):
+            tab_list.append(("stat", "STATYSTYKI"))
+        if can("marza"):
             tab_list.append(("marza", "MARŻA"))
+        if can("wyniki") or can("marza"):   # baza też daje wyniki kontom z MARŻĄ
+            tab_list.append(("wyniki", "WYNIKI"))
+        if can("serwis"):
+            tab_list.append(("serwis", "SERWIS QR  β"))
+        if self.session and self.session.is_admin:
+            tab_list.append(("users", "UŻYTKOWNICY"))
         tab_list.append(("help", "POMOC I WERSJE"))
-        self.current_tab = "main"
+        self.current_tab = tab_list[0][0]
         for key, label in tab_list:
             b = tk.Label(tabs, text=label, bg=BLACK, fg="#BBBBBB", font=f.label, padx=20, pady=9,
                          cursor="hand2")
@@ -479,300 +339,58 @@ class App(tk.Tk):
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
-        self._build_main(self.pages["main"])
+        # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
+        self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
+        self._build_history(self.pages["hist"] if "hist" in self.pages else tk.Frame(self))
+        if "stat" in self.pages:
+            self._build_statystyki(self.pages["stat"])
         self._build_help(self.pages["help"])
-        self._build_history(self.pages["hist"])
+        if "users" in self.pages:
+            self._build_users(self.pages["users"])
         if "marza" in self.pages:
             self._build_marza(self.pages["marza"])
-        self.show_tab("main")
+        if "wyniki" in self.pages:
+            self._build_wyniki(self.pages["wyniki"])
+        if "serwis" in self.pages:
+            try:
+                self._build_serwis(self.pages["serwis"])
+            except Exception as e:   # beta nie może zablokować reszty programu
+                tk.Label(self.pages["serwis"], text=f"Nie udało się wczytać zakładki SERWIS QR: {e}",
+                         bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
+        self.show_tab(self.current_tab)
 
-    def _build_history(self, page):
-        f = self.fonts
-        top = tk.Frame(page, bg=BG)
-        top.pack(fill="x", pady=(0, 10))
-        tk.Label(top, text="Historia sprawdzeń", bg=BG, fg=BLACK, font=f.h1).pack(side="left")
-        FlatButton(top, "Otwórz w Excelu", self.open_history_file, "ghost", f.body, 14, 6).pack(side="right")
-        FlatButton(top, "Odśwież", self.refresh_history, "ghost", f.body, 14, 6).pack(side="right", padx=8)
-        box = card(page, padx=2, pady=2)
-        box.pack(fill="both", expand=True)
-        cols = ("data", "plik", "integra", "crm", "brakuje", "mail")
-        s = ttk.Style(self)
-        s.configure("H.Treeview", font=f.body, rowheight=26, background=SURFACE, fieldbackground=SURFACE)
-        s.configure("H.Treeview.Heading", font=f.label, background=BG)
-        s.map("H.Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
-        self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
-        for c, t, w in (("data", "Data", 130), ("plik", "Plik PDF", 200), ("integra", "Integra", 70),
-                        ("crm", "CRM", 60), ("brakuje", "Brakuje w CRM", 260), ("mail", "Mail wysłany do", 200)):
-            self.hist_tree.heading(c, text=t, anchor="w")
-            self.hist_tree.column(c, width=w, anchor="w")
-        sb = ttk.Scrollbar(box, command=self.hist_tree.yview)
-        self.hist_tree.config(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        self.hist_tree.pack(fill="both", expand=True)
-        tk.Label(page, text="Numery zgłoszone już wcześniej są oznaczane przy kolejnych sprawdzeniach "
-                 "(„zgłoszony …”), żeby nie wysyłać ich ponownie bez potrzeby.",
-                 bg=BG, fg=MUTED, font=f.small, wraplength=900, justify="left").pack(anchor="w", pady=(8, 0))
-        self.refresh_history()
-
-    def refresh_history(self):
-        t = self.hist_tree
-        t.delete(*t.get_children())
-        if history is None:
-            return
-        for r in reversed(history.read_all()):
-            t.insert("", "end", values=(r.get("data", ""), r.get("plik_pdf", ""), r.get("integra", ""),
-                                        r.get("crm", ""), r.get("brakuje", "") or "—",
-                                        r.get("mail_wyslany_do", "") or "—"))
-
-    def open_history_file(self):
-        if history is None or not history.HISTORY.exists():
-            messagebox.showinfo("Historia", "Historia jest jeszcze pusta.")
+    def logout(self):
+        if not messagebox.askyesno("Wyloguj", "Wylogować się? Program zostanie zamknięty."):
             return
         try:
-            os.startfile(str(history.HISTORY))   # Windows: otwiera w Excelu
-        except Exception as e:
-            messagebox.showinfo("Historia", f"Plik historii:\n{history.HISTORY}\n\n{e}")
+            self.session.logout()
+        except Exception:
+            pass
+        self._on_close() if hasattr(self, "_on_close") else self.destroy()
 
-    # ---------- MARŻA ----------
-    def _build_marza(self, page):
-        f = self.fonts
-        self.marza_busy = False
-        top = card(page, padx=16, pady=12)
-        top.pack(fill="x")
-        h = tk.Frame(top, bg=SURFACE)
-        h.pack(fill="x")
-        tk.Label(h, text="Kalkulator marży – Wrocław + Opole", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
-        FlatButton(h, "Zmień folder…", self.marza_pick_folder, "ghost", f.small, 10, 4).pack(side="right")
-        self.marza_folder_lbl = tk.Label(top, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left")
-        self.marza_folder_lbl.pack(fill="x", pady=(4, 8))
-        links = tk.Frame(top, bg=SURFACE)
-        links.pack(anchor="w")
-        for txt, rel in (("Kalkulator Wrocław", ("Wrocław", "kalkulator_marzy_Wroclaw.xlsx")),
-                         ("Kalkulator Opole", ("Opole", "kalkulator_marzy_Opole.xlsx")),
-                         ("Folder LATEX Wyniki", ())):
-            FlatButton(links, txt, lambda r=rel: self.marza_open(*r), "ghost", f.small, 10, 4).pack(side="left", padx=(0, 8))
-
-        drop = card(page, padx=16, pady=12)
-        drop.pack(fill="x", pady=10)
-        tk.Label(drop, text="Raporty sprzedaży z Integry („Raport sprzedaży towarów i usług”, od 1. dnia miesiąca)",
-                 bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
-        self.marza_drop = tk.Label(drop, text="Przeciągnij tutaj PDF-y z Wrocławia i Opola albo kliknij, aby wybrać\n"
-                                   "(oddział jest rozpoznawany z treści raportu)",
-                                   bg=BG, fg=MUTED, font=f.body, pady=10, cursor="hand2", justify="center")
-        self.marza_drop.pack(fill="x", pady=(8, 6))
-        self.marza_drop.bind("<Button-1>", lambda e: self.marza_pick_files())
-        qh = tk.Frame(drop, bg=SURFACE)
-        qh.pack(fill="x")
-        tk.Label(qh, text="Kolejka (najwyżej 1 raport na oddział):", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
-        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "ghost", f.small, 8, 2).pack(side="right")
-        self.marza_queue = tk.Frame(drop, bg=SURFACE)
-        self.marza_queue.pack(fill="x", pady=(4, 0))
-
-        self.btn_marza = FlatButton(page, "AKTUALIZUJ WSZYSTKO", self.marza_run, "primary", f.big, 18, 8)
-        self.btn_marza.pack(fill="x", pady=(0, 8))
-        self.marza_banner = tk.Label(page, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
-                                     highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
-        self.marza_banner.pack(fill="x")
-        out = card(page, padx=10, pady=8)
-        out.pack(fill="both", expand=True, pady=(8, 0))
-        self.marza_log = tk.Text(out, font=f.mono, bg=SURFACE, fg=INK, relief="flat", wrap="word", height=8)
-        sb = ttk.Scrollbar(out, command=self.marza_log.yview)
-        self.marza_log.config(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        self.marza_log.pack(fill="both", expand=True)
-        self._marza_autodetect()
-        self.marza_refresh()
-
-    def _marza_autodetect(self):
-        """Jeśli folder nie jest ustawiony, szuka „LATEX Wyniki” w typowych miejscach."""
-        if self._marza_root():
-            return
-        home = os.path.expanduser("~")
-        bases = [os.path.join(home, x) for x in ("Desktop", "Pulpit", "Documents", "Dokumenty", "Downloads",
-                                                   os.path.join("OneDrive", "Desktop"),
-                                                   os.path.join("OneDrive", "Pulpit"), "")]
-        bases += [r"G:\Mój dysk", r"G:\My Drive", "C:\\", "D:\\"]
-        from marza import runner
-        for b in bases:
-            cand = os.path.join(b, "LATEX Wyniki")
-            if os.path.isdir(cand) and not runner.check_folder(cand):
-                cfg = load_config()
-                cfg["marza_folder"] = cand
-                save_config(cfg)
-                return
-
-    def _marza_root(self):
-        return load_config().get("marza_folder", "")
-
-    def marza_refresh(self):
-        from marza import runner
-        root = self._marza_root()
-        prob = runner.check_folder(root)
-        self.marza_folder_lbl.config(text=(f"Folder: {root}" if not prob else "⚠ " + prob),
-                                     fg=MUTED if not prob else WARN)
-        missing = runner.deps_ok()
-        if missing:
-            self.marza_set_banner("warn", f"⚠ Ta wersja IntegraCRM.exe nie ma bibliotek: {missing}. "
-                                  "Pobierz najnowszą paczkę .exe z GitHuba.")
-        elif prob:
-            self.marza_set_banner("warn", "⚠ Wskaż folder „LATEX Wyniki” (przycisk „Zmień folder…”).")
-        else:
-            self.marza_set_banner("idle", "Dodaj raporty i kliknij „AKTUALIZUJ WSZYSTKO”. "
-                                  "Bez nowych raportów odświeżony zostanie tylko podgląd dla handlowców.")
-        self.marza_refresh_pending_only()
-
-    def marza_set_banner(self, kind, text):
-        colors = {"idle": (SURFACE, MUTED), "ok": (OK_BG, OK), "warn": (WARN_BG, WARN),
-                  "bad": (ERR_BG, RED_DARK), "busy": (SURFACE, INK)}
-        bg, fg = colors[kind]
-        self.marza_banner.config(text=text, bg=bg, fg=fg)
-
-    def marza_pick_folder(self):
-        d = filedialog.askdirectory(title="Wskaż folder „LATEX Wyniki”")
-        if d:
-            cfg = load_config()
-            cfg["marza_folder"] = d
-            save_config(cfg)
-            self.marza_refresh()
-
-    def marza_open(self, *rel):
-        root = self._marza_root()
-        if not root:
-            if messagebox.askyesno("MARŻA", "Nie wskazano jeszcze folderu „LATEX Wyniki”.\n\nWskazać go teraz?"):
-                self.marza_pick_folder()
-            root = self._marza_root()
-            if not root:
-                return
-        path = os.path.join(root, *rel)
+    def _on_close(self):
+        self.serwis_stop()
         try:
-            os.startfile(path)
-        except Exception as e:
-            messagebox.showinfo("Otwórz", f"{path}\n\n{e}")
+            from serwis import serwis_qr
+            serwis_qr.clear_token()
+        except Exception:
+            pass
+        self.destroy()
 
-    def marza_pick_files(self):
-        fs = filedialog.askopenfilenames(filetypes=[("PDF", "*.pdf")])
-        if fs:
-            self.marza_add(list(fs))
-
-    def marza_add(self, files):
-        from marza import runner
-        root = self._marza_root()
-        prob = runner.check_folder(root)
-        if prob:
-            messagebox.showwarning("MARŻA", prob)
-            return
-        def ask_replace(branch, old):
-            return messagebox.askyesno("MARŻA", f"W kolejce jest już raport dla oddziału "
-                                       f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?")
-        added, rejected = runner.add_reports(root, files, ask_replace)
-        self.marza_refresh_pending_only()
-        if rejected:
-            messagebox.showwarning("MARŻA – nie dodano",
-                                   "\n\n".join(f"{n}\n→ {why}" for n, why in rejected))
-        if added:
-            self.marza_set_banner("idle", "Dodano: " + ", ".join(f"{n} ({runner.BRANCH_NAMES[b]})" for n, b in added)
-                                  + ". Kliknij „AKTUALIZUJ WSZYSTKO”.")
-
-    def marza_run(self):
-        from marza import runner
-        if self.marza_busy:
-            return
-        root = self._marza_root()
-        prob = runner.check_folder(root) or (("Brak bibliotek: " + runner.deps_ok()) if runner.deps_ok() else "")
-        if prob:
-            messagebox.showwarning("MARŻA", prob)
-            return
-        self.marza_busy = True
-        self.btn_marza.set_enabled(False, "AKTUALIZUJĘ…")
-        self.marza_log.delete("1.0", "end")
-        self.marza_set_banner("busy", "Trwa aktualizacja… (rozdzielanie raportów, kalkulatory, podgląd, e-maile)")
-        threading.Thread(target=self._marza_work, args=(root,), daemon=True).start()
-
-    def _marza_ask(self, question):
-        """Pytanie z wątku roboczego – odpowiedź z okna."""
-        ev, box = threading.Event(), {}
-
-        def _q():
-            box["a"] = messagebox.askyesno("MARŻA – potwierdzenie", question + "\n\nZapisać mimo to?")
-            ev.set()
-        self.after(0, _q)
-        ev.wait()
-        return box.get("a", False)
-
-    def _marza_work(self, root):
-        from marza import runner
-
-        def logline(line):
-            self.after(0, lambda l=line: (self.marza_log.insert("end", l + "\n"), self.marza_log.see("end")))
-        try:
-            res = runner.run_all(root, load_config(), log=logline, ask=self._marza_ask)
-            n = sum(res.get("counts", {}).values())
-            self._stat("marza", n_integra=n)
-            if res["ok"]:
-                self.after(0, self.marza_set_banner, "ok", f"✔  Gotowe – przetworzono raportów: {n}. Szczegóły poniżej.")
-            else:
-                self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj podsumowanie poniżej.")
-        except Exception as e:
-            self._report(e, "kalkulator marży")
-            self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
-        finally:
-            def done():
-                self.marza_busy = False
-                self.btn_marza.set_enabled(True, "AKTUALIZUJ WSZYSTKO")
-                try:
-                    self.marza_refresh_pending_only()
-                except Exception:
-                    pass
-            self.after(0, done)
-
-    def marza_refresh_pending_only(self):
-        from marza import runner
-        f = self.fonts
-        for w in self.marza_queue.winfo_children():
-            w.destroy()
-        root = self._marza_root()
-        items = runner.pending_info(root) if root and not runner.check_folder(root) else []
-        if not items:
-            tk.Label(self.marza_queue, text="Brak raportów w kolejce.", bg=SURFACE, fg=MUTED, font=f.small
-                     ).pack(anchor="w")
-            return
-        for name, branch in items:
-            row = tk.Frame(self.marza_queue, bg=BG)
-            row.pack(fill="x", pady=2)
-            tag = runner.BRANCH_NAMES.get(branch, "NIEROZPOZNANY")
-            tk.Label(row, text=f" {tag} ", bg=(BLACK if branch else RED), fg="white", font=f.small
-                     ).pack(side="left", padx=(6, 8), pady=4)
-            tk.Label(row, text=name, bg=BG, fg=INK, font=f.body).pack(side="left")
-            FlatButton(row, "✕ Usuń", lambda n=name: self.marza_remove(n), "ghost", f.small, 8, 2
-                       ).pack(side="right", padx=6, pady=3)
-
-    def marza_remove(self, name):
-        from marza import runner
-        if self.marza_busy:
-            return
-        runner.remove_pending(self._marza_root(), name)
-        self.marza_refresh_pending_only()
-        self._marza_banner_after_change(f"Usunięto z kolejki: {name}.")
-
-    def marza_clear(self):
-        from marza import runner
-        if self.marza_busy:
-            return
-        root = self._marza_root()
-        for n in runner.pending(root) if root else []:
-            runner.remove_pending(root, n)
-        self.marza_refresh_pending_only()
-        self._marza_banner_after_change("Kolejka wyczyszczona.")
-
-    def _marza_banner_after_change(self, msg):
-        from marza import runner
-        root = self._marza_root()
-        left = runner.pending_info(root) if root and not runner.check_folder(root) else []
-        if left:
-            names = ", ".join(f"{n} ({runner.BRANCH_NAMES.get(b, '?')})" for n, b in left)
-            self.marza_set_banner("idle", f"{msg} W kolejce: {names}. Kliknij „AKTUALIZUJ WSZYSTKO”.")
-        else:
-            self.marza_set_banner("idle", f"{msg} Kolejka pusta – dodaj raporty sprzedaży (PDF).")
+    def _keep_session(self):
+        """Co 30 min odświeża logowanie (token ważny ok. 1 godz.) i przekazuje go panelowi SERWIS QR."""
+        def work():
+            try:
+                self.session.refresh()
+                if cloud.SESSION_FILE.exists():
+                    cloud.remember(self.session)
+                from serwis import serwis_qr
+                if serwis_qr.TOKEN_FILE.exists():
+                    serwis_qr.write_token(self.session.access)
+            except Exception:
+                pass
+        threading.Thread(target=work, daemon=True).start()
+        self.after(30 * 60 * 1000, self._keep_session)
 
     def show_tab(self, key):
         for k, p in self.pages.items():
@@ -781,108 +399,14 @@ class App(tk.Tk):
         self.current_tab = key
         self.pages[key].pack(fill="both", expand=True)
         self.tab_btns[key].config(fg="white", bg=RED)
-
-    def _build_main(self, page):
-        f = self.fonts
-        steps = tk.Frame(page, bg=BG)
-        steps.pack(fill="x")
-        steps.columnconfigure(0, weight=1, uniform="s")
-        steps.columnconfigure(1, weight=1, uniform="s")
-
-        # krok 1 – PDF
-        c1 = card(steps, padx=14, pady=10)
-        c1.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        h = tk.Frame(c1, bg=SURFACE)
-        h.pack(fill="x")
-        step_badge(h, 1, f).pack(side="left")
-        tk.Label(h, text="Raport z Integra 7 (PDF)", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        self.pdf_box = tk.Label(c1, text="Przeciągnij tutaj plik PDF\nalbo kliknij, aby wybrać", bg=BG, fg=MUTED, font=f.body, anchor="w",
-                                padx=12, pady=6, cursor="hand2", justify="center")
-        self.pdf_box.pack(fill="x", pady=(8, 8))
-        self.pdf_box.bind("<Button-1>", lambda e: self.pick_pdf())
-        FlatButton(c1, "Wybierz PDF", self.pick_pdf, "dark", f.body, 14, 6).pack(anchor="w")
-
-        # krok 2 – CRM
-        c2 = card(steps, padx=14, pady=10)
-        c2.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        h = tk.Frame(c2, bg=SURFACE)
-        h.pack(fill="x")
-        step_badge(h, 2, f).pack(side="left")
-        tk.Label(h, text="Dane z CRM – raport lub wycinek", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        self.preview = tk.Label(c2, text="Przeciągnij raport .xlsx z „Listy kontrolne”\n"
-                                "albo naciśnij Ctrl+V po zrobieniu wycinka (Win+Shift+S)",
-                                bg=BG, fg=MUTED, font=f.body, pady=6, cursor="hand2", justify="center")
-        self.preview.pack(fill="x", pady=(8, 8))
-        self.preview.bind("<Button-1>", lambda e: self.paste())
-        r = tk.Frame(c2, bg=SURFACE)
-        r.pack(fill="x")
-        FlatButton(r, "Raport z CRM (.xlsx)…", self.pick_report, "dark", f.body, 14, 6).pack(side="left")
-        FlatButton(r, "Wklej wycinek", self.paste, "ghost", f.body, 12, 6).pack(side="left", padx=8)
-        FlatButton(r, "Obraz z pliku…", self.pick_img, "ghost", f.body, 12, 6).pack(side="left")
-        bl = tk.Frame(c2, bg=SURFACE)
-        bl.pack(fill="x", pady=(8, 0))
-        tk.Label(bl, text="Sprawdzaj serwisy:", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
-        self.branch_box = tk.Frame(bl, bg=SURFACE)
-        self.branch_box.pack(side="left", padx=(6, 0))
-        self._build_branches(crm_report.BRANCHES)
-
-        # krok 3 – sprawdź
-        self.btn_check = FlatButton(page, "SPRAWDŹ", self.check, "primary", f.big, 18, 8)
-        self.btn_check.pack(fill="x", pady=(10, 8))
-
-        # wynik
-        self.banner = tk.Label(page, text="Wybierz PDF i wklej wycinek z CRM, potem kliknij „Sprawdź”.",
-                               bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
-                               highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
-        self.banner.pack(fill="x")
-
-        bottom = tk.Frame(page, bg=BG)
-        bottom.pack(fill="both", expand=True, pady=(8, 0))
-        bottom.columnconfigure(0, weight=2, uniform="b")
-        bottom.columnconfigure(1, weight=3, uniform="b")
-        bottom.rowconfigure(0, weight=1)
-
-        # lewa kolumna – numery
-        left = card(bottom, padx=14, pady=10)
-        left.grid(row=0, column=0, sticky="nsew", padx=(0, 8))
-        FlatButton(left, "Szczegóły odczytu…", self.show_details, "ghost", f.small, 10, 4
-                   ).pack(side="bottom", anchor="w", pady=(6, 0))
-        lh = tk.Frame(left, bg=SURFACE)
-        lh.pack(fill="x")
-        tk.Label(lh, text="Brakuje w CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
-        self.btn_copy_all = FlatButton(lh, "Kopiuj wszystkie", self.copy_all, "ghost", f.small, 10, 4)
-        self.btn_copy_all.pack(side="right")
-        tk.Label(left, text="Kliknij numer, aby go skopiować", bg=SURFACE, fg=MUTED, font=f.small
-                 ).pack(anchor="w", pady=(2, 0))
-        self.chips = tk.Frame(left, bg=SURFACE)
-        self.chips.pack(fill="x", pady=(6, 6))
-        self.copy_info = tk.Label(left, text="", bg=SURFACE, fg=OK, font=f.small)
-        self.copy_info.pack(anchor="w")
-        # pełny dziennik w osobnym, dużym oknie (tutaj tylko przechowywany)
-        self.log = tk.Text(self, font=f.mono)
-
-        # prawa kolumna – mail
-        right = card(bottom, padx=14, pady=10)
-        right.grid(row=0, column=1, sticky="nsew", padx=(8, 0))
-        hr = tk.Frame(right, bg=SURFACE)
-        hr.pack(fill="x")
-        step_badge(hr, 3, f).pack(side="left")
-        tk.Label(hr, text="Mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
-        self.subject = tk.StringVar()
-        ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
-        th = tk.Frame(right, bg=SURFACE)
-        th.pack(fill="x", pady=(8, 2))
-        tk.Label(th, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
-                 font=f.small).pack(side="left")
-        FlatButton(th, "⤢  Powiększ", self.edit_mail_big, "ghost", f.small, 10, 3).pack(side="right")
-        self.mail_body = tk.Text(right, height=8, font=f.body, bg=SURFACE, fg=INK, relief="flat",
-                                 wrap="word", highlightthickness=1, highlightbackground=LINE,
-                                 highlightcolor=RED, padx=8, pady=6)
-        self.btn_send = FlatButton(right, "Wyślij maila", self.send_mail, "dark", f.btn, 18, 8)
-        self.btn_send.pack(side="bottom", anchor="e", pady=(8, 0))   # zawsze widoczny
-        self.mail_body.pack(fill="both", expand=True)
-        self.btn_send.set_enabled(False)
+        if "serwis" in self.pages and hasattr(self, "serwis_host"):
+            try:
+                if key == "serwis":
+                    self.after(50, self.serwis_on_show)
+                else:
+                    self.serwis_on_hide()
+            except Exception:
+                pass
 
     def _build_help(self, page):
         f = self.fonts
@@ -897,21 +421,45 @@ class App(tk.Tk):
         self.btn_update = FlatButton(r, "Sprawdź aktualizacje", lambda: self.check_updates(manual=True),
                                      "primary", f.body, 14, 6)
         self.btn_update.pack(side="left")
-        FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
+        if self.session is None or self.session.is_admin:   # cofnięcie wersji tylko administrator
+            FlatButton(r, "Przywróć poprzednią wersję", self.rollback, "ghost", f.body, 14, 6).pack(side="left", padx=8)
 
-        tk.Label(top, text="Prywatność: " + STATS_INFO, bg=SURFACE, fg=MUTED, font=f.small,
+        tk.Label(top, text="Prywatność: " + (DZIENNIK_INFO if self.session else STATS_INFO), bg=SURFACE, fg=MUTED,
+                 font=f.small,
                  wraplength=880, justify="left").pack(anchor="w", pady=(10, 0))
         how = card(page, padx=18, pady=14)
         how.pack(fill="x", pady=12)
-        tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 8))
-        for i, (t, d) in enumerate(HELP_STEPS, 1):
-            row = tk.Frame(how, bg=SURFACE)
-            row.pack(fill="x", pady=3)
-            step_badge(row, i, f).pack(side="left", anchor="n")
-            tx = tk.Frame(row, bg=SURFACE)
-            tx.pack(side="left", padx=10, fill="x")
-            tk.Label(tx, text=t, bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
-            tk.Label(tx, text=d, bg=SURFACE, fg=INK, font=f.body, wraplength=780, justify="left").pack(anchor="w")
+        tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 4))
+        mods = [(k, n, st) for k, n, st in HELP_MODULES if self.session is None or self.session.can(k)]
+        steps_box = tk.Frame(how, bg=SURFACE)
+        btns = {}
+
+        def show(key):   # instrukcja jednego modułu naraz – przy kilku modułach strona się nie przepełnia
+            for w in steps_box.winfo_children():
+                w.destroy()
+            for k, b in btns.items():
+                b.config(bg=RED if k == key else SURFACE, fg="white" if k == key else INK)
+            steps = next(st for k, _, st in mods if k == key)
+            for i, (t, d) in enumerate(steps, 1):
+                row = tk.Frame(steps_box, bg=SURFACE)
+                row.pack(fill="x", pady=3)
+                step_badge(row, i, f).pack(side="left", anchor="n")
+                tx = tk.Frame(row, bg=SURFACE)
+                tx.pack(side="left", padx=10, fill="x")
+                tk.Label(tx, text=t, bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
+                tk.Label(tx, text=d, bg=SURFACE, fg=INK, font=f.body, wraplength=780, justify="left").pack(anchor="w")
+        if len(mods) > 1:
+            sel = tk.Frame(how, bg=SURFACE)
+            sel.pack(anchor="w", pady=(0, 8))
+            for k, name, _ in mods:
+                b = tk.Label(sel, text=name, font=f.small, padx=12, pady=4, cursor="hand2",
+                             highlightthickness=1, highlightbackground=LINE)
+                b.pack(side="left", padx=(0, 6))
+                b.bind("<Button-1>", lambda e, k=k: show(k))
+                btns[k] = b
+        steps_box.pack(fill="x")
+        if mods:
+            show(mods[0][0])
 
         log = card(page, padx=18, pady=14)
         log.pack(fill="both", expand=True)
@@ -930,25 +478,11 @@ class App(tk.Tk):
                 box.insert("end", f"  •  {ch}\n")
         box.config(state="disabled")
 
-    # ---------- wynik ----------
-    def set_banner(self, kind, text):
-        colors = {"idle": (SURFACE, MUTED), "ok": (OK_BG, OK), "warn": (WARN_BG, WARN),
-                  "bad": (ERR_BG, RED_DARK), "busy": (SURFACE, INK)}
-        bg, fg = colors[kind]
-        self.banner.config(text=text, bg=bg, fg=fg)
-
     def copy_text(self, text, info=None):
         self.clipboard_clear()
         self.clipboard_append(text)
         self.copy_info.config(text=info or f"✔ Skopiowano: {text}")
         self.after(3000, lambda: self.copy_info.config(text=""))
-
-    def copy_all(self):
-        if not self.result or not (self.result[0] or self.result[1]):
-            self.copy_info.config(text="Nie ma numerów do skopiowania.")
-            return
-        allp = list(self.result[0]) + [a for a, _ in self.result[1]]
-        self.copy_text("\n".join(allp), f"✔ Skopiowano {len(allp)} numer(y) – każdy w osobnej linii")
 
     def _text_window(self, title, content, editable=False, on_save=None):
         f = self.fonts
@@ -985,49 +519,6 @@ class App(tk.Tk):
         t.focus_set()
         return w
 
-    def show_details(self):
-        content = self.log.get("1.0", "end").strip() or "Brak szczegółów – najpierw kliknij „Sprawdź”."
-        self._text_window("Szczegóły odczytu", content)
-
-    def edit_mail_big(self):
-        def save(txt):
-            self.mail_body.delete("1.0", "end")
-            self.mail_body.insert("1.0", txt)
-        return self._text_window(f"Treść maila – {self.subject.get() or 'bez tematu'}",
-                          self.mail_body.get("1.0", "end").strip(), editable=True, on_save=save)
-
-    def set_chips(self, missing, uncertain):
-        for w in self.chips.winfo_children():
-            w.destroy()
-        f = self.fonts
-        if not missing and not uncertain:
-            tk.Label(self.chips, text="—", bg=SURFACE, fg=MUTED, font=f.body).pack(anchor="w")
-            return
-        wrap = tk.Frame(self.chips, bg=SURFACE)
-        wrap.pack(fill="x")
-        col = 0
-        reg = history.reported() if history else {}
-        for p in missing:
-            cell = tk.Frame(wrap, bg=SURFACE)
-            cell.grid(row=col // 3, column=col % 3, padx=(0, 6), pady=3, sticky="w")
-            chip = tk.Label(cell, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4,
-                            cursor="hand2")
-            chip.pack(anchor="w")
-            chip.bind("<Button-1>", lambda e, v=p: self.copy_text(v))
-            chip.bind("<Enter>", lambda e, w=chip: w.config(bg=RED_DARK))
-            chip.bind("<Leave>", lambda e, w=chip: w.config(bg=RED))
-            if p in reg:
-                tk.Label(cell, text=f"zgłoszony {reg[p]}", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
-            col += 1
-        if uncertain:
-            tk.Label(self.chips, text="Do weryfikacji (podobny numer w CRM):", bg=SURFACE, fg=WARN,
-                     font=f.small).pack(anchor="w", pady=(8, 2))
-            for a, b in uncertain:
-                u = tk.Label(self.chips, text=f"{a}  ≈  {b}", bg=WARN_BG, fg=WARN, font=f.label, padx=8, pady=3,
-                             cursor="hand2")
-                u.pack(anchor="w", pady=2)
-                u.bind("<Button-1>", lambda e, v=a: self.copy_text(v))
-
     # ---------- aktualizacje ----------
     def set_update_status(self, text):
         self.upd_status.config(text=text)
@@ -1053,9 +544,19 @@ class App(tk.Tk):
 
     def _update_checked(self, m, newer, manual, err):
         if err:
-            self.set_update_status(f"Nie udało się sprawdzić aktualizacji: {err}")
+            import urllib.error
+            if isinstance(err, urllib.error.HTTPError):
+                why = (f"serwer aktualizacji odpowiedział błędem {err.code} – spróbuj później; jeśli to się "
+                       "powtarza, zgłoś administratorowi")
+            elif isinstance(err, OSError):
+                why = "brak połączenia ze źródłem aktualizacji – sprawdź internet i spróbuj później"
+            elif isinstance(err, ValueError):
+                why = "nieprawidłowy opis aktualizacji na serwerze – zgłoś administratorowi"
+            else:
+                why = str(err)
+            self.set_update_status(f"Nie udało się sprawdzić aktualizacji: {why}")
             if manual:
-                messagebox.showerror("Aktualizacje", f"Nie udało się sprawdzić aktualizacji:\n{err}")
+                messagebox.showerror("Aktualizacje", f"Nie udało się sprawdzić aktualizacji:\n{why}")
             return
         if not newer:
             self.set_update_status(f"✔ Masz najnowszą wersję ({VERSION}).")
@@ -1133,24 +634,6 @@ class App(tk.Tk):
             except Exception:
                 pass
 
-    def _on_ctrl_v(self, event):
-        # w polach tekstowych (temat, treść maila) Ctrl+V ma wklejać tekst, nie obraz
-        if isinstance(event.widget, (tk.Entry, ttk.Entry, tk.Text)):
-            return None
-        self.paste()
-        return "break"
-
-    # ---------- pliki / schowek ----------
-    def pick_pdf(self):
-        p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
-        if p:
-            self.set_pdf(p)
-
-    def set_pdf(self, p):
-        self.pdf_path.set(p)
-        name = p.replace("\\", "/").split("/")[-1]
-        self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
-
     def on_drop(self, files):
         """Upuszczone pliki: PDF → krok 1, obraz → krok 2 (na zakładce MARŻA – raporty marży)."""
         if getattr(self, "current_tab", "") == "marza":
@@ -1166,90 +649,11 @@ class App(tk.Tk):
                 self.set_report(fp)
                 used = True
             elif low.endswith((".png", ".jpg", ".jpeg", ".bmp")):
-                try:
-                    from PIL import Image
-                    self.set_image(Image.open(fp))
-                    used = True
-                except Exception as e:
-                    messagebox.showerror("Obraz", f"Nie udało się otworzyć obrazu:\n{e}")
+                messagebox.showinfo("Zrzut ekranu", "Zrzuty ekranu z CRM nie są już obsługiwane – pobierz w CRM "
+                                    "raport .xlsx z „Listy kontrolne” i przeciągnij go na okno.")
+                used = True
         if not used:
-            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry, raport .xlsx z CRM albo obraz (zrzut z CRM).")
-
-    # ---------- raport z CRM (.xlsx) i wybór serwisów ----------
-    def _build_branches(self, names):
-        chosen = {crm_report._key(b) for b in load_config().get("crm_branches", crm_report.BRANCHES)}
-        for n in names:
-            if n in self.branch_vars:
-                continue
-            v = tk.BooleanVar(value=crm_report._key(n) in chosen)
-            self.branch_vars[n] = v
-            tk.Checkbutton(self.branch_box, text=n, variable=v, command=self._branches_changed,
-                           bg=SURFACE, activebackground=SURFACE, font=self.fonts.small,
-                           selectcolor=SURFACE).pack(side="left", padx=(0, 6))
-
-    def chosen_branches(self):
-        return [n for n, v in self.branch_vars.items() if v.get()]
-
-    def _branches_changed(self):
-        cfg = load_config()
-        cfg["crm_branches"] = self.chosen_branches()
-        try:
-            save_config(cfg)
-        except OSError:
-            pass
-        self._show_report()
-
-    def pick_report(self):
-        p = filedialog.askopenfilename(filetypes=[("Raport CRM", "*.xlsx *.csv")])
-        if p:
-            self.set_report(p)
-
-    def set_report(self, p):
-        try:
-            rows = crm_report.load(p)
-        except Exception as e:
-            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{e}")
-            return
-        self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
-        self._build_branches(crm_report.branches(rows))
-        self._show_report()
-
-    def _show_report(self):
-        if not self.crm_rows:
-            return
-        counts = {}
-        for r in self.crm_rows:
-            counts[r["branch"]] = counts.get(r["branch"], 0) + 1
-        sel = set(self.chosen_branches())
-        n = sum(c for b, c in counts.items() if b in sel)
-        ds = sorted(r["date"] for r in self.crm_rows if r["date"])
-        rng = f"{ds[0]:%d.%m} – {ds[-1]:%d.%m.%Y}" if ds else "bez dat"
-        det = ",  ".join(f"{b}: {c}" for b, c in counts.items())
-        self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} numerów",
-                            fg=OK if n else WARN, bg=OK_BG if n else WARN_BG)
-
-    def pick_img(self):
-        p = filedialog.askopenfilename(filetypes=[("Obrazy", "*.png *.jpg *.jpeg *.bmp")])
-        if p:
-            from PIL import Image
-            self.set_image(Image.open(p))
-
-    def paste(self):
-        img = extract.image_from_clipboard()
-        if img is None:
-            messagebox.showwarning("Schowek", "W schowku nie ma obrazu.\n"
-                                   "Zrób wycinek ekranu (Win+Shift+S) i wklej ponownie.")
-            return
-        self.set_image(img)
-
-    def set_image(self, img):
-        from PIL import ImageTk
-        self.crm_img = img.copy()
-        self.crm_rows = None
-        th = img.copy()
-        th.thumbnail((420, 110))
-        self._thumb = ImageTk.PhotoImage(th)
-        self.preview.config(image=self._thumb, text="", bg=OK_BG, pady=6)
+            messagebox.showinfo("Przeciągnij plik", "Przeciągnij raport PDF z Integry albo raport .xlsx z CRM.")
 
     # ---------- logika ----------
     def say(self, text):
@@ -1262,129 +666,7 @@ class App(tk.Tk):
     def ui(self, fn, *a):
         self.after(0, fn, *a)
 
-    def check(self):
-        if not self.pdf_path.get():
-            messagebox.showwarning("Brak PDF", "Wybierz raport PDF z Integry.")
-            return
-        if self.crm_img is None and not self.crm_rows:
-            messagebox.showwarning("Brak danych z CRM", "Wczytaj raport .xlsx z „Listy kontrolne” "
-                                   "albo wklej wycinek ekranu z CRM (Ctrl+V).")
-            return
-        if self.crm_rows is not None and not self.chosen_branches():
-            messagebox.showwarning("Serwisy", "Zaznacz co najmniej jeden serwis do sprawdzenia.")
-            return
-        self.btn_check.set_enabled(False, "SPRAWDZAM…")
-        self.btn_send.set_enabled(False)
-        self.log.delete("1.0", "end")
-        self.set_chips([], [])
-        self.set_banner("busy", "Sprawdzam… odczyt wycinka może potrwać kilka sekund.")
-        threading.Thread(target=self._check_work, daemon=True).start()
 
-    def _check_work(self):
-        try:
-            tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
-            import time as _t
-            _t0 = _t.time()
-            if self.crm_rows is not None:
-                br = self.chosen_branches()
-                src = {"rows": crm_report.select(self.crm_rows, br), "branches": br}
-            else:
-                src = self.crm_img
-            res = analyze.run(self.pdf_path.get(), src, tess, self.say)
-            self._stat("check", n_integra=len(res["integra"]), n_crm=len(res["crm_main"]),
-                       n_missing=len(res["missing"]), n_uncertain=len(res["uncertain"]),
-                       n_autofix=len(res.get("autofix", [])), n_warnings=len(res["warnings"]),
-                       seconds=round(_t.time() - _t0, 1))
-            integra, crm, crm_main = res["integra"], res["crm"], res["crm_main"]
-            warn = res["warnings"]
-
-            self.result = None
-            if not integra:
-                self.ui(self.set_banner, "warn", "⚠  W PDF z Integry nie znaleziono żadnego numeru "
-                        "rejestracyjnego – sprawdź, czy to właściwy plik.")
-                return
-            if not crm:
-                self.ui(self.set_banner, "warn", "⚠  W raporcie z CRM nie ma numerów dla zaznaczonych serwisów."
-                        if res.get("crm_source") == "report" else
-                        "⚠  Na wycinku z CRM nie odczytano numerów – zrób wycinek "
-                        "tabeli z kolumną „Rejestracja” i wklej ponownie.")
-                return
-            for w in warn:
-                self.say("⚠ " + w)
-
-            missing, uncertain = res["missing"], res["uncertain"]
-            self.result = (missing, uncertain)
-            try:
-                if history is None:
-                    raise RuntimeError("brak modułu historii – pobierz nową wersję .exe")
-                name = os.path.basename(self.pdf_path.get())
-                self.hist_index = history.add_check(name, len(integra), len(crm_main), missing, uncertain)
-                self.ui(self.refresh_history)
-            except Exception as e:
-                self.say(f"Historia: nie zapisano ({e})")
-            self.ui(self.set_chips, missing, uncertain)
-            wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
-            fixed = res.get("autofix", [])
-            if fixed:
-                wtxt = (f"\nℹ  {len(fixed)} numer(y) dopasowano mimo błędu odczytu wycinka: "
-                        + ", ".join(f"{a} (odczyt: {b})" for a, b in fixed)) + wtxt
-            if not missing and not uncertain:
-                self.ui(self.set_banner, "warn" if warn else "ok",
-                        f"✔  Jest dobrze – wszystkie {len(integra)} zlecenia z Integry są w CRM.{wtxt}")
-                self.ui(self.subject.set, "")
-                self.ui(self.mail_body.delete, "1.0", "end")
-                return
-            subj, body = mailer.compose(missing, uncertain, history.reported() if history else {})
-
-            def fill():
-                self.subject.set(subj)
-                self.mail_body.delete("1.0", "end")
-                self.mail_body.insert("1.0", body)
-                self.btn_send.set_enabled(True, "Wyślij maila")
-            self.ui(fill)
-            parts = []
-            if missing:
-                parts.append(f"brakuje {len(missing)}")
-            if uncertain:
-                parts.append(f"{len(uncertain)} do weryfikacji")
-            self.ui(self.set_banner, "bad", f"✖  W CRM {' i '.join(parts)} z {len(integra)} zleceń. "
-                    "Mail jest gotowy – sprawdź treść i kliknij „Wyślij maila”." + wtxt)
-        except Exception as e:
-            self.say(f"Błąd: {e}")
-            self._report(e, "sprawdzanie")
-            self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
-        finally:
-            self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
-
-    def send_mail(self):
-        if not self.result or not (self.result[0] or self.result[1]):
-            messagebox.showinfo("Wyślij maila", "Nie ma czego wysyłać – mail przygotowuje się tylko wtedy, "
-                                "gdy czegoś brakuje w CRM.")
-            return
-        cfg = load_config()
-        if not (cfg["gmail_user"] and cfg["gmail_app_password"] and cfg["recipients"]):
-            messagebox.showwarning("Ustawienia", "Uzupełnij swój Gmail, hasło aplikacji i odbiorców.")
-            SettingsDialog(self)
-            return
-        if not messagebox.askyesno("Wyślij maila", f"Wysłać do: {', '.join(cfg['recipients'])}?"):
-            return
-        try:
-            mailer.send(self.subject.get(), self.mail_body.get("1.0", "end").strip(), cfg)
-            cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
-            self.set_banner("ok", f"✔  Mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
-            try:
-                if history is None:
-                    raise RuntimeError
-                self._stat("mail_sent", n_recipients=len(cfg["recipients"]))
-                history.mark_sent(self.hist_index if self.hist_index is not None else -1, cfg["recipients"],
-                                  list(self.result[0]) + [a for a, _ in self.result[1]])
-                self.refresh_history()
-            except Exception:
-                pass
-            self.btn_send.set_enabled(False, "Wysłano ✔")
-        except Exception as e:
-            self._report(e, "wysyłka maila")
-            self.set_banner("bad", f"✖  Nie udało się wysłać: {e}")
 
 
 def main():
@@ -1396,4 +678,17 @@ def main():
         ctypes.windll.shcore.SetProcessDpiAwareness(1)
     except Exception:
         pass
-    App().mainloop()
+    if os.environ.get("INTEGRA_SHOT"):   # zrzuty ekranu w GitHub Actions – bez logowania
+        App(None).mainloop()
+        return
+    sess = login_flow()
+    if sess is None:
+        return
+    App(sess).mainloop()
+
+# Nazwy używane przez testy i starsze odwołania (gui.SettingsDialog, gui.UserDialog …)
+from marza.okna import MarzaFilesWindow, MarzaRecipientsDialog, MarzaResultsWindow  # noqa: E402
+from uzytkownicy.okna import AuditWindow, UserDialog  # noqa: E402
+
+__all__ = ["App", "main", "login_flow", "SettingsDialog", "UserDialog", "AuditWindow",
+           "MarzaRecipientsDialog", "MarzaResultsWindow", "MarzaFilesWindow"]

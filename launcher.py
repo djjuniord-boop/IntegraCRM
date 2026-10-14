@@ -18,6 +18,11 @@ import tkinter, tkinter.ttk, tkinter.font, tkinter.filedialog, tkinter.messagebo
 import pdfplumber  # noqa: F401
 import pytesseract  # noqa: F401
 from PIL import Image, ImageGrab, ImageTk, ImageOps, ImageFilter  # noqa: F401
+import webbrowser  # noqa: F401
+try:   # okno panelu SERWIS QR (Edge WebView2) – od 0.13.1
+    import webview, webview.platforms.winforms, webview.platforms.edgechromium, clr  # noqa: F401,E401
+except Exception:   # pragma: no cover – Linux / brak biblioteki przy budowie
+    pass
 
 import runpy
 import sys

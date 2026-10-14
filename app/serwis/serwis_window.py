@@ -1,0 +1,316 @@
+"""SERWIS QR (beta): panel jako okno programu (silnik Edge WebView2 przez pywebview).
+
+Uruchamiane jako osobny proces:  IntegraCRM.exe --serwis   (albo: python app/start.py --serwis)
+– dzięki temu okno panelu nie blokuje głównego okna (Tkinter) i odwrotnie.
+Dane panelu (tryb lokalny) są w data/serwis_webview – aktualizacje programu ich nie ruszają.
+"""
+import json
+import os
+import sys
+import threading
+import time
+from pathlib import Path
+
+import paths
+from serwis import serwis_qr
+STORAGE = paths.DATA_DIR / "serwis_webview"
+TITLE = "Latex Serwis – historia serwisowa (beta)"
+
+
+def _load_cfg() -> dict:
+    try:
+        return json.loads(paths.CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+class Api:
+    """Funkcje programu dostępne z panelu (window.pywebview.api.*)."""
+
+    def __init__(self):
+        self._window = None   # z podkreśleniem: pywebview nie może udostępniać okna stronie
+
+    def get_token(self):
+        """Token logowania z programu głównego (panel nie loguje się osobno)."""
+        from serwis import serwis_qr
+        return serwis_qr.read_token()
+
+    def open_url(self, url):
+        u = str(url or "")
+        if not u.startswith(("https://", "http://", "tel:", "mailto:")):
+            return False
+        if hasattr(os, "startfile"):
+            os.startfile(u)
+        else:   # pragma: no cover
+            import webbrowser
+            webbrowser.open(u)
+        return True
+
+    def save_backup(self, text, name):
+        import webview
+        r = self._window.create_file_dialog(webview.SAVE_DIALOG, save_filename=str(name or "serwis-kopia.json"),
+                                           file_types=("Kopia panelu (*.json)",))
+        if not r:
+            return ""
+        path = Path(r if isinstance(r, str) else r[0])
+        if path.suffix.lower() != ".json":
+            path = path.with_suffix(".json")
+        path.write_text(str(text), encoding="utf-8")
+        return str(path)
+
+    def version(self):
+        from version import VERSION
+        return VERSION
+
+
+def _selftest(window, out_file: str):
+    """Test w GitHub Actions: czy panel się wczytał, rysuje QR i zapamiętuje dane między uruchomieniami."""
+    res = {"ok": False}
+    try:
+        t_end = time.time() + 40
+        while time.time() < t_end:
+            try:
+                if window.evaluate_js("typeof openService==='function' && document.readyState==='complete'"):
+                    break
+            except Exception:
+                pass
+            time.sleep(0.5)
+        time.sleep(1.5)
+        js = window.evaluate_js
+        res["cfg_base"] = js("(window.SERWIS_CFG||{}).base||''")
+        res["qr_lib"] = js("typeof QRCode")
+        res["bridge"] = js("!!(window.pywebview&&window.pywebview.api)")
+        res["cars_before"] = js("store.load('cars',[]).length")
+        res["app_mode_text"] = js("(document.getElementById('demoTxt')||{}).textContent||''")
+        js("openService(null);1")
+        time.sleep(0.5)
+        js("$('fPlate').value='TEST '+Date.now()%100000;$('fKm').value='12345';preview();1")
+        time.sleep(0.8)
+        res["qr_drawn"] = js("!!document.querySelector('#previewBox .qr img, #previewBox .qr canvas')")
+        js("saveService();1")
+        time.sleep(1.0)
+        res["cars_after"] = js("store.load('cars',[]).length")
+        res["status"] = read_status().get("state")
+        res["ok"] = (res["status"] == "loaded" and res["qr_lib"] == "function" and res["qr_drawn"] and res["bridge"] and "w programie" in res["app_mode_text"]
+                     and res["cars_after"] == res["cars_before"] + 1)
+        shot = os.environ.get("INTEGRA_SHOT")
+        if shot:
+            from PIL import ImageGrab
+            js("show('list');1")
+            time.sleep(1.0)
+            ImageGrab.grab().save(str(Path(shot) / "9-serwis-panel.png"))
+    except Exception as e:
+        import traceback
+        res["error"] = f"{e}\n{traceback.format_exc()}"
+    Path(out_file).write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
+    window.destroy()
+
+
+STATUS = paths.DATA_DIR / "serwis_status.json"
+LOG = paths.DATA_DIR / "serwis.log"
+
+
+def _status(state: str, **extra) -> None:
+    """Stan okna dla głównego programu: starting → window → shown → loaded / error."""
+    try:
+        STATUS.write_text(json.dumps({"state": state, "pid": os.getpid(), "time": time.time(), **extra},
+                                     ensure_ascii=False), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def read_status() -> dict:
+    try:
+        return json.loads(STATUS.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+
+
+def log_tail(n: int = 12) -> str:
+    try:
+        return "\n".join(LOG.read_text(encoding="utf-8", errors="replace").splitlines()[-n:])
+    except OSError:
+        return ""
+
+
+def reset_log() -> None:
+    try:
+        paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        LOG.write_text("", encoding="utf-8")
+    except OSError:
+        pass
+
+
+def gui_log(msg: str) -> None:
+    """Wpis głównego okna (osadzanie panelu) do tego samego dziennika co okno panelu."""
+    try:
+        with open(LOG, "a", encoding="utf-8") as fh:
+            fh.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} INFO program: {msg}\n")
+    except OSError:
+        pass
+
+
+def kill_tree(proc) -> None:
+    """Zamyka proces okna panelu razem z procesami potomnymi (Edge WebView2)."""
+    try:
+        if proc.poll() is None or sys.platform == "win32":
+            if sys.platform == "win32":
+                import subprocess
+                subprocess.run(["taskkill", "/T", "/F", "/PID", str(proc.pid)], capture_output=True, timeout=10,
+                               creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            else:
+                proc.terminate()
+            proc.wait(timeout=3)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+
+def _setup_log():
+    import logging
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    h = logging.FileHandler(LOG, mode="a", encoding="utf-8")   # plik czyści główne okno (reset_log)
+    h.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s"))
+    root = logging.getLogger()
+    root.addHandler(h)
+    root.setLevel(logging.INFO)
+    logging.getLogger("pywebview").addHandler(h)
+    return logging.getLogger("serwis")
+
+
+def unblock_runtime(log=None) -> int:
+    """Zdejmuje znacznik „pobrano z internetu” (Zone.Identifier) z bibliotek okna panelu.
+
+    Pliki z paczki pobranej przeglądarką i rozpakowanej w Eksploratorze dostają ten znacznik,
+    a .NET odmawia wtedy wczytania Python.Runtime.dll („Failed to resolve Python.Runtime.Loader.Initialize”).
+    Zwraca liczbę odblokowanych plików.
+    """
+    if sys.platform != "win32" or os.environ.get("INTEGRA_NO_UNBLOCK"):   # zmienna tylko do testu
+        return 0
+    base = Path(getattr(sys, "_MEIPASS", "") or (Path(sys.executable).parent / "_internal"))
+    n = 0
+    for sub in ("pythonnet", "clr_loader", "webview"):
+        d = base / sub
+        if not d.is_dir():
+            continue
+        for f in d.rglob("*"):
+            if f.is_file() and f.suffix.lower() in (".dll", ".exe", ".config", ".json"):
+                try:
+                    os.remove(str(f) + ":Zone.Identifier")
+                    n += 1
+                except OSError:
+                    pass
+    if log and n:
+        log.info("odblokowano pliki pobrane z internetu: %d", n)
+    return n
+
+
+def run() -> int:
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    _status("starting")
+    log = _setup_log()
+    try:
+        log.info("start, python %s, frozen=%s, root=%s", sys.version.split()[0], getattr(sys, "frozen", False), paths.ROOT)
+        unblock_runtime(log)
+        import webview
+        log.info("pywebview %s", getattr(webview, "__version__", "?"))
+        if not serwis_qr.PANEL.exists():
+            raise FileNotFoundError(f"Brak pliku panelu: {serwis_qr.PANEL}")
+        serwis_qr.write_config(_load_cfg())
+        STORAGE.mkdir(parents=True, exist_ok=True)
+        api = Api()
+        embedded = bool(os.environ.get("INTEGRA_EMBED"))
+        if embedded:   # okno zostanie wstawione w zakładkę programu – startuje bez ramki, poza ekranem
+            w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api, frameless=True,
+                                      easy_drag=False, x=-20000, y=-20000, width=1200, height=800, text_select=True)
+        else:
+            w = webview.create_window(TITLE, url=serwis_qr.PANEL.as_uri(), js_api=api,
+                                      width=1320, height=900, min_size=(960, 640), text_select=True)
+        api._window = w
+
+        def raise_window():
+            # wysuń okno na wierzch (Windows potrafi otworzyć je za oknem głównym);
+            # osobny wątek – nie wolno blokować wątku okna, bo panel by się nie wczytał
+            try:
+                time.sleep(0.3)
+                w.on_top = True
+                time.sleep(0.8)
+                w.on_top = False
+            except Exception:
+                log.exception("on_top")
+
+        raised = []
+
+        def on_shown():
+            log.info("okno widoczne")
+            if embedded:   # okno czeka poza ekranem na osadzenie – bez przycisku na pasku zadań
+                try:
+                    from serwis import embed_win
+                    hwnd = embed_win.find_window(os.getpid(), TITLE)
+                    log.info("ukrywam z paska zadań: %s", embed_win.hide_from_taskbar(hwnd))
+                except Exception:
+                    log.exception("pasek zadań")
+            _status("shown")
+
+        def on_loaded():
+            log.info("panel wczytany")
+            _status("loaded")
+            # wysuwanie dopiero po wczytaniu – w trakcie startu silnika WebView2 potrafiło go zablokować
+            if not raised and not embedded:
+                raised.append(1)
+                threading.Thread(target=raise_window, daemon=True).start()
+
+        w.events.shown += on_shown
+        w.events.loaded += on_loaded
+        test_out = os.environ.get("INTEGRA_SERWIS_TEST")
+        icon = paths.APP_DIR / "assets" / "icon.ico"
+        kw = dict(private_mode=False, storage_path=str(STORAGE), icon=str(icon) if icon.exists() else None)
+        if sys.platform == "win32":
+            kw["gui"] = "edgechromium"   # nigdy stary silnik Internet Explorera
+        _status("window")
+        log.info("uruchamiam okno (%s)", kw.get("gui", "auto"))
+        if test_out:
+            webview.start(_selftest, (w, test_out), **kw)
+        else:
+            webview.start(**kw)
+        log.info("okno zamknięte")
+        _status("closed")
+        return 0
+    except Exception as e:
+        log.exception("błąd okna panelu")
+        _status("error", error=f"{type(e).__name__}: {e}")
+        raise
+
+
+def is_available() -> str:
+    """Pusty tekst = okno w programie jest możliwe; inaczej powód (np. stara wersja .exe)."""
+    import importlib.util
+    try:
+        if importlib.util.find_spec("webview") is None:
+            return "Ta wersja IntegraCRM.exe nie ma silnika okna panelu – pobierz nową paczkę .exe z kanału beta."
+    except Exception:
+        return "Nie udało się sprawdzić silnika okna panelu."
+    return ""
+
+
+def launch(embed: bool = False):
+    """Uruchamia okno panelu w osobnym procesie. Zwraca obiekt procesu."""
+    import subprocess
+    if getattr(sys, "frozen", False):
+        cmd = [sys.executable, "--serwis"]
+    else:
+        cmd = [sys.executable, str(paths.APP_DIR / "start.py"), "--serwis"]
+    try:   # musi być PRZED startem okna: IntegraCRM.exe wczytuje biblioteki .NET już przy uruchomieniu
+        unblock_runtime()
+    except Exception:
+        pass
+    env = dict(os.environ)
+    env.pop("INTEGRA_SHOT", None)
+    env.pop("INTEGRA_SELFTEST", None)
+    if embed:
+        env["INTEGRA_EMBED"] = "1"
+    else:
+        env.pop("INTEGRA_EMBED", None)
+    return subprocess.Popen(cmd, cwd=str(paths.ROOT), env=env)

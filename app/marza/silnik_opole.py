@@ -564,11 +564,11 @@ def _generuj_wykres_png(miesiac_etykieta, cel, zrobione, year, month, holidays=N
             log(f"Szczegoly bledu wykresu:\n{traceback.format_exc()}", log_lines)
         return None
 EMAIL_CONFIG_FILE = os.path.join(SCRIPT_DIR, "email_config.txt")
-EMAIL_NADAWCA = "djjuniord@gmail.com"
+EMAIL_NADAWCA = ""   # po zalogowaniu mail wysyła serwer firmy (konto z sekretów Supabase)
 EMAIL_NADAWCA_NAZWA = "Panel Wynikow LATEX"
-EMAIL_ODBIORCY = [
-    "pmarczak@latexopony.eu",
-]
+# Odbiorców ustawia administrator w programie (MARŻA → „Odbiorcy maili”) – program podstawia tu listę
+# z bazy przed każdym przebiegiem (marza/runner.py). Pusta lista = mail nie jest wysyłany.
+EMAIL_ODBIORCY = []
 SMTP_HOST = "smtp.gmail.com"
 SMTP_PORT = 587
 
