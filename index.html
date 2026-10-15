@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Latex Serwis – Historia serwisowa (beta)</title>
 <link href="https://fonts.googleapis.com/css2?family=Saira:ital,wght@0,600;0,800;1,800&family=Poppins:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="supabase.min.js"></script><!-- @supabase/supabase-js 2.45.4 (npm), dołączona lokalnie – bez CDN -->
 <script src="qrcode.min.js"></script>
 <script src="config.js"></script>
 <style>
@@ -334,11 +334,12 @@ function carUrl(car){const base=S.base||CFG.base||location.href.split(/[?#]/)[0]
 const normPlate=p=>String(p||"").toUpperCase().replace(/[^A-Z0-9]/g,"");
 const IN_APP=()=>!!(window.pywebview&&window.pywebview.api);
 function openExternal(url){if(IN_APP()){window.pywebview.api.open_url(url);return true}return false}
+const isPhoto=p=>typeof p==="string"&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(p);   // tylko obrazki z programu – nic innego do HTML
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 /* ---------- naklejka ---------- */
 function labelHTML(car,s,set){
-  const f=set.fields, filt=(s.filters||[]).map(x=>x.length>4?x.slice(0,3)+".":x).join(", ");
+  const f=set.fields, filt=(s.filters||[]).map(x=>esc(x.length>4?x.slice(0,3)+".":x)).join(", ");
   let info="";
   if(f.oil&&s.oil)info+=`<b>Olej:</b> ${esc(s.oil)}${s.qty?" · "+esc(s.qty)+" l":""}&nbsp; `;
   if(f.filters&&filt)info+=`<b>Filtry:</b> ${filt}`;
@@ -440,7 +441,7 @@ function typeChanged(keep){const oil=isOil();["fOil","fQty"].forEach(id=>$(id).c
 function calcNext(){if(!isOil())return;const km=num($("fKm").value);if(km)$("fNextKm").value=km+Number(S.km);if($("fDate").value)$("fNextDate").value=addMonths($("fDate").value,S.months)}
 function showPhoto(src){const o=document.createElement("div");o.style.cssText="position:fixed;inset:0;background:#000d;z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out";
   const i=document.createElement("img");i.src=src;i.style.cssText="max-width:94vw;max-height:94vh";o.appendChild(i);o.onclick=()=>o.remove();document.body.appendChild(o)}
-function renderPhotos(){const pc=$("photoCount");if(pc)pc.textContent=PHOTOS.length?`Zdjęcia: ${PHOTOS.length}/6`:"";$("fPhotos").innerHTML=PHOTOS.map((p,i)=>`<div class="ph"><img src="${p}" onclick="showPhoto(this.src)"><b onclick="PHOTOS.splice(${i},1);renderPhotos()">×</b></div>`).join("")}
+function renderPhotos(){const pc=$("photoCount");if(pc)pc.textContent=PHOTOS.length?`Zdjęcia: ${PHOTOS.length}/6`:"";PHOTOS=PHOTOS.filter(isPhoto);$("fPhotos").innerHTML=PHOTOS.map((p,i)=>`<div class="ph"><img src="${esc(p)}" onclick="showPhoto(this.src)"><b onclick="PHOTOS.splice(${i},1);renderPhotos()">×</b></div>`).join("")}
 function readAsDataURL(f){return new Promise((ok,err)=>{const r=new FileReader();r.onload=()=>ok(r.result);r.onerror=()=>err(r.error);r.readAsDataURL(f)})}
 function loadImg(src){return new Promise((ok,err)=>{const i=new Image();i.onload=()=>ok(i);i.onerror=err;i.src=src})}
 async function addPhotos(files){let bad=0,over=false;files=[...(files||[])];
@@ -538,7 +539,7 @@ async function renderPublic(tok){
   if(!car){$("pubBody").innerHTML=`<div class="tile">Nie znaleziono pojazdu. Zadzwoń do serwisu: <a href="tel:${esc(S.phone)}">${esc(S.phone)}</a></div>`;return}
   const svcs=sortSvc(car.services||[]),s=nextOf({services:svcs}),last=svcs[0]||{},[t,cl]=status({services:svcs});
   const next=nextTxt(s);
-  const photos=x=>(x.photos||[]).length?`<div class="photos">${x.photos.filter(p=>/^data:image\/(jpeg|png|webp);base64,/.test(p)).map(p=>`<img src="${p}" alt="Zdjęcie z serwisu">`).join("")}</div>`:"";
+  const photos=x=>(x.photos||[]).length?`<div class="photos">${x.photos.filter(isPhoto).map(p=>`<img src="${esc(p)}" alt="Zdjęcie z serwisu">`).join("")}</div>`:"";
   const summary=`
    <div class="tile"><div class="k">Następny serwis</div><div style="font-size:18px;font-weight:600;color:var(--red)">${next||"–"}</div></div>
    <div class="tile"><div class="k">Użyty olej</div>${esc(s.oil)||"–"}${s.qty?" · "+esc(s.qty)+" l":""}</div>
