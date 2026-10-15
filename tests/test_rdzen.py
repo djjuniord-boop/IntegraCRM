@@ -65,3 +65,27 @@ def test_logowanie_z_komputerem_i_starsza_baza():
         assert s.load_profile("0.21.2")["email"] == "a@b.pl" and calls[-1] == {"p_version": "0.21.2"}
     finally:
         cloud._http = orig
+
+
+def test_czuwanie_zamkniecie_po_8h_i_wersje():
+    import czuwanie
+
+    class FakeApp:
+        def __init__(self):
+            self.zaplanowane = []
+            self.session = None
+            self.marza_busy = False
+
+        def after(self, ms, fn=None, *a):
+            self.zaplanowane.append((ms, getattr(fn, "__name__", "")))
+            return "id"
+
+    app = FakeApp()
+    czuwanie.start(app)
+    ms, nazwa = app.zaplanowane[-1]
+    assert nazwa == "_ostrzez" and abs(ms - (8 * 3600 - 10 * 60) * 1000) < 5000   # ostrzeżenie 10 min przed 8 h
+    assert czuwanie._za_stara("99.0.0") and not czuwanie._za_stara("") and not czuwanie._za_stara("0.1.0")
+    app.marza_busy = True
+    assert czuwanie._zajety(app)          # trwa MARŻA – nie zamykamy
+    app.marza_busy = False
+    assert not czuwanie._zajety(app)

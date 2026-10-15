@@ -181,7 +181,16 @@ class Session:
 
     # --- administrator ---
     def list_users(self) -> list:
-        return self.call("GET", "/rest/v1/app_users?select=*&order=email") or []
+        users = self.call("GET", "/rest/v1/app_users?select=*&order=email") or []
+        try:   # ostatnia aktywność (program otwarty) – tabela app_activity; starsza baza jej nie ma
+            act = {r["email"]: r for r in self.call("GET", "/rest/v1/app_activity?select=*") or []}
+        except CloudError:
+            act = {}
+        for u in users:
+            a = act.get((u.get("email") or "").lower()) or {}
+            u["last_active"] = a.get("last_active")
+            u["active_version"] = a.get("app_version")
+        return users
 
     def set_user(self, email, name, role, modules, branches, active):
         self.rpc("admin_set_user", p_email=email, p_name=name, p_role=role,

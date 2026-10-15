@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.21.4"
+VERSION = "0.21.5"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,19 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.21.5",
+        "date": "2026-10-15",
+        "changes": [
+            "UŻYTKOWNICY: nowa kolumna „Aktywność” – kiedy program danej osoby był ostatnio otwarty (co 30 minut); "
+            "daty w czasie polskim",
+            "Nowa wersja w trakcie pracy: program sam proponuje ponowne uruchomienie (gdy wersja jest już "
+            "nieobsługiwana – uruchamia się ponownie po 15 minutach)",
+            "Program zamyka się po 8 godzinach pracy; 10 minut wcześniej pokazuje odliczanie z możliwością "
+            "odłożenia o godzinę. Nie zamyka się w trakcie MARŻY, wysyłki e-maila ani aktualizacji; "
+            "otwarte okna (np. Ustawienia) zamykają się razem z programem",
+        ],
+    },
     {
         "version": "0.21.4",
         "date": "2026-10-15",
