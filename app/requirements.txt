@@ -1,7 +1,10 @@
-pdfplumber
-pytesseract
-Pillow
-openpyxl
-pypdf
-matplotlib
+# Wersje przypięte (audyt SEC-003) – zmieniać świadomie, po testach; sprawdzane przez pip-audit w CI.
+pdfplumber==0.11.10
+pdfminer.six==20260107
+pytesseract==0.3.13
+Pillow==12.3.0
+openpyxl==3.1.5
+pypdf==6.20.1
+matplotlib==3.11.2
+numpy==2.5.4
 pywebview==5.4

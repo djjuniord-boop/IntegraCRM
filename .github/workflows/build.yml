@@ -17,16 +17,20 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262   # v4.4.0
+        with:
+          persist-credentials: false   # token nie zostaje w .git/config; strona gh-pages podaje go jawnie niżej
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065   # v5.6.0
         with:
           python-version: "3.12"
 
       - name: Biblioteki
         run: |
           python -m pip install --upgrade pip
-          pip install -r app/requirements.txt pyinstaller reportlab
+          pip install -r app/requirements.txt pyinstaller==6.22.3 reportlab==5.0.1 pip-audit==2.10.1
+          # znane podatności w bibliotekach dołączanych do .exe zatrzymują budowę (audyt SEC-003)
+          pip-audit -r app/requirements.txt --progress-spinner off
 
       - name: Testy modułów (bez okna) i importy
         env:
@@ -44,6 +48,7 @@ jobs:
         run: |
           $v = (Select-String -Path app/version.py -Pattern 'VERSION = "([^"]+)"').Matches[0].Groups[1].Value
           "version=$v" >> $env:GITHUB_OUTPUT
+          "VERSION=$v" >> $env:GITHUB_ENV   # dalsze kroki czytają $env:VERSION (bez wstawiania w treść skryptu)
 
       - name: PyInstaller
         run: pyinstaller --noconfirm --windowed --name IntegraCRM --icon app/assets/icon.ico --collect-all pdfplumber --collect-all pdfminer --collect-submodules tkinter --collect-submodules PIL --collect-submodules email --collect-submodules urllib --collect-submodules json --collect-submodules encodings --collect-submodules ctypes --collect-all openpyxl --collect-all pypdf --collect-all webview --collect-all clr_loader --collect-all pythonnet launcher.py
@@ -51,7 +56,7 @@ jobs:
       - name: Paczka
         shell: pwsh
         run: |
-          $v = "${{ steps.ver.outputs.version }}"
+          $v = "$env:VERSION"
           $out = "pkg/IntegraCRM"
           New-Item -ItemType Directory -Force $out | Out-Null
           Copy-Item -Recurse dist/IntegraCRM/* $out
@@ -71,10 +76,10 @@ jobs:
         shell: pwsh
         run: |
           choco install innosetup -y --no-progress
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=${{ steps.ver.outputs.version }}" tools/installer.iss
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$env:VERSION" tools/installer.iss
           if (-not (Test-Path IntegraCRM-setup.exe)) { throw "Brak instalatora" }
           $mb = [math]::Round((Get-Item IntegraCRM-setup.exe).Length / 1MB, 1)
-          $zmb = [math]::Round((Get-Item "IntegraCRM-${{ steps.ver.outputs.version }}-exe.zip").Length / 1MB, 1)
+          $zmb = [math]::Round((Get-Item "IntegraCRM-$env:VERSION-exe.zip").Length / 1MB, 1)
           $n = (Get-ChildItem -Recurse -File pkg/IntegraCRM).Count
           $smb = [math]::Round(((Get-ChildItem -Recurse -File pkg/IntegraCRM | Measure-Object Length -Sum).Sum) / 1MB, 1)
           Write-Host "Instalator: $mb MB, zip: $zmb MB, po instalacji: $smb MB w $n plikach"
@@ -196,12 +201,12 @@ jobs:
             throw "Panel nie został osadzony w zakładce programu"
           }
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: zrzuty
           path: shots/*
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: IntegraCRM-${{ steps.ver.outputs.version }}
           path: |
@@ -215,16 +220,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          $v = "${{ steps.ver.outputs.version }}"
-          if ("${{ github.ref_name }}" -eq "beta") {
+          $v = "$env:VERSION"
+          if ("$env:GITHUB_REF_NAME" -eq "beta") {
             # Kanał beta: stały tag "kanal-beta", oznaczony jako pre-release – NIE jest "latest",
             # więc zwykłe instalacje (releases/latest/...) go nie widzą.
             gh release view kanal-beta 2>$null
             if ($LASTEXITCODE -eq 0) {
               gh release upload kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
-              gh release edit kanal-beta --prerelease --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
+              gh release edit kanal-beta --prerelease --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/$env:GITHUB_REPOSITORY/releases/download/kanal-beta/version.json"
             } else {
-              gh release create kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/${{ github.repository }}/releases/download/kanal-beta/version.json"
+              gh release create kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/$env:GITHUB_REPOSITORY/releases/download/kanal-beta/version.json"
             }
             exit 0
           }
@@ -241,25 +246,30 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           # kanal-beta: zostaje tylko bieżąca wersja, instalator i version.json
-          $v = "${{ steps.ver.outputs.version }}"
+          $v = "$env:VERSION"
           $keep = @("IntegraCRM-$v-exe.zip", "integra-$v.zip", "IntegraCRM-setup.exe", "version.json")
-          $assets = gh api "repos/${{ github.repository }}/releases/tags/kanal-beta" --jq '.assets[] | "\(.id) \(.name)"'
+          $assets = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/kanal-beta" --jq '.assets[] | "\(.id) \(.name)"'
           foreach ($a in $assets) {
             $id, $name = $a -split " ", 2
-            if ($keep -notcontains $name) { gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id"; Write-Host "usunięto: $name" }
+            if ($keep -notcontains $name) { gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$id"; Write-Host "usunięto: $name" }
           }
           # stare wydania stabilne sprzed 0.13.0 (v0.13.0 zostaje do przywrócenia poprzedniej wersji); tagi zostają
-          $rels = gh api "repos/${{ github.repository }}/releases?per_page=100" --jq '.[] | select(.tag_name | startswith("v")) | "\(.id) \(.tag_name)"'
+          $rels = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name | startswith("v")) | "\(.id) \(.tag_name)"'
           foreach ($r in $rels) {
             $id, $tag = $r -split " ", 2
-            if ([version]$tag.TrimStart("v") -lt [version]"0.13.0") { gh api -X DELETE "repos/${{ github.repository }}/releases/$id"; Write-Host "usunięto wydanie: $tag" }
+            if ([version]$tag.TrimStart("v") -lt [version]"0.13.0") { gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/$id"; Write-Host "usunięto wydanie: $tag" }
           }
 
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
         if: github.ref_name == 'beta'   # jedna gałąź publikuje stronę klientów (inaczej strona przełączałaby się między wersjami)
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # jedno źródło: panel z programu → gałąź gh-pages (strona dla klientów z kodów QR)
+          # checkout nie zostawia tokenu (persist-credentials: false) – podajemy go tylko na czas tego kroku
+          $basic = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("x-access-token:$env:GH_TOKEN"))
+          git config --global http.https://github.com/.extraheader "AUTHORIZATION: basic $basic"
           git fetch --depth 1 origin gh-pages
           git worktree add pages_out FETCH_HEAD
           python tools/build_pages.py pages_out
@@ -268,12 +278,13 @@ jobs:
           foreach ($need in @('rpc("get_car"', '<script src="config.js"></script>', 'content="noindex"')) {
             if (-not $html.Contains($need)) { throw "Zbudowana strona nie zawiera: $need" }
           }
-          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js)) { throw "Brak plików strony" }
+          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js) -or -not (Test-Path pages_out/supabase.min.js)) { throw "Brak plików strony" }
           Set-Location pages_out
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"
           git add -A
           git diff --cached --quiet
           if ($LASTEXITCODE -eq 0) { Write-Host "Strona bez zmian"; exit 0 }
-          git commit -m "Strona SERWIS QR z wersji ${{ steps.ver.outputs.version }}"
+          git commit -m "Strona SERWIS QR z wersji $env:VERSION"
           git push origin HEAD:gh-pages
+          git config --global --unset http.https://github.com/.extraheader

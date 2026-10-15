@@ -15,3 +15,6 @@ data/historia.csv
 data/zgloszone.json
 data/*.bad.json
 data/statystyki_*
+
+# rejestr audytu bezpieczeństwa – repozytorium jest publiczne
+.security-audit/
