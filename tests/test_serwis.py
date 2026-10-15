@@ -42,3 +42,14 @@ def test_strona_klienta_budowana_z_panelu():
     cfg = json.loads(cfg[cfg.index("{"): cfg.rindex("}") + 1])
     assert cfg["url"].startswith("https://") and cfg["key"].startswith("eyJ") and cfg["base"].endswith("/")
     assert (out / "qrcode.min.js").exists() and (out / ".nojekyll").exists()
+
+
+def test_panel_bez_cdn_i_zdjecia_sprawdzane():
+    """Audyt SEC-001/SEC-012: biblioteka lokalnie (bez CDN), zdjęcia z bazy tylko jako obrazki base64 i kodowane."""
+    import re
+    from pathlib import Path
+    html = (Path(__file__).resolve().parent.parent / "app" / "serwis" / "index.html").read_text(encoding="utf-8")
+    assert not re.search(r'<script[^>]+src="https?://', html), "skrypt z zewnętrznego serwera"
+    assert (Path(__file__).resolve().parent.parent / "app" / "serwis" / "supabase.min.js").stat().st_size > 50000
+    assert 'img src="${p}"' not in html and "filter(isPhoto)" in html
+    assert "[A-Za-z0-9+/=]+$/" in html          # cały tekst zdjęcia sprawdzony, nie tylko początek
