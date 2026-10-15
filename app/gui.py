@@ -10,6 +10,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import cloud
 import paths
+import czuwanie
 import updater
 from version import CHANGELOG, RELEASED, VERSION
 from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, set_icon, step_badge
@@ -168,6 +169,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.after(900, lambda: self.check_updates(manual=False))
         if self.session:
             self.after(30 * 60 * 1000, self._keep_session)
+            self.after(1500, lambda: czuwanie.start(self))   # aktywność, nowe wersje w trakcie pracy, zamknięcie po 8 h
         self._stat("start")
 
     def _screenshots(self, out_dir):
@@ -388,6 +390,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             except Exception:
                 pass
         threading.Thread(target=work, daemon=True).start()
+        czuwanie.co_30_min(self)
         self.after(30 * 60 * 1000, self._keep_session)
 
     def show_tab(self, key):
@@ -542,7 +545,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 self._report(e, "sprawdzanie aktualizacji")
             self.after(0, self._update_checked, None, False, manual, e)
 
-    def _update_checked(self, m, newer, manual, err):
+    def _update_checked(self, m, newer, manual, err, ask=True):
         if err:
             import urllib.error
             if isinstance(err, urllib.error.HTTPError):
@@ -563,9 +566,11 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             if manual:
                 messagebox.showinfo("Aktualizacje", f"Masz najnowszą wersję ({VERSION}).")
             return
-        notes = "\n".join("• " + n for n in m.get("notes", []))
-        messagebox.showinfo("Aktualizacja", f"Dostępna nowa wersja {m['version']}.\n"
-                            "Program zaktualizuje się teraz i uruchomi ponownie.\n\n" + notes)
+        if ask:   # czuwanie (w trakcie pracy) pyta wcześniej swoim oknem
+            notes = "\n".join("• " + n for n in m.get("notes", []))
+            messagebox.showinfo("Aktualizacja", f"Dostępna nowa wersja {m['version']}.\n"
+                                "Program zaktualizuje się teraz i uruchomi ponownie.\n\n" + notes)
+        self.updating = True   # czuwanie nie zamknie programu w trakcie kopiowania plików
         self.set_update_status(f"Aktualizuję do wersji {m['version']}…")
         self.btn_update.set_enabled(False)
         threading.Thread(target=self._apply_worker, args=(m,), daemon=True).start()
@@ -583,6 +588,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         updater.restart()
 
     def _apply_failed(self, e):
+        self.updating = False
         self.btn_update.set_enabled(True)
         self.set_update_status(f"Aktualizacja nie powiodła się: {e}")
         messagebox.showerror("Aktualizacja", f"Aktualizacja nie powiodła się:\n{e}\n\n"
