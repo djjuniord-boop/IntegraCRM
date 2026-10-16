@@ -188,6 +188,9 @@ def test_serwis_z_naglowka_rozstrzyga_o_zlym_oddziale():
     assert analyze.serwis_z_naglowka("Serwis Opole") == "Latex Opole"
     assert analyze.serwis_z_naglowka("Serwis Stangum Opole") == "Stangum Opole"
     assert analyze.serwis_z_naglowka("bez nagłówka") is None
+    # prawdziwe nagłówki z Integry 7 (Opole, Stangum)
+    assert analyze.serwis_z_naglowka("LATEX SERWIS Sp. z o.o.\nNIP 7543073900 Serwis Opole 11") == "Latex Opole"
+    assert analyze.serwis_z_naglowka("LATEX SERWIS Sp. z o.o.\nNIP 7543073900 Serwis Stangum") == "Stangum Opole"
     # słowa z sąsiednich linii nie tworzą nazwy serwisu; dwa różne serwisy – brak podpowiedzi
     assert analyze.serwis_z_naglowka("LATEX SERWIS\nOpole, ul. Krakowska 1") is None
     assert analyze.serwis_z_naglowka("Stangum\nSerwis Wroclaw") == "Latex Wrocław"
