@@ -2,6 +2,7 @@
 
 Dane z CRM pochodzą wyłącznie z raportu .xlsx/.csv („Listy kontrolne”) – porównanie dokładne, bez OCR.
 OCR zostaje tylko dla skanów PDF z Integry (extract.text_from_pdf)."""
+import re
 from datetime import date, timedelta
 
 from kontrola import extract
@@ -44,6 +45,25 @@ def daily_stats(visits, rows, rng=None) -> list[dict]:
     return out
 
 
+_ZNAKI = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻ", "acelnoszzACELNOSZZ")
+
+
+def _bez_ogonkow(t: str) -> str:
+    return " ".join(str(t or "").translate(_ZNAKI).lower().split())
+
+
+_SERWIS = re.compile(r"\bserwis (wroclaw|opole|stangum)\b")
+_ODDZIAL = {"wroclaw": "Latex Wrocław", "opole": "Latex Opole", "stangum": "Stangum Opole"}
+
+
+def serwis_z_naglowka(pdf_text: str) -> str | None:
+    """Serwis z nagłówka raportu Integry („Serwis Wrocław/Opole/Stangum”) jako nazwa oddziału z CRM.
+    Każda linia osobno; kilka różnych serwisów albo brak – None (wtedy nic nie podpowiadamy)."""
+    found = {_ODDZIAL[m] for line in pdf_text.splitlines()[:15]
+             for m in _SERWIS.findall(_bez_ogonkow(line))}
+    return found.pop() if len(found) == 1 else None
+
+
 def run(pdf_path, crm, tesseract_cmd=None, log=lambda s: None) -> dict:
     """crm = {"rows": wiersze raportu CRM dla wybranych oddziałów, "branches": [...]}"""
     if not isinstance(crm, dict):
@@ -83,12 +103,23 @@ def run(pdf_path, crm, tesseract_cmd=None, log=lambda s: None) -> dict:
     exact = {plates.normalize(p) for p in crm_main}
     common = sum(1 for p in integra if plates.normalize(p) in exact)
     r["n_common"] = common
-    r["no_overlap"] = bool(integra) and bool(crm_main) and (
+    r["pdf_branch"] = pdf_br = serwis_z_naglowka(pdf_text)
+    chosen = {_bez_ogonkow(b) for b in crm.get("branches", [])}
+    r["branch_mismatch"] = bool(pdf_br) and _bez_ogonkow(pdf_br) not in chosen
+    # pokrycie numerów – pojedynczy brak (np. raport z 1 samochodem) to zwykły brak, nie „zły serwis”
+    r["no_overlap"] = len(integra) >= 2 and bool(crm_main) and (
         common == 0 or (len(integra) > 5 and common / len(integra) < 0.3))
     if r["no_overlap"]:
-        r["warnings"].insert(0, f"Tylko {common} z {len(integra)} numerów z Integry jest w raporcie z CRM – "
-                                "prawdopodobnie wybrano zły oddział albo raport za inny okres. "
-                                "Sprawdź dane przed wysłaniem e-maila.")
+        if r["branch_mismatch"]:
+            txt = (f"Raport z Integry jest z serwisu {pdf_br}, a zaznaczono: {', '.join(crm.get('branches', []))}. "
+                   f"Zaznacz {pdf_br} i kliknij „Sprawdź” ponownie.")
+        else:
+            txt = (f"Tylko {common} z {len(integra)} numerów z Integry jest w raporcie z CRM – "
+                   "prawdopodobnie wybrano zły serwis albo raport za inny okres. Sprawdź dane przed wysłaniem e-maila.")
+        r["warnings"].insert(0, txt)
+    elif r["branch_mismatch"]:
+        r["warnings"].insert(0, f"Nagłówek raportu z Integry wskazuje serwis {pdf_br}, a zaznaczono inny – "
+                                "numery jednak się zgadzają, sprawdź przed wysłaniem e-maila.")
 
     # Raport .xlsx to dokładne dane – żadnego „rozmytego” dopasowania,
     # inaczej inny samochód o podobnym numerze ukryłby prawdziwy brak.

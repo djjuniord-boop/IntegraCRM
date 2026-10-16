@@ -6,7 +6,8 @@ from tkinter import filedialog, messagebox, ttk
 import paths
 from kontrola import analyze, crm_report, mailer
 from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, odmiana, step_badge
-from konfig import load_config, recipients_for, save_config
+from konfig import COMPANY, load_config, recipients_for, save_config
+from kontrola.mailer import parse_recipients
 try:
     from kontrola import history
 except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
@@ -85,12 +86,25 @@ class KontrolaMixin:
         tk.Label(lh, text="Brakuje w CRM", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
         self.btn_copy_all = FlatButton(lh, "Kopiuj wszystkie", self.copy_all, "ghost", f.small, 10, 4)
         self.btn_copy_all.pack(side="right")
-        tk.Label(left, text="Kliknij numer, aby go skopiować", bg=SURFACE, fg=MUTED, font=f.small
+        tk.Label(left, text="Kliknij numer, aby go skopiować – sprawdzony zmieni kolor na zielony", bg=SURFACE, fg=MUTED, font=f.small
                  ).pack(anchor="w", pady=(2, 0))
-        self.chips = tk.Frame(left, bg=SURFACE)
-        self.chips.pack(fill="x", pady=(6, 6))
         self.copy_info = tk.Label(left, text="", bg=SURFACE, fg=OK, font=f.small)
-        self.copy_info.pack(anchor="w")
+        self.copy_info.pack(side="bottom", anchor="w")
+        # numery w przewijanym polu – przy kilkudziesięciu brakach wszystkie są dostępne
+        box = tk.Frame(left, bg=SURFACE)
+        box.pack(fill="both", expand=True, pady=(6, 6))
+        self.chips_canvas = tk.Canvas(box, bg=SURFACE, highlightthickness=0, height=120)
+        self.chips_scroll = ttk.Scrollbar(box, orient="vertical", command=self.chips_canvas.yview)
+        self.chips_canvas.configure(yscrollcommand=self.chips_scroll.set)
+        self.chips_canvas.pack(side="left", fill="both", expand=True)
+        self.chips = tk.Frame(self.chips_canvas, bg=SURFACE)
+        self.chips_canvas.create_window((0, 0), window=self.chips, anchor="nw")
+        self.chips.bind("<Configure>", lambda e: self._chips_fit())
+        self.chips_canvas.bind("<Configure>", lambda e: self._chips_fit())
+        for w in (self.chips_canvas, self.chips):
+            w.bind("<MouseWheel>", self._chips_wheel)
+            w.bind("<Button-4>", self._chips_wheel)
+            w.bind("<Button-5>", self._chips_wheel)
         # pełny dziennik w osobnym, dużym oknie (tutaj tylko przechowywany)
         self.log = tk.Text(self, font=f.mono)
 
@@ -101,11 +115,17 @@ class KontrolaMixin:
         hr.pack(fill="x")
         step_badge(hr, 3, f).pack(side="left")
         tk.Label(hr, text="E-mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
+        tk.Label(right, text="Odbiorca (możesz zmienić; kilka adresów – oddziel przecinkiem)",
+                 bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(4, 1))
+        self.recipient = tk.StringVar()
+        self.recipient_box = ttk.Combobox(right, textvariable=self.recipient, font=f.body,
+                                          values=self._known_recipients())
+        self.recipient_box.pack(fill="x", ipady=2)
+        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(4, 1))
         self.subject = tk.StringVar()
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
         th = tk.Frame(right, bg=SURFACE)
-        th.pack(fill="x", pady=(8, 2))
+        th.pack(fill="x", pady=(4, 1))
         tk.Label(th, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
                  font=f.small).pack(side="left")
         FlatButton(th, "⤢  Powiększ", self.edit_mail_big, "ghost", f.small, 10, 3).pack(side="right")
@@ -116,6 +136,15 @@ class KontrolaMixin:
         self.btn_send.pack(side="bottom", anchor="e", pady=(8, 0))   # zawsze widoczny
         self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
+
+    def _known_recipients(self):
+        """Adresy z ustawień firmowych (domyślni i wg oddziałów) – do wyboru z listy."""
+        out = []
+        for r in list(COMPANY.get("recipients") or load_config().get("recipients") or []) + \
+                [x for v in (COMPANY.get("by_branch") or {}).values() for x in (v or [])]:
+            if r and r.lower() not in {x.lower() for x in out}:
+                out.append(r)
+        return out
 
     # ---------- wynik ----------
     def set_banner(self, kind, text):
@@ -129,6 +158,9 @@ class KontrolaMixin:
             self.copy_info.config(text="Nie ma numerów do skopiowania.")
             return
         allp = list(self.result[0]) + [a for a, _ in self.result[1]]
+        for p, chip in getattr(self, "chip_widgets", {}).items():
+            self.clicked_plates.add(p)
+            chip.config(bg=OK)
         self.copy_text("\n".join(allp), f"✔ Skopiowano {len(allp)} {odmiana(len(allp), 'numer', 'numery', 'numerów')} – każdy w osobnym wierszu")
 
     def show_details(self):
@@ -142,13 +174,42 @@ class KontrolaMixin:
         return self._text_window(f"Treść e-maila – {self.subject.get() or 'bez tematu'}",
                           self.mail_body.get("1.0", "end").strip(), editable=True, on_save=save)
 
+    def _chips_fit(self):
+        c = self.chips_canvas
+        c.configure(scrollregion=c.bbox("all"))
+        if self.chips.winfo_reqheight() > c.winfo_height() > 1:
+            if not self.chips_scroll.winfo_ismapped():
+                self.chips_scroll.pack(side="right", fill="y")
+        elif self.chips_scroll.winfo_ismapped():
+            self.chips_scroll.pack_forget()
+            c.yview_moveto(0)
+
+    def _chips_wheel(self, e):
+        if not self.chips_scroll.winfo_ismapped():
+            return
+        krok = -1 if (getattr(e, "num", 0) == 4 or getattr(e, "delta", 0) > 0) else 1
+        self.chips_canvas.yview_scroll(krok, "units")
+
+    def _wheel(self, w):
+        for ev in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            w.bind(ev, self._chips_wheel)
+        return w
+
+    def _chip_click(self, chip, plate):
+        """Kopiuje numer i oznacza go na zielono – widać, które numery są już sprawdzone."""
+        self.copy_text(plate)
+        self.clicked_plates.add(plate)
+        chip.config(bg=OK)
+
     def set_chips(self, missing, uncertain):
+        self.clicked_plates, self.chip_widgets = set(), {}
         for w in self.chips.winfo_children():
             w.destroy()
         f = self.fonts
         if not missing and not uncertain:
             tk.Label(self.chips, text="—", bg=SURFACE, fg=MUTED, font=f.body).pack(anchor="w")
             return
+        self.chips_canvas.yview_moveto(0)
         wrap = tk.Frame(self.chips, bg=SURFACE)
         wrap.pack(fill="x")
         col = 0
@@ -159,20 +220,23 @@ class KontrolaMixin:
             chip = tk.Label(cell, text=p, bg=RED, fg="white", font=(f.family, 11, "bold"), padx=10, pady=4,
                             cursor="hand2")
             chip.pack(anchor="w")
-            chip.bind("<Button-1>", lambda e, v=p: self.copy_text(v))
-            chip.bind("<Enter>", lambda e, w=chip: w.config(bg=RED_DARK))
-            chip.bind("<Leave>", lambda e, w=chip: w.config(bg=RED))
+            chip.bind("<Button-1>", lambda e, w=chip, v=p: self._chip_click(w, v))
+            chip.bind("<Enter>", lambda e, w=chip, v=p: w.config(bg=OK if v in self.clicked_plates else RED_DARK))
+            chip.bind("<Leave>", lambda e, w=chip, v=p: w.config(bg=OK if v in self.clicked_plates else RED))
+            self._wheel(cell), self._wheel(chip)
+            self.chip_widgets[p] = chip
             if p in reg:
-                tk.Label(cell, text=f"zgłoszony {reg[p]}", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
+                self._wheel(tk.Label(cell, text=f"zgłoszony {reg[p]}", bg=SURFACE, fg=MUTED, font=f.small)
+                            ).pack(anchor="w")
             col += 1
         if uncertain:
-            tk.Label(self.chips, text="Do weryfikacji (podobny numer w CRM):", bg=SURFACE, fg=WARN,
-                     font=f.small).pack(anchor="w", pady=(8, 2))
+            self._wheel(tk.Label(self.chips, text="Do weryfikacji (podobny numer w CRM):", bg=SURFACE, fg=WARN,
+                     font=f.small)).pack(anchor="w", pady=(8, 2))
             for a, b in uncertain:
                 u = tk.Label(self.chips, text=f"{a}  ≈  {b}", bg=WARN_BG, fg=WARN, font=f.label, padx=8, pady=3,
                              cursor="hand2")
-                u.pack(anchor="w", pady=2)
-                u.bind("<Button-1>", lambda e, v=a: self.copy_text(v))
+                self._wheel(u).pack(anchor="w", pady=2)
+                u.bind("<Button-1>", lambda e, w=u, v=a: (self.copy_text(v), w.config(bg=OK_BG, fg=OK)))
 
     def _on_ctrl_v(self, event):
         # Ctrl+V działa zwyczajnie (wkleja tekst w polach maila) – wycinków ekranu już nie wklejamy
@@ -315,13 +379,21 @@ class KontrolaMixin:
                 self.ui(self.set_banner, "warn" if warn else "ok",
                         f"✔  Jest dobrze – wszystkie zlecenia z Integry ({len(integra)}) są w CRM.{wtxt}")
                 self.ui(self.subject.set, "")
+                self.ui(self.recipient.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
             if res.get("no_overlap"):   # prawie nic się nie pokrywa – mail byłby fałszywym alarmem
-                self.ui(self.set_banner, "warn", f"⚠  Dane z CRM nie pasują do raportu Integry "
-                        f"(wspólne numery: {res.get('n_common', 0)} z {len(integra)}). Sprawdź zaznaczone "
-                        "serwisy i zakres dat. E-mail nie został przygotowany." + wtxt)
+                if res.get("branch_mismatch"):
+                    txt = (f"⚠  Raport z Integry jest z serwisu {res['pdf_branch']}, a zaznaczono: "
+                           f"{', '.join(src.get('branches', [])) or '—'}. Zaznacz {res['pdf_branch']} i kliknij „Sprawdź” ponownie. "
+                           "E-mail nie został przygotowany.")
+                else:
+                    txt = (f"⚠  Dane z CRM nie pasują do raportu Integry (wspólne numery: {res.get('n_common', 0)} "
+                           f"z {len(integra)}). Sprawdź zaznaczone serwisy i zakres dat. "
+                           "E-mail nie został przygotowany." + wtxt)
+                self.ui(self.set_banner, "warn", txt)
                 self.ui(self.subject.set, "")
+                self.ui(self.recipient.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
             try:
@@ -331,6 +403,8 @@ class KontrolaMixin:
             subj, body = mailer.compose(missing, uncertain, reg)
 
             def fill():
+                self.recipient.set(", ".join(recipients_for(getattr(self, "last_branches", []))))
+                self.recipient_box.configure(values=self._known_recipients())
                 self.subject.set(subj)
                 self.mail_body.delete("1.0", "end")
                 self.mail_body.insert("1.0", body)
@@ -377,10 +451,14 @@ class KontrolaMixin:
                                 "gdy czegoś brakuje w CRM.")
             return
         cfg = load_config()
-        cfg["recipients"] = recipients_for(getattr(self, "last_branches", []), cfg)
+        cfg["recipients"], zle = parse_recipients(self.recipient.get())
         server = self.session is not None   # po zalogowaniu mail wysyła serwer (bez hasła Gmail na komputerze)
+        if zle:
+            messagebox.showwarning("Odbiorca", f"To nie wygląda na adres e-mail: {', '.join(zle)}\n"
+                                   "Popraw pole „Odbiorca”.")
+            return
         if server and not cfg["recipients"]:
-            messagebox.showwarning("Odbiorcy", "Brak odbiorców – administrator ustawia ich w Ustawieniach.")
+            messagebox.showwarning("Odbiorca", "Wpisz adres odbiorcy albo wybierz go z listy.")
             return
         if not server:
             messagebox.showwarning("Wyślij e-mail", "E-mail wysyła serwer firmy – zaloguj się ponownie.")

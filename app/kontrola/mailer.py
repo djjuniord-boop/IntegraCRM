@@ -1,4 +1,5 @@
 """Treść e-maila z listą brakujących numerów (wysyła go serwer firmy)."""
+import re
 import smtplib
 import ssl
 from datetime import datetime
@@ -65,3 +66,20 @@ def send_server(session, subject: str, body: str, recipients, cc_self: bool = Tr
     if isinstance(r, dict) and r.get("error"):
         raise RuntimeError(r["error"])
     return (r or {}).get("from", "")
+
+
+_ADRES = re.compile(r"^[^@\s,;<>]+@[^@\s,;<>]+\.[a-z]{2,}$", re.I)
+
+
+def parse_recipients(text: str):
+    """„a@x.pl, b@y.pl; c@z.pl” → (poprawne adresy bez powtórzeń, błędne wpisy)."""
+    ok, bad = [], []
+    for part in re.split(r"[,;\s]+", text or ""):
+        a = part.strip()
+        if not a:
+            continue
+        if not _ADRES.match(a):
+            bad.append(a)
+        elif a.lower() not in {x.lower() for x in ok}:
+            ok.append(a)
+    return ok, bad
