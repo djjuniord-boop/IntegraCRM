@@ -6,7 +6,8 @@ from tkinter import filedialog, messagebox, ttk
 import paths
 from kontrola import analyze, crm_report, mailer
 from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, odmiana, step_badge
-from konfig import load_config, recipients_for, save_config
+from konfig import COMPANY, load_config, recipients_for, save_config
+from kontrola.mailer import parse_recipients
 try:
     from kontrola import history
 except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
@@ -114,11 +115,17 @@ class KontrolaMixin:
         hr.pack(fill="x")
         step_badge(hr, 3, f).pack(side="left")
         tk.Label(hr, text="E-mail do handlowców", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left", padx=8)
-        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 2))
+        tk.Label(right, text="Odbiorca (możesz zmienić; kilka adresów – oddziel przecinkiem)",
+                 bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(4, 1))
+        self.recipient = tk.StringVar()
+        self.recipient_box = ttk.Combobox(right, textvariable=self.recipient, font=f.body,
+                                          values=self._known_recipients())
+        self.recipient_box.pack(fill="x", ipady=2)
+        tk.Label(right, text="Temat", bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w", pady=(4, 1))
         self.subject = tk.StringVar()
         ttk.Entry(right, textvariable=self.subject, font=f.body).pack(fill="x", ipady=2)
         th = tk.Frame(right, bg=SURFACE)
-        th.pack(fill="x", pady=(8, 2))
+        th.pack(fill="x", pady=(4, 1))
         tk.Label(th, text="Treść (możesz poprawić przed wysłaniem)", bg=SURFACE, fg=MUTED,
                  font=f.small).pack(side="left")
         FlatButton(th, "⤢  Powiększ", self.edit_mail_big, "ghost", f.small, 10, 3).pack(side="right")
@@ -129,6 +136,15 @@ class KontrolaMixin:
         self.btn_send.pack(side="bottom", anchor="e", pady=(8, 0))   # zawsze widoczny
         self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
+
+    def _known_recipients(self):
+        """Adresy z ustawień firmowych (domyślni i wg oddziałów) – do wyboru z listy."""
+        out = []
+        for r in list(COMPANY.get("recipients") or load_config().get("recipients") or []) + \
+                [x for v in (COMPANY.get("by_branch") or {}).values() for x in (v or [])]:
+            if r and r.lower() not in {x.lower() for x in out}:
+                out.append(r)
+        return out
 
     # ---------- wynik ----------
     def set_banner(self, kind, text):
@@ -363,6 +379,7 @@ class KontrolaMixin:
                 self.ui(self.set_banner, "warn" if warn else "ok",
                         f"✔  Jest dobrze – wszystkie zlecenia z Integry ({len(integra)}) są w CRM.{wtxt}")
                 self.ui(self.subject.set, "")
+                self.ui(self.recipient.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
             if res.get("no_overlap"):   # prawie nic się nie pokrywa – mail byłby fałszywym alarmem
@@ -376,6 +393,7 @@ class KontrolaMixin:
                            "E-mail nie został przygotowany." + wtxt)
                 self.ui(self.set_banner, "warn", txt)
                 self.ui(self.subject.set, "")
+                self.ui(self.recipient.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
             try:
@@ -385,6 +403,8 @@ class KontrolaMixin:
             subj, body = mailer.compose(missing, uncertain, reg)
 
             def fill():
+                self.recipient.set(", ".join(recipients_for(getattr(self, "last_branches", []))))
+                self.recipient_box.configure(values=self._known_recipients())
                 self.subject.set(subj)
                 self.mail_body.delete("1.0", "end")
                 self.mail_body.insert("1.0", body)
@@ -431,10 +451,14 @@ class KontrolaMixin:
                                 "gdy czegoś brakuje w CRM.")
             return
         cfg = load_config()
-        cfg["recipients"] = recipients_for(getattr(self, "last_branches", []), cfg)
+        cfg["recipients"], zle = parse_recipients(self.recipient.get())
         server = self.session is not None   # po zalogowaniu mail wysyła serwer (bez hasła Gmail na komputerze)
+        if zle:
+            messagebox.showwarning("Odbiorca", f"To nie wygląda na adres e-mail: {', '.join(zle)}\n"
+                                   "Popraw pole „Odbiorca”.")
+            return
         if server and not cfg["recipients"]:
-            messagebox.showwarning("Odbiorcy", "Brak odbiorców – administrator ustawia ich w Ustawieniach.")
+            messagebox.showwarning("Odbiorca", "Wpisz adres odbiorcy albo wybierz go z listy.")
             return
         if not server:
             messagebox.showwarning("Wyślij e-mail", "E-mail wysyła serwer firmy – zaloguj się ponownie.")

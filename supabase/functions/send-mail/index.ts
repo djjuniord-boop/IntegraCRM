@@ -1,5 +1,6 @@
 // IntegraCRM – wysyłka maila z brakami z serwera (Gmail SMTP, hasło aplikacji w sekretach funkcji).
-// Odbiorcy tylko z ustawień firmowych (app_config.crm) + nadawca jako kopia – funkcji nie da się użyć do spamu.
+// Odbiorcy z ustawień firmowych (app_config.crm) albo adresy w domenach firmowych + nadawca jako kopia –
+// funkcji nie da się użyć do spamu na dowolne adresy.
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 import nodemailer from "npm:nodemailer@6.9.15";
 
@@ -57,9 +58,17 @@ Deno.serve(async (req) => {
   const { data: cfgRows } = await sb.from("app_config").select("value").eq("key", "crm");
   const cfg = (cfgRows?.[0]?.value ?? {}) as { recipients?: string[]; by_branch?: Record<string, string[]>; sender_name?: string };
   const allowed = new Set<string>([...(cfg.recipients ?? []), ...Object.values(cfg.by_branch ?? {}).flat()].map((x) => x.toLowerCase()));
+  // domeny firmowe liczone wyłącznie z listy ustawionej przez administratora (nie z adresu pracownika)
+  const PUBLIC = new Set(["gmail.com", "googlemail.com", "wp.pl", "o2.pl", "onet.pl", "op.pl", "interia.pl",
+    "interia.eu", "poczta.fm", "tlen.pl", "outlook.com", "hotmail.com", "live.com", "yahoo.com", "icloud.com", "gazeta.pl"]);
+  const domains = new Set([...allowed].map((x) => x.split("@")[1] ?? "").filter((d) => d && !PUBLIC.has(d)));
   allowed.add(String(me?.email ?? "").toLowerCase());   // do siebie zawsze wolno (mail testowy z Ustawień)
-  const bad = to.filter((x) => !allowed.has(x));
-  if (bad.length) return json({ error: `Adres spoza listy odbiorców firmy: ${bad.join(", ")} – administrator ustawia ją w Ustawieniach.` }, 400);
+  // pracownik może wpisać innego odbiorcę – ale tylko w domenie firmowej (domeny adresów z ustawień,
+  // bez skrzynek publicznych), żeby serwera nie dało się użyć do wysyłki na dowolny adres
+  const okAddr = (x: string) => allowed.has(x) || (/^[^@\s,;<>]+@[^@\s,;<>]+$/.test(x) && domains.has(x.split("@")[1]));
+  if (to.length > 10) return json({ error: "Za dużo odbiorców (najwyżej 10)" }, 400);
+  const bad = to.filter((x) => !okAddr(x));
+  if (bad.length) return json({ error: `Adres spoza firmy: ${bad.join(", ")} – można wpisać adres w domenie firmowej (${[...domains].join(", ") || "brak"}) albo poprosić administratora o dodanie go w Ustawieniach.` }, 400);
 
   const userEmail = String(me?.email ?? "");
   const transport = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } });

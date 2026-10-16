@@ -216,3 +216,12 @@ def test_serwis_z_naglowka_rozstrzyga_o_zlym_oddziale():
         assert r3["no_overlap"] and not r3["branch_mismatch"]
     finally:
         analyze.extract.text_from_pdf = stary
+
+
+def test_pole_odbiorca_rozbior_adresow():
+    from kontrola.mailer import parse_recipients
+    ok, zle = parse_recipients("a@firma.pl, b@firma.pl; A@firma.pl  c@x.eu")
+    assert ok == ["a@firma.pl", "b@firma.pl", "c@x.eu"] and not zle
+    ok, zle = parse_recipients("jan.kowalski, d@firma.pl")
+    assert ok == ["d@firma.pl"] and zle == ["jan.kowalski"]
+    assert parse_recipients("") == ([], [])
