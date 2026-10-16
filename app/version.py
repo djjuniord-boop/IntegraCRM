@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.21.5"
+VERSION = "0.21.6"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.21.6",
+        "date": "2026-10-16",
+        "changes": [
+            "KONTROLA: kliknięty (skopiowany) numer zmienia kolor na zielony – widać, które numery są już sprawdzone",
+            "KONTROLA: przy wielu brakach lista numerów się przewija – wszystkie numery są dostępne",
+            "KONTROLA: pojedynczy brak nie wywołuje już ostrzeżenia o złym serwisie; program odczytuje serwis "
+            "z nagłówka raportu z Integry i podpowiada, który zaznaczyć",
+        ],
+    },
     {
         "version": "0.21.5",
         "date": "2026-10-15",

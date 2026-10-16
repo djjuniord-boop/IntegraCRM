@@ -180,3 +180,36 @@ def test_daily_stats_tylko_dni_z_raportu_crm():
     out = analyze.daily_stats(visits, rows, ("2026-10-01", "2026-10-14"))
     assert [d["day"] for d in out] == ["2026-10-10"] and out[0]["missing"] == 0
     assert analyze.daily_stats(visits, [], ("2026-10-01", "2026-10-14")) == []
+
+
+def test_serwis_z_naglowka_rozstrzyga_o_zlym_oddziale():
+    from kontrola import analyze
+    assert analyze.serwis_z_naglowka("LATEX SERWIS\nNIP 1 Serwis Wroclaw\n") == "Latex Wrocław"
+    assert analyze.serwis_z_naglowka("Serwis Opole") == "Latex Opole"
+    assert analyze.serwis_z_naglowka("Serwis Stangum Opole") == "Stangum Opole"
+    assert analyze.serwis_z_naglowka("bez nagłówka") is None
+    # słowa z sąsiednich linii nie tworzą nazwy serwisu; dwa różne serwisy – brak podpowiedzi
+    assert analyze.serwis_z_naglowka("LATEX SERWIS\nOpole, ul. Krakowska 1") is None
+    assert analyze.serwis_z_naglowka("Stangum\nSerwis Wroclaw") == "Latex Wrocław"
+    assert analyze.serwis_z_naglowka("Serwis Wroclaw\nOddzial: Serwis Opole") is None
+    stary = analyze.extract.text_from_pdf
+    analyze.extract.text_from_pdf = lambda *a, **k: (
+        "NIP 1 Serwis Wrocław\nZakres dat: od 2026-10-13 do 2026-10-13\n"
+        "13.10.2026 1/Z/SP1/26 (Zak.) DW12345 - VW\n")
+    try:
+        # jedyny numer z raportu brakuje w CRM – to brak, nie „zły serwis”; e-mail ma powstać
+        rows = [{"date": date(2026, 10, 13), "plate": "DW99999", "branch": "Latex Wrocław"}]
+        r = analyze.run("x.pdf", {"rows": rows, "branches": ["Latex Wrocław"]})
+        assert not r["no_overlap"] and r["missing"] == ["DW12345"], r
+        # raport z Wrocławia, a zaznaczone Opole – ostrzeżenie z nazwą właściwego serwisu
+        # raport z Wrocławia, a zaznaczone Opole i nic się nie zgadza (2 numery) – blokada z nazwą serwisu
+        analyze.extract.text_from_pdf = lambda *a, **k: (
+            "NIP 1 Serwis Wrocław\nZakres dat: od 2026-10-13 do 2026-10-13\n"
+            "13.10.2026 1/Z/SP1/26 (Zak.) DW12345 - VW\n13.10.2026 2/Z/SP1/26 (Zak.) DW55555 - VW\n")
+        r2 = analyze.run("x.pdf", {"rows": rows, "branches": ["Latex Opole"]})
+        assert r2["no_overlap"] and r2["branch_mismatch"] and "Latex Wrocław" in r2["warnings"][0]
+        # nagłówek pasuje, ale raport CRM za inny okres (0 wspólnych) – nadal blokada
+        r3 = analyze.run("x.pdf", {"rows": rows, "branches": ["Latex Wrocław"]})
+        assert r3["no_overlap"] and not r3["branch_mismatch"]
+    finally:
+        analyze.extract.text_from_pdf = stary
