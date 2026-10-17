@@ -89,3 +89,31 @@ def test_czuwanie_zamkniecie_po_8h_i_wersje():
     assert czuwanie._zajety(app)          # trwa MARŻA – nie zamykamy
     app.marza_busy = False
     assert not czuwanie._zajety(app)
+
+
+def test_aktualizacja_zapasowe_zrodlo_gdy_github_niedostepny():
+    import json as _j
+    import updater
+    stary = updater._read_bytes
+    proby = []
+
+    def czytaj(loc):
+        proby.append(loc)
+        if "github.com" in loc or "example.com" in loc:
+            raise OSError("zablokowane")
+        return _j.dumps({"version": "99.0.0", "package": "integra-99.0.0.zip"}).encode()
+    updater._read_bytes = czytaj
+    try:
+        m, nowsza = updater.check("https://github.com/x/y/releases/latest/download/version.json")
+        assert nowsza and m["_base"] == updater.MIRROR, m
+        m, _ = updater.check("https://github.com/x/y/releases/download/kanal-beta/version.json")
+        assert m["_base"].endswith("/aktualizacje/beta/version.json")
+        assert updater._resolve(m["_base"], "integra-99.0.0.zip").endswith("/aktualizacje/beta/integra-99.0.0.zip")
+        try:   # inne źródło (folder) – bez zastępstwa
+            updater.check("https://example.com/version.json")
+        except OSError:
+            pass
+        else:
+            raise AssertionError("brak błędu")
+    finally:
+        updater._read_bytes = stary

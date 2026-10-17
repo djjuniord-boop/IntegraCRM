@@ -18,6 +18,9 @@ import paths
 from version import VERSION
 
 TIMEOUT = 15
+# zapasowe źródło (funkcja „aktualizacje” w Supabase pośredniczy w plikach z GitHub Releases) – gdy sieć
+# komputera blokuje GitHuba; paczkę i tak sprawdza suma sha256 z version.json
+MIRROR = "https://nlrwulrtaocuemfmlfav.supabase.co/functions/v1/aktualizacje/latest/version.json"
 
 
 def _ver(v: str) -> tuple:
@@ -64,9 +67,17 @@ def _pinned() -> str:
 
 
 def check(source: str):
-    """Zwraca (manifest, czy_jest_nowsza_wersja). Rzuca wyjątek, gdy źródło niedostępne."""
+    """Zwraca (manifest, czy_jest_nowsza_wersja). Rzuca wyjątek, gdy źródło niedostępne.
+    Gdy GitHub jest nieosiągalny, próbuje zapasowego źródła (MIRROR)."""
     loc = _manifest_location(source)
-    m = json.loads(_read_bytes(loc).decode("utf-8-sig"))
+    try:
+        raw = _read_bytes(loc)
+    except OSError:
+        if "github.com/" not in loc:
+            raise
+        loc = MIRROR if "/latest/" in loc else MIRROR.replace("/latest/", "/beta/")
+        raw = _read_bytes(loc)
+    m = json.loads(raw.decode("utf-8-sig"))
     if "version" not in m or "package" not in m:
         raise RuntimeError("Nieprawidłowy plik version.json")
     m["_base"] = loc
