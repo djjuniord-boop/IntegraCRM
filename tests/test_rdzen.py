@@ -227,3 +227,13 @@ def test_sprawdzanie_sesji_wylogowuje_tylko_przy_false():
             assert len(o.konce) == ile, (wynik, o.konce)
     finally:
         czuwanie.threading.Thread = stary
+
+
+def test_pracuje_teraz():
+    from datetime import datetime, timezone
+    from uzytkownicy.zakladka import pracuje_teraz
+    t = datetime(2026, 10, 17, 8, 0, tzinfo=timezone.utc)
+    assert pracuje_teraz("2026-10-17T07:55:00+00:00", t)
+    assert not pracuje_teraz("2026-10-17T07:50:00+00:00", t)
+    assert not pracuje_teraz(None, t) and not pracuje_teraz("zle", t)
+    assert not pracuje_teraz("2026-10-17T09:00:00+00:00", t)   # czas z przyszłości – nie zgadujemy

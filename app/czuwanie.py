@@ -1,6 +1,6 @@
 """Czuwanie nad długo otwartym programem (wywołuje rdzeń okna, gui.py):
 
-1. ostatnia aktywność – co 30 min zapis w bazie (app_ping), widoczny w zakładce UŻYTKOWNICY,
+1. ostatnia aktywność – co 5 min zapis w bazie (app_ping), widoczny w zakładce UŻYTKOWNICY („pracuje teraz”),
 2. nowa wersja w trakcie pracy – co 30 min sprawdzenie; propozycja ponownego uruchomienia
    (wersja poniżej minimalnej z bazy: ponowne uruchomienie obowiązkowe),
 3. zamknięcie po 8 godzinach – 10 minut wcześniej okno z odliczaniem i możliwością odłożenia.
@@ -19,6 +19,7 @@ from version import VERSION
 LIMIT_GODZ = 8            # po tylu godzinach od uruchomienia program się zamyka
 OSTRZEZENIE_MIN = 10      # tyle minut wcześniej pojawia się odliczanie
 ODLOZ_MIN = 60            # „Pracuję dalej” odsuwa zamknięcie o tyle minut
+PING_MIN = 5              # co tyle minut zapis „program otwarty” (zielony wiersz w UŻYTKOWNICY)
 SESJA_CO_S = 20           # co tyle sekund: czy administrator nie wylogował konta
 PRZERWA_OFERTY_MIN = 120  # po „Później” nowa wersja przypomina się po tym czasie
 WYMUSZ_PO_MIN = 15        # wersja poniżej minimalnej – samoczynne uruchomienie ponownie po tym czasie
@@ -27,15 +28,22 @@ WYMUSZ_PO_MIN = 15        # wersja poniżej minimalnej – samoczynne uruchomien
 def start(app):
     """Uruchamia czuwanie (po zbudowaniu okna, z działającą pętlą Tk)."""
     app._czuw = {"start": time.monotonic(), "zamkniecie": LIMIT_GODZ * 3600.0, "oferta_po": 0.0, "okno": None}
-    ping(app)
+    _ping_petla(app)
     _plan_zamkniecia(app)
     app.after(SESJA_CO_S * 1000, sprawdz_sesje, app)
 
 
 def co_30_min(app):
-    """Wołane z _keep_session: aktywność i sprawdzenie wersji."""
-    ping(app)
+    """Wołane z _keep_session: sprawdzenie wersji (aktywność – osobno, co PING_MIN minut)."""
     sprawdz_wersje(app)
+
+
+def _ping_petla(app):
+    ping(app)
+    try:
+        app.after(PING_MIN * 60 * 1000, _ping_petla, app)
+    except Exception:   # okno zamknięte
+        pass
 
 
 # ---------- 1. aktywność ----------
