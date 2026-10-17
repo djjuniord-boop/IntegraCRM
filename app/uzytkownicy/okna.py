@@ -57,6 +57,7 @@ class UserDialog(tk.Toplevel):
         FlatButton(bar, "Anuluj", self.destroy, "ghost", f.body, 14, 8).pack(side="right", padx=8)
         if u and u.get("email", "").lower() != app.session.email.lower():
             FlatButton(bar, "Usuń konto", self.delete, "dark", f.body, 14, 8).pack(side="left")
+            FlatButton(bar, "Wyloguj", self.logout, "ghost", f.body, 14, 8).pack(side="left", padx=8)
         self.grab_set()
 
     def _run(self, fn, done_text):
@@ -99,6 +100,14 @@ class UserDialog(tk.Toplevel):
                 if pw:
                     s.admin_fn(action="set_password", email=email, password=pw)
         self._run(fn, f"Zapisano: {email}" + (" – przekaż użytkownikowi hasło." if pw else ""))
+
+    def logout(self):
+        email = self.user["email"]
+        if not messagebox.askyesno("Wyloguj", f"Wylogować {email}?\nOtwarty program tej osoby zamknie się w ciągu "
+                                   "kilkunastu sekund i przy uruchomieniu poprosi o hasło. "
+                                   "Konto i uprawnienia zostają bez zmian.", parent=self):
+            return
+        self._run(lambda: self.app.session.logout_user(email), f"Wylogowano: {email}")
 
     def delete(self):
         email = self.user["email"]

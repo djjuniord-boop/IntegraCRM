@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.error
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -18,6 +19,9 @@ import paths
 from version import VERSION
 
 TIMEOUT = 15
+# zapasowe źródło (funkcja „aktualizacja” w Supabase pośredniczy w plikach z GitHub Releases) – gdy sieć
+# komputera blokuje GitHuba; paczkę i tak sprawdza suma sha256 z version.json
+MIRROR = "https://nlrwulrtaocuemfmlfav.supabase.co/functions/v1/aktualizacja/latest/version.json"
 
 
 def _ver(v: str) -> tuple:
@@ -63,10 +67,24 @@ def _pinned() -> str:
         return ""
 
 
+def _mirror_for(loc: str) -> str:
+    return MIRROR if "/latest/" in loc else MIRROR.replace("/latest/", "/beta/")
+
+
 def check(source: str):
-    """Zwraca (manifest, czy_jest_nowsza_wersja). Rzuca wyjątek, gdy źródło niedostępne."""
+    """Zwraca (manifest, czy_jest_nowsza_wersja). Rzuca wyjątek, gdy źródło niedostępne.
+    Gdy GitHub jest nieosiągalny, próbuje zapasowego źródła (MIRROR)."""
     loc = _manifest_location(source)
-    m = json.loads(_read_bytes(loc).decode("utf-8-sig"))
+    try:
+        raw = _read_bytes(loc)
+    except urllib.error.HTTPError:   # GitHub odpowiada (np. 404 w trakcie publikacji) – to nie blokada sieci
+        raise
+    except OSError:
+        if "github.com/" not in loc:
+            raise
+        loc = _mirror_for(loc)
+        raw = _read_bytes(loc)
+    m = json.loads(raw.decode("utf-8-sig"))
     if "version" not in m or "package" not in m:
         raise RuntimeError("Nieprawidłowy plik version.json")
     m["_base"] = loc
@@ -122,7 +140,14 @@ def _install(new_app: Path) -> None:
 
 def apply(m: dict) -> None:
     """Pobiera paczkę, sprawdza ją i podmienia kod. Po błędzie przywraca poprzedni stan."""
-    data = _read_bytes(_resolve(m["_base"], m["package"]))
+    try:
+        data = _read_bytes(_resolve(m["_base"], m["package"]))
+    except urllib.error.HTTPError:
+        raise
+    except OSError:   # opis z GitHuba przeszedł, ale paczka (serwer plików GitHuba) jest zablokowana
+        if "github.com/" not in m["_base"]:
+            raise
+        data = _read_bytes(_resolve(_mirror_for(m["_base"]), m["package"]))
     want = (m.get("sha256") or "").lower()
     if want and hashlib.sha256(data).hexdigest() != want:
         raise RuntimeError("Suma kontrolna paczki się nie zgadza – plik pobrał się uszkodzony.")

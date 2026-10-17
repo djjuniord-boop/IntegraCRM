@@ -24,8 +24,21 @@ import threading as _th
 _refresh_lock = _th.Lock()
 
 
+def _czas_iso(t) -> float:
+    """Znacznik czasu z bazy (ISO 8601) jako liczba do porównań; brak albo błąd = 0."""
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(t).replace("Z", "+00:00")).timestamp() if t else 0.0
+    except ValueError:
+        return 0.0
+
+
 class CloudError(Exception):
     pass
+
+
+class SessionEnded(CloudError):
+    """Serwer nie przyjął tokenu odświeżania – sesję zakończono (np. administrator wylogował konto)."""
 
 
 def _http(method, path, body=None, token=None, prefer="return=representation"):
@@ -44,6 +57,8 @@ def _http(method, path, body=None, token=None, prefer="return=representation"):
             msg = f"HTTP {e.code}"
         if "Invalid login credentials" in str(msg):
             msg = "Nieprawidłowy e-mail lub hasło."
+        if e.code in (400, 401) and "grant_type=refresh_token" in path:
+            raise SessionEnded("Sesja wygasła – zaloguj się ponownie.") from None
         raise CloudError(msg) from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise CloudError("Brak połączenia z serwerem. Program wymaga internetu – sprawdź połączenie.") from None
@@ -190,11 +205,19 @@ class Session:
             a = act.get((u.get("email") or "").lower()) or {}
             u["last_active"] = a.get("last_active")
             u["active_version"] = a.get("app_version")
+            # logowanie późniejsze niż ostatni zapis aktywności (np. starsza wersja programu na innym
+            # komputerze, która aktywności nie zapisuje) – pokazujemy stan z logowania
+            if _czas_iso(u.get("last_seen")) > _czas_iso(u["last_active"]):
+                u["last_active"], u["active_version"] = u.get("last_seen"), u.get("app_version") or a.get("app_version")
         return users
 
     def set_user(self, email, name, role, modules, branches, active):
         self.rpc("admin_set_user", p_email=email, p_name=name, p_role=role,
                  p_modules=modules, p_branches=branches, p_active=active)
+
+    def logout_user(self, email) -> int:
+        """Administrator: usuwa sesje konta – użytkownik musi zalogować się ponownie."""
+        return int(self.rpc("admin_logout_user", p_email=email) or 0)
 
     def admin_fn(self, **body):
         r = self.call("POST", "/functions/v1/admin-users", body)

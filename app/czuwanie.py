@@ -19,6 +19,7 @@ from version import VERSION
 LIMIT_GODZ = 8            # po tylu godzinach od uruchomienia program się zamyka
 OSTRZEZENIE_MIN = 10      # tyle minut wcześniej pojawia się odliczanie
 ODLOZ_MIN = 60            # „Pracuję dalej” odsuwa zamknięcie o tyle minut
+SESJA_CO_S = 20           # co tyle sekund: czy administrator nie wylogował konta
 PRZERWA_OFERTY_MIN = 120  # po „Później” nowa wersja przypomina się po tym czasie
 WYMUSZ_PO_MIN = 15        # wersja poniżej minimalnej – samoczynne uruchomienie ponownie po tym czasie
 
@@ -28,6 +29,7 @@ def start(app):
     app._czuw = {"start": time.monotonic(), "zamkniecie": LIMIT_GODZ * 3600.0, "oferta_po": 0.0, "okno": None}
     ping(app)
     _plan_zamkniecia(app)
+    app.after(SESJA_CO_S * 1000, sprawdz_sesje, app)
 
 
 def co_30_min(app):
@@ -46,6 +48,27 @@ def ping(app):
         try:
             sess.rpc("app_ping", p_version=VERSION)
         except Exception:   # starsza baza bez funkcji albo brak sieci – bez znaczenia dla pracy
+            pass
+    threading.Thread(target=work, daemon=True).start()
+
+
+# ---------- 1a. wylogowanie przez administratora ----------
+def sprawdz_sesje(app):
+    """Co 20 s pyta bazę, czy sesja istnieje; usunięta (admin kliknął „Wyloguj”) → program się zamyka."""
+    sess = getattr(app, "session", None)
+    if sess is None or getattr(app, "_ended", False):
+        return
+
+    def work():
+        try:
+            ok = sess.rpc("session_ok")
+        except Exception:   # brak sieci albo starsza baza bez funkcji – nic nie robimy
+            ok = None
+        try:
+            if ok is False:
+                app.after(0, app._session_ended)
+            app.after(SESJA_CO_S * 1000, sprawdz_sesje, app)
+        except RuntimeError:   # okno zamknięte
             pass
     threading.Thread(target=work, daemon=True).start()
 
