@@ -103,8 +103,8 @@ class UserDialog(tk.Toplevel):
 
     def logout(self):
         email = self.user["email"]
-        if not messagebox.askyesno("Wyloguj", f"Wylogować {email}?\nProgram tej osoby poprosi o hasło przy "
-                                   "najbliższym uruchomieniu (otwarty program – najpóźniej po 30 minutach). "
+        if not messagebox.askyesno("Wyloguj", f"Wylogować {email}?\nOtwarty program tej osoby zamknie się w ciągu "
+                                   "kilkunastu sekund i przy uruchomieniu poprosi o hasło. "
                                    "Konto i uprawnienia zostają bez zmian.", parent=self):
             return
         self._run(lambda: self.app.session.logout_user(email), f"Wylogowano: {email}")

@@ -371,12 +371,12 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
     def _session_ended(self):
         if getattr(self, "_ended", False):
             return
-        if czuwanie._zajety(self):   # nie przerywamy wysyłki e-maila, MARŻY ani aktualizacji
-            self.after(60 * 1000, self._session_ended)
+        if czuwanie._zajety(self):   # nie przerywamy wysyłki e-maila, MARŻY ani aktualizacji (kilka sekund)
+            self.after(5 * 1000, self._session_ended)
             return
         self._ended = True
         cloud.forget()
-        messagebox.showinfo("Wylogowano", "Zostałeś wylogowany przez administratora albo sesja wygasła.\n"
+        messagebox.showinfo("Wylogowano", "Administrator wylogował Twoje konto albo sesja wygasła.\n"
                             "Program zostanie zamknięty – uruchom go ponownie i zaloguj się.")
         self._on_close()
 

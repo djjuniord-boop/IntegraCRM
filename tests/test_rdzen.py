@@ -82,7 +82,8 @@ def test_czuwanie_zamkniecie_po_8h_i_wersje():
 
     app = FakeApp()
     czuwanie.start(app)
-    ms, nazwa = app.zaplanowane[-1]
+    ms, nazwa = [z for z in app.zaplanowane if z[1] == "_ostrzez"][0]
+    assert ("sprawdz_sesje" in [z[1] for z in app.zaplanowane])   # co 20 s: czy admin nie wylogował
     assert nazwa == "_ostrzez" and abs(ms - (8 * 3600 - 10 * 60) * 1000) < 5000   # ostrzeżenie 10 min przed 8 h
     assert czuwanie._za_stara("99.0.0") and not czuwanie._za_stara("") and not czuwanie._za_stara("0.1.0")
     app.marza_busy = True
@@ -189,3 +190,40 @@ def test_wylogowanie_przez_administratora_konczy_sesje():
             pass
     finally:
         cloud.urllib.request.urlopen = stary
+
+
+def test_sprawdzanie_sesji_wylogowuje_tylko_przy_false():
+    import czuwanie
+
+    class Okno:
+        def __init__(self, wynik):
+            self.wynik, self.konce = wynik, []
+            self.session = self
+
+        def rpc(self, fn, **a):
+            if isinstance(self.wynik, Exception):
+                raise self.wynik
+            return self.wynik
+
+        def _session_ended(self):
+            self.konce.append(1)
+
+        def after(self, ms, fn, *a):
+            if fn == self._session_ended:
+                fn()
+    stary = czuwanie.threading.Thread
+
+    class Od:   # wątek wykonany od razu
+        def __init__(self, target, daemon):
+            self.t = target
+
+        def start(self):
+            self.t()
+    czuwanie.threading.Thread = Od
+    try:
+        for wynik, ile in ((False, 1), (True, 0), (None, 0), (RuntimeError("sieć"), 0)):
+            o = Okno(wynik)
+            czuwanie.sprawdz_sesje(o)
+            assert len(o.konce) == ile, (wynik, o.konce)
+    finally:
+        czuwanie.threading.Thread = stary

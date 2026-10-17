@@ -1,6 +1,6 @@
 -- Etap: ręczne wylogowanie użytkownika przez administratora (2026-10-17)
 -- Usuwa sesje (i tokeny odświeżania) wskazanego konta w Supabase Auth – program przy najbliższym
--- odświeżeniu logowania (najpóźniej po 30 min, a przy starcie od razu) prosi o hasło. Konto zostaje.
+-- sprawdzeniu sesji (co 20 s, funkcja session_ok niżej) zamyka się i prosi o hasło. Konto zostaje.
 -- Do wklejenia w SQL Editor (zawiera DELETE na sesjach).
 create or replace function public.admin_logout_user(p_email text)
 returns integer language plpgsql security definer set search_path to '' as $$
@@ -19,3 +19,13 @@ begin
 end $$;
 revoke all on function public.admin_logout_user(text) from public, anon;
 grant execute on function public.admin_logout_user(text) to authenticated;
+
+-- Czy sesja, z której pochodzi token, nadal istnieje (program sprawdza co 20 sekund – wylogowanie działa od razu).
+create or replace function public.session_ok()
+returns boolean language sql stable security definer set search_path to '' as $$
+  -- brak identyfikatora sesji w tokenie → null (program wtedy nikogo nie wylogowuje)
+  select case when coalesce(auth.jwt() ->> 'session_id', '') = '' then null
+              else exists (select 1 from auth.sessions s where s.id = (auth.jwt() ->> 'session_id')::uuid) end;
+$$;
+revoke all on function public.session_ok() from public, anon;
+grant execute on function public.session_ok() to authenticated;
