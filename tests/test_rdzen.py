@@ -107,13 +107,59 @@ def test_aktualizacja_zapasowe_zrodlo_gdy_github_niedostepny():
         m, nowsza = updater.check("https://github.com/x/y/releases/latest/download/version.json")
         assert nowsza and m["_base"] == updater.MIRROR, m
         m, _ = updater.check("https://github.com/x/y/releases/download/kanal-beta/version.json")
-        assert m["_base"].endswith("/aktualizacje/beta/version.json")
-        assert updater._resolve(m["_base"], "integra-99.0.0.zip").endswith("/aktualizacje/beta/integra-99.0.0.zip")
+        assert m["_base"].endswith("/aktualizacja/beta/version.json")
+        assert updater._resolve(m["_base"], "integra-99.0.0.zip").endswith("/aktualizacja/beta/integra-99.0.0.zip")
         try:   # inne źródło (folder) – bez zastępstwa
             updater.check("https://example.com/version.json")
         except OSError:
             pass
         else:
             raise AssertionError("brak błędu")
+    finally:
+        updater._read_bytes = stary
+
+
+def test_uzytkownicy_logowanie_nowsze_niz_aktywnosc():
+    import cloud
+
+    class S(cloud.Session if hasattr(cloud, "Session") else object):
+        def __init__(self):
+            pass
+
+        def call(self, method, path, *a, **k):
+            if "app_users" in path:
+                return [{"email": "p@x.pl", "last_seen": "2026-10-17T05:24:34.1+00:00", "app_version": "0.21.2"}]
+            return [{"email": "p@x.pl", "last_active": "2026-10-16T15:49:40+00:00", "app_version": "0.21.7"}]
+    u = cloud.Session.list_users(S())[0]
+    assert u["active_version"] == "0.21.2" and u["last_active"].startswith("2026-10-17"), u
+
+
+def test_aktualizacja_paczka_z_lustra_i_404_bez_lustra():
+    import urllib.error
+    import updater
+    stary = updater._read_bytes
+    pobrane = []
+
+    def czytaj(loc):
+        pobrane.append(loc)
+        if "github.com" in loc and loc.endswith(".zip"):
+            raise OSError("serwer plików zablokowany")
+        raise RuntimeError("stop po pobraniu")   # dalsza instalacja nie jest tu testowana
+    updater._read_bytes = czytaj
+    try:
+        try:
+            updater.apply({"_base": "https://github.com/x/y/releases/latest/download/version.json",
+                           "package": "integra-1.0.0.zip", "version": "1.0.0"})
+        except RuntimeError:
+            pass
+        assert pobrane[-1].endswith("/aktualizacja/latest/integra-1.0.0.zip"), pobrane
+
+        def http404(loc):
+            raise urllib.error.HTTPError(loc, 404, "brak", None, None)
+        updater._read_bytes = http404
+        try:
+            updater.check("https://github.com/x/y/releases/latest/download/version.json")
+        except urllib.error.HTTPError as e:
+            assert e.code == 404
     finally:
         updater._read_bytes = stary

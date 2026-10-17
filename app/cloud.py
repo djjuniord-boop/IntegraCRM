@@ -24,6 +24,15 @@ import threading as _th
 _refresh_lock = _th.Lock()
 
 
+def _czas_iso(t) -> float:
+    """Znacznik czasu z bazy (ISO 8601) jako liczba do porównań; brak albo błąd = 0."""
+    from datetime import datetime
+    try:
+        return datetime.fromisoformat(str(t).replace("Z", "+00:00")).timestamp() if t else 0.0
+    except ValueError:
+        return 0.0
+
+
 class CloudError(Exception):
     pass
 
@@ -190,6 +199,10 @@ class Session:
             a = act.get((u.get("email") or "").lower()) or {}
             u["last_active"] = a.get("last_active")
             u["active_version"] = a.get("app_version")
+            # logowanie późniejsze niż ostatni zapis aktywności (np. starsza wersja programu na innym
+            # komputerze, która aktywności nie zapisuje) – pokazujemy stan z logowania
+            if _czas_iso(u.get("last_seen")) > _czas_iso(u["last_active"]):
+                u["last_active"], u["active_version"] = u.get("last_seen"), u.get("app_version") or a.get("app_version")
         return users
 
     def set_user(self, email, name, role, modules, branches, active):

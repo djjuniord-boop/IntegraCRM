@@ -6,7 +6,7 @@ const FILE = /^(version\.json|integra-\d+\.\d+\.\d+\.zip)$/;
 
 Deno.serve(async (req) => {
   if (req.method !== "GET") return new Response("Tylko GET", { status: 405 });
-  // …/aktualizacje/<kanal>/<plik>, kanal: latest (oficjalny) albo beta
+  // …/aktualizacja/<kanal>/<plik>, kanal: latest (oficjalny) albo beta
   const parts = new URL(req.url).pathname.split("/").filter(Boolean);
   const [kanal, plik] = parts.slice(-2);
   if (!FILE.test(plik ?? "") || !["latest", "beta"].includes(kanal ?? "")) return new Response("Nie znaleziono", { status: 404 });
