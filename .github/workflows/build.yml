@@ -240,6 +240,31 @@ jobs:
             gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target main --latest --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
 
+      - name: Minimalna wersja = wydana (tylko main)
+        # decyzja właściciela (2026-10-17): każde wydanie oficjalne od razu staje się wersją minimalną.
+        # Najpierw sprawdzamy, że nowa wersja jest do pobrania (GitHub i zapasowe źródło), dopiero potem podnosimy.
+        if: github.ref_name == 'main'
+        shell: pwsh
+        env:
+          SB_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          $v = "$env:VERSION"
+          if (-not $env:SB_KEY) { Write-Host "::warning::Brak sekretu SUPABASE_SERVICE_ROLE_KEY – minimalnej wersji nie zmieniono"; exit 0 }
+          $sb = "https://nlrwulrtaocuemfmlfav.supabase.co"
+          foreach ($u in @("https://github.com/$env:GITHUB_REPOSITORY/releases/latest/download/version.json", "$sb/functions/v1/aktualizacja/latest/version.json")) {
+            $ok = $false
+            foreach ($i in 1..10) {
+              try { if ((Invoke-RestMethod $u -Headers @{ "Cache-Control" = "no-cache" }).version -eq $v) { $ok = $true; break } } catch {}
+              Start-Sleep 15
+            }
+            if (-not $ok) { throw "Wersja $v nie jest jeszcze do pobrania z $u – minimalnej wersji nie zmieniono" }
+          }
+          $h = @{ apikey = $env:SB_KEY; Authorization = "Bearer $env:SB_KEY"; "Content-Type" = "application/json" }
+          $cur = (Invoke-RestMethod "$sb/rest/v1/app_config?key=eq.min_version&select=value" -Headers $h)[0].value
+          if ($cur -and ([version]$cur -ge [version]$v)) { Write-Host "Minimalna wersja już $cur – bez zmian"; exit 0 }
+          Invoke-RestMethod -Method Patch "$sb/rest/v1/app_config?key=eq.min_version" -Headers $h -Body (ConvertTo-Json @{ value = $v }) | Out-Null
+          Write-Host "Minimalna wersja: $cur -> $v"
+
       - name: Porządki w wydaniach (stare paczki)
         shell: pwsh
         env:
