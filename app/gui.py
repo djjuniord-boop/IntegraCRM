@@ -368,6 +368,18 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             pass
         self._on_close() if hasattr(self, "_on_close") else self.destroy()
 
+    def _session_ended(self):
+        if getattr(self, "_ended", False):
+            return
+        if czuwanie._zajety(self):   # nie przerywamy wysyłki e-maila, MARŻY ani aktualizacji
+            self.after(60 * 1000, self._session_ended)
+            return
+        self._ended = True
+        cloud.forget()
+        messagebox.showinfo("Wylogowano", "Zostałeś wylogowany przez administratora albo sesja wygasła.\n"
+                            "Program zostanie zamknięty – uruchom go ponownie i zaloguj się.")
+        self._on_close()
+
     def _on_close(self):
         self.serwis_stop()
         try:
@@ -387,6 +399,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 from serwis import serwis_qr
                 if serwis_qr.TOKEN_FILE.exists():
                     serwis_qr.write_token(self.session.access)
+            except cloud.SessionEnded:   # administrator wylogował konto (albo sesję usunięto na serwerze)
+                self.after(0, self._session_ended)
             except Exception:
                 pass
         threading.Thread(target=work, daemon=True).start()

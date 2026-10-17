@@ -37,6 +37,10 @@ class CloudError(Exception):
     pass
 
 
+class SessionEnded(CloudError):
+    """Serwer nie przyjął tokenu odświeżania – sesję zakończono (np. administrator wylogował konto)."""
+
+
 def _http(method, path, body=None, token=None, prefer="return=representation"):
     req = urllib.request.Request(URL + path, method=method,
                                  data=json.dumps(body).encode("utf-8") if body is not None else None,
@@ -53,6 +57,8 @@ def _http(method, path, body=None, token=None, prefer="return=representation"):
             msg = f"HTTP {e.code}"
         if "Invalid login credentials" in str(msg):
             msg = "Nieprawidłowy e-mail lub hasło."
+        if e.code in (400, 401) and "grant_type=refresh_token" in path:
+            raise SessionEnded("Sesja wygasła – zaloguj się ponownie.") from None
         raise CloudError(msg) from None
     except (urllib.error.URLError, TimeoutError, OSError):
         raise CloudError("Brak połączenia z serwerem. Program wymaga internetu – sprawdź połączenie.") from None
@@ -208,6 +214,10 @@ class Session:
     def set_user(self, email, name, role, modules, branches, active):
         self.rpc("admin_set_user", p_email=email, p_name=name, p_role=role,
                  p_modules=modules, p_branches=branches, p_active=active)
+
+    def logout_user(self, email) -> int:
+        """Administrator: usuwa sesje konta – użytkownik musi zalogować się ponownie."""
+        return int(self.rpc("admin_logout_user", p_email=email) or 0)
 
     def admin_fn(self, **body):
         r = self.call("POST", "/functions/v1/admin-users", body)

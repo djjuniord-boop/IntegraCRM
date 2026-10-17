@@ -163,3 +163,29 @@ def test_aktualizacja_paczka_z_lustra_i_404_bez_lustra():
             assert e.code == 404
     finally:
         updater._read_bytes = stary
+
+
+def test_wylogowanie_przez_administratora_konczy_sesje():
+    import io
+    import urllib.error
+    import cloud
+    stary = cloud.urllib.request.urlopen
+
+    def odrzuc(req, timeout=None):
+        raise urllib.error.HTTPError(req.full_url, 400, "bad", None, io.BytesIO(b'{"error_description":"Invalid Refresh Token"}'))
+    cloud.urllib.request.urlopen = odrzuc
+    try:
+        try:
+            cloud._http("POST", "/auth/v1/token?grant_type=refresh_token", {"refresh_token": "x"})
+        except cloud.SessionEnded:
+            pass
+        else:
+            raise AssertionError("brak SessionEnded")
+        try:   # złe hasło przy logowaniu to zwykły błąd, nie „wylogowano”
+            cloud._http("POST", "/auth/v1/token?grant_type=password", {})
+        except cloud.SessionEnded:
+            raise AssertionError("złe hasło nie może kończyć sesji")
+        except cloud.CloudError:
+            pass
+    finally:
+        cloud.urllib.request.urlopen = stary
