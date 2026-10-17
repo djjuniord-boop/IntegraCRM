@@ -399,8 +399,12 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 from serwis import serwis_qr
                 if serwis_qr.TOKEN_FILE.exists():
                     serwis_qr.write_token(self.session.access)
-            except cloud.SessionEnded:   # administrator wylogował konto (albo sesję usunięto na serwerze)
-                self.after(0, self._session_ended)
+            except cloud.SessionEnded:   # odrzucony token – zamykamy tylko, gdy baza potwierdzi brak sesji
+                try:
+                    if self.session.rpc("session_ok") is False:
+                        self.after(0, self._session_ended)
+                except Exception:
+                    pass
             except Exception:
                 pass
         threading.Thread(target=work, daemon=True).start()

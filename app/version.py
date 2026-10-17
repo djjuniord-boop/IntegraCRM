@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.21.8"
+VERSION = "0.21.9"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.21.9",
+        "date": "2026-10-17",
+        "changes": [
+            "UŻYTKOWNICY: administrator może wylogować wybraną osobę (przycisk „Wyloguj” w oknie użytkownika) – "
+            "jej otwarty program zamyka się w ciągu kilkunastu sekund i przy uruchomieniu prosi o hasło",
+        ],
+    },
     {
         "version": "0.21.8",
         "date": "2026-10-17",
