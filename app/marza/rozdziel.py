@@ -27,7 +27,6 @@ import os
 import sys
 import shutil
 import datetime
-import subprocess
 
 sys.dont_write_bytecode = True
 
@@ -366,21 +365,23 @@ def uruchom_silnik(nazwa, folder, run_engine, info=None):
                       f"z folderu „{os.path.basename(folder)}” – usuń go ręcznie.")
             continue
         powod = [l for l in linie if nazwa_pdf in l and "->" not in l]
-        if not powod and (T_BLAD in tekst or proc.returncode != 0):
-            # przyczyna przejściowa (kalkulator otwarty w Excelu, brak pliku, nieoczekiwany błąd) – raport nie jest
+        if not powod and T_BLAD in tekst:
+            # przyczyna przejściowa zgłoszona przez silnik (kalkulator otwarty w Excelu, brak pliku) – raport nie jest
             # winny: wraca do KOLEJKI, żeby „AKTUALIZUJ WSZYSTKO jeszcze raz” go zapisało
             try:
                 os.makedirs(WRZUC_DIR, exist_ok=True)
                 shutil.move(sciezka, _wolna_sciezka(WRZUC_DIR, nazwa_pdf))
                 wynik["w_kolejce"].append(nazwa_pdf)
                 uwaga(f"Raport {nazwa_pdf} NIE został zapisany i wrócił do kolejki – usuń przyczynę "
-                      "i kliknij AKTUALIZUJ WSZYSTKO jeszcze raz.")
+                      "i kliknij AKTUALIZUJ WSZYSTKO jeszcze raz. Jeśli się powtarza – zgłoś administratorowi.")
                 continue
             except OSError:
                 pass
         if not powod and proc.returncode != 0:
+            # nieoczekiwany błąd silnika powtórzyłby się przy każdej próbie – raport do _ODRZUCONE z treścią błędu
             powod = [l for l in linie if l.startswith("NIEOCZEKIWANY BŁĄD:")] or \
                     ["silnik zakończył się błędem"]
+            powod.append("jeśli raport jest poprawny, zgłoś to administratorowi")
         if not powod:
             powod = ["silnik nie przetworzył tego pliku"]
         wynik["odrzucone_powody"][nazwa_pdf] = powod[0].strip().replace(nazwa_pdf, "", 1).strip(" :—-") or powod[0].strip()

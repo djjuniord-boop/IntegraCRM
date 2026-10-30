@@ -462,3 +462,19 @@ def test_kalkulator_otwarty_raport_wraca_do_kolejki():
     assert not os.path.isdir(os.path.join(root, runner.WRZUC, "_ODRZUCONE"))
     assert w["status"] == "BŁĄD" and w["w_kolejce"] == ["wro.pdf"] and not w["odrzucone"]
     assert w["kroki"]["kalkulator"] is False
+
+
+def test_nieoczekiwany_blad_silnika_raport_do_odrzuconych():
+    """Błąd silnika bez komunikatu „BŁĄD:” powtórzyłby się – raport nie wraca do kolejki w kółko."""
+    import os
+    import tempfile
+    from marza import rozdziel as roz
+    root = tempfile.mkdtemp()
+    roz.configure(root)
+    folder = os.path.join(root, "Wroclaw")
+    os.makedirs(os.path.join(folder, "silnik"), exist_ok=True)
+    with open(os.path.join(folder, "r.pdf"), "wb") as f:
+        f.write(b"%PDF-1.4")
+    w = roz.uruchom_silnik("WROCŁAW", folder, lambda: 1)
+    assert "r.pdf" in w["odrzucone"] and not w["w_kolejce"], w
+    assert not os.path.exists(os.path.join(roz.WRZUC_DIR, "r.pdf"))
