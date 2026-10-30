@@ -65,8 +65,20 @@ class MarzaMixin:
         self.btn_marza_log = FlatButton(dbar, "Szczegóły przebiegu (pełny dziennik)…", self.marza_show_log, "ghost",
                                         f.small, 10, 4)
         self.btn_marza_log.pack(side="left")
-        self.marza_result = tk.Frame(page, bg=BG)
-        self.marza_result.pack(fill="x", pady=(8, 0))
+        # karty w przewijanym obszarze (Canvas + pasek + kółko myszy) – przy małym ekranie wszystko dostępne
+        scr = tk.Frame(page, bg=BG)
+        scr.pack(fill="both", expand=True, pady=(8, 0))
+        self.marza_canvas = tk.Canvas(scr, bg=BG, highlightthickness=0, bd=0)
+        self.marza_vsb = ttk.Scrollbar(scr, orient="vertical", command=self.marza_canvas.yview)
+        self.marza_canvas.configure(yscrollcommand=self.marza_vsb.set)
+        self.marza_vsb.pack(side="right", fill="y")
+        self.marza_canvas.pack(side="left", fill="both", expand=True)
+        self.marza_result = tk.Frame(self.marza_canvas, bg=BG)
+        win = self.marza_canvas.create_window(0, 0, window=self.marza_result, anchor="nw")
+        self.marza_result.bind("<Configure>", lambda e: self.marza_canvas.configure(
+            scrollregion=self.marza_canvas.bbox("all")))
+        self.marza_canvas.bind("<Configure>", lambda e: self.marza_canvas.itemconfigure(win, width=e.width))
+        self._marza_bind_wheel(self.marza_canvas)
         # pełny dziennik przebiegu – zbierany tutaj (bez pokazywania), oglądany w oknie „Szczegóły przebiegu”
         self.marza_log = tk.Text(page, font=f.mono, wrap="word", height=1)
         self.marza_log_win = None
@@ -153,7 +165,8 @@ class MarzaMixin:
             return
         def ask_replace(branch, old):
             return messagebox.askyesno("MARŻA", f"W kolejce jest już raport dla oddziału "
-                                       f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?")
+                                       f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?\n\nStary raport zostanie "
+                                       "usunięty z komputera.")
         added, rejected, notes = runner.add_reports(root, files, ask_replace)
         self.marza_refresh_pending_only()
         if rejected:
@@ -393,6 +406,7 @@ class MarzaMixin:
             for t in infos:
                 tk.Label(c, text="ℹ " + t, bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
                          wraplength=420).pack(fill="x", pady=(4, 0))
+        self.after_idle(lambda: (self._marza_bind_wheel(self.marza_result), self.marza_canvas.yview_moveto(0)))
         bad = res.get("rejected_input") or []
         if bad:
             c = card(box, padx=14, pady=8)
@@ -403,6 +417,26 @@ class MarzaMixin:
                 tk.Label(c, text=f"• {n}: {why}. Leży w „_ODRZUCONE” – dodaj właściwy raport sprzedaży z Integry.",
                          bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left", wraplength=880
                          ).pack(fill="x")
+
+    def _marza_wheel(self, e):
+        c = self.marza_canvas
+        if c.yview() == (0.0, 1.0):
+            return "break"
+        if getattr(e, "num", None) == 4:
+            step = -3
+        elif getattr(e, "num", None) == 5:
+            step = 3
+        else:
+            step = -1 * (e.delta // 120 if abs(e.delta) >= 120 else (1 if e.delta > 0 else -1)) * 3
+        c.yview_scroll(step, "units")
+        return "break"
+
+    def _marza_bind_wheel(self, w):
+        """Kółko myszy działa nad całym obszarem kart – także nad etykietami w środku."""
+        for ev in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            w.bind(ev, self._marza_wheel)
+        for ch in w.winfo_children():
+            self._marza_bind_wheel(ch)
 
     def _marza_deductions(self, parent, od):
         """Opole: kategorie odjęte od marży z raportu – rozwijane."""
@@ -419,6 +453,7 @@ class MarzaMixin:
             btn.config(text=("▾ " if state["open"] else "▸ ") + title)
             if state["open"]:
                 body.pack(fill="x")
+                self._marza_bind_wheel(body)
             else:
                 body.pack_forget()
         btn = tk.Label(holder, text="▸ " + title, bg=SURFACE, fg=INK, font=f.small, cursor="hand2", anchor="w")

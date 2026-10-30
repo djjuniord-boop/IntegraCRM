@@ -89,16 +89,19 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
         if not branch:
             rejected.append((name, why))
             continue
+        src_dir = os.path.normcase(os.path.abspath(os.path.dirname(f)))
+        if src_dir == os.path.normcase(os.path.abspath(dst)):
+            added.append((name, branch))   # plik już leży w kolejce – bez pytania o zastąpienie, nic nie kasujemy
+            continue
         queued = [n for n, b in pending_info(root) if b == branch]
         if queued:
             if not replace(branch, queued[0]):
                 rejected.append((name, f"w kolejce jest już raport dla oddziału {BRANCH_NAMES[branch]}"))
                 continue
+            me = os.path.normcase(os.path.abspath(f))
             for n in queued:
-                remove_pending(root, n)
-        if os.path.normcase(os.path.abspath(os.path.dirname(f))) == os.path.normcase(os.path.abspath(dst)):
-            added.append((name, branch))   # plik już leży w kolejce
-            continue
+                if os.path.normcase(os.path.abspath(os.path.join(dst, n))) != me:   # nigdy nie kasuj wybieranego
+                    remove_pending(root, n)
         target = _wolna(dst, name)
         try:
             shutil.move(f, target)
@@ -113,6 +116,13 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
                 os.remove(f)
             except OSError as e:
                 notes.append((name, f"raport dodano, ale nie udało się usunąć oryginału ({e}) – usuń go ręcznie"))
+        if src_dir == os.path.normcase(os.path.abspath(os.path.join(dst, "_ODRZUCONE"))):
+            powod = os.path.splitext(f)[0] + "_POWOD.txt"   # raport wraca z _ODRZUCONE – opis powodu już zbędny
+            try:
+                if os.path.isfile(powod):
+                    os.remove(powod)
+            except OSError:
+                pass
         added.append((os.path.basename(target), branch))
     return added, rejected, notes
 

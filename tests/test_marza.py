@@ -379,7 +379,7 @@ def test_kwoty_i_odmiana():
     from marza.rozdziel import kwota, odmiana, _na_liczbe
     from marza import silnik_wroclaw as sw, silnik_opole as so
     assert kwota(154186.54) == "154 186,54 zł" and kwota(0) == "0,00 zł" and kwota(None) == "—"
-    assert kwota(34186.04, znak=True) == "+34 186,04 zł" and kwota(-1234.5, znak=True) == "−1 234,50 zł"
+    assert kwota(34186.04, znak=True) == "+34 186,04 zł" and kwota(-1234.5, znak=True) == "-1 234,50 zł" == sw._zl(-1234.5, znak=True)
     assert _na_liczbe("154 186,54 zł") == 154186.54 and _na_liczbe("154186.54") == 154186.54
     assert _na_liczbe("None") is None
     for m in (sw, so):
@@ -401,3 +401,64 @@ def test_okno_kopii_bez_pdf():
     from _wspolne import APP
     s = (APP / "marza" / "runner.py").read_text(encoding="utf-8")
     assert "application/pdf" not in s and '"pdfs"' not in s
+
+
+def _folder_latex():
+    from marza import runner
+    root = tempfile.mkdtemp()
+    for sub, x in (("Wrocław", "kalkulator_marzy_Wroclaw.xlsx"), ("Opole", "kalkulator_marzy_Opole.xlsx")):
+        os.makedirs(os.path.join(root, sub))
+        _kalkulator(os.path.join(root, sub, x))
+    os.makedirs(os.path.join(root, runner.WRZUC))
+    return root
+
+
+def test_plik_z_kolejki_wybrany_ponownie_nie_jest_kasowany():
+    from marza import runner
+    root = _folder_latex()
+    f = os.path.join(root, runner.WRZUC, "wro.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "1 000,00")
+    pytania = []
+    added, rejected, notes = runner.add_reports(root, [f], lambda b, o: pytania.append(o) or True)
+    assert added == [("wro.pdf", "wroclaw")] and not rejected and not pytania
+    assert os.path.isfile(f)
+    # inny plik tego oddziału: pytanie o zastąpienie, stary usunięty, nowy w kolejce
+    g = os.path.join(tempfile.mkdtemp(), "nowy.pdf")
+    _raport(g, "Wroclaw", "2026-10-01", "2026-10-14", "2 000,00")
+    added, _, _ = runner.add_reports(root, [g], lambda b, o: pytania.append(o) or True)
+    assert pytania == ["wro.pdf"] and runner.pending(root) == ["nowy.pdf"]
+
+
+def test_raport_z_odrzuconych_usuwa_powod():
+    from marza import runner
+    root = _folder_latex()
+    odrz = os.path.join(root, runner.WRZUC, "_ODRZUCONE")
+    os.makedirs(odrz)
+    f = os.path.join(odrz, "wro.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "1 000,00")
+    open(os.path.join(odrz, "wro_POWOD.txt"), "w").write("powód")
+    added, _, _ = runner.add_reports(root, [f])
+    assert added == [("wro.pdf", "wroclaw")] and os.listdir(odrz) == []
+
+
+def test_kalkulator_otwarty_raport_wraca_do_kolejki():
+    from marza import runner
+    import openpyxl.workbook.workbook as wbm
+    root = _folder_latex()
+    _raport(os.path.join(root, runner.WRZUC, "wro.pdf"), "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    o_save = wbm.Workbook.save
+
+    def zablokowany(self, path):
+        if "kalkulator_marzy" in str(path):
+            raise PermissionError("plik otwarty w Excelu")
+        return o_save(self, path)
+    wbm.Workbook.save = zablokowany
+    try:
+        res = runner.run_all(root, {}, log=lambda l: None, test_mode=True)
+    finally:
+        wbm.Workbook.save = o_save
+    w = res["results"]["wroclaw"]
+    assert runner.pending(root) == ["wro.pdf"], os.listdir(os.path.join(root, runner.WRZUC))
+    assert not os.path.isdir(os.path.join(root, runner.WRZUC, "_ODRZUCONE"))
+    assert w["status"] == "BŁĄD" and w["w_kolejce"] == ["wro.pdf"] and not w["odrzucone"]
+    assert w["kroki"]["kalkulator"] is False

@@ -147,7 +147,7 @@ def kwota(v, znak=False):
         t = f"{float(v):{'+' if znak else ''},.2f}"
     except (TypeError, ValueError):
         return "—"
-    return t.replace(",", " ").replace(".", ",").replace("-", "−") + " zł"
+    return t.replace(",", " ").replace(".", ",") + " zł"   # minus: zwykły „-” (tak samo jak _zl w silnikach)
 
 
 def odmiana(n, jeden, kilka, wiele):
@@ -216,7 +216,7 @@ def uruchom_silnik(nazwa, folder, run_engine, info=None):
     (miesiąc, było → jest, cel, kroki ✔/✖). Brak danej = None (zakładka pokazuje „—”)."""
     info = info if info is not None else {}
     log_silnika = os.path.join(folder, "silnik", "log_aktualizacji.txt")
-    wynik = {"status": "OK", "uwagi": [], "zmiany": [], "odrzucone": [], "odrzucone_powody": {}, "info": [],
+    wynik = {"status": "OK", "uwagi": [], "zmiany": [], "odrzucone": [], "odrzucone_powody": {}, "w_kolejce": [], "info": [],
              "miesiac": None, "cel": None, "zrobione": None, "bylo": None, "jest": None, "zmiana": None,
              "procent": None, "emaile": None, "odjete": None, "raporty": [],
              "kroki": {"raport": None, "kalkulator": None, "podglad": None, "dysk": None, "email": None,
@@ -366,6 +366,18 @@ def uruchom_silnik(nazwa, folder, run_engine, info=None):
                       f"z folderu „{os.path.basename(folder)}” – usuń go ręcznie.")
             continue
         powod = [l for l in linie if nazwa_pdf in l and "->" not in l]
+        if not powod and (T_BLAD in tekst or proc.returncode != 0):
+            # przyczyna przejściowa (kalkulator otwarty w Excelu, brak pliku, nieoczekiwany błąd) – raport nie jest
+            # winny: wraca do KOLEJKI, żeby „AKTUALIZUJ WSZYSTKO jeszcze raz” go zapisało
+            try:
+                os.makedirs(WRZUC_DIR, exist_ok=True)
+                shutil.move(sciezka, _wolna_sciezka(WRZUC_DIR, nazwa_pdf))
+                wynik["w_kolejce"].append(nazwa_pdf)
+                uwaga(f"Raport {nazwa_pdf} NIE został zapisany i wrócił do kolejki – usuń przyczynę "
+                      "i kliknij AKTUALIZUJ WSZYSTKO jeszcze raz.")
+                continue
+            except OSError:
+                pass
         if not powod and proc.returncode != 0:
             powod = [l for l in linie if l.startswith("NIEOCZEKIWANY BŁĄD:")] or \
                     ["silnik zakończył się błędem"]
