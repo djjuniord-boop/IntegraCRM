@@ -3,7 +3,21 @@
 **Co robi:** kalkulator marży Wrocław + Opole – odpowiednik „AKTUALIZUJ WSZYSTKO”. Raporty „Raport sprzedaży towarów
 i usług” (PDF z Integry) trafiają do kolejki, silniki wpisują kwotę „Marża towary + sprzedaż usług netto” do
 kalkulatorów Excel w folderze użytkownika „LATEX Wyniki”, odświeżają podgląd dla handlowców na Dysku Google
-i wysyłają mail z wykresem. Po zalogowaniu: mail przez serwer, wyniki do bazy, kopia plików w chmurze.
+i wysyłają mail z wykresem. Po zalogowaniu: mail przez serwer, wyniki do bazy, kopia kalkulatora w chmurze.
+
+**Raporty PDF nie są przechowywane:** dodanie do kolejki (`runner.add_reports`) plik **przenosi** (gdy się nie da –
+kopiuje i próbuje usunąć oryginał; błąd usunięcia = tylko uwaga), a po udanym zapisie w kalkulatorze silnik PDF
+**usuwa** (dawniej folder „przetworzone”). Raporty pominięte/odrzucone trafiają do
+„1. WRZUC RAPORTY TUTAJ\_ODRZUCONE” (+ `*_POWOD.txt`) – do poprawienia i ponownego dodania. „Usuń” w kolejce
+kasuje plik z komputera (z pytaniem). Do chmury idzie tylko kalkulator (`_cloud_save`), nazwa raportu zostaje
+w `marza_results.source_pdf`.
+
+**Czytelny przebieg:** w trakcie pasek pokazuje bieżący krok (`zakladka.marza_step_text` – linie
+`--- Krok N/3: … ---` z `runner._run` + fragmenty dziennika silnika). Po zakończeniu karta na oddział: status ✔/⚠/✖,
+miesiąc, było → jest, zmiana, cel, zrobione, % wykonania, liczba e-maili, kroki ✔/✖/— (raport, kalkulator, podgląd,
+Dysk Google, e-maile, baza/WYNIKI), w Opolu rozwijane odjęte kategorie, uwagi prostym językiem „co zrobić”.
+Pełny dziennik – przycisk „Szczegóły przebiegu (pełny dziennik)…” (osobne okno). Dane kart: `rozdziel.uruchom_silnik`
+(dziennik silnika + podsłuch `runner._listen` + wynik `_cloud_save`) → `run_all()["results"]`; brak danej = `None` → „—”.
 Uprawnienie: moduł `marza`.
 
 ## Pliki
@@ -13,7 +27,7 @@ Uprawnienie: moduł `marza`.
 | `zakladka.py` | `MarzaMixin` – zakładka MARŻA: folder, kolejka raportów, „AKTUALIZUJ WSZYSTKO” (wątek), dziennik przebiegu |
 | `okna.py` | okna: Odbiorcy maili (zapis firmowy), Wyniki online, Kopie w chmurze (pobieranie) |
 | `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
-| `rozdziel.py` | rozdziela raporty na oddziały i podsumowuje przebieg |
+| `rozdziel.py` | rozdziela raporty na oddziały, **rozpoznaje przebieg z dziennika silnika** (stałe `T_*` – te same teksty co w silnikach; zmieniasz tekst w silniku → zmień stałą i test), dane kart, podsumowanie; `kwota()` = „154 186,54 zł” |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |
 | `podglad_wroclaw.py`, `podglad_opole.py` | podgląd dla handlowców (`PODGLAD_dla_handlowcow.xlsx`, kopia na Dysk Google) |
 
@@ -29,7 +43,7 @@ Uprawnienie: moduł `marza`.
 
 ## Dane w bazie
 
-- `marza_results` – wynik każdej aktualizacji (oddział, miesiąc, marża, cel, zrobione, plik źródłowy, folder kopii).
+- `marza_results` – wynik każdej aktualizacji (oddział, miesiąc, marża, cel, zrobione, nazwa pliku źródłowego, folder kopii).
 - `marza_months` – dane zakładki WYNIKI: cała tabela miesięcy kalkulatora oddziału (`branch`, `year`, `month`, `label`,
   `target`, `done`, `holidays` = święta z arkusza „Święta PL” w tym miesiącu, `updated_at`). Zapis po każdym udanym
   przebiegu silnika (po zalogowaniu, nie w trybie testowym), nadpisuje oddział+rok+miesiąc
@@ -40,12 +54,23 @@ Uprawnienie: moduł `marza`.
     (podgląd i mail pokazują wtedy 0). **Formuła** w kolumnie celu/marży daje wynik tylko, jeśli zapisał go Excel –
     openpyxl formuł nie liczy, a zapis kalkulatora przez silnik kasuje zapisane wyniki, więc po imporcie raportu
     formuła = `None` (+ „Uwaga: … formuły bez wyliczonej wartości” w dzienniku). Cele trzeba wpisywać liczbami.
-- Schowek plików `marza` (Supabase Storage, prywatny): `<oddział>/<rok>/<data_godzina>/` kalkulator + PDF-y.
+- Schowek plików `marza` (Supabase Storage, prywatny): `<oddział>/<rok>/<data_godzina>/` kalkulator (starsze kopie
+  mają też PDF-y raportów – okno „Kopie w chmurze” pobiera je jak każdy plik).
+
+## Dziennik silnika – czego nie ruszać
+
+- Linia `  <miesiąc>: <stara> -> <nowa> zł  (z pliku …)` pod „Zaktualizowano w Excelu:” **zostaje w starym formacie**
+  (liczby z kropką) – silnik czyta ją z `log_aktualizacji.txt` do karty „MARZA DZISIAJ” (`_MD_CHANGE_RE`). Zakładka
+  pokazuje te kwoty po polsku sama.
+- Pozostałe kwoty w dzienniku są po polsku (`_zl` w silnikach), e-maile: „Wysłano 2 powiadomienia e-mail …” (`_odmiana`),
+  0 odbiorców: „E-mail nie został wysłany – brak zaznaczonych odbiorców.”
 
 ## Testy
 
 - `app/selftest.py` – biblioteki i wykres do maila (`marza_chart_bytes`).
-- `tests/test_marza.py` – podsłuch silnika na udawanym silniku i udawanej sesji: wysyłka przez serwer, kopia plików,
+- `tests/test_marza.py` – przeniesienie przy dodaniu (i plik zablokowany), pełny przebieg na prawdziwych silnikach
+  w trybie testowym (zapisany PDF usunięty, pominięty w `_ODRZUCONE`, dane kart), rozpoznawanie tekstów dziennika,
+  kwoty i odmiana, krok w pasku, brak wysyłki PDF; podsłuch silnika na udawanym silniku i udawanej sesji: wysyłka przez serwer, kopia plików,
   zapis wyniku, przywrócenie `smtplib`; miesiące dla WYNIKÓW na kalkulatorze testowym (formuła z wynikiem Excela
   i bez, święta tylko z danego miesiąca i roku, błąd sesji/odczytu nie przerywa przebiegu, tryb testowy nic nie wysyła).
 - `tests/ui_smoke.py` – zakładka i trzy okna MARŻY.

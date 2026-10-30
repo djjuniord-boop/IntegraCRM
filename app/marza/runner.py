@@ -5,7 +5,9 @@ w procesie programu (bez osobnego Pythona). Same silniki to niezmienione skrypty
 aktualizuj_kalkulator.py / generuj_podglad.py – podmieniane są tylko ścieżki, hasło do poczty
 i pytanie „Zapisać mimo to?” (okno zamiast konsoli).
 
-Dane zostają w folderze „LATEX Wyniki” użytkownika: kalkulatory, kopie zapasowe, logi, PDF-y.
+Dane zostają w folderze „LATEX Wyniki” użytkownika: kalkulatory, kopie zapasowe, logi. Raporty PDF nie są
+przechowywane: dodanie do kolejki je PRZENOSI, a po zapisie w kalkulatorze silnik je usuwa (pominięte/odrzucone
+zostają w „_ODRZUCONE”, żeby można je było poprawić).
 """
 import contextlib
 import datetime
@@ -71,12 +73,13 @@ def inspect(path: str):
 
 
 def add_reports(root: str, files, replace=lambda branch, old: True):
-    """Sprawdza i kopiuje PDF-y do „1. WRZUC RAPORTY TUTAJ” – najwyżej jeden raport na oddział.
+    """Sprawdza i PRZENOSI PDF-y do „1. WRZUC RAPORTY TUTAJ” – najwyżej jeden raport na oddział (oryginał znika
+    z miejsca, skąd go wybrano; gdy przeniesienie się nie uda – kopia i próba usunięcia oryginału).
     replace(oddział, stara_nazwa) decyduje, czy podmienić raport już czekający w kolejce.
-    Zwraca (dodane: [(nazwa, oddział)], odrzucone: [(nazwa, powód)])."""
+    Zwraca (dodane: [(nazwa, oddział)], odrzucone: [(nazwa, powód)], uwagi: [(nazwa, uwaga)])."""
     dst = os.path.join(root, WRZUC)
     os.makedirs(dst, exist_ok=True)
-    added, rejected = [], []
+    added, rejected, notes = [], [], []
     for f in files:
         name = os.path.basename(f)
         if not f.lower().endswith(".pdf"):
@@ -93,10 +96,25 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
                 continue
             for n in queued:
                 remove_pending(root, n)
+        if os.path.normcase(os.path.abspath(os.path.dirname(f))) == os.path.normcase(os.path.abspath(dst)):
+            added.append((name, branch))   # plik już leży w kolejce
+            continue
         target = _wolna(dst, name)
-        shutil.copy2(f, target)
+        try:
+            shutil.move(f, target)
+        except OSError:
+            try:   # np. plik zablokowany – kopia do kolejki, potem próba usunięcia oryginału
+                if not os.path.exists(target):
+                    shutil.copy2(f, target)
+            except OSError as e:
+                rejected.append((name, f"nie udało się dodać pliku do kolejki ({e})"))
+                continue
+            try:
+                os.remove(f)
+            except OSError as e:
+                notes.append((name, f"raport dodano, ale nie udało się usunąć oryginału ({e}) – usuń go ręcznie"))
         added.append((os.path.basename(target), branch))
-    return added, rejected
+    return added, rejected, notes
 
 
 def pending_info(root: str):
@@ -106,7 +124,7 @@ def pending_info(root: str):
 
 
 def remove_pending(root: str, name: str) -> None:
-    """Usuwa raport z kolejki (tylko kopię w „1. WRZUC RAPORTY TUTAJ” – oryginał zostaje tam, skąd był dodany)."""
+    """Usuwa raport z kolejki – z komputera (dodanie do kolejki przeniosło oryginał, więc to jedyna kopia)."""
     p = os.path.join(root, WRZUC, os.path.basename(name))
     if os.path.isfile(p):
         os.remove(p)
@@ -187,24 +205,32 @@ def _run(root, cfg, ask, test_mode):
         print(" [TRYB TESTOWY - bez e-maili i bez Dysku Google]")
     print("=" * 64)
     print()
-    print("--- Krok 1/3: rozdzielanie raportów ---")
+    print("--- Krok 1/3: rozdzielanie raportów ---")   # zakładka pokazuje bieżący krok (KROK_RE)
     licznik, odrzucone_na_wejsciu = roz.rozdziel()
 
     wyniki = {}
     for i, (klucz, nazwa, sub, silnik_mod, podglad_mod) in enumerate(ODDZIALY, start=2):
         print()
-        print(f"--- Krok {i}/3: aktualizacja {nazwa} ---")
+        print(f"--- Krok {i}/3: {BRANCH_NAMES[klucz]} ---")
         folder = os.path.join(root, sub)
-        wyniki[klucz] = roz.uruchom_silnik(nazwa, folder,
-                                           lambda f=folder, s=silnik_mod, p=podglad_mod: _engine(f, s, p, cfg, ask))
+        info = {}
+        wyniki[klucz] = roz.uruchom_silnik(
+            nazwa, folder, lambda f=folder, s=silnik_mod, p=podglad_mod, i_=info: _engine(f, s, p, cfg, ask, i_),
+            info)
 
     summary = roz.podsumowanie(licznik, odrzucone_na_wejsciu, wyniki)
     ok = all(w["status"] == "OK" for w in wyniki.values()) and not odrzucone_na_wejsciu
-    return {"ok": ok, "summary": summary, "results": wyniki, "counts": licznik}
+    return {"ok": ok, "summary": summary, "results": wyniki, "counts": licznik,
+            "rejected_input": list(odrzucone_na_wejsciu)}
 
 
-def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
-    """Uruchamia silnik oddziału w procesie. Zwraca kod wyjścia jak proces (0 = OK)."""
+KROK_RE = r"^--- Krok (\d)/3: (.+?) ---$"   # linia bieżącego kroku (zakładka MARŻA)
+
+
+def _engine(folder, silnik_mod, podglad_mod, cfg, ask, info=None) -> int:
+    """Uruchamia silnik oddziału w procesie. Zwraca kod wyjścia jak proces (0 = OK).
+    info (słownik) dostaje podsłuchane dane dla czytelnego przebiegu: reports, podglad, chmura."""
+    info = info if info is not None else {}
     silnik_dir = os.path.join(folder, "silnik")
     os.makedirs(silnik_dir, exist_ok=True)
     pod = _load(podglad_mod)
@@ -227,7 +253,9 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
         eng.EMAIL_ODBIORCY = list(recips[key])
     # pytanie z konsoli → okno programu
     eng.input = lambda q="": "T" if ask(q.strip()) else "N"
-    captured = _cloud_hooks(eng) if SESSION is not None else None
+    cap = _listen(eng)   # podsłuch odczytanych raportów i podglądu (bez zmiany obliczeń)
+    info.update(cap)
+    captured = _cloud_hooks(eng, cap) if SESSION is not None else None
     if captured is not None and not eng.EMAIL_NADAWCA:   # nagłówek „Od” – serwer i tak wstawia swój adres
         eng.EMAIL_NADAWCA = SESSION.email
     real_smtplib = sys.modules.get("smtplib")
@@ -236,7 +264,13 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask) -> int:
     try:
         eng.main()
         if captured is not None:
-            _cloud_save(eng, key, folder, captured, pod)
+            try:   # błąd chmury nie może zepsuć przebiegu – kalkulator jest już zapisany
+                info["chmura"] = _cloud_save(eng, key, folder, captured, pod)
+            except Exception as e:
+                print(f"Uwaga: zapis w chmurze nie powiódł się: {e}")
+                info["chmura"] = {"baza": False, "uwagi": ["Zapis w chmurze nie powiódł się – kalkulator jest "
+                                                           "zaktualizowany; wyniki online uzupełnią się przy "
+                                                           "następnej aktualizacji."]}
         return 0
     except SystemExit as e:
         return int(e.code or 0) if isinstance(e.code, int) else 1
@@ -298,19 +332,10 @@ def _server_smtplib():
     return m
 
 
-def _cloud_hooks(eng) -> dict:
-    """Podsłuch silnika (bez zmiany obliczeń): odczytane raporty, ich pliki i wynik podglądu."""
-    cap = {"reports": [], "pdfs": {}, "podglad": None}
-    eng._wczytaj_haslo_email = lambda: "serwer"
-    o_ext, o_parse, o_ref = eng.extract_text, eng.parse_report, eng._refresh_podglad
-
-    def ext(path):
-        try:
-            with open(path, "rb") as f:
-                cap["pdfs"][os.path.basename(path)] = f.read()
-        except OSError:
-            pass
-        return o_ext(path)
+def _listen(eng) -> dict:
+    """Podsłuch silnika (bez zmiany obliczeń): odczytane raporty i wynik podglądu. Treści PDF-ów nie zbieramy."""
+    cap = {"reports": [], "podglad": None}
+    o_parse, o_ref = eng.parse_report, eng._refresh_podglad
 
     def parse(text, name):
         r = o_parse(text, name)
@@ -321,18 +346,26 @@ def _cloud_hooks(eng) -> dict:
         r = o_ref(*a, **k)
         cap["podglad"] = r
         return r
-    eng.extract_text, eng.parse_report, eng._refresh_podglad = ext, parse, ref
+    eng.parse_report, eng._refresh_podglad = parse, ref
     return cap
 
 
+def _cloud_hooks(eng, cap=None) -> dict:
+    """Po zalogowaniu: hasło poczty niepotrzebne (maile idą przez serwer). Zwraca podsłuch (cap)."""
+    eng._wczytaj_haslo_email = lambda: "serwer"
+    return cap if cap is not None else _listen(eng)
+
+
 def _cloud_save(eng, key, folder, cap, pod=None):
-    """Po udanym przebiegu: kopia kalkulatora i raportów w schowku, wyniki do bazy, miesiące dla zakładki WYNIKI.
-    Każdy krok ma osobną obsługę błędu – błąd chmury nie psuje przebiegu (kalkulator jest już zapisany)."""
+    """Po udanym przebiegu: kopia kalkulatora w schowku (bez raportów PDF – nie są przechowywane), wyniki do bazy,
+    miesiące dla zakładki WYNIKI. Każdy krok ma osobną obsługę błędu – błąd chmury nie psuje przebiegu
+    (kalkulator jest już zapisany). Zwraca {"baza": True/False/None, "uwagi": [...]} dla zakładki."""
+    out = {"baza": None, "uwagi": []}
     if not cap["reports"] and not cap["podglad"]:
-        return
+        return out
     if os.environ.get("LATEX_TRYB_TESTOWY") == "1":
-        print("[TRYB TESTOWY] Wyniki i pliki NIE zostały zapisane w chmurze.")
-        return
+        print("[TRYB TESTOWY] Wyniki i kalkulator NIE zostały zapisane w chmurze.")
+        return out
     stamp = datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S")
     base = f"{key}/{stamp[:4]}/{stamp}"
     xlsx = os.path.join(folder, eng.XLSX_NAME)
@@ -341,11 +374,11 @@ def _cloud_save(eng, key, folder, cap, pod=None):
             with open(xlsx, "rb") as f:
                 SESSION.upload("marza", f"{base}/{eng.XLSX_NAME}", f.read(),
                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-        for name, data in cap["pdfs"].items():
-            SESSION.upload("marza", f"{base}/{name}", data, "application/pdf")
-        print(f"Kopia kalkulatora i raportów zapisana w chmurze ({base}).")
+        print(f"Kopia kalkulatora zapisana w chmurze ({base}).")
     except Exception as e:
         print(f"Uwaga: kopia w chmurze nie powiodła się: {e}")
+        out["uwagi"].append("Kopia kalkulatora w chmurze nie zapisała się (kalkulator na komputerze jest "
+                            "zaktualizowany).")
         base = None
     try:
         def num(v):
@@ -366,10 +399,16 @@ def _cloud_save(eng, key, folder, cap, pod=None):
                          "source_pdf": r.get("source"), "files_path": base})
         SESSION.call("POST", "/rest/v1/marza_results", rows, prefer="return=minimal")
         print("Wyniki zapisane w bazie (widoczne w programie na każdym komputerze).")
+        out["baza"] = True
     except Exception as e:
         print(f"Uwaga: zapis wyników w bazie nie powiódł się: {e}")
-    if pod is not None:
-        _save_months(pod, key, xlsx)
+        out["baza"] = False
+        out["uwagi"].append("Wyniki nie zapisały się w bazie (Wyniki online) – kalkulator jest zaktualizowany; "
+                            "kliknij AKTUALIZUJ WSZYSTKO jeszcze raz, gdy będzie internet.")
+    if pod is not None and _save_months(pod, key, xlsx) is False:
+        out["baza"] = False
+        out["uwagi"].append("Zakładka WYNIKI nie została uzupełniona – szczegóły w „Szczegóły przebiegu”.")
+    return out
 
 
 # ---------- zakładka WYNIKI: tabela miesięcy z kalkulatora → baza (marza_months) ----------
@@ -494,7 +533,7 @@ def _save_months(pod, key, xlsx):
     """Zakładka WYNIKI: cała tabela miesięcy kalkulatora oddziału → baza (nadpisuje oddział+rok+miesiąc).
     Błąd = tylko linia w dzienniku przebiegu; kalkulator, podgląd i e-mail są już zrobione."""
     if SESSION is None:
-        return
+        return None
     try:
         if not os.path.isfile(xlsx):
             raise ValueError(f"nie ma pliku {os.path.basename(xlsx)}")
@@ -507,5 +546,7 @@ def _save_months(pod, key, xlsx):
         if no_value:
             print(f"Uwaga: niektóre pola celu/marży w kalkulatorze ({no_value}) to formuły bez wyliczonej "
                   f"wartości – w zakładce WYNIKI zostaną puste.")
+        return True
     except Exception as e:
         print(f"Uwaga: wyniki dla zakładki WYNIKI nie zostały zapisane: {e}")
+        return False

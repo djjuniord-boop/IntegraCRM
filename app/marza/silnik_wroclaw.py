@@ -92,6 +92,24 @@ LOG_NAME = "log_aktualizacji.txt"
 PROCESSED_MARKER = ".przetworzone"  # folder z podfolderem na juz-uzyte PDFy
 
 
+def _zl(v, znak=False):
+    """Kwota do komunikatu: 154186.54 -> „154 186,54 zł” (tylko tekst dla użytkownika)."""
+    try:
+        t = f"{float(v):{'+' if znak else ''},.2f}"
+    except (TypeError, ValueError):
+        return "—"
+    return t.replace(",", " ").replace(".", ",") + " zł"
+
+
+def _odmiana(n, jeden, kilka, wiele):
+    n = abs(int(n))
+    if n == 1:
+        return jeden
+    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
+        return kilka
+    return wiele
+
+
 def log(msg, log_lines):
     print(msg)
     log_lines.append(msg)
@@ -368,7 +386,7 @@ def _generuj_wykres_png(miesiac_etykieta, cel, zrobione, year, month, holidays=N
         if log_lines is not None:
             import traceback
             log(f"Uwaga: błąd podczas rysowania wykresu do e-maila: {e}", log_lines)
-            log(f"Szczegoly bledu wykresu:\n{traceback.format_exc()}", log_lines)
+            log(f"Szczegóły błędu wykresu:\n{traceback.format_exc()}", log_lines)
         return None
 # --- Powiadomienie e-mail dla handlowcow -----------------------------------
 # Wysylane WYLACZNIE lokalnie z tego skryptu, bez zadnej chmury/automatyki -
@@ -493,9 +511,13 @@ Wiadomość systemowa - panel wyników</p>
                 server.sendmail(EMAIL_NADAWCA, [odbiorca], msg.as_string())
                 wyslano.append(odbiorca)
 
-        log(f"Wysłano {len(wyslano)} osobnych powiadomień e-mail HTML "
-            f"{'z wykresem' if png_bytes else '(bez wykresu – błąd generowania)'} "
-            f"(kazdy odbiorca widzi tylko siebie w polu Do).", log_lines)
+        n = len(wyslano)
+        if n:
+            log(f"Wysłano {n} {_odmiana(n, 'powiadomienie', 'powiadomienia', 'powiadomień')} e-mail "
+                f"{'z wykresem' if png_bytes else '(bez wykresu – błąd generowania)'} "
+                f"(każdy odbiorca widzi w polu „Do” tylko swój adres).", log_lines)
+        else:
+            log("E-mail nie został wysłany – brak zaznaczonych odbiorców.", log_lines)
     except Exception as e:
         log(f"Uwaga: nie udało się wysłać e-maila z powiadomieniem: {e}", log_lines)
 
@@ -514,7 +536,7 @@ def _refresh_podglad(xlsx_path, log_lines):
         _, holidays_dla_maila = generuj_podglad._read_source_months(xlsx_path)
         log("", log_lines)
         log(f"Odświeżono plik podglądowy dla handlowców ({generuj_podglad.OUT_NAME}):", log_lines)
-        log(f"  Miesiąc: {label} | Cel: {cel:.2f} zł | Zrobione: {zrob:.2f} zł", log_lines)
+        log(f"  Miesiąc: {label} | Cel: {_zl(cel)} | Zrobione: {_zl(zrob)}", log_lines)
 
         # Skopiuj plik podglądowy na Dysk Google (zsynchronizowany folder)
         if os.environ.get("LATEX_TRYB_TESTOWY") == "1":
@@ -658,7 +680,7 @@ def _dopisz_marze_dzisiaj(ws, log_lines, updated):
         ws[f"B{R_VAL}"].number_format = '+#,##0" zł";-#,##0" zł"'
         ws[f"B{R_SUB}"].value = ("Stan na dziś: " + f"{wartosc_dzis:,.0f}".replace(",", " ") + " zł")
 
-        log(f"Dopisano kartę 'MARZA DZISIAJ': {przyrost:+.2f} zł (stan " + f"{wartosc_dzis:,.2f}".replace(",", " ") + " zł).", log_lines)
+        log(f"Dopisano kartę 'MARZA DZISIAJ': {_zl(przyrost, znak=True)} (stan {_zl(wartosc_dzis)}).", log_lines)
     except Exception as e:
         log(f"Uwaga: nie udało się zaktualizować karty 'MARZA DZISIAJ': {e}", log_lines)
 
@@ -700,7 +722,7 @@ def main():
     for rep in reports:
         log(f"  {rep['source']}: {rep['label']} "
             f"(zakres {rep['start_date']} – {rep['end_date']}) "
-            f"-> marża netto = {rep['margin_netto']:.2f} zł", log_lines)
+            f"-> marża netto = {_zl(rep['margin_netto'])}", log_lines)
 
     if errors:
         log("", log_lines)
@@ -792,28 +814,23 @@ def main():
 
     if skipped:
         log("", log_lines)
-        log("POMINIĘTO (plik ZOSTAJE w folderze Wyniki — nic nie przepadło):", log_lines)
+        log("POMINIĘTO (raport NIE został usunięty – trafi do „_ODRZUCONE”, można go poprawić i dodać ponownie):", log_lines)
         for source, label, powod in skipped:
             log(f"  {source} ({label}) — {powod}", log_lines)
 
-    # Przenies do podfolderu "przetworzone" TYLKO te PDFy, ktore faktycznie
-    # trafily do Excela. Pominiete raporty zostaja w folderze roboczym, zeby
-    # nie znikaly po cichu razem z danymi, ktorych nikt nie zapisal.
-    processed_dir = os.path.join(BASE_DIR, "przetworzone")
-    os.makedirs(processed_dir, exist_ok=True)
+    # Raporty, które trafiły do Excela, są USUWANE (raportów PDF nie przechowujemy – na życzenie właściciela).
+    # Pominięte raporty zostają w folderze roboczym (program przenosi je do „_ODRZUCONE”), żeby można było
+    # je poprawić i spróbować ponownie.
     zapisane_pliki = {source for source, _, _, _ in updated}
     for rep in reports:
         if rep["source"] not in zapisane_pliki:
             continue
-        src = os.path.join(BASE_DIR, rep["source"])
-        dst = os.path.join(processed_dir, rep["source"])
         try:
-            if os.path.exists(dst):
-                base, ext = os.path.splitext(rep["source"])
-                dst = os.path.join(processed_dir, f"{base}_{now.replace(':','-')}{ext}")
-            os.replace(src, dst)
+            os.remove(os.path.join(BASE_DIR, rep["source"]))
         except Exception as e:
-            log(f"Uwaga: nie udało się przenieść {rep['source']} do folderu 'przetworzone': {e}", log_lines)
+            log(f"Uwaga: nie udało się usunąć raportu {rep['source']} po zapisie: {e}", log_lines)
+    if zapisane_pliki:
+        log("Raporty zapisane w kalkulatorze zostały usunięte z komputera (PDF-y nie są przechowywane).", log_lines)
 
     # Wygeneruj/odśwież uproszczony plik podglądowy dla handlowców (lista
     # rozwijana miesięcy, bez tabeli do edycji, zablokowany przed edycją).

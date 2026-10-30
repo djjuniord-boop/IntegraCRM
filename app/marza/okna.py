@@ -162,7 +162,8 @@ class MarzaResultsWindow(tk.Toplevel):
 
 
 class MarzaFilesWindow(tk.Toplevel):
-    """Kopie kalkulatorów i raportów w chmurze – pobranie na ten komputer."""
+    """Kopie kalkulatorów w chmurze – pobranie na ten komputer. Raportów PDF już nie wysyłamy; starsze
+    aktualizacje mogą je mieć i nadal można je pobrać."""
 
     def __init__(self, app):
         super().__init__(app)
@@ -222,7 +223,8 @@ class MarzaFilesWindow(tk.Toplevel):
                 size = (fl.get("metadata") or {}).get("size") or 0
                 self.tv.insert(node, "end", iid=f"{path}/{fl['name']}", text=fl["name"],
                                values=(f"{size / 1024:.0f} KB",))
-        self.msg.config(text=f"Aktualizacji: {len(runs)} (rozwiń, zaznacz plik albo całą aktualizację)"
+        self.msg.config(text=f"Aktualizacji: {len(runs)} (rozwiń, zaznacz plik albo całą aktualizację). Zapisujemy "
+                        "tylko kalkulator – raporty PDF są tylko w starszych kopiach."
                         if runs else "Brak kopii – pojawią się po pierwszej aktualizacji MARŻY w tej wersji.", fg=MUTED)
 
     def download(self):

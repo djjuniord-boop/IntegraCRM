@@ -1,5 +1,6 @@
 """Zakładka MARŻA: kolejka raportów, aktualizacja kalkulatorów (silniki w marza/)."""
 import os
+import re
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
@@ -41,7 +42,8 @@ class MarzaMixin:
         tk.Label(drop, text="Raporty sprzedaży z Integry („Raport sprzedaży towarów i usług”, od 1. dnia miesiąca)",
                  bg=SURFACE, fg=BLACK, font=f.label).pack(anchor="w")
         self.marza_drop = tk.Label(drop, text="Przeciągnij tutaj PDF-y z Wrocławia i Opola albo kliknij, aby wybrać\n"
-                                   "(oddział jest rozpoznawany z treści raportu)",
+                                   "(oddział jest rozpoznawany z treści raportu; plik jest PRZENOSZONY do kolejki, "
+                                   "a po zapisie w kalkulatorze usuwany)",
                                    bg=BG, fg=MUTED, font=f.body, pady=10, cursor="hand2", justify="center")
         self.marza_drop.pack(fill="x", pady=(8, 6))
         self.marza_drop.bind("<Button-1>", lambda e: self.marza_pick_files())
@@ -57,13 +59,17 @@ class MarzaMixin:
         self.marza_banner = tk.Label(page, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
                                      highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
         self.marza_banner.pack(fill="x")
-        out = card(page, padx=10, pady=8)
-        out.pack(fill="both", expand=True, pady=(8, 0))
-        self.marza_log = tk.Text(out, font=f.mono, bg=SURFACE, fg=INK, relief="flat", wrap="word", height=8)
-        sb = ttk.Scrollbar(out, command=self.marza_log.yview)
-        self.marza_log.config(yscrollcommand=sb.set)
-        sb.pack(side="right", fill="y")
-        self.marza_log.pack(fill="both", expand=True)
+        # wynik przebiegu: karta na oddział (status, miesiąc, było → jest, cel, kroki); pełny dziennik w „Szczegółach”
+        dbar = tk.Frame(page, bg=BG)
+        dbar.pack(fill="x", pady=(6, 0))
+        self.btn_marza_log = FlatButton(dbar, "Szczegóły przebiegu (pełny dziennik)…", self.marza_show_log, "ghost",
+                                        f.small, 10, 4)
+        self.btn_marza_log.pack(side="left")
+        self.marza_result = tk.Frame(page, bg=BG)
+        self.marza_result.pack(fill="x", pady=(8, 0))
+        # pełny dziennik przebiegu – zbierany tutaj (bez pokazywania), oglądany w oknie „Szczegóły przebiegu”
+        self.marza_log = tk.Text(page, font=f.mono, wrap="word", height=1)
+        self.marza_log_win = None
         self._marza_autodetect()
         self.marza_refresh()
 
@@ -148,11 +154,13 @@ class MarzaMixin:
         def ask_replace(branch, old):
             return messagebox.askyesno("MARŻA", f"W kolejce jest już raport dla oddziału "
                                        f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?")
-        added, rejected = runner.add_reports(root, files, ask_replace)
+        added, rejected, notes = runner.add_reports(root, files, ask_replace)
         self.marza_refresh_pending_only()
         if rejected:
             messagebox.showwarning("MARŻA – nie dodano",
                                    "\n\n".join(f"{n}\n→ {why}" for n, why in rejected))
+        if notes:
+            messagebox.showwarning("MARŻA – uwaga", "\n\n".join(f"{n}\n→ {why}" for n, why in notes))
         if added:
             self.marza_set_banner("idle", "Dodano: " + ", ".join(f"{n} ({runner.BRANCH_NAMES[b]})" for n, b in added)
                                   + ". Kliknij „AKTUALIZUJ WSZYSTKO”.")
@@ -169,7 +177,10 @@ class MarzaMixin:
         self.marza_busy = True
         self.btn_marza.set_enabled(False, "AKTUALIZUJĘ…")
         self.marza_log.delete("1.0", "end")
-        self.marza_set_banner("busy", "Trwa aktualizacja… (rozdzielanie raportów, kalkulatory, podgląd, e-maile)")
+        for w in self.marza_result.winfo_children():
+            w.destroy()
+        self._marza_step = ""
+        self.marza_set_banner("busy", "Trwa aktualizacja… Krok 1/3: rozdzielanie raportów")
         threading.Thread(target=self._marza_work, args=(root,), daemon=True).start()
 
     def _marza_ask(self, question):
@@ -188,6 +199,9 @@ class MarzaMixin:
 
         def logline(line):
             self.after(0, lambda l=line: (self.marza_log.insert("end", l + "\n"), self.marza_log.see("end")))
+            step = marza_step_text(line)
+            if step:
+                self.after(0, self.marza_set_banner, "busy", "Trwa aktualizacja… " + step)
         try:
             cfg = load_config()
             fresh = None
@@ -211,9 +225,10 @@ class MarzaMixin:
             n = sum(res.get("counts", {}).values())
             self._stat("marza", n_integra=n)
             if res["ok"]:
-                self.after(0, self.marza_set_banner, "ok", f"✔  Gotowe – przetworzono raportów: {n}. Szczegóły poniżej.")
+                self.after(0, self.marza_set_banner, "ok", f"✔  Gotowe – przetworzono raportów: {n}. Wszystko w porządku.")
             else:
-                self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj podsumowanie poniżej.")
+                self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj je przy oddziałach poniżej.")
+            self.after(0, self.marza_show_result, res)
         except Exception as e:
             self._report(e, "kalkulator marży")
             self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
@@ -252,6 +267,10 @@ class MarzaMixin:
         from marza import runner
         if self.marza_busy:
             return
+        if not messagebox.askyesno("MARŻA", f"Usunąć raport {name} z kolejki?\n\nPlik zostanie usunięty z komputera "
+                                   "(przy dodaniu został przeniesiony do kolejki). Gdy będzie potrzebny, wygeneruj "
+                                   "go ponownie w Integrze."):
+            return
         runner.remove_pending(self._marza_root(), name)
         self.marza_refresh_pending_only()
         self._marza_banner_after_change(f"Usunięto z kolejki: {name}.")
@@ -261,7 +280,11 @@ class MarzaMixin:
         if self.marza_busy:
             return
         root = self._marza_root()
-        for n in runner.pending(root) if root else []:
+        names = runner.pending(root) if root else []
+        if names and not messagebox.askyesno("MARŻA", f"Usunąć z kolejki raporty ({len(names)})?\n\nPliki zostaną "
+                                             "usunięte z komputera (przy dodaniu zostały przeniesione do kolejki)."):
+            return
+        for n in names:
             runner.remove_pending(root, n)
         self.marza_refresh_pending_only()
         self._marza_banner_after_change("Kolejka wyczyszczona.")
@@ -275,3 +298,154 @@ class MarzaMixin:
             self.marza_set_banner("idle", f"{msg} W kolejce: {names}. Kliknij „AKTUALIZUJ WSZYSTKO”.")
         else:
             self.marza_set_banner("idle", f"{msg} Kolejka pusta – dodaj raporty sprzedaży (PDF).")
+
+    # ---------- czytelny przebieg ----------
+    def marza_show_log(self):
+        """Okno z pełnym dziennikiem ostatniego przebiegu (to, co dawniej było w zakładce)."""
+        from ui import set_icon
+        if self.marza_log_win is not None and self.marza_log_win.winfo_exists():
+            self.marza_log_win.destroy()
+        w = self.marza_log_win = tk.Toplevel(self)
+        w.title("MARŻA – szczegóły przebiegu")
+        w.geometry("980x640")
+        w.configure(bg=BG, padx=12, pady=10)
+        set_icon(w)
+        box = card(w, padx=8, pady=6)
+        box.pack(fill="both", expand=True)
+        t = tk.Text(box, font=self.fonts.mono, bg=SURFACE, fg=INK, relief="flat", wrap="word")
+        sb = ttk.Scrollbar(box, command=t.yview)
+        t.config(yscrollcommand=sb.set)
+        sb.pack(side="right", fill="y")
+        t.pack(fill="both", expand=True)
+        txt = self.marza_log.get("1.0", "end").strip()
+        t.insert("1.0", txt or "Brak przebiegu – kliknij „AKTUALIZUJ WSZYSTKO”.")
+        t.see("end")
+        t.config(state="disabled")
+        FlatButton(w, "Zamknij", w.destroy, "ghost", self.fonts.body, 14, 6).pack(anchor="e", pady=(8, 0))
+
+    def marza_show_result(self, res):
+        """Karty oddziałów po zakończeniu przebiegu (dane z runner.run_all → results)."""
+        from marza.rozdziel import kwota
+        from marza.runner import BRANCH_NAMES
+        f = self.fonts
+        box = self.marza_result
+        for w in box.winfo_children():
+            w.destroy()
+        results = res.get("results") or {}
+        icons = {"OK": ("✔", OK), "UWAGA": ("⚠", WARN), "BŁĄD": ("✖", RED_DARK)}
+        row = tk.Frame(box, bg=BG)
+        row.pack(fill="x")
+        for i, key in enumerate(("wroclaw", "opole")):
+            w = results.get(key)
+            if not w:
+                continue
+            c = card(row, padx=14, pady=10)
+            c.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 5, 5 if i == 0 else 0))
+            row.grid_columnconfigure(i, weight=1, uniform="oddz")
+            ic, col = icons.get(w.get("status"), ("?", MUTED))
+            h = tk.Frame(c, bg=SURFACE)
+            h.pack(fill="x")
+            tk.Label(h, text=ic, bg=SURFACE, fg=col, font=f.big).pack(side="left")
+            tk.Label(h, text=f" {BRANCH_NAMES[key]}", bg=SURFACE, fg=BLACK, font=f.h2).pack(side="left")
+            tk.Label(h, text=w.get("miesiac") or "—", bg=SURFACE, fg=MUTED, font=f.label).pack(side="right")
+            lines = []
+            if w.get("jest") is not None:
+                zm = w.get("zmiana")
+                lines.append(("Było → jest", f"{kwota(w.get('bylo'))} → {kwota(w.get('jest'))}"))
+                lines.append(("Zmiana", kwota(zm, znak=True) if zm is not None else "—"))
+            else:
+                lines.append(("Było → jest", "— (brak nowego raportu)"))
+            lines.append(("Cel", kwota(w.get("cel"))))
+            lines.append(("Zrobione", kwota(w.get("zrobione"))))
+            pc = w.get("procent")
+            lines.append(("Wykonanie celu", f"{pc}%" if pc is not None else "—"))
+            em = w.get("emaile")
+            lines.append(("Wysłane e-maile", str(em) if em is not None else "—"))
+            g = tk.Frame(c, bg=SURFACE)
+            g.pack(fill="x", pady=(6, 4))
+            for r, (k, v) in enumerate(lines):
+                tk.Label(g, text=k, bg=SURFACE, fg=MUTED, font=f.small, anchor="w").grid(row=r, column=0, sticky="w")
+                tk.Label(g, text=v, bg=SURFACE, fg=INK, font=f.label if k in ("Było → jest", "Zmiana") else f.body,
+                         anchor="w").grid(row=r, column=1, sticky="w", padx=(12, 0))
+            kr = w.get("kroki") or {}
+            steps = [("raport", "Raport odczytany"), ("kalkulator", "Kalkulator zaktualizowany"),
+                     ("podglad", "Podgląd dla handlowców"), ("dysk", "Dysk Google"),
+                     ("email", "E-maile"), ("baza", "Baza / WYNIKI")]
+            st = tk.Frame(c, bg=SURFACE)
+            st.pack(fill="x", pady=(2, 2))
+            for j, (k, txt) in enumerate(steps):
+                v = kr.get(k)
+                mark, mc = ("✔", OK) if v is True else ("✖", RED_DARK) if v is False else ("—", MUTED)
+                tk.Label(st, text=f"{mark} {txt}", bg=SURFACE, fg=mc, font=f.small, anchor="w"
+                         ).grid(row=j // 2, column=j % 2, sticky="w", padx=(0, 14))
+            od = w.get("odjete")
+            if od:
+                self._marza_deductions(c, od)
+            notes = list(w.get("uwagi") or [])
+            for n in w.get("odrzucone") or []:
+                why = (w.get("odrzucone_powody") or {}).get(n, "")
+                notes.append(f"Raport {n} NIE został zapisany" + (f" – {why}" if why else "") +
+                             ". Leży w „1. WRZUC RAPORTY TUTAJ\\_ODRZUCONE” – popraw go i dodaj ponownie.")
+            infos = [t for t in (w.get("info") or []) if not t.startswith("Wysłano ")]
+            for t in notes:
+                tk.Label(c, text="⚠ " + t, bg=WARN_BG, fg=WARN, font=f.small, anchor="w", justify="left",
+                         wraplength=420, padx=6, pady=3).pack(fill="x", pady=(4, 0))
+            for t in infos:
+                tk.Label(c, text="ℹ " + t, bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
+                         wraplength=420).pack(fill="x", pady=(4, 0))
+        bad = res.get("rejected_input") or []
+        if bad:
+            c = card(box, padx=14, pady=8)
+            c.pack(fill="x", pady=(8, 0))
+            tk.Label(c, text="⚠ Nierozpoznane pliki (nie trafiły do żadnego oddziału):", bg=SURFACE, fg=WARN,
+                     font=f.label).pack(anchor="w")
+            for n, why in bad:
+                tk.Label(c, text=f"• {n}: {why}. Leży w „_ODRZUCONE” – dodaj właściwy raport sprzedaży z Integry.",
+                         bg=SURFACE, fg=INK, font=f.small, anchor="w", justify="left", wraplength=880
+                         ).pack(fill="x")
+
+    def _marza_deductions(self, parent, od):
+        """Opole: kategorie odjęte od marży z raportu – rozwijane."""
+        from marza.rozdziel import kwota
+        f = self.fonts
+        holder = tk.Frame(parent, bg=SURFACE)
+        holder.pack(fill="x", pady=(4, 0))
+        body = tk.Frame(holder, bg=BG, padx=8, pady=4)
+        state = {"open": False}
+        title = f"Odjęto od marży: {kwota(od.get('odjeto'))} (z raportu {kwota(od.get('z_raportu'))})"
+
+        def toggle():
+            state["open"] = not state["open"]
+            btn.config(text=("▾ " if state["open"] else "▸ ") + title)
+            if state["open"]:
+                body.pack(fill="x")
+            else:
+                body.pack_forget()
+        btn = tk.Label(holder, text="▸ " + title, bg=SURFACE, fg=INK, font=f.small, cursor="hand2", anchor="w")
+        btn.pack(fill="x")
+        btn.bind("<Button-1>", lambda e: toggle())
+        for name, v, brak in od.get("pozycje") or []:
+            tk.Label(body, text=f"{name}: {kwota(v)}" + ("  (brak sprzedaży w tym miesiącu)" if brak else ""),
+                     bg=BG, fg=MUTED if brak else INK, font=f.small, anchor="w").pack(fill="x")
+
+
+_KROK_RE = re.compile(r"^--- Krok (\d)/3: (.+?) ---$")
+_PODKROKI = (("Odczytane raporty:", "odczyt raportu"), ("Zaktualizowano w Excelu:", "zapis w kalkulatorze"),
+             ("Odświeżono plik podglądowy", "podgląd dla handlowców"), ("Skopiowano na Dysk Google", "Dysk Google"),
+             ("Wysłano ", "e-maile wysłane"), ("Kopia kalkulatora zapisana", "kopia w chmurze"),
+             ("Wyniki zapisane w bazie", "zapis wyników w bazie"))
+_marza_krok = {"t": ""}
+
+
+def marza_step_text(line):
+    """Linia dziennika → opis bieżącego kroku do paska („Krok 2/3: Wrocław – zapis w kalkulatorze…”) albo None."""
+    m = _KROK_RE.match(line.strip())
+    if m:
+        _marza_krok["t"] = f"Krok {m.group(1)}/3: {m.group(2)}"
+        return _marza_krok["t"] + "…"
+    if not _marza_krok["t"].startswith(("Krok 2", "Krok 3")):
+        return None
+    for frag, txt in _PODKROKI:
+        if line.startswith(frag):
+            return f"{_marza_krok['t']} – {txt}…"
+    return None
