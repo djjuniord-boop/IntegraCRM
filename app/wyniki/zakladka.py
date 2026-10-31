@@ -1,9 +1,9 @@
 """Zakładka WYNIKI: aktualny wynik marży oddziału dla handlowców (Wrocław / Opole), admin widzi oba."""
 import threading
 import tkinter as tk
-from tkinter import ttk
+from tkinter import messagebox, ttk
 
-from ui import BG, BLACK, FlatButton, INK, LINE, MUTED, OK, RED, SURFACE, WARN, card
+from ui import BG, BLACK, FlatButton, INK, LINE, MUTED, OK, RED, SURFACE, WARN, card, set_icon
 from wyniki import dane
 
 ODSWIEZ_MS = 5 * 60 * 1000   # automatyczne odświeżanie, gdy program jest otwarty
@@ -82,8 +82,16 @@ class WynikiMixin:
         tk.Label(left, text="ZROBIONE", bg=DARK, fg=DARK_MUTED, font=f.small).pack(anchor="w")
         self.wyn_done = tk.Label(left, text="", bg=DARK, fg="white", font=(f.family, 30, "bold"))
         self.wyn_done.pack(anchor="w")
-        self.wyn_target = tk.Label(left, text="", bg=DARK, fg=DARK_MUTED, font=f.body)
-        self.wyn_target.pack(anchor="w")
+        trow = tk.Frame(left, bg=DARK)
+        trow.pack(anchor="w")
+        self.wyn_target = tk.Label(trow, text="", bg=DARK, fg=DARK_MUTED, font=f.body)
+        self.wyn_target.pack(side="left")
+        self.wyn_admin_btns = []          # przyciski edycji – tylko administrator (bazę i tak chroni admin_set_month)
+        if self._wyn_admin():
+            b = tk.Label(trow, text="✎ Zmień cel…", bg=DARK, fg="white", font=f.small, cursor="hand2", padx=8)
+            b.pack(side="left", padx=(10, 0))
+            b.bind("<Button-1>", lambda e: self.wyniki_zmien_cel())
+            self.wyn_admin_btns.append(b)
         self.wyn_pct = tk.Label(row, text="", bg=DARK, fg="#FF4A55", font=(f.family, 40, "bold"))
         self.wyn_pct.pack(side="right", anchor="s")
         tk.Label(row, text="realizacji celu", bg=DARK, fg=DARK_MUTED, font=f.small).pack(side="right", anchor="s",
@@ -126,16 +134,33 @@ class WynikiMixin:
 
         hist = card(low, padx=14, pady=10)
         hist.pack(side="left", fill="both", padx=(14, 0))
-        tk.Label(hist, text="Poprzednie miesiące", bg=SURFACE, fg=BLACK, font=f.label, anchor="w").pack(fill="x")
-        self.wyn_hist = ttk.Treeview(hist, columns=("m", "done", "cel", "pct"), show="headings", height=6,
+        hh = tk.Frame(hist, bg=SURFACE)
+        hh.pack(fill="x")
+        tk.Label(hh, text="Poprzednie miesiące", bg=SURFACE, fg=BLACK, font=f.label, anchor="w").pack(side="left")
+        if self._wyn_admin():
+            b = FlatButton(hh, "+ Dodaj miesiąc…", lambda: self.wyniki_dodaj_miesiac(), "ghost", f.small, 8, 3)
+            b.pack(side="right")
+            self.wyn_admin_btns.append(b)
+        tv_box = tk.Frame(hist, bg=SURFACE)
+        tv_box.pack(fill="both", expand=True, pady=(6, 0))
+        self.wyn_hist = ttk.Treeview(tv_box, columns=("m", "done", "cel", "pct"), show="headings", height=6,
                                      style="H.Treeview")
-        for c, t, w, a in (("m", "Miesiąc", 140, "w"), ("done", "Zrobione", 110, "e"), ("cel", "Cel", 110, "e"),
+        sb = ttk.Scrollbar(tv_box, orient="vertical", command=self.wyn_hist.yview)
+        self.wyn_hist.configure(yscrollcommand=sb.set)
+        for c, t, w, a in (("m", "Miesiąc", 190, "w"), ("done", "Zrobione", 110, "e"), ("cel", "Cel", 120, "e"),
                            ("pct", "% celu", 70, "e")):
             self.wyn_hist.heading(c, text=t, anchor=a)
             self.wyn_hist.column(c, width=w, anchor=a)
         self.wyn_hist.tag_configure("ok", foreground=OK)
         self.wyn_hist.tag_configure("bad", foreground=RED)
-        self.wyn_hist.pack(fill="both", expand=True, pady=(6, 0))
+        sb.pack(side="right", fill="y")
+        self.wyn_hist.pack(side="left", fill="both", expand=True)
+        self.wyn_hist_rows = {}           # id wiersza tabeli → wiersz marza_months
+        self.wyn_hist_note = tk.Label(hist, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
+                                      wraplength=420)
+        self.wyn_hist_note.pack(side="bottom", fill="x", pady=(4, 0), before=tv_box)   # zawsze widoczny
+        if self._wyn_admin():
+            self.wyn_hist.bind("<Double-1>", lambda e: self._wyn_hist_dwuklik(e))
         self.wyn_sum = None
 
     # ---------- dane ----------
@@ -208,7 +233,9 @@ class WynikiMixin:
         self.wyn_month.config(text=f"{names.get(branch, branch).upper()}  ·  {s['label']}"
                                    + ("" if s["biezacy"] else "  (ostatni miesiąc z wynikami)"))
         self.wyn_done.config(text=dane.zl(s["zrobione"]))
-        self.wyn_target.config(text=f"cel {dane.zl(s['cel'])}")
+        self.wyn_cur_row = m
+        self.wyn_target.config(text=f"cel {dane.zl(s['cel'])}"
+                               + ("  ✎ czeka na Excel" if m.get("target_pending") else ""))
         self.wyn_pct.config(text=f"{s['pct']:.0f}%" if s["pct"] is not None else "—")
         self.wyn_plan.config(text=(f"▲ plan na dziś {dane.zl(s['plan_dzis'])}  ·  dzień roboczy "
                                    f"{min(s['dni_minelo'] + 1, s['dni_all'])} z {s['dni_all']}")
@@ -224,15 +251,223 @@ class WynikiMixin:
                           fg=(OK if tempo is not None and tempo >= 100 else RED) if tempo is not None else BLACK)
         t["dni"].config(text=str(s["dni_zostalo"]) if s["biezacy"] else "—")
         self.wyn_hist.delete(*self.wyn_hist.get_children())
-        for r in dane.poprzednie(d.get("months", []), m):
-            p = dane.podsumowanie(r)
-            tag = () if p["pct"] is None else (("ok",) if p["pct"] >= 100 else ("bad",))
-            self.wyn_hist.insert("", "end", values=(p["label"], dane.zl(p["zrobione"]), dane.zl(p["cel"]),
-                                                    f"{p['pct']:.0f}%" if p["pct"] is not None else "—"), tags=tag)
+        self.wyn_hist_rows = {}
+        rows = dane.poprzednie(d.get("months", []), m)
+        for r in rows:
+            values, tag = dane.wiersz_tabeli(r)
+            self.wyn_hist_rows[self.wyn_hist.insert("", "end", values=values, tags=tag)] = r
+        notes = []
+        if m.get("target_pending") or any(r.get("target_pending") for r in rows):
+            notes.append("✎ cel czeka na wpisanie do Excela (przy najbliższej aktualizacji MARŻY)")
+        if self._wyn_admin():
+            notes.append("dwuklik – zmiana celu")
+        self.wyn_hist_note.config(text="  ·  ".join(notes))
         when = _kiedy(m.get("updated_at"))
         self.wyn_info.config(text=f"Zaktualizowano {when}" if when else "", fg=MUTED)
         self._wyn_draw_bar()
         self._wyn_draw_chart()
+
+    # ---------- edycja (tylko administrator) ----------
+    def _wyn_admin(self) -> bool:
+        return bool(self.session is not None and self.session.is_admin)
+
+    def _wyn_hist_dwuklik(self, event):
+        iid = self.wyn_hist.identify_row(event.y)
+        if iid in self.wyn_hist_rows:
+            self.wyniki_zmien_cel(self.wyn_hist_rows[iid])
+
+    def wyniki_zapisz(self, params: dict, done_cb):
+        """admin_set_month w tle; wynik (błąd albo None) do okna przez after. Zwraca wątek (testy)."""
+        sess = self.session
+
+        def work():
+            try:
+                sess.rpc("admin_set_month", **params)
+                self.after(0, done_cb, None)
+            except Exception as e:
+                self.after(0, done_cb, e)
+        t = threading.Thread(target=work, daemon=True)
+        t.start()
+        return t
+
+    def _wyn_odswiez_po_zapisie(self):
+        if self.wyn_loading:          # trwa wczytywanie – spróbuj za chwilę, żeby pokazać nowe dane
+            self.after(800, self._wyn_odswiez_po_zapisie)
+        else:
+            self.wyniki_odswiez()
+
+    def _wyn_okno(self, title):
+        f = self.fonts
+        w = tk.Toplevel(self)
+        w.title(title)
+        w.configure(bg=SURFACE)
+        w.resizable(False, False)
+        w.transient(self)
+        set_icon(w)
+        tk.Frame(w, bg=RED, height=4).pack(fill="x")
+        box = tk.Frame(w, bg=SURFACE, padx=20, pady=14)
+        box.pack(fill="both", expand=True)
+        tk.Label(box, text=title, bg=SURFACE, fg=BLACK, font=f.h2,
+                 anchor="w").grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+        return w, box
+
+    def _wyn_okno_dol(self, w, box, row, info, on_save):
+        f = self.fonts
+        msg = tk.Label(box, text=info, bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
+                       wraplength=360)
+        msg.grid(row=row, column=0, columnspan=2, sticky="w", pady=(10, 0))
+        btns = tk.Frame(box, bg=SURFACE)
+        btns.grid(row=row + 1, column=0, columnspan=2, sticky="e", pady=(14, 0))
+        FlatButton(btns, "Anuluj", w.destroy, "ghost", f.body, 14, 6).pack(side="right")
+        save = FlatButton(btns, "Zapisz", lambda: on_save(), "primary", f.body, 16, 6)
+        save.pack(side="right", padx=(0, 8))
+        w.bind("<Return>", lambda e: save._enabled and on_save())
+        w.bind("<Escape>", lambda e: w.destroy())
+        try:
+            w.grab_set()
+        except tk.TclError:
+            pass
+        return msg, save
+
+    def _wyn_pole(self, box, row, label, value=""):
+        f = self.fonts
+        tk.Label(box, text=label, bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=row, column=0, sticky="w",
+                                                                                   pady=3, padx=(0, 12))
+        e = tk.Entry(box, font=f.body, width=18, relief="flat", highlightthickness=1, highlightbackground=LINE,
+                     justify="right")
+        e.insert(0, value)
+        e.grid(row=row, column=1, sticky="we", pady=3)
+        return e
+
+    def _wyn_wyslij(self, w, msg, save, params, ok_text):
+        save.set_enabled(False, "Zapisuję…")
+        msg.config(text="Zapisuję w bazie…", fg=MUTED)
+
+        def done(err):
+            if err is not None:
+                if w.winfo_exists():
+                    save.set_enabled(True, "Zapisz")
+                    msg.config(text=dane.opis_bledu(err), fg=RED)
+                return
+            if w.winfo_exists():
+                w.destroy()
+            self.wyn_info.config(text=ok_text, fg=OK)
+            self._wyn_odswiez_po_zapisie()
+        self.wyniki_zapisz(params, done)
+
+    def wyniki_zmien_cel(self, row=None, branch=None):
+        """Okno zmiany celu miesiąca (domyślnie bieżącego). Ręczny miesiąc – także „zrobione”."""
+        if not self._wyn_admin():
+            return None
+        branch = branch or self.wyn_branch
+        row = row if row is not None else getattr(self, "wyn_cur_row", None)
+        if row is None or branch is None:
+            messagebox.showinfo("Zmiana celu", "Brak miesiąca do zmiany – najpierw wczytaj wyniki.")
+            return None
+        names = dict(dane.ODDZIALY)
+        manual = bool(row.get("manual"))
+        label = row.get("label") or f"{dane.MIESIACE[int(row['month']) - 1]} {row['year']}"
+        w, box = self._wyn_okno("Zmień cel miesiąca")
+        f = self.fonts
+        for i, (k, v) in enumerate((("Oddział", names.get(branch, branch)),
+                                    ("Miesiąc", label + (" (ręcznie)" if manual else "")),
+                                    ("Obecny cel", dane.zl(row.get("target"))
+                                     + ("  ✎ czeka na Excel" if row.get("target_pending") else "")))):
+            tk.Label(box, text=k, bg=SURFACE, fg=MUTED, font=f.body, anchor="w").grid(row=1 + i, column=0,
+                                                                                     sticky="w", pady=2)
+            tk.Label(box, text=v, bg=SURFACE, fg=BLACK, font=f.label, anchor="w").grid(row=1 + i, column=1,
+                                                                                      sticky="w", pady=2)
+        e_cel = self._wyn_pole(box, 4, "Nowy cel (zł)", dane.kwota_do_pola(row.get("target")))
+        e_done = self._wyn_pole(box, 5, "Zrobione (zł)", dane.kwota_do_pola(row.get("done"))) if manual else None
+        info = ("Miesiąc dopisany ręcznie – zmieniasz cel i wynik tylko w programie." if manual else
+                "Cel zostanie też wpisany do kalkulatora Excel przy najbliższej aktualizacji MARŻY.")
+
+        def on_save():
+            try:
+                cel = dane.parsuj_kwote(e_cel.get())
+            except ValueError as ex:
+                msg.config(text=f"Cel: {ex}", fg=RED)
+                return
+            done_v = None
+            if manual:
+                try:
+                    done_v = dane.parsuj_kwote(e_done.get())
+                except ValueError as ex:
+                    msg.config(text=f"Zrobione: {ex}", fg=RED)
+                    return
+            self._wyn_wyslij(w, msg, save, dane.parametry_rpc(branch, row["year"], row["month"], cel, done_v),
+                             f"Zapisano cel: {label}")
+        msg, save = self._wyn_okno_dol(w, box, 6, info, on_save)
+        e_cel.focus_set()
+        e_cel.select_range(0, "end")
+        return w
+
+    def wyniki_dodaj_miesiac(self):
+        """Okno dopisania brakującego starego miesiąca (np. sprzed kalkulatora): cel i zrobione."""
+        if not self._wyn_admin():
+            return None
+        from datetime import date
+        today = date.today()
+        names = dict(dane.ODDZIALY)
+        w, box = self._wyn_okno("Dodaj miesiąc")
+        f = self.fonts
+        r = 1
+        v_br = tk.StringVar(value=names.get(self.wyn_branch, ""))
+        if len(self.wyn_branches) > 1:
+            tk.Label(box, text="Oddział", bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=r, column=0,
+                                                                                           sticky="w", pady=3)
+            ttk.Combobox(box, textvariable=v_br, state="readonly", width=16, font=f.body,
+                         values=[names[k] for k in self.wyn_branches]).grid(row=r, column=1, sticky="we", pady=3)
+        else:
+            tk.Label(box, text="Oddział", bg=SURFACE, fg=MUTED, font=f.body, anchor="w").grid(row=r, column=0,
+                                                                                             sticky="w", pady=3)
+            tk.Label(box, text=v_br.get(), bg=SURFACE, fg=BLACK, font=f.label).grid(row=r, column=1, sticky="w")
+        prev = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+        v_m = tk.StringVar(value=dane.MIESIACE[prev[1] - 1])
+        v_y = tk.StringVar(value=str(prev[0]))
+        tk.Label(box, text="Miesiąc", bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=r + 1, column=0,
+                                                                                       sticky="w", pady=3)
+        ttk.Combobox(box, textvariable=v_m, state="readonly", width=16, font=f.body,
+                     values=dane.MIESIACE).grid(row=r + 1, column=1, sticky="we", pady=3)
+        tk.Label(box, text="Rok", bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=r + 2, column=0,
+                                                                                   sticky="w", pady=3)
+        ttk.Combobox(box, textvariable=v_y, state="readonly", width=16, font=f.body,
+                     values=[str(y) for y in range(today.year, 2019, -1)]).grid(row=r + 2, column=1, sticky="we",
+                                                                                 pady=3)
+        e_cel = self._wyn_pole(box, r + 3, "Cel (zł)")
+        e_done = self._wyn_pole(box, r + 4, "Zrobione (zł)")
+
+        def on_save():
+            branch = {v: k for k, v in names.items()}.get(v_br.get())
+            if branch not in self.wyn_branches:
+                msg.config(text="Wybierz oddział.", fg=RED)
+                return
+            year, month = int(v_y.get()), dane.MIESIACE.index(v_m.get()) + 1
+            if (year, month) >= (today.year, today.month):
+                msg.config(text="Można dopisać tylko miesiąc, który już się skończył.", fg=RED)
+                return
+            label = f"{v_m.get()} {year}"
+            old = dane.znajdz_miesiac((self.wyn_data.get(branch) or {}).get("months", []), year, month)
+            if old is not None:
+                co = "cel i wynik" if old.get("manual") else "cel"
+                if messagebox.askyesno("Dodaj miesiąc", f"{label} ({names[branch]}) jest już w wynikach.\n"
+                                       f"Możesz zmienić jego {co}. Otworzyć zmianę?", parent=w):
+                    w.destroy()
+                    self.wyniki_zmien_cel(old, branch)
+                return
+            vals = {}
+            for key, e, nazwa in (("cel", e_cel, "Cel"), ("done", e_done, "Zrobione")):
+                try:
+                    vals[key] = dane.parsuj_kwote(e.get())
+                except ValueError as ex:
+                    msg.config(text=f"{nazwa}: {ex}", fg=RED)
+                    return
+            self._wyn_wyslij(w, msg, save, dane.parametry_rpc(branch, year, month, vals["cel"], vals["done"]),
+                             f"Dodano miesiąc: {label}")
+        msg, save = self._wyn_okno_dol(w, box, r + 5, "Miesiąc sprzed kalkulatora – wpisz cel i to, co zostało "
+                                       "zrobione. Pojawi się w tabeli z dopiskiem „(ręcznie)”.", on_save)
+        e_cel.focus_set()
+        return w
 
     def _wyn_draw_bar(self):
         c, s = self.wyn_bar, getattr(self, "wyn_sum", None)

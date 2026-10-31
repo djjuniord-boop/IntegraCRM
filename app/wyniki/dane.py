@@ -85,7 +85,7 @@ def wybierz_miesiac(rows: list, today: datetime.date | None = None):
     return max(past, key=lambda r: (int(r["year"]), int(r["month"]))) if past else None
 
 
-def poprzednie(rows: list, biezacy: dict | None, n: int = 6) -> list:
+def poprzednie(rows: list, biezacy: dict | None, n: int = 12) -> list:
     """Ostatnie zamknięte miesiące (z celem albo wykonaniem), najnowsze pierwsze."""
     if biezacy is None:
         return []
@@ -118,3 +118,89 @@ def punkty_wykresu(row: dict, runs: list, today: datetime.date | None = None) ->
     if row.get("done") is not None and (year, month) == (today.year, today.month):
         per_day[max(idx(today), max(per_day, default=0))] = float(row["done"])
     return sorted(per_day.items())
+
+
+# ---------- edycja przez administratora (RPC admin_set_month) ----------
+MIESIACE = ["Styczeń", "Luty", "Marzec", "Kwiecień", "Maj", "Czerwiec", "Lipiec", "Sierpień", "Wrzesień",
+            "Październik", "Listopad", "Grudzień"]
+MAX_KWOTA = 100_000_000      # jak w bazie (admin_set_month)
+
+
+def parsuj_kwote(text) -> float:
+    """Kwota wpisana po polsku: „128 450,50”, „128450”, „128.450,5 zł” → 128450.5. Błąd → ValueError z opisem."""
+    s = str(text or "").strip().lower().replace("zł", "").replace("zl", "")
+    for sp in (" ", " ", " ", "\t"):
+        s = s.replace(sp, "")
+    if not s:
+        raise ValueError("Wpisz kwotę.")
+    if "," in s:
+        s = s.replace(".", "").replace(",", ".")          # 128.450,50 → 128450.50
+    elif s.count(".") > 1 or (s.count(".") == 1 and len(s.split(".")[1]) == 3):
+        s = s.replace(".", "")                            # 128.450 → 128450 (kropka jako tysiące)
+    try:
+        v = float(s)
+    except ValueError:
+        raise ValueError("To nie jest kwota – wpisz same cyfry, np. 300 000 albo 128 450,50.") from None
+    if v != v or v <= 0:
+        raise ValueError("Kwota musi być większa od zera.")
+    if v > MAX_KWOTA:
+        raise ValueError("Kwota jest za duża.")
+    return round(v, 2)
+
+
+def kwota_do_pola(v) -> str:
+    """Kwota do pola edycji: „300 000” albo „128 450,50”."""
+    if v is None:
+        return ""
+    v = float(v)
+    txt = f"{v:,.2f}".replace(",", " ").replace(".", ",")
+    return txt[:-3] if txt.endswith(",00") else txt
+
+
+def parametry_rpc(branch: str, year: int, month: int, target: float, done: float | None = None) -> dict:
+    """Parametry admin_set_month; p_done tylko przy miesiącu ręcznym (nowy albo edycja ręcznego)."""
+    p = {"p_branch": branch, "p_year": int(year), "p_month": int(month), "p_target": target}
+    if done is not None:
+        p["p_done"] = done
+    return p
+
+
+def znajdz_miesiac(rows: list, year: int, month: int):
+    for r in rows:
+        if (int(r["year"]), int(r["month"])) == (int(year), int(month)):
+            return r
+    return None
+
+
+def oznaczenie(row: dict) -> str:
+    """Dopisek przy miesiącu w tabeli: ręcznie dopisany / cel czeka na wpisanie do Excela."""
+    parts = []
+    if row.get("manual"):
+        parts.append("(ręcznie)")
+    if row.get("target_pending"):
+        parts.append("cel ✎ czeka na Excel")
+    return " ".join(parts)
+
+
+def opis_bledu(e) -> str:
+    """Błąd z bazy prostym językiem."""
+    t = str(e)
+    low = t.lower()
+    if "42501" in t or "tylko administrator" in low:
+        return "Tylko administrator może zmieniać cele."
+    if "admin_set_month" in low and ("function" in low or "not find" in low or "pgrst202" in low):
+        return "Baza nie ma jeszcze tej funkcji – administrator musi najpierw wkleić aktualizację bazy (plik SQL)."
+    if "kwota" in low:
+        return "Baza nie przyjęła kwoty – sprawdź, czy jest większa od zera."
+    if "miesiąc" in low or "oddział" in low:
+        return "Baza nie przyjęła miesiąca – sprawdź oddział, miesiąc i rok."
+    return f"Nie udało się zapisać: {t}"
+
+
+def wiersz_tabeli(row: dict) -> tuple:
+    """Wiersz tabeli „Poprzednie miesiące”: (wartości kolumn, znacznik koloru)."""
+    p = podsumowanie(row)
+    label = p["label"] + (" (ręcznie)" if row.get("manual") else "")
+    cel = zl(p["cel"]) + (" ✎" if row.get("target_pending") else "")
+    tag = () if p["pct"] is None else (("ok",) if p["pct"] >= 100 else ("bad",))
+    return (label, zl(p["zrobione"]), cel, f"{p['pct']:.0f}%" if p["pct"] is not None else "—"), tag

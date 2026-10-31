@@ -63,8 +63,13 @@ def _wyniki_dane():
         for k in range(4):
             done = round(cel * (frac if k == 0 else (0.9 + 0.06 * k)), 2)
             months.append({"branch": branch, "year": y, "month": m, "label": f"{names[m - 1]} {y}", "target": cel,
-                           "done": done, "holidays": [], "updated_at": f"{t.isoformat()}T05:40:00Z"})
+                           "done": done, "holidays": [], "updated_at": f"{t.isoformat()}T05:40:00Z",
+                           "target_pending": branch == "wroclaw" and k == 1, "manual": False})
             y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+        if branch == "wroclaw":   # miesiąc dopisany ręcznie przez administratora (sprzed kalkulatora)
+            months.append({"branch": branch, "year": t.year - 2, "month": 3, "label": f"Marzec {t.year - 2}",
+                           "target": 250000, "done": 262500, "holidays": None, "updated_at": None,
+                           "target_pending": False, "manual": True})
         for day in (1, 3, 6):
             if day < t.day:
                 runs.append({"branch": branch, "month_label": months[-4]["label"], "target": cel,
@@ -192,6 +197,14 @@ def run_scenario(label, sess):
         dialogs += [("uzytkownik", lambda: g.UserDialog(app, sess.list_users()[1])),
                     ("nowy_uzytkownik", lambda: g.UserDialog(app)),
                     ("dziennik", lambda: g.AuditWindow(app))]
+    if sess.is_admin and "wyniki" in app.pages:   # WYNIKI: zmiana celu i dopisanie miesiąca (administrator)
+        def _wyn_reczny():
+            app.wyniki_pokaz("wroclaw")
+            rows = [r for r in app.wyn_hist_rows.values() if r.get("manual")]
+            return app.wyniki_zmien_cel(rows[0]) if rows else None
+        dialogs += [("wyniki_zmien_cel", lambda: app.wyniki_zmien_cel()),
+                    ("wyniki_zmien_cel_reczny", _wyn_reczny),
+                    ("wyniki_dodaj_miesiac", lambda: app.wyniki_dodaj_miesiac())]
     if sess.can("marza"):
         dialogs += [("marza_odbiorcy", lambda: g.MarzaRecipientsDialog(app)),
                     ("marza_wyniki", lambda: g.MarzaResultsWindow(app)),
@@ -232,6 +245,10 @@ def run_scenario(label, sess):
             info["wyniki_dane"] = sorted(app.wyn_data)
             info["wyniki_pokazane"] = bool(app.wyn_main.winfo_ismapped()) if app.wyn_data else False
             info["wyniki_procent"] = app.wyn_pct.cget("text")
+            info["wyniki_przyciski_edycji"] = len(app.wyn_admin_btns)
+            if "wroclaw" in app.wyn_data:
+                app.wyniki_pokaz("wroclaw")
+                info["wyniki_tabela"] = [list(app.wyn_hist.item(i, "values")) for i in app.wyn_hist.get_children()]
     steps.append((collect, 10))
 
     def run(i=0):
@@ -337,6 +354,11 @@ def main():
         "handlowiec_tylko_wroclaw": (result.get("handlowiec_wroclaw", {}).get("wyniki_oddzialy") == ["wroclaw"]
                                      and result.get("handlowiec_wroclaw", {}).get("wyniki_dane") == ["wroclaw"]),
         "handlowiec_widzi_wynik": result.get("handlowiec_wroclaw", {}).get("wyniki_procent") == "43%",
+        "admin_wyniki_edycja": result.get("admin", {}).get("wyniki_przyciski_edycji") == 2,
+        "handlowiec_bez_edycji_wynikow": (result.get("handlowiec_wroclaw", {}).get("wyniki_przyciski_edycji") == 0
+                                          and result.get("marza_serwis", {}).get("wyniki_przyciski_edycji") == 0),
+        "wyniki_oznaczenia": (any(r[0].endswith("(ręcznie)") for r in result.get("admin", {}).get("wyniki_tabela", []))
+                              and any(r[2].endswith("✎") for r in result.get("admin", {}).get("wyniki_tabela", []))),
         "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }
     report = {"ok": not all_err and all(checks.values()), "checks": checks, "scenarios": result,
