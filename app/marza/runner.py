@@ -585,12 +585,28 @@ def _apply_targets(eng, key, folder):
         for y, m, old, t in wpisane:
             print(f"Cel z programu wpisany do kalkulatora: {MONTHS_PL[m - 1]} {y}: {old} -> {t} zł")
             try:
-                SESSION.call("POST", "/rest/v1/rpc/marza_target_written",
-                             {"p_branch": key, "p_year": y, "p_month": m})
+                if _target_written(key, y, m, t) is False:
+                    print(f"Uwaga: cel na {MONTHS_PL[m - 1]} {y} zmieniono w trakcie – zostanie wpisany przy "
+                          f"następnej aktualizacji.")
             except Exception as e:   # cel jest w Excelu; przy następnym przebiegu wpisze się jeszcze raz (ta sama kwota)
                 print(f"Uwaga: nie udało się oznaczyć celu {MONTHS_PL[m - 1]} {y} jako wpisanego: {e}")
     out["krok"] = not brak
     return out
+
+
+def _target_written(key, y, m, t):
+    """Zdejmuje „czeka na Excel”. Nowa baza: 4 argumenty, False = admin zmienił cel w międzyczasie (pending zostaje).
+    Stara baza (brak funkcji 4-argumentowej) → wersja 3-argumentowa."""
+    path = "/rest/v1/rpc/marza_target_written"
+    try:
+        r = SESSION.call("POST", path, {"p_branch": key, "p_year": y, "p_month": m, "p_target": t})
+    except Exception as e:
+        txt = str(e)
+        if "marza_target_written" not in txt and "PGRST202" not in txt and "function" not in txt.lower():
+            raise
+        SESSION.call("POST", path, {"p_branch": key, "p_year": y, "p_month": m})
+        return None
+    return False if r is False else True
 
 
 # ---------- zakładka WYNIKI: tabela miesięcy z kalkulatora → baza (marza_months) ----------

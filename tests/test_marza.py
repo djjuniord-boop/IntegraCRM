@@ -672,9 +672,9 @@ def test_nieoczekiwany_blad_silnika_raport_do_odrzuconych():
 
 # ---------- cele z zakładki WYNIKI (target_pending) → kalkulator przed silnikiem ----------
 class _SesjaCele(_Sesja):
-    def __init__(self, pending=(), get_fail=False, **k):
+    def __init__(self, pending=(), get_fail=False, rpc=True, stara_rpc=False, **k):
         super().__init__(**k)
-        self.pending, self.get_fail = list(pending), get_fail
+        self.pending, self.get_fail, self.rpc, self.stara_rpc = list(pending), get_fail, rpc, stara_rpc
 
     def call(self, m, p, b=None, prefer=None):
         if m == "GET" and p.startswith("/rest/v1/marza_months?"):
@@ -683,6 +683,13 @@ class _SesjaCele(_Sesja):
                 import cloud
                 raise cloud.CloudError('column marza_months.target_pending does not exist')
             return [dict(r) for r in self.pending]
+        if p == "/rest/v1/rpc/marza_target_written":
+            self.calls.append((m, p, b, prefer))
+            if self.stara_rpc and "p_target" in b:
+                import cloud
+                raise cloud.CloudError("Could not find the function public.marza_target_written(p_branch, p_month, "
+                                       "p_target, p_year) in the schema cache")
+            return self.rpc if "p_target" in b else None
         return super().call(m, p, b, prefer)
 
 
@@ -733,7 +740,8 @@ def test_cel_z_programu_wpisany_do_kalkulatora():
     assert ws["C5"].value == 1                        # duplikat wyżej – bez zmian
     assert ws["C6"].number_format == '#,##0.00 "zł"'  # format komórki zostaje
     assert ws["C7"].value == "=C6*1.1"                # formuły nietknięte
-    assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2026, "p_month": 10}]
+    assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2026, "p_month": 10, "p_target": 333000.5}]
+    assert "zmieniono w trakcie" not in log
     assert os.listdir(os.path.join(folder, "kopie_zapasowe"))   # kopia zapasowa przed zapisem
     assert not [f for f in os.listdir(folder) if f.endswith(".tmp")]
     assert info["cele"] == {"krok": True, "uwagi": []}
@@ -780,7 +788,7 @@ def test_cel_brak_miesiaca_w_kalkulatorze():
     rc, calls, log, folder, ws, info = _cele(s)
     assert rc == 0
     assert ws["C10"].value == 260000                 # „styczeń 2027” – wpisany mimo brakującego Marca
-    assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2027, "p_month": 1}]
+    assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2027, "p_month": 1, "p_target": 260000.0}]
     assert info["cele"]["krok"] is False
     assert "Cel na Marzec 2026 z programu nie trafił do kalkulatora – brak miesiąca w kalkulatorze" in \
         info["cele"]["uwagi"][0]
@@ -808,3 +816,20 @@ def test_cel_tryb_testowy_nie_pyta_bazy():
         else:
             os.environ["LATEX_TRYB_TESTOWY"] = old
     assert not [c for c in calls if c[0] == "GET"]
+
+
+def test_cel_zmieniony_w_trakcie_zostaje_pending():
+    s = _SesjaCele(pending=[{"year": 2026, "month": 10, "target": 333000}], rpc=False)
+    rc, calls, log, folder, ws, info = _cele(s)
+    assert rc == 0 and ws["C6"].value == 333000
+    assert "Uwaga: cel na Październik 2026 zmieniono w trakcie – zostanie wpisany przy następnej aktualizacji." in log
+    assert info["cele"] == {"krok": True, "uwagi": []}   # bez zmiany statusu karty
+
+
+def test_cel_stara_funkcja_trzy_argumenty():
+    s = _SesjaCele(pending=[{"year": 2026, "month": 10, "target": 333000}], stara_rpc=True)
+    rc, calls, log, folder, ws, info = _cele(s)
+    assert rc == 0
+    assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2026, "p_month": 10, "p_target": 333000.0},
+                           {"p_branch": "wroclaw", "p_year": 2026, "p_month": 10}]
+    assert "Uwaga: nie udało się" not in log and "zmieniono w trakcie" not in log
