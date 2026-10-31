@@ -40,8 +40,11 @@ Metody mixinów korzystają z pól okna (`self.session`, `self.fonts`, `self.pag
 5. **Uprawnienia sprawdza baza (RLS), nie program.** Ukrycie zakładki to porządek, nie zabezpieczenie. Wszystko,
    co ma być chronione, musi mieć zasadę dostępu w bazie.
 6. **Zawsze online.** Bez logowania program się nie otwiera. Minimalną wersję ustawia `app_config.min_version` –
-   podnoś ją dopiero, gdy właściciel potwierdzi, że nowa wersja działa (inaczej przywrócenie poprzedniej
-   wersji zablokuje program).
+   decyzja właściciela (2026-10-17): **każde wydanie oficjalne (main) od razu podnosi ją automatycznie** (krok CI
+   „Minimalna wersja = wydana”, sekret `SUPABASE_SERVICE_ROLE_KEY`), po sprawdzeniu, że wersja jest do pobrania.
+   Dlatego na main idzie tylko wersja sprawdzona na becie – przywrócenie poprzedniej wersji wymaga obniżenia
+   `min_version` ręcznie (SQL).
+7. **Wydania tylko na wyraźne polecenie właściciela** – także na kanał beta (push na `beta` buduje i wydaje paczkę).
 
 ## Jak pracujemy (kontroler + agenci)
 

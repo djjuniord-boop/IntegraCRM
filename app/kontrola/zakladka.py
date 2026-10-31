@@ -4,14 +4,17 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import paths
-from kontrola import analyze, crm_report, mailer
-from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card, odmiana, step_badge
+from kontrola import analyze, crm_report, mailer, postep
+from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, WheelProgress, card, odmiana, step_badge
 from konfig import COMPANY, load_config, recipients_for, save_config
 from kontrola.mailer import parse_recipients
 try:
     from kontrola import history
 except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
     history = None
+
+
+WHEEL_HIDE_MS = 4000   # po sprawdzeniu koło z ✔/⚠/✖ znika po tylu ms (mały ekran – miejsce na braki i e-mail)
 
 
 class KontrolaMixin:
@@ -64,11 +67,16 @@ class KontrolaMixin:
         self.btn_check = FlatButton(page, "SPRAWDŹ", self.check, "primary", f.big, 18, 8)
         self.btn_check.pack(fill="x", pady=(10, 8))
 
-        # wynik
-        self.banner = tk.Label(page, text="Wybierz PDF z Integry i raport .xlsx z CRM, potem kliknij „Sprawdź”.",
+        # wynik; podczas sprawdzania obok paska koło postępu (ui.WheelProgress), potem chowane
+        self.check_status = tk.Frame(page, bg=SURFACE, highlightthickness=1, highlightbackground=LINE)
+        self.check_status.pack(fill="x")
+        self.check_wheel = WheelProgress(self.check_status, size=64, bg=SURFACE, family=f.family)
+        self.check_frac = 0.0
+        self.check_busy = False
+        self.banner = tk.Label(self.check_status, text="Wybierz PDF z Integry i raport .xlsx z CRM, potem kliknij „Sprawdź”.",
                                bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
-                               highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
-        self.banner.pack(fill="x")
+                               justify="left", wraplength=900)
+        self.banner.pack(side="left", fill="both", expand=True)
 
         bottom = tk.Frame(page, bg=BG)
         bottom.pack(fill="both", expand=True, pady=(8, 0))
@@ -152,6 +160,45 @@ class KontrolaMixin:
                   "bad": (ERR_BG, RED_DARK), "busy": (SURFACE, INK)}
         bg, fg = colors[kind]
         self.banner.config(text=text, bg=bg, fg=fg)
+        self.check_status.config(bg=bg)
+        self.check_wheel.config(bg=bg)
+
+    # ---------- koło postępu (tylko wątek okna) ----------
+    def check_wheel_show(self, on=True):
+        w = self.check_wheel
+        if on and not w.winfo_manager():
+            w.pack(side="left", padx=(10, 0), pady=2, before=self.banner)
+        elif not on:
+            w.reset()
+            w.pack_forget()
+
+    def check_wheel_line(self, line):
+        """Linia ze „Szczegółów” → postęp koła (wołane przez self.ui z wątku roboczego)."""
+        if not self.check_busy:
+            return
+        self.check_frac = postep.postep(line, self.check_frac)
+        self.check_wheel.set(self.check_frac)
+
+    def check_wheel_done(self, kind):
+        self.check_busy = False
+        self.check_frac = postep.postep("Gotowe", self.check_frac)   # Gotowe = 100%
+        self.check_wheel.set(self.check_frac)
+        self.check_wheel.done(kind)
+        if getattr(self, "_wheel_hide_id", None):   # licznik z poprzedniego sprawdzenia nie schowa nowego wyniku
+            try:
+                self.after_cancel(self._wheel_hide_id)
+            except tk.TclError:
+                pass
+        self._wheel_hide_id = self.after(WHEEL_HIDE_MS, self._check_wheel_hide_idle)
+
+    def _check_wheel_hide_idle(self):
+        if not self.check_busy:
+            self.check_wheel_show(False)
+
+    def _check_log(self, line):
+        """Log z wątku: linia do „Szczegółów” + krok koła (oba przez after)."""
+        self.say(line)
+        self.ui(self.check_wheel_line, line)
 
     def copy_all(self):
         if not self.result or not (self.result[0] or self.result[1]):
@@ -330,6 +377,10 @@ class KontrolaMixin:
         self.log.delete("1.0", "end")
         self.set_chips([], [])
         self.set_banner("busy", "Sprawdzam…")
+        self.check_busy = True
+        self.check_frac = 0.0
+        self.check_wheel_show(True)
+        self.check_wheel.start()
         # Tkinter nie jest bezpieczny dla wątków – wszystko z okna odczytujemy tutaj
         pdf = self.pdf_path.get()
         br = self.chosen_branches()
@@ -337,11 +388,14 @@ class KontrolaMixin:
         threading.Thread(target=self._check_work, args=(pdf, src), daemon=True).start()
 
     def _check_work(self, pdf, src):
+        kind = "bad"   # znak na kole po końcu; błąd = „bad”
+        log = self._check_log
         try:
             tess = paths.find_tesseract(load_config().get("tesseract_cmd", ""))
             import time as _t
             _t0 = _t.time()
-            res = analyze.run(pdf, src, tess, self.say)
+            res = analyze.run(pdf, src, tess, log)
+            self.ui(self.check_wheel_line, "Porównuję")
             self._stat("check", n_integra=len(res["integra"]), n_crm=len(res["crm_main"]),
                        n_missing=len(res["missing"]), n_uncertain=len(res["uncertain"]),
                        n_autofix=len(res.get("autofix", [])), n_warnings=len(res["warnings"]),
@@ -350,6 +404,7 @@ class KontrolaMixin:
             warn = res["warnings"]
 
             self.result = None
+            kind = postep.rodzaj_wyniku(res)
             if not integra:
                 self.ui(self.set_banner, "warn", "⚠  W PDF z Integry nie znaleziono żadnego numeru "
                         "rejestracyjnego – sprawdź, czy to właściwy plik.")
@@ -358,7 +413,7 @@ class KontrolaMixin:
                 self.ui(self.set_banner, "warn", "⚠  W raporcie z CRM nie ma numerów dla zaznaczonych serwisów.")
                 return
             for w in warn:
-                self.say("⚠ " + w)
+                log("⚠ " + w)
 
             missing, uncertain = res["missing"], res["uncertain"]
             self.result = (missing, uncertain)
@@ -372,7 +427,9 @@ class KontrolaMixin:
                 self.ui(self.refresh_history)
             except Exception as e:
                 self.say(f"Historia: nie zapisano ({e})")
+            self.ui(self.check_wheel_line, "Historia")
             self._save_daily(res, src.get("branches", []))
+            self.ui(self.check_wheel_line, "Statystyki")
             self.ui(self.set_chips, missing, uncertain)
             wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
             if not missing and not uncertain:
@@ -396,6 +453,7 @@ class KontrolaMixin:
                 self.ui(self.recipient.set, "")
                 self.ui(self.mail_body.delete, "1.0", "end")
                 return
+            self.ui(self.check_wheel_line, "Przygotowuję e-mail")
             try:
                 reg = history.reported(refresh=True) if history else {}
             except Exception:
@@ -418,11 +476,13 @@ class KontrolaMixin:
             self.ui(self.set_banner, "bad", f"✖  W CRM {' i '.join(parts)} z {len(integra)} zleceń. "
                     "E-mail jest gotowy – sprawdź treść i kliknij „Wyślij e-mail”." + wtxt)
         except Exception as e:
+            kind = "bad"
             self.say(f"Błąd: {e}")
             self._report(e, "sprawdzanie")
             self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
+            self.ui(self.check_wheel_done, kind)
 
     def _save_daily(self, res, branches):
         """Liczniki dzienne do STATYSTYK (w wątku roboczym). Błąd zapisu nie psuje sprawdzenia."""

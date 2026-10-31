@@ -134,7 +134,7 @@ def test_przebieg_mail_przez_serwer_kopia_i_wyniki():
     mail = [c for c in calls if c[1] == "/functions/v1/send-mail"]
     assert mail and mail[0][2]["action"] == "raw" and mail[0][2]["to"] == ["a@example.com"]
     assert any(c[0] == "UP" and c[1].endswith("/k.xlsx") for c in calls)
-    assert any(c[0] == "UP" and c[1].endswith("/r.pdf") for c in calls)
+    assert not any(c[0] == "UP" and c[1].lower().endswith(".pdf") for c in calls), calls   # PDF-ów nie wysyłamy
     wynik = [c for c in calls if c[1] == "/rest/v1/marza_results"][0][2][0]
     assert wynik["margin"] == 12345.5 and wynik["target"] == 300000.0 and wynik["done"] == 120000.5
     # kalkulatora nie da się odczytać → tylko linia w dzienniku, przebieg OK, nic nie poszło do marza_months
@@ -215,7 +215,7 @@ def test_tryb_testowy_nic_nie_wysyla_do_bazy():
             os.environ["LATEX_TRYB_TESTOWY"] = old
     assert rc == 0 and smtp_ok
     assert not [c for c in calls if c[0] == "UP" or c[1].startswith("/rest/v1/")], calls
-    assert "[TRYB TESTOWY] Wyniki i pliki NIE zostały zapisane w chmurze." in log
+    assert "[TRYB TESTOWY] Wyniki i kalkulator NIE zostały zapisane w chmurze." in log
 
 
 def test_etykieta_miesiaca():
@@ -242,3 +242,429 @@ def test_silniki_bez_adresow_w_kodzie():
         assert "@" not in s.split("EMAIL_ODBIORCY = ")[1].split("\n")[0], f
         assert "latexopony" not in s and "latexserwis.pl" not in s, f
     assert Path(APP / "marza" / "runner.py").exists()
+
+
+# ---------- raporty PDF nie są przechowywane, czytelny przebieg, polskie liczby ----------
+def _pdf(path, linie):
+    from reportlab.pdfgen import canvas
+    c = canvas.Canvas(path)
+    y = 800
+    for l in linie:
+        c.drawString(40, y, l)
+        y -= 16
+    c.save()
+
+
+def _raport(path, oddzial, od, do, kwota):
+    _pdf(path, ["Raport sprzedazy towarow i uslug", f"Serwis {oddzial}", f"Zakres dat: od {od} do {do}",
+                f"Marza towary + sprzedaz uslug netto: {kwota}"])
+
+
+def test_dodanie_do_kolejki_przenosi_plik():
+    from marza import runner
+    root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(root, sub))
+    f = os.path.join(src, "raport.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    added, rejected, notes = runner.add_reports(root, [f])
+    assert added == [("raport.pdf", "wroclaw")] and not rejected and not notes
+    assert not os.path.exists(f), "oryginał miał zostać przeniesiony"
+    assert os.path.isfile(os.path.join(root, runner.WRZUC, "raport.pdf"))
+
+
+def test_dodanie_plik_zablokowany_kopia_i_uwaga():
+    from marza import runner
+    root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(root, sub))
+    f = os.path.join(src, "raport.pdf")
+    _raport(f, "Opole", "2026-10-01", "2026-10-13", "1 000,00")
+    o_move, o_remove = runner.shutil.move, runner.os.remove
+
+    def zly_move(a, b):
+        raise PermissionError("plik jest używany")
+
+    def zly_remove(x):
+        if x == f:
+            raise PermissionError("plik jest używany")
+        return o_remove(x)
+    runner.shutil.move, runner.os.remove = zly_move, zly_remove
+    try:
+        added, rejected, notes = runner.add_reports(root, [f])
+    finally:
+        runner.shutil.move, runner.os.remove = o_move, o_remove
+    assert added == [("raport.pdf", "opole")] and not rejected
+    assert os.path.isfile(os.path.join(root, runner.WRZUC, "raport.pdf")) and os.path.isfile(f)
+    assert len(notes) == 1 and "nie udało się usunąć oryginału" in notes[0][1]
+
+
+def test_pelny_przebieg_usuwa_zapisany_raport_i_zostawia_pominiety():
+    """Prawdziwe silniki (tryb testowy): Wrocław zapisany → PDF usunięty, Opole z miesiącem spoza tabeli →
+    pominięty, leży w _ODRZUCONE. Wynik ma dane do kart (miesiąc, było → jest, cel, kroki)."""
+    from marza import runner
+    root = tempfile.mkdtemp()
+    for sub, x in (("Wrocław", "kalkulator_marzy_Wroclaw.xlsx"), ("Opole", "kalkulator_marzy_Opole.xlsx")):
+        os.makedirs(os.path.join(root, sub))
+        _kalkulator(os.path.join(root, sub, x))
+    wrz = os.path.join(root, runner.WRZUC)
+    os.makedirs(wrz)
+    _raport(os.path.join(wrz, "wro.pdf"), "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    _raport(os.path.join(wrz, "opo.pdf"), "Opole", "2025-03-01", "2025-03-31", "1 000,00")
+    linie = []
+    res = runner.run_all(root, {}, log=linie.append, test_mode=True)
+    tekst = "\n".join(linie)
+    w, o = res["results"]["wroclaw"], res["results"]["opole"]
+    assert not os.path.exists(os.path.join(root, "Wrocław", "wro.pdf"))
+    assert not os.path.isdir(os.path.join(root, "Wrocław", "przetworzone"))
+    assert not [n for n in os.listdir(os.path.join(root, "Wrocław")) if n.lower().endswith(".pdf")]
+    assert "Raporty zapisane w kalkulatorze zostały usunięte" in tekst
+    # uproszczony kalkulator testowy nie wystarcza podglądowi – jedyna uwaga Wrocławia to podgląd
+    assert w["uwagi"] == ["Nie udało się odświeżyć podglądu dla handlowców – szczegóły w „Szczegóły przebiegu”."], w
+    assert w["miesiac"] == "Październik 2026" and w["bylo"] == 120000.5 and w["jest"] == 154186.54
+    assert w["zmiana"] == 34186.04 and w["kroki"]["podglad"] is False
+    assert w["kroki"]["raport"] is True and w["kroki"]["kalkulator"] is True
+    assert w["kroki"]["dysk"] is None and w["kroki"]["baza"] is None     # tryb testowy / bez logowania
+    assert "marża netto = 154 186,54 zł" in tekst and "120 000,50 zł → 154 186,54 zł" in tekst   # polskie kwoty
+    assert o["status"] == "UWAGA" and o["odrzucone"] == ["opo.pdf"]
+    assert os.path.isfile(os.path.join(wrz, "_ODRZUCONE", "opo.pdf"))
+    assert any("_ODRZUCONE" in u for u in o["uwagi"])
+    assert not res["ok"] and "SĄ UWAGI – przeczytaj powyżej" in tekst
+    assert "--- Krok 2/3: Wrocław ---" in linie and "--- Krok 3/3: Opole ---" in linie
+
+
+def _log_silnika(tekst):
+    from marza import rozdziel
+    root = tempfile.mkdtemp()
+    rozdziel.configure(root)
+    folder = os.path.join(root, "Wrocław")
+    os.makedirs(os.path.join(folder, "silnik"))
+
+    def run():
+        with open(os.path.join(folder, "silnik", "log_aktualizacji.txt"), "a", encoding="utf-8") as f:
+            f.write(tekst)
+        return 0
+    return rozdziel.uruchom_silnik("WROCŁAW", folder, run, {
+        "reports": [{"source": "r.pdf", "label": "Październik 2026", "margin_netto": 900.0, "margin_raw": 1000.0,
+                     "deduction": 100.0, "deduction_details": [("Opony / C", 100.0, False), ("Opony / R", 0.0, True)]}],
+        "chmura": {"baza": True, "uwagi": []}})
+
+
+def test_rozpoznawanie_nowych_tekstow_silnika():
+    w = _log_silnika("Odczytane raporty:\n  r.pdf: Październik 2026 -> marża netto = 900,00 zł\n\n"
+                     "Zaktualizowano w Excelu:\n  Październik 2026: 120000.5 -> 900.00 zł  (z pliku r.pdf)\n\n"
+                     "Raporty zapisane w kalkulatorze zostały usunięte z komputera (PDF-y nie są przechowywane).\n"
+                     "Odświeżono plik podglądowy dla handlowców (P.xlsx):\n"
+                     "  Miesiąc: Październik 2026 | Cel: 300 000,00 zł | Zrobione: 154 186,54 zł\n"
+                     "Skopiowano na Dysk Google: G:/x\n"
+                     "Wysłano 2 powiadomienia e-mail z wykresem (każdy odbiorca widzi w polu „Do” tylko swój adres).\n")
+    assert w["status"] == "OK", w
+    assert w["emaile"] == 2 and w["cel"] == 300000.0 and w["zrobione"] == 154186.54 and w["procent"] == 51
+    assert w["bylo"] == 120000.5 and w["jest"] == 900.0
+    assert all(w["kroki"][k] is True for k in ("raport", "kalkulator", "podglad", "dysk", "email", "baza")), w
+    assert w["odjete"]["odjeto"] == 100.0 and len(w["odjete"]["pozycje"]) == 2
+    w = _log_silnika("Odczytane raporty:\n\nZaktualizowano w Excelu:\n  Październik 2026: None -> 900.00 zł  (z pliku r.pdf)\n"
+                     "Uwaga: folder Dysku Google nie znaleziony (G:) — plik podglądowy zapisany tylko lokalnie.\n"
+                     "Uwaga: nie udało się wysłać e-maila z powiadomieniem: brak sieci\n")
+    assert w["status"] == "UWAGA" and w["kroki"]["dysk"] is False and w["kroki"]["email"] is False
+    assert w["bylo"] is None and w["zmiana"] == 900.0
+    w = _log_silnika("Odczytane raporty:\n\nZaktualizowano w Excelu:\n  Październik 2026: 1 -> 2.00 zł  (z pliku r.pdf)\n"
+                     "E-mail nie został wysłany – brak zaznaczonych odbiorców.\n")
+    assert w["emaile"] == 0 and w["kroki"]["email"] is None and w["status"] == "OK"
+    w = _log_silnika("BŁĄD: nie mogę zapisać k.xlsx — plik jest teraz otwarty w Excelu.\n")
+    assert w["status"] == "BŁĄD" and w["kroki"]["kalkulator"] is False
+
+
+def test_kwoty_i_odmiana():
+    from marza.rozdziel import kwota, odmiana, _na_liczbe
+    from marza import silnik_wroclaw as sw, silnik_opole as so
+    assert kwota(154186.54) == "154 186,54 zł" and kwota(0) == "0,00 zł" and kwota(None) == "—"
+    assert kwota(34186.04, znak=True) == "+34 186,04 zł" and kwota(-1234.5, znak=True) == "-1 234,50 zł" == sw._zl(-1234.5, znak=True)
+    assert _na_liczbe("154 186,54 zł") == 154186.54 and _na_liczbe("154186.54") == 154186.54
+    assert _na_liczbe("None") is None
+    for m in (sw, so):
+        assert m._zl(154186.54) == "154 186,54 zł" and m._zl(12.5, znak=True) == "+12,50 zł"
+        assert [m._odmiana(n, "powiadomienie", "powiadomienia", "powiadomień") for n in (1, 2, 5, 12, 22, 0)] == \
+            ["powiadomienie", "powiadomienia", "powiadomień", "powiadomień", "powiadomienia", "powiadomień"]
+    assert odmiana(3, "a", "b", "c") == "b"
+
+
+def test_krok_w_pasku():
+    import importlib
+    z = importlib.import_module("marza.zakladka")
+    assert z.marza_step_text("--- Krok 2/3: Wrocław ---") == "Krok 2/3: Wrocław…"
+    assert z.marza_step_text("Zaktualizowano w Excelu:") == "Krok 2/3: Wrocław – zapis w kalkulatorze…"
+    assert z.marza_step_text("cokolwiek") is None
+
+
+def test_postep_kola_z_dziennika():
+    import importlib
+    z = importlib.import_module("marza.zakladka")
+    z.marza_step_fraction("")
+    seq = ["--- Krok 1/3: rozdzielanie raportów ---", "--- Krok 2/3: Wrocław ---", "Odczytane raporty:",
+           "Zaktualizowano w Excelu:", "Wysłano 2 powiadomienia e-mail", "Wyniki zapisane w bazie (…)",
+           "--- Krok 3/3: Opole ---", "Odczytane raporty:", "Wyniki zapisane w bazie (…)"]
+    fr = [z.marza_step_fraction(l) for l in seq]
+    assert all(f is not None for f in fr), fr
+    assert fr == sorted(fr) and 0 < fr[0] < 0.1 and 0.4 < fr[5] < 0.56 and 0.9 < fr[-1] < 1.0
+    assert z.marza_step_fraction("Odczytane raporty:") is None   # nie cofa się
+    assert z.marza_step_fraction("cokolwiek") is None
+    z.marza_step_fraction("")
+    assert z.marza_step_fraction("--- Krok 1/3: rozdzielanie raportów ---") == fr[0]   # nowy przebieg od zera
+
+
+def test_inspect_pamieta_wynik():
+    """Ten sam PDF (ścieżka, rozmiar, czas zmiany) nie jest czytany ponownie – także po przeniesieniu do kolejki."""
+    from marza import runner
+    root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(root, sub))
+    f = os.path.join(src, "r.pdf")
+    _raport(f, "Opole", "2026-10-01", "2026-10-13", "1 000,00")
+    licz = {"n": 0}
+    orig = runner._inspect
+
+    def liczacy(p):
+        licz["n"] += 1
+        return orig(p)
+    runner._inspect = liczacy
+    try:
+        assert runner.inspect(f) == ("opole", "")
+        assert runner.inspect(f) == ("opole", "") and licz["n"] == 1
+        times = {}
+        added, _, _ = runner.add_reports(root, [f], times=times)
+        assert added == [("r.pdf", "opole")] and set(times) >= {"odczyt", "przeniesienie"}
+        for _ in range(3):
+            assert runner.pending_info(root) == [("r.pdf", "opole")]
+        assert licz["n"] == 1, licz
+        q = os.path.join(root, runner.WRZUC, "r.pdf")
+        os.utime(q, ns=(1, 1))   # plik zmieniony → odczyt ponownie
+        runner.pending_info(root)
+        assert licz["n"] == 2
+    finally:
+        runner._inspect = orig
+
+
+def test_inspect_nie_pamieta_bledu_odczytu():
+    from marza import runner
+    d = tempfile.mkdtemp()
+    f = os.path.join(d, "r.pdf")
+    with open(f, "wb") as fh:
+        fh.write(b"to nie pdf")
+    st = os.stat(f)
+    b, why = runner.inspect(f)
+    assert b is None and why.startswith("nie da się odczytać")
+    assert not [k for k in runner._INSPECT_CACHE if k[0] == os.path.normcase(os.path.abspath(f))]
+    _raport(f, "Opole", "2026-10-01", "2026-10-13", "1 000,00")   # plik dopisany – teraz poprawny
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
+    assert runner.inspect(f) == ("opole", "")
+    runner._remember(f, (None, "nie da się odczytać PDF (x)"))   # porażka nie nadpisuje
+    assert runner.inspect(f) == ("opole", "")
+
+
+def _tk():
+    import tkinter as tk
+    try:
+        return tk.Tk()
+    except tk.TclError:   # brak ekranu (np. bez xvfb) – test okna pominięty
+        print("    (pominięto – brak ekranu)")
+        return None
+
+
+def test_kolo_postepu_bez_bledow_i_bez_after_po_done():
+    import time
+    import ui
+    root = _tk()
+    if root is None:
+        return
+    try:
+        w = ui.WheelProgress(root, size=140)
+        w.pack()
+        w.start()
+        for v in (0.2, "x", None, -1, 2, 0.5):
+            w.set(v, text="krok")
+        end = time.time() + 1.0
+        while time.time() < end:   # klatki z pętli okna (jak u użytkownika)
+            root.update()
+            time.sleep(0.01)
+        assert w.running and w._shown > 0.45
+        assert w.itemcget(w._pct, "text") == "50%"
+        for kind in ("ok", "warn", "bad", "inne"):
+            w.done(kind)
+            assert not w.running and w._job is None
+        root.update()
+        assert not root.tk.splitlist(root.tk.call("after", "info")), "po done() nic nie może być zaplanowane"
+        w.set(0.3)   # po done() set nie wznawia obrotu
+        assert not w.running
+        w.reset()
+        assert not w.running and w.itemcget(w._mark, "state") == "hidden"
+        w.start()
+        w.destroy()   # zniszczenie anuluje zaplanowaną klatkę
+        assert w._job is None
+    finally:
+        root.destroy()
+
+
+def test_dodanie_w_tle_nie_blokuje_okna():
+    import threading
+    import time
+    import tkinter as tk
+    import ui
+    from konfig import load_config, save_config
+    from marza import runner
+    from marza.zakladka import MarzaMixin
+    root = _tk()
+    if root is None:
+        return
+    temp_data()   # ustawienia do folderu tymczasowego – nie do data/ w repozytorium
+    folder = tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(folder, sub))
+    cfg = load_config()
+    cfg["marza_folder"] = folder
+    save_config(cfg)
+
+    class Okno(MarzaMixin):
+        pass
+    o = Okno()
+    o.after, o.after_idle, o.tk = root.after, root.after_idle, root.tk
+    o.fonts, o.session = ui.Fonts(root), None
+    o._report = lambda e, where: None
+    page = tk.Frame(root)
+    page.pack()
+    o._build_marza(page)
+    watek = {}
+    orig = runner.add_reports
+
+    def wolne(r, files, ask, times=None):
+        watek["main"] = threading.current_thread() is threading.main_thread()
+        time.sleep(0.6)
+        return orig(r, files, ask, times=times)
+    src = tempfile.mkdtemp()
+    f = os.path.join(src, "raport.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    f2 = os.path.join(src, "opole.pdf")
+    _raport(f2, "Opole", "2026-10-01", "2026-10-13", "1 000,00")
+    runner.add_reports = wolne
+    try:
+        t0 = time.perf_counter()
+        o.marza_add([f])
+        assert time.perf_counter() - t0 < 0.3, "dodanie zablokowało okno"
+        assert o.marza_adding and o.marza_wheel.running
+        o.marza_add([f2])   # upuszczony w trakcie – czeka i jest dodany po bieżącym
+        assert o._marza_add_waiting == [f2] and "jeszcze 1" in o.marza_banner.cget("text")
+        end = time.time() + 15
+
+        def czekaj():   # pętla okna jak u użytkownika (wątek przekazuje wynik przez after)
+            if (o.marza_adding or o._marza_add_waiting) and time.time() < end:
+                root.after(20, czekaj)
+            else:
+                root.quit()
+        root.after(20, czekaj)
+        root.mainloop()
+    finally:
+        runner.add_reports = orig
+    try:
+        assert watek.get("main") is False
+        assert not o.marza_adding and not o.marza_wheel.running, (o.marza_adding, o.marza_wheel.running, o.marza_banner.cget("text"))
+        assert "Dodano raport w " in o.marza_log.get("1.0", "end")
+        assert "Dodano: opole.pdf" in o.marza_banner.cget("text")   # drugi (oczekujący) dodany jako ostatni
+        teksty = [c.cget("text") for r in o.marza_queue.winfo_children() for c in r.winfo_children()
+                  if isinstance(c, tk.Label)]
+        assert "raport.pdf" in teksty and "opole.pdf" in teksty, teksty
+        # w trakcie aktualizacji – komunikat z nazwami niedodanych plików, nic nie ginie po cichu
+        import marza.zakladka as z
+        msgs, orig_w = [], z.messagebox.showwarning
+        z.messagebox.showwarning = lambda t, m: msgs.append(m)
+        try:
+            o.marza_busy = True
+            o.marza_add([os.path.join(src, "inny.pdf")])
+        finally:
+            z.messagebox.showwarning = orig_w
+            o.marza_busy = False
+        assert len(msgs) == 1 and "inny.pdf" in msgs[0] and not o.marza_adding
+    finally:
+        root.destroy()
+
+
+def test_okno_kopii_bez_pdf():
+    from _wspolne import APP
+    s = (APP / "marza" / "runner.py").read_text(encoding="utf-8")
+    assert "application/pdf" not in s and '"pdfs"' not in s
+
+
+def _folder_latex():
+    from marza import runner
+    root = tempfile.mkdtemp()
+    for sub, x in (("Wrocław", "kalkulator_marzy_Wroclaw.xlsx"), ("Opole", "kalkulator_marzy_Opole.xlsx")):
+        os.makedirs(os.path.join(root, sub))
+        _kalkulator(os.path.join(root, sub, x))
+    os.makedirs(os.path.join(root, runner.WRZUC))
+    return root
+
+
+def test_plik_z_kolejki_wybrany_ponownie_nie_jest_kasowany():
+    from marza import runner
+    root = _folder_latex()
+    f = os.path.join(root, runner.WRZUC, "wro.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "1 000,00")
+    pytania = []
+    added, rejected, notes = runner.add_reports(root, [f], lambda b, o: pytania.append(o) or True)
+    assert added == [("wro.pdf", "wroclaw")] and not rejected and not pytania
+    assert os.path.isfile(f)
+    # inny plik tego oddziału: pytanie o zastąpienie, stary usunięty, nowy w kolejce
+    g = os.path.join(tempfile.mkdtemp(), "nowy.pdf")
+    _raport(g, "Wroclaw", "2026-10-01", "2026-10-14", "2 000,00")
+    added, _, _ = runner.add_reports(root, [g], lambda b, o: pytania.append(o) or True)
+    assert pytania == ["wro.pdf"] and runner.pending(root) == ["nowy.pdf"]
+
+
+def test_raport_z_odrzuconych_usuwa_powod():
+    from marza import runner
+    root = _folder_latex()
+    odrz = os.path.join(root, runner.WRZUC, "_ODRZUCONE")
+    os.makedirs(odrz)
+    f = os.path.join(odrz, "wro.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "1 000,00")
+    open(os.path.join(odrz, "wro_POWOD.txt"), "w").write("powód")
+    added, _, _ = runner.add_reports(root, [f])
+    assert added == [("wro.pdf", "wroclaw")] and os.listdir(odrz) == []
+
+
+def test_kalkulator_otwarty_raport_wraca_do_kolejki():
+    from marza import runner
+    import openpyxl.workbook.workbook as wbm
+    root = _folder_latex()
+    _raport(os.path.join(root, runner.WRZUC, "wro.pdf"), "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    o_save = wbm.Workbook.save
+
+    def zablokowany(self, path):
+        if "kalkulator_marzy" in str(path):
+            raise PermissionError("plik otwarty w Excelu")
+        return o_save(self, path)
+    wbm.Workbook.save = zablokowany
+    try:
+        res = runner.run_all(root, {}, log=lambda l: None, test_mode=True)
+    finally:
+        wbm.Workbook.save = o_save
+    w = res["results"]["wroclaw"]
+    assert runner.pending(root) == ["wro.pdf"], os.listdir(os.path.join(root, runner.WRZUC))
+    assert not os.path.isdir(os.path.join(root, runner.WRZUC, "_ODRZUCONE"))
+    assert w["status"] == "BŁĄD" and w["w_kolejce"] == ["wro.pdf"] and not w["odrzucone"]
+    assert w["kroki"]["kalkulator"] is False
+
+
+def test_nieoczekiwany_blad_silnika_raport_do_odrzuconych():
+    """Błąd silnika bez komunikatu „BŁĄD:” powtórzyłby się – raport nie wraca do kolejki w kółko."""
+    import os
+    import tempfile
+    from marza import rozdziel as roz
+    root = tempfile.mkdtemp()
+    roz.configure(root)
+    folder = os.path.join(root, "Wroclaw")
+    os.makedirs(os.path.join(folder, "silnik"), exist_ok=True)
+    with open(os.path.join(folder, "r.pdf"), "wb") as f:
+        f.write(b"%PDF-1.4")
+    w = roz.uruchom_silnik("WROCŁAW", folder, lambda: 1)
+    assert "r.pdf" in w["odrzucone"] and not w["w_kolejce"], w
+    assert not os.path.exists(os.path.join(roz.WRZUC_DIR, "r.pdf"))

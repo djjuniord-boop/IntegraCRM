@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.22.0"
+VERSION = "0.22.2"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,27 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.22.2",
+        "date": "2026-10-31",
+        "changes": [
+            "MARŻA i KONTROLA: kręcąca się opona z felgą i czerwonym pierścieniem pokazuje postęp (0–100%) i bieżący krok",
+            "MARŻA: dodawanie raportu w tle i szybciej (każdy raport czytany raz); kilka raportów upuszczonych pod rząd "
+            "dodaje się po kolei",
+            "MARŻA: usunięte przyciski „Wyniki online” i „Kopie w chmurze”",
+        ],
+    },
+    {
+        "version": "0.22.1",
+        "date": "2026-10-30",
+        "changes": [
+            "MARŻA: czytelny wynik – karta dla każdego serwisu (było → jest, cel, % wykonania, e-maile, kroki), "
+            "pełny dziennik pod przyciskiem „Szczegóły przebiegu”",
+            "MARŻA: kwoty w formacie „154 186,54 zł” i poprawiona polszczyzna komunikatów",
+            "MARŻA: raporty PDF nie są przechowywane – przy dodaniu przenoszone do kolejki, po zapisie w kalkulatorze "
+            "usuwane, do chmury trafia tylko kalkulator; raport niezapisany zostaje do ponownej próby",
+        ],
+    },
     {
         "version": "0.22.0",
         "date": "2026-10-17",
