@@ -9,7 +9,7 @@ import ctypes, ctypes.wintypes, datetime, hashlib, json, os, py_compile, re, shu
 import subprocess, tempfile, threading, traceback, zipfile, csv, base64, concurrent.futures  # noqa: F401,E401
 import urllib.request, urllib.parse  # noqa: F401,E401
 import email.message, email.mime.multipart, email.mime.text, email.mime.image, email.utils  # noqa: F401,E401
-import calendar, glob, io, contextlib, importlib, copy  # noqa: F401,E401
+import calendar, glob, io, contextlib, importlib, copy, math  # noqa: F401,E401
 import openpyxl, pypdf, numpy  # noqa: F401,E401
 import matplotlib
 matplotlib.use("Agg")

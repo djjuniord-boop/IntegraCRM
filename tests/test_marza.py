@@ -445,6 +445,23 @@ def test_inspect_pamieta_wynik():
         runner._inspect = orig
 
 
+def test_inspect_nie_pamieta_bledu_odczytu():
+    from marza import runner
+    d = tempfile.mkdtemp()
+    f = os.path.join(d, "r.pdf")
+    with open(f, "wb") as fh:
+        fh.write(b"to nie pdf")
+    st = os.stat(f)
+    b, why = runner.inspect(f)
+    assert b is None and why.startswith("nie da się odczytać")
+    assert not [k for k in runner._INSPECT_CACHE if k[0] == os.path.normcase(os.path.abspath(f))]
+    _raport(f, "Opole", "2026-10-01", "2026-10-13", "1 000,00")   # plik dopisany – teraz poprawny
+    os.utime(f, ns=(st.st_atime_ns, st.st_mtime_ns))
+    assert runner.inspect(f) == ("opole", "")
+    runner._remember(f, (None, "nie da się odczytać PDF (x)"))   # porażka nie nadpisuje
+    assert runner.inspect(f) == ("opole", "")
+
+
 def _tk():
     import tkinter as tk
     try:
@@ -526,17 +543,20 @@ def test_dodanie_w_tle_nie_blokuje_okna():
     src = tempfile.mkdtemp()
     f = os.path.join(src, "raport.pdf")
     _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    f2 = os.path.join(src, "opole.pdf")
+    _raport(f2, "Opole", "2026-10-01", "2026-10-13", "1 000,00")
     runner.add_reports = wolne
     try:
         t0 = time.perf_counter()
         o.marza_add([f])
         assert time.perf_counter() - t0 < 0.3, "dodanie zablokowało okno"
         assert o.marza_adding and o.marza_wheel.running
-        o.marza_add([f])   # drugie dodanie w trakcie – odrzucone bez blokady
+        o.marza_add([f2])   # upuszczony w trakcie – czeka i jest dodany po bieżącym
+        assert o._marza_add_waiting == [f2] and "jeszcze 1" in o.marza_banner.cget("text")
         end = time.time() + 15
 
         def czekaj():   # pętla okna jak u użytkownika (wątek przekazuje wynik przez after)
-            if o.marza_adding and time.time() < end:
+            if (o.marza_adding or o._marza_add_waiting) and time.time() < end:
                 root.after(20, czekaj)
             else:
                 root.quit()
@@ -548,10 +568,21 @@ def test_dodanie_w_tle_nie_blokuje_okna():
         assert watek.get("main") is False
         assert not o.marza_adding and not o.marza_wheel.running, (o.marza_adding, o.marza_wheel.running, o.marza_banner.cget("text"))
         assert "Dodano raport w " in o.marza_log.get("1.0", "end")
-        assert "Dodano: raport.pdf" in o.marza_banner.cget("text")
+        assert "Dodano: opole.pdf" in o.marza_banner.cget("text")   # drugi (oczekujący) dodany jako ostatni
         teksty = [c.cget("text") for r in o.marza_queue.winfo_children() for c in r.winfo_children()
                   if isinstance(c, tk.Label)]
-        assert "raport.pdf" in teksty, teksty
+        assert "raport.pdf" in teksty and "opole.pdf" in teksty, teksty
+        # w trakcie aktualizacji – komunikat z nazwami niedodanych plików, nic nie ginie po cichu
+        import marza.zakladka as z
+        msgs, orig_w = [], z.messagebox.showwarning
+        z.messagebox.showwarning = lambda t, m: msgs.append(m)
+        try:
+            o.marza_busy = True
+            o.marza_add([os.path.join(src, "inny.pdf")])
+        finally:
+            z.messagebox.showwarning = orig_w
+            o.marza_busy = False
+        assert len(msgs) == 1 and "inny.pdf" in msgs[0] and not o.marza_adding
     finally:
         root.destroy()
 

@@ -22,6 +22,8 @@ class MarzaMixin:
         f = self.fonts
         self.marza_busy = False
         self.marza_adding = False
+        self._marza_add_waiting = []
+        self._marza_hide_id = None
         top = card(page, padx=16, pady=12)
         top.pack(fill="x")
         h = tk.Frame(top, bg=SURFACE)
@@ -177,17 +179,25 @@ class MarzaMixin:
     def marza_add(self, files):
         """Dodanie raportów do kolejki – w tle (okno nie zamarza); pytania i komunikaty z wątku okna."""
         from marza import runner
-        if self.marza_busy or self.marza_adding:
-            self.marza_set_banner("warn", "⚠ Poczekaj – trwa aktualizacja albo dodawanie raportu.")
+        files = list(files)
+        if self.marza_busy:   # w trakcie aktualizacji kolejka jest czytana – nic nie dodajemy, ale mówimy wprost
+            messagebox.showwarning("MARŻA – nie dodano", "Trwa aktualizacja – te pliki NIE zostały dodane:\n\n"
+                                   + "\n".join(os.path.basename(x) for x in files)
+                                   + "\n\nPo zakończeniu przeciągnij je jeszcze raz.")
+            return
+        if self.marza_adding:   # upuszczone w trakcie dodawania – dodamy zaraz po bieżących
+            self._marza_add_waiting.extend(files)
+            self.marza_set_banner("busy", f"Dodaję… (jeszcze {len(self._marza_add_waiting)})")
             return
         root = self._marza_root()
         prob = runner.check_folder(root)
         if prob:
             messagebox.showwarning("MARŻA", prob)
             return
-        files = list(files)
         self.marza_adding = True
+        self._marza_cancel_hide()
         self.marza_set_banner("busy", "Dodaję raport…" if len(files) == 1 else f"Dodaję raporty ({len(files)})…")
+        self._marza_cancel_hide()
         self.marza_wheel_show(True)
         self.marza_wheel.start()
         self.marza_wheel.set(0.15)
@@ -202,8 +212,13 @@ class MarzaMixin:
                 box["a"] = fn()
             finally:
                 ev.set()
-        self.after(0, _q)
-        ev.wait()
+        try:
+            self.after(0, _q)
+        except RuntimeError:   # okno zamknięte
+            return None
+        while not ev.wait(0.5):
+            if not threading.main_thread().is_alive():
+                return None
         return box.get("a")
 
     def _marza_add_work(self, root, files):
@@ -219,14 +234,20 @@ class MarzaMixin:
         res, items, err = None, None, None
         try:
             res = runner.add_reports(root, files, ask_replace, times=times)
-            self.after(0, self.marza_wheel.set, 0.8)
+            try:
+                self.after(0, self.marza_wheel.set, 0.8)
+            except RuntimeError:
+                pass
             t1 = time.perf_counter()
             items = runner.pending_info(root)
             times["kolejka"] = time.perf_counter() - t1
         except Exception as e:   # błąd nie może zostawić zakładki „zajętej”
             err = e
         times["razem"] = time.perf_counter() - t0
-        self.after(0, self._marza_add_done, res, items, times, err)
+        try:
+            self.after(0, self._marza_add_done, res, items, times, err)
+        except RuntimeError:   # okno zamknięte w trakcie
+            return
         if res and res[0]:
             self._marza_measure(res[0], times)
 
@@ -252,7 +273,8 @@ class MarzaMixin:
             self.marza_wheel.done("bad")
             self._report(err, "dodawanie raportu marży")
             self.marza_set_banner("bad", f"✖  Nie udało się dodać raportu: {err}")
-            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
+            self._marza_schedule_hide()
+            self._marza_add_next()
             return
         added, rejected, notes = res
         self.marza_wheel.done("ok" if added and not rejected else "warn" if added else "bad")
@@ -264,14 +286,35 @@ class MarzaMixin:
                                   + f". Kliknij „AKTUALIZUJ WSZYSTKO”.  (trwało {_sek(times.get('razem'))})")
         else:
             self.marza_set_banner("warn", "⚠ Nie dodano raportu – powód w okienku.")
-        self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
+        self._marza_schedule_hide()
         if rejected:
             messagebox.showwarning("MARŻA – nie dodano",
                                    "\n\n".join(f"{n}\n→ {why}" for n, why in rejected))
         if notes:
             messagebox.showwarning("MARŻA – uwaga", "\n\n".join(f"{n}\n→ {why}" for n, why in notes))
+        self._marza_add_next()
+
+    def _marza_add_next(self):
+        """Pliki upuszczone w trakcie dodawania – dodaj teraz."""
+        if self._marza_add_waiting and not self.marza_adding and not self.marza_busy:
+            nxt, self._marza_add_waiting = self._marza_add_waiting, []
+            self.marza_add(nxt)
+
+    def _marza_cancel_hide(self):
+        if self._marza_hide_id is not None:
+            try:
+                self.after_cancel(self._marza_hide_id)
+            except Exception:
+                pass
+            self._marza_hide_id = None
+
+    def _marza_schedule_hide(self):
+        """✔/⚠ chwilę widoczne, potem koło znika (licznik poprzedniego zakończenia anulowany)."""
+        self._marza_cancel_hide()
+        self._marza_hide_id = self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
 
     def _marza_wheel_hide_idle(self):
+        self._marza_hide_id = None
         if not self.marza_busy and not self.marza_adding:
             self.marza_wheel_show(False)
 
@@ -292,6 +335,7 @@ class MarzaMixin:
         self._marza_step = ""
         marza_step_fraction("")   # nowy przebieg – postęp od zera
         self.marza_set_banner("busy", "Trwa aktualizacja… Krok 1/3: rozdzielanie raportów")
+        self._marza_cancel_hide()
         self.marza_wheel_show(True)
         self.marza_wheel.start()
         threading.Thread(target=self._marza_work, args=(root,), daemon=True).start()
@@ -347,12 +391,12 @@ class MarzaMixin:
                 self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj je przy oddziałach poniżej.")
                 self.after(0, self.marza_wheel.done, "warn")
             self.after(0, self.marza_show_result, res)
-            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)   # ✔ chwilę widoczny, potem miejsce dla kart
+            self.after(0, self._marza_schedule_hide)   # ✔ chwilę widoczny, potem miejsce dla kart
         except Exception as e:
             self._report(e, "kalkulator marży")
             self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
             self.after(0, self.marza_wheel.done, "bad")
-            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
+            self.after(0, self._marza_schedule_hide)
         finally:
             def done():
                 self.marza_busy = False

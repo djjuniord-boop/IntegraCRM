@@ -70,7 +70,7 @@ def inspect(path: str):
     if key is not None and key in _INSPECT_CACHE:
         return _INSPECT_CACHE[key]
     res = _inspect(path)
-    if key is not None:
+    if key is not None and not _nieodczytany(res):   # porażek odczytu nie pamiętamy (plik mógł być w zapisie)
         if len(_INSPECT_CACHE) > 200:
             _INSPECT_CACHE.clear()
         _INSPECT_CACHE[key] = res
@@ -80,8 +80,12 @@ def inspect(path: str):
 def _remember(path, res):
     """Plik przeniesiony do kolejki ma tę samą treść – wynik inspect() bez ponownego czytania."""
     key = _file_key(path)
-    if key is not None:
+    if key is not None and not _nieodczytany(res):
         _INSPECT_CACHE[key] = res
+
+
+def _nieodczytany(res):
+    return not res[0] and str(res[1]).startswith("nie da się odczytać")
 
 
 def _inspect(path):
