@@ -17,7 +17,7 @@ w `marza_results.source_pdf`.
 z wątku okna. `runner.inspect` pamięta wynik wg (ścieżka, rozmiar, czas zmiany) – odświeżenie kolejki nie czyta
 PDF-ów ponownie; po przeniesieniu wynik jest przypisany do pliku w kolejce. Czytana tylko 1. strona
 (`PdfReader(..., strict=False)`). Czas dodania: linia „Dodano raport w 0,4 s (odczyt …, przeniesienie …, kolejka …)”
-w dzienniku przebiegu + zdarzenie `log_event` (`pomiar` / „MARŻA dodanie”, sekundy w `p_detail`) – w tle, błąd pomijany.
+w dzienniku przebiegu + zdarzenie `log_event` (`import` / „MARŻA dodanie”, sekundy w `p_detail`) – w tle, błąd pomijany.
 
 **Koło postępu:** `ui.WheelProgress` (wspólny widżet: felga z pierścieniem, `start/set/done/reset`) obok paska stanu
 w czasie aktualizacji i dodawania. Procent z linii dziennika – `zakladka.marza_step_fraction` (krok 1 = 3%,
