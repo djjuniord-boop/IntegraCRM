@@ -11,6 +11,7 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | Plik | Rola |
 |---|---|
 | `zakladka.py` | `KontrolaMixin` – zakładka KONTROLA: wybór plików, oddziały, „Sprawdź” (wątek), wynik, mail |
+| `postep.py` | koło postępu „SPRAWDŹ”: linia ze „Szczegółów” → procent (`postep`), znak po wyniku (`rodzaj_wyniku`); bez okna |
 | `historia_zakladka.py` | `HistoriaMixin` – zakładka HISTORIA (z bazy, w tle) i eksport do Excela |
 | `analyze.py` | cała analiza: PDF → numery, raport CRM → numery, porównanie dokładne, ostrzeżenia (zły oddział/okres), `daily_stats` |
 | `plates.py` | wzorce numerów (Integra, w tym `extract_integra_visits` – wiersze z datą), normalizacja; funkcje OCR (`ocr_equal`, `compare`) zostały, ale analiza ich już nie używa |

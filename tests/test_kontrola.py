@@ -225,3 +225,32 @@ def test_pole_odbiorca_rozbior_adresow():
     ok, zle = parse_recipients("jan.kowalski, d@firma.pl")
     assert ok == ["d@firma.pl"] and zle == ["jan.kowalski"]
     assert parse_recipients("") == ([], [])
+
+
+def test_kolo_postepu_kroki():
+    from kontrola import postep
+    linie = ["PDF z Integry…", "  3: A, B, C", "  zakres raportu: 13.10 – 13.10",
+             "Raport z CRM (plik), oddziały: Latex Wrocław", "  2: A, B", "Porównuję", "⚠ coś",
+             "Historia", "Statystyki: zapisano", "Przygotowuję e-mail", "Gotowe"]
+    cur, seen = 0.0, []
+    for ln in linie:
+        cur = postep.postep(ln, cur)
+        seen.append(cur)
+    assert seen == sorted(seen) and seen[0] == 0.05 and seen[-1] == 1.0, seen
+    assert seen[1] == 0.45 and seen[4] == 0.60, seen
+    assert postep.postep("coś innego", 0.5) == 0.5          # nieznana linia nie cofa ani nie przesuwa
+    assert postep.postep("PDF z Integry…", 0.8) == 0.8      # nigdy wstecz
+    # bez linii „zakres raportu”: liczba numerów CRM → 0.60
+    assert postep.postep("  2: A", postep.postep("Raport z CRM", postep.postep("  3: X", 0.05))) == 0.60
+
+
+def test_kolo_wynik():
+    from kontrola import postep
+    ok = {"integra": ["A"], "crm": ["A"], "missing": [], "uncertain": [], "warnings": []}
+    assert postep.rodzaj_wyniku(ok) == "ok"
+    assert postep.rodzaj_wyniku(dict(ok, missing=["B"])) == "bad"
+    assert postep.rodzaj_wyniku(dict(ok, warnings=["x"])) == "warn"
+    assert postep.rodzaj_wyniku(dict(ok, no_overlap=True)) == "warn"
+    assert postep.rodzaj_wyniku(dict(ok, integra=[])) == "warn"
+    assert postep.rodzaj_wyniku(None) == "bad"
+    assert postep.rodzaj_wyniku(ok, error=True) == "bad"
