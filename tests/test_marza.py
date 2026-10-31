@@ -397,6 +397,165 @@ def test_krok_w_pasku():
     assert z.marza_step_text("cokolwiek") is None
 
 
+def test_postep_kola_z_dziennika():
+    import importlib
+    z = importlib.import_module("marza.zakladka")
+    z.marza_step_fraction("")
+    seq = ["--- Krok 1/3: rozdzielanie raportów ---", "--- Krok 2/3: Wrocław ---", "Odczytane raporty:",
+           "Zaktualizowano w Excelu:", "Wysłano 2 powiadomienia e-mail", "Wyniki zapisane w bazie (…)",
+           "--- Krok 3/3: Opole ---", "Odczytane raporty:", "Wyniki zapisane w bazie (…)"]
+    fr = [z.marza_step_fraction(l) for l in seq]
+    assert all(f is not None for f in fr), fr
+    assert fr == sorted(fr) and 0 < fr[0] < 0.1 and 0.4 < fr[5] < 0.56 and 0.9 < fr[-1] < 1.0
+    assert z.marza_step_fraction("Odczytane raporty:") is None   # nie cofa się
+    assert z.marza_step_fraction("cokolwiek") is None
+    z.marza_step_fraction("")
+    assert z.marza_step_fraction("--- Krok 1/3: rozdzielanie raportów ---") == fr[0]   # nowy przebieg od zera
+
+
+def test_inspect_pamieta_wynik():
+    """Ten sam PDF (ścieżka, rozmiar, czas zmiany) nie jest czytany ponownie – także po przeniesieniu do kolejki."""
+    from marza import runner
+    root, src = tempfile.mkdtemp(), tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(root, sub))
+    f = os.path.join(src, "r.pdf")
+    _raport(f, "Opole", "2026-10-01", "2026-10-13", "1 000,00")
+    licz = {"n": 0}
+    orig = runner._inspect
+
+    def liczacy(p):
+        licz["n"] += 1
+        return orig(p)
+    runner._inspect = liczacy
+    try:
+        assert runner.inspect(f) == ("opole", "")
+        assert runner.inspect(f) == ("opole", "") and licz["n"] == 1
+        times = {}
+        added, _, _ = runner.add_reports(root, [f], times=times)
+        assert added == [("r.pdf", "opole")] and set(times) >= {"odczyt", "przeniesienie"}
+        for _ in range(3):
+            assert runner.pending_info(root) == [("r.pdf", "opole")]
+        assert licz["n"] == 1, licz
+        q = os.path.join(root, runner.WRZUC, "r.pdf")
+        os.utime(q, ns=(1, 1))   # plik zmieniony → odczyt ponownie
+        runner.pending_info(root)
+        assert licz["n"] == 2
+    finally:
+        runner._inspect = orig
+
+
+def _tk():
+    import tkinter as tk
+    try:
+        return tk.Tk()
+    except tk.TclError:   # brak ekranu (np. bez xvfb) – test okna pominięty
+        print("    (pominięto – brak ekranu)")
+        return None
+
+
+def test_kolo_postepu_bez_bledow_i_bez_after_po_done():
+    import time
+    import ui
+    root = _tk()
+    if root is None:
+        return
+    try:
+        w = ui.WheelProgress(root, size=140)
+        w.pack()
+        w.start()
+        for v in (0.2, "x", None, -1, 2, 0.5):
+            w.set(v, text="krok")
+        end = time.time() + 1.0
+        while time.time() < end:   # klatki z pętli okna (jak u użytkownika)
+            root.update()
+            time.sleep(0.01)
+        assert w.running and w._shown > 0.45
+        assert w.itemcget(w._pct, "text") == "50%"
+        for kind in ("ok", "warn", "bad", "inne"):
+            w.done(kind)
+            assert not w.running and w._job is None
+        root.update()
+        assert not root.tk.splitlist(root.tk.call("after", "info")), "po done() nic nie może być zaplanowane"
+        w.set(0.3)   # po done() set nie wznawia obrotu
+        assert not w.running
+        w.reset()
+        assert not w.running and w.itemcget(w._mark, "state") == "hidden"
+        w.start()
+        w.destroy()   # zniszczenie anuluje zaplanowaną klatkę
+        assert w._job is None
+    finally:
+        root.destroy()
+
+
+def test_dodanie_w_tle_nie_blokuje_okna():
+    import threading
+    import time
+    import tkinter as tk
+    import ui
+    from konfig import load_config, save_config
+    from marza import runner
+    from marza.zakladka import MarzaMixin
+    root = _tk()
+    if root is None:
+        return
+    temp_data()   # ustawienia do folderu tymczasowego – nie do data/ w repozytorium
+    folder = tempfile.mkdtemp()
+    for sub in ("Wrocław", "Opole"):
+        os.makedirs(os.path.join(folder, sub))
+    cfg = load_config()
+    cfg["marza_folder"] = folder
+    save_config(cfg)
+
+    class Okno(MarzaMixin):
+        pass
+    o = Okno()
+    o.after, o.after_idle, o.tk = root.after, root.after_idle, root.tk
+    o.fonts, o.session = ui.Fonts(root), None
+    o._report = lambda e, where: None
+    page = tk.Frame(root)
+    page.pack()
+    o._build_marza(page)
+    watek = {}
+    orig = runner.add_reports
+
+    def wolne(r, files, ask, times=None):
+        watek["main"] = threading.current_thread() is threading.main_thread()
+        time.sleep(0.6)
+        return orig(r, files, ask, times=times)
+    src = tempfile.mkdtemp()
+    f = os.path.join(src, "raport.pdf")
+    _raport(f, "Wroclaw", "2026-10-01", "2026-10-13", "154 186,54")
+    runner.add_reports = wolne
+    try:
+        t0 = time.perf_counter()
+        o.marza_add([f])
+        assert time.perf_counter() - t0 < 0.3, "dodanie zablokowało okno"
+        assert o.marza_adding and o.marza_wheel.running
+        o.marza_add([f])   # drugie dodanie w trakcie – odrzucone bez blokady
+        end = time.time() + 15
+
+        def czekaj():   # pętla okna jak u użytkownika (wątek przekazuje wynik przez after)
+            if o.marza_adding and time.time() < end:
+                root.after(20, czekaj)
+            else:
+                root.quit()
+        root.after(20, czekaj)
+        root.mainloop()
+    finally:
+        runner.add_reports = orig
+    try:
+        assert watek.get("main") is False
+        assert not o.marza_adding and not o.marza_wheel.running, (o.marza_adding, o.marza_wheel.running, o.marza_banner.cget("text"))
+        assert "Dodano raport w " in o.marza_log.get("1.0", "end")
+        assert "Dodano: raport.pdf" in o.marza_banner.cget("text")
+        teksty = [c.cget("text") for r in o.marza_queue.winfo_children() for c in r.winfo_children()
+                  if isinstance(c, tk.Label)]
+        assert "raport.pdf" in teksty, teksty
+    finally:
+        root.destroy()
+
+
 def test_okno_kopii_bez_pdf():
     from _wspolne import APP
     s = (APP / "marza" / "runner.py").read_text(encoding="utf-8")

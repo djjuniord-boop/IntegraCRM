@@ -89,3 +89,120 @@ def set_icon(win):
             win.iconbitmap(str(ASSETS / "icon.ico"))
     except tk.TclError:
         pass
+
+
+class WheelProgress(tk.Canvas):
+    """Postęp jako koło: szary pierścień, czerwony łuk od godz. 12 zgodnie z zegarem, w środku obracająca się
+    opona z felgą i procent. start() → set(0..1) → done('ok'|'warn'|'bad'); po done() nic nie jest zaplanowane.
+    Wołać wyłącznie z wątku okna (z wątku roboczego – przez self.after)."""
+
+    TICK = 40   # ms między klatkami
+
+    def __init__(self, parent, size=140, bg=SURFACE, family="TkDefaultFont", caption=None):
+        super().__init__(parent, width=size, height=size, bg=bg, highlightthickness=0, bd=0)
+        k = size / 140.0
+        c = self._c = size / 2.0
+        self._k = k
+        self.caption = caption   # opcjonalna etykieta z opisem kroku (set(text=…))
+        r, w = 62 * k, 8 * k
+        self.create_oval(c - r, c - r, c + r, c + r, outline=LINE, width=w)
+        self._arc = self.create_arc(c - r, c - r, c + r, c + r, start=90, extent=0, style="arc",
+                                    outline=RED, width=w, state="hidden")
+        self._tire = self.create_oval(c - 48 * k, c - 48 * k, c + 48 * k, c + 48 * k, fill="#1B1B1B", outline="")
+        self._rim = self.create_oval(c - 34 * k, c - 34 * k, c + 34 * k, c + 34 * k, fill="#D8D8D8", outline="")
+        self._spokes = [self.create_line(0, 0, 0, 0, fill="#9A9A9A", width=max(2, 6 * k), capstyle="round")
+                        for _ in range(6)]
+        self._hub = self.create_oval(c - 8 * k, c - 8 * k, c + 8 * k, c + 8 * k, fill="#888888", outline="")
+        fnt = (family, max(9, int(17 * k)), "bold")
+        self._shadow = self.create_text(c + 1, c + 2, text="0%", fill="#000000", font=fnt)
+        self._pct = self.create_text(c, c, text="0%", fill="white", font=fnt)
+        self._mark = self.create_text(c, c, text="", font=(family, max(12, int(40 * k)), "bold"), state="hidden")
+        self._job = None
+        self._angle = 0.0
+        self._shown = 0.0
+        self._target = 0.0
+        self.bind("<Destroy>", lambda e: e.widget is self and self._cancel())
+        self._draw()
+
+    # ---------- publiczne ----------
+    def start(self):
+        """Zaczyna obrót od 0% (np. na początku aktualizacji)."""
+        self.reset()
+        self._schedule()
+
+    def set(self, fraction, text=None):
+        """Ustawia postęp 0..1 (łuk dochodzi do niego płynnie); text → etykieta kroku (gdy podano caption)."""
+        try:
+            f = float(fraction)
+        except (TypeError, ValueError):
+            f = 0.0
+        self._target = min(1.0, max(0.0, f))
+        if text is not None and self.caption is not None:
+            try:
+                self.caption.config(text=text)
+            except tk.TclError:
+                pass
+        if self._job is None and self.itemcget(self._mark, "state") == "hidden":
+            self._schedule()
+
+    def done(self, kind="ok"):
+        """Koniec: zatrzymuje obrót (bez zaplanowanych klatek) i pokazuje ✔ / ⚠ / ✖."""
+        self._cancel()
+        mark, col = {"ok": ("✔", OK), "warn": ("⚠", WARN), "bad": ("✖", RED)}.get(kind, ("✔", OK))
+        if kind == "ok":
+            self._target = self._shown = 1.0
+        self._shown = self._target
+        self._draw()
+        self.itemconfigure(self._arc, outline=col)
+        for it in self._spokes + [self._hub, self._pct, self._shadow, self._tire, self._rim]:
+            self.itemconfigure(it, state="hidden")
+        self.itemconfigure(self._mark, text=mark, fill=col, state="normal")
+
+    def reset(self):
+        """Stan początkowy: 0%, bez znaku, bez animacji."""
+        self._cancel()
+        self._shown = self._target = 0.0
+        self._angle = 0.0
+        self.itemconfigure(self._arc, outline=RED)
+        for it in self._spokes + [self._hub, self._pct, self._shadow, self._tire, self._rim]:
+            self.itemconfigure(it, state="normal")
+        self.itemconfigure(self._mark, text="", state="hidden")
+        self._draw()
+
+    @property
+    def running(self):
+        return self._job is not None
+
+    # ---------- wewnętrzne ----------
+    def _schedule(self):
+        if self._job is None:
+            self._job = self.after(self.TICK, self._tick)
+
+    def _cancel(self):
+        if self._job is not None:
+            try:
+                self.after_cancel(self._job)
+            except tk.TclError:
+                pass
+            self._job = None
+
+    def _tick(self):
+        self._job = None
+        self._angle = (self._angle + 9.0) % 360.0
+        d = self._target - self._shown
+        self._shown = self._target if abs(d) < 0.004 else self._shown + d * 0.18
+        self._draw()
+        self._schedule()
+
+    def _draw(self):
+        import math
+        c, k = self._c, self._k
+        for i, ln in enumerate(self._spokes):
+            a = math.radians(self._angle + i * 60)
+            ca, sa = math.cos(a), math.sin(a)
+            self.coords(ln, c + 12 * k * ca, c + 12 * k * sa, c + 30 * k * ca, c + 30 * k * sa)
+        ext = -359.9 * self._shown
+        self.itemconfigure(self._arc, extent=ext, state="normal" if self._shown > 0.003 else "hidden")
+        txt = f"{int(round(self._target * 100))}%"
+        self.itemconfigure(self._pct, text=txt)
+        self.itemconfigure(self._shadow, text=txt)

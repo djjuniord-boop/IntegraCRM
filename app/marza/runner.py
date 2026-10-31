@@ -52,11 +52,43 @@ def check_folder(root: str) -> str:
 BRANCH_NAMES = {"wroclaw": "Wrocław", "opole": "Opole"}
 
 
+_INSPECT_CACHE = {}   # (ścieżka, rozmiar, mtime) → wynik inspect(); ten sam plik nie jest czytany drugi raz
+
+
+def _file_key(path):
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return os.path.normcase(os.path.abspath(path)), st.st_size, st.st_mtime_ns
+
+
 def inspect(path: str):
-    """Sprawdza PDF przed dodaniem. Zwraca (oddział 'wroclaw'|'opole'|None, opis)."""
+    """Sprawdza PDF przed dodaniem. Zwraca (oddział 'wroclaw'|'opole'|None, opis).
+    Wynik zapamiętany wg (ścieżka, rozmiar, czas zmiany) – odświeżanie kolejki nie czyta PDF-ów ponownie."""
+    key = _file_key(path)
+    if key is not None and key in _INSPECT_CACHE:
+        return _INSPECT_CACHE[key]
+    res = _inspect(path)
+    if key is not None:
+        if len(_INSPECT_CACHE) > 200:
+            _INSPECT_CACHE.clear()
+        _INSPECT_CACHE[key] = res
+    return res
+
+
+def _remember(path, res):
+    """Plik przeniesiony do kolejki ma tę samą treść – wynik inspect() bez ponownego czytania."""
+    key = _file_key(path)
+    if key is not None:
+        _INSPECT_CACHE[key] = res
+
+
+def _inspect(path):
     try:
         import pypdf
-        text = pypdf.PdfReader(path).pages[0].extract_text() or ""
+        with open(path, "rb") as fh:   # tylko 1. strona; strict=False – bez wolnych prób „naprawy” pliku
+            text = pypdf.PdfReader(fh, strict=False).pages[0].extract_text() or ""
     except Exception as e:
         return None, f"nie da się odczytać PDF ({e})"
     t = text.lower()
@@ -72,11 +104,16 @@ def inspect(path: str):
     return None, "w nagłówku nie ma „Serwis Wrocław” ani „Serwis Opole”"
 
 
-def add_reports(root: str, files, replace=lambda branch, old: True):
+def add_reports(root: str, files, replace=lambda branch, old: True, times=None):
     """Sprawdza i PRZENOSI PDF-y do „1. WRZUC RAPORTY TUTAJ” – najwyżej jeden raport na oddział (oryginał znika
     z miejsca, skąd go wybrano; gdy przeniesienie się nie uda – kopia i próba usunięcia oryginału).
     replace(oddział, stara_nazwa) decyduje, czy podmienić raport już czekający w kolejce.
+    times – słownik, do którego dopisywane są sekundy: „odczyt” (PDF), „przeniesienie” (plik).
     Zwraca (dodane: [(nazwa, oddział)], odrzucone: [(nazwa, powód)], uwagi: [(nazwa, uwaga)])."""
+    import time
+    times = {} if times is None else times
+    times.setdefault("odczyt", 0.0)
+    times.setdefault("przeniesienie", 0.0)
     dst = os.path.join(root, WRZUC)
     os.makedirs(dst, exist_ok=True)
     added, rejected, notes = [], [], []
@@ -85,7 +122,10 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
         if not f.lower().endswith(".pdf"):
             rejected.append((name, "to nie jest plik PDF"))
             continue
-        branch, why = inspect(f)
+        t0 = time.perf_counter()
+        res = inspect(f)
+        branch, why = res
+        times["odczyt"] += time.perf_counter() - t0
         if not branch:
             rejected.append((name, why))
             continue
@@ -103,6 +143,7 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
                 if os.path.normcase(os.path.abspath(os.path.join(dst, n))) != me:   # nigdy nie kasuj wybieranego
                     remove_pending(root, n)
         target = _wolna(dst, name)
+        t0 = time.perf_counter()
         try:
             shutil.move(f, target)
         except OSError:
@@ -116,6 +157,8 @@ def add_reports(root: str, files, replace=lambda branch, old: True):
                 os.remove(f)
             except OSError as e:
                 notes.append((name, f"raport dodano, ale nie udało się usunąć oryginału ({e}) – usuń go ręcznie"))
+        times["przeniesienie"] += time.perf_counter() - t0
+        _remember(target, res)
         if src_dir == os.path.normcase(os.path.abspath(os.path.join(dst, "_ODRZUCONE"))):
             powod = os.path.splitext(f)[0] + "_POWOD.txt"   # raport wraca z _ODRZUCONE – opis powodu już zbędny
             try:

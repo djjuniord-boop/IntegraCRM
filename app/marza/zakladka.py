@@ -4,9 +4,13 @@ import re
 import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
-from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, card
+from ui import (BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG,
+                WheelProgress, card)
 from konfig import COMPANY, load_config, save_config
-from marza.okna import MarzaFilesWindow, MarzaRecipientsDialog, MarzaResultsWindow
+from marza.okna import MarzaRecipientsDialog
+
+
+WHEEL_HIDE_MS = 4000   # po zakończeniu koło z ✔/⚠ znika po tylu ms (mały ekran – więcej miejsca na karty)
 
 
 class MarzaMixin:
@@ -17,6 +21,7 @@ class MarzaMixin:
     def _build_marza(self, page):
         f = self.fonts
         self.marza_busy = False
+        self.marza_adding = False
         top = card(page, padx=16, pady=12)
         top.pack(fill="x")
         h = tk.Frame(top, bg=SURFACE)
@@ -32,10 +37,8 @@ class MarzaMixin:
                          ("Folder LATEX Wyniki", ())):
             FlatButton(links, txt, lambda r=rel: self.marza_open(*r), "ghost", f.small, 10, 4).pack(side="left", padx=(0, 8))
         if self.session:
-            for txt, cmd in (("Odbiorcy e-maili", lambda: MarzaRecipientsDialog(self)),
-                             ("Wyniki online", lambda: MarzaResultsWindow(self)),
-                             ("Kopie w chmurze", lambda: MarzaFilesWindow(self))):
-                FlatButton(links, txt, cmd, "dark", f.small, 10, 4).pack(side="left", padx=(0, 8))
+            FlatButton(links, "Odbiorcy e-maili", lambda: MarzaRecipientsDialog(self), "dark", f.small, 10, 4
+                       ).pack(side="left", padx=(0, 8))
 
         drop = card(page, padx=16, pady=12)
         drop.pack(fill="x", pady=10)
@@ -56,9 +59,13 @@ class MarzaMixin:
 
         self.btn_marza = FlatButton(page, "AKTUALIZUJ WSZYSTKO", self.marza_run, "primary", f.big, 18, 8)
         self.btn_marza.pack(fill="x", pady=(0, 8))
-        self.marza_banner = tk.Label(page, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w", padx=16, pady=8,
-                                     highlightthickness=1, highlightbackground=LINE, justify="left", wraplength=900)
-        self.marza_banner.pack(fill="x")
+        # pasek stanu; podczas pracy obok niego koło postępu (felga z pierścieniem, ui.WheelProgress)
+        self.marza_status = tk.Frame(page, bg=SURFACE, highlightthickness=1, highlightbackground=LINE)
+        self.marza_status.pack(fill="x")
+        self.marza_wheel = WheelProgress(self.marza_status, size=140, bg=SURFACE, family=f.family)
+        self.marza_banner = tk.Label(self.marza_status, text="", bg=SURFACE, fg=MUTED, font=f.label, anchor="w",
+                                     padx=16, pady=8, justify="left", wraplength=900)
+        self.marza_banner.pack(side="left", fill="both", expand=True)
         # wynik przebiegu: karta na oddział (status, miesiąc, było → jest, cel, kroki); pełny dziennik w „Szczegółach”
         dbar = tk.Frame(page, bg=BG)
         dbar.pack(fill="x", pady=(6, 0))
@@ -128,6 +135,17 @@ class MarzaMixin:
                   "bad": (ERR_BG, RED_DARK), "busy": (SURFACE, INK)}
         bg, fg = colors[kind]
         self.marza_banner.config(text=text, bg=bg, fg=fg)
+        self.marza_status.config(bg=bg)
+        self.marza_wheel.config(bg=bg)
+
+    def marza_wheel_show(self, on=True):
+        """Pokazuje / chowa koło postępu obok paska stanu (schowanie = reset, bez zaplanowanych klatek)."""
+        w = self.marza_wheel
+        if on and not w.winfo_manager():
+            w.pack(side="left", padx=(12, 0), pady=8, before=self.marza_banner)
+        elif not on:
+            w.reset()
+            w.pack_forget()
 
     def marza_pick_folder(self):
         d = filedialog.askdirectory(title="Wskaż folder „LATEX Wyniki”")
@@ -157,30 +175,109 @@ class MarzaMixin:
             self.marza_add(list(fs))
 
     def marza_add(self, files):
+        """Dodanie raportów do kolejki – w tle (okno nie zamarza); pytania i komunikaty z wątku okna."""
         from marza import runner
+        if self.marza_busy or self.marza_adding:
+            self.marza_set_banner("warn", "⚠ Poczekaj – trwa aktualizacja albo dodawanie raportu.")
+            return
         root = self._marza_root()
         prob = runner.check_folder(root)
         if prob:
             messagebox.showwarning("MARŻA", prob)
             return
+        files = list(files)
+        self.marza_adding = True
+        self.marza_set_banner("busy", "Dodaję raport…" if len(files) == 1 else f"Dodaję raporty ({len(files)})…")
+        self.marza_wheel_show(True)
+        self.marza_wheel.start()
+        self.marza_wheel.set(0.15)
+        threading.Thread(target=self._marza_add_work, args=(root, files), daemon=True).start()
+
+    def _marza_ui_call(self, fn):
+        """Wywołuje fn() w wątku okna i czeka na wynik (z wątku roboczego)."""
+        ev, box = threading.Event(), {}
+
+        def _q():
+            try:
+                box["a"] = fn()
+            finally:
+                ev.set()
+        self.after(0, _q)
+        ev.wait()
+        return box.get("a")
+
+    def _marza_add_work(self, root, files):
+        import time
+        from marza import runner
+        t0 = time.perf_counter()
+        times = {}
+
         def ask_replace(branch, old):
-            return messagebox.askyesno("MARŻA", f"W kolejce jest już raport dla oddziału "
-                                       f"{runner.BRANCH_NAMES[branch]}:\n{old}\n\nZastąpić go nowym?\n\nStary raport zostanie "
-                                       "usunięty z komputera.")
-        added, rejected, notes = runner.add_reports(root, files, ask_replace)
-        self.marza_refresh_pending_only()
+            return bool(self._marza_ui_call(lambda: messagebox.askyesno(
+                "MARŻA", f"W kolejce jest już raport dla oddziału {runner.BRANCH_NAMES[branch]}:\n{old}\n\n"
+                "Zastąpić go nowym?\n\nStary raport zostanie usunięty z komputera.")))
+        res, items, err = None, None, None
+        try:
+            res = runner.add_reports(root, files, ask_replace, times=times)
+            self.after(0, self.marza_wheel.set, 0.8)
+            t1 = time.perf_counter()
+            items = runner.pending_info(root)
+            times["kolejka"] = time.perf_counter() - t1
+        except Exception as e:   # błąd nie może zostawić zakładki „zajętej”
+            err = e
+        times["razem"] = time.perf_counter() - t0
+        self.after(0, self._marza_add_done, res, items, times, err)
+        if res and res[0]:
+            self._marza_measure(res[0], times)
+
+    def _marza_measure(self, added, times):
+        """Czas dodania → dziennik zdarzeń w bazie (dla administratora). W tle; błąd niczego nie psuje."""
+        if self.session is None:
+            return
+        try:
+            self.session.rpc("log_event", p_action="import", p_entity="MARŻA dodanie",
+                             p_label=", ".join(n for n, _ in added)[:120],
+                             p_detail={k: round(v, 3) for k, v in times.items()})
+        except Exception:
+            pass
+
+    def _marza_add_done(self, res, items, times, err):
+        from marza import runner
+        self.marza_adding = False
+        try:
+            self.marza_refresh_pending_only(items)
+        except Exception:
+            pass
+        if err is not None:
+            self.marza_wheel.done("bad")
+            self._report(err, "dodawanie raportu marży")
+            self.marza_set_banner("bad", f"✖  Nie udało się dodać raportu: {err}")
+            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
+            return
+        added, rejected, notes = res
+        self.marza_wheel.done("ok" if added and not rejected else "warn" if added else "bad")
+        line = (f"Dodano raport w {_sek(times.get('razem'))} (odczyt {_sek(times.get('odczyt'))}, "
+                f"przeniesienie {_sek(times.get('przeniesienie'))}, kolejka {_sek(times.get('kolejka'))})")
+        self.marza_log.insert("end", line + "\n")
+        if added:
+            self.marza_set_banner("idle", "Dodano: " + ", ".join(f"{n} ({runner.BRANCH_NAMES[b]})" for n, b in added)
+                                  + f". Kliknij „AKTUALIZUJ WSZYSTKO”.  (trwało {_sek(times.get('razem'))})")
+        else:
+            self.marza_set_banner("warn", "⚠ Nie dodano raportu – powód w okienku.")
+        self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
         if rejected:
             messagebox.showwarning("MARŻA – nie dodano",
                                    "\n\n".join(f"{n}\n→ {why}" for n, why in rejected))
         if notes:
             messagebox.showwarning("MARŻA – uwaga", "\n\n".join(f"{n}\n→ {why}" for n, why in notes))
-        if added:
-            self.marza_set_banner("idle", "Dodano: " + ", ".join(f"{n} ({runner.BRANCH_NAMES[b]})" for n, b in added)
-                                  + ". Kliknij „AKTUALIZUJ WSZYSTKO”.")
+
+    def _marza_wheel_hide_idle(self):
+        if not self.marza_busy and not self.marza_adding:
+            self.marza_wheel_show(False)
 
     def marza_run(self):
         from marza import runner
-        if self.marza_busy:
+        if self.marza_busy or self.marza_adding:
             return
         root = self._marza_root()
         prob = runner.check_folder(root) or (("Brak bibliotek: " + runner.deps_ok()) if runner.deps_ok() else "")
@@ -193,7 +290,10 @@ class MarzaMixin:
         for w in self.marza_result.winfo_children():
             w.destroy()
         self._marza_step = ""
+        marza_step_fraction("")   # nowy przebieg – postęp od zera
         self.marza_set_banner("busy", "Trwa aktualizacja… Krok 1/3: rozdzielanie raportów")
+        self.marza_wheel_show(True)
+        self.marza_wheel.start()
         threading.Thread(target=self._marza_work, args=(root,), daemon=True).start()
 
     def _marza_ask(self, question):
@@ -215,6 +315,9 @@ class MarzaMixin:
             step = marza_step_text(line)
             if step:
                 self.after(0, self.marza_set_banner, "busy", "Trwa aktualizacja… " + step)
+            fr = marza_step_fraction(line)
+            if fr is not None:
+                self.after(0, self.marza_wheel.set, fr)
         try:
             cfg = load_config()
             fresh = None
@@ -239,12 +342,17 @@ class MarzaMixin:
             self._stat("marza", n_integra=n)
             if res["ok"]:
                 self.after(0, self.marza_set_banner, "ok", f"✔  Gotowe – przetworzono raportów: {n}. Wszystko w porządku.")
+                self.after(0, self.marza_wheel.done, "ok")
             else:
                 self.after(0, self.marza_set_banner, "warn", "⚠  Są uwagi – przeczytaj je przy oddziałach poniżej.")
+                self.after(0, self.marza_wheel.done, "warn")
             self.after(0, self.marza_show_result, res)
+            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)   # ✔ chwilę widoczny, potem miejsce dla kart
         except Exception as e:
             self._report(e, "kalkulator marży")
             self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
+            self.after(0, self.marza_wheel.done, "bad")
+            self.after(WHEEL_HIDE_MS, self._marza_wheel_hide_idle)
         finally:
             def done():
                 self.marza_busy = False
@@ -255,13 +363,15 @@ class MarzaMixin:
                     pass
             self.after(0, done)
 
-    def marza_refresh_pending_only(self):
+    def marza_refresh_pending_only(self, items=None):
+        """Lista kolejki; items = gotowe [(nazwa, oddział)] z wątku (bez ponownego czytania PDF-ów)."""
         from marza import runner
         f = self.fonts
         for w in self.marza_queue.winfo_children():
             w.destroy()
-        root = self._marza_root()
-        items = runner.pending_info(root) if root and not runner.check_folder(root) else []
+        if items is None:
+            root = self._marza_root()
+            items = runner.pending_info(root) if root and not runner.check_folder(root) else []
         if not items:
             tk.Label(self.marza_queue, text="Brak raportów w kolejce.", bg=SURFACE, fg=MUTED, font=f.small
                      ).pack(anchor="w")
@@ -278,7 +388,7 @@ class MarzaMixin:
 
     def marza_remove(self, name):
         from marza import runner
-        if self.marza_busy:
+        if self.marza_busy or self.marza_adding:
             return
         if not messagebox.askyesno("MARŻA", f"Usunąć raport {name} z kolejki?\n\nPlik zostanie usunięty z komputera "
                                    "(przy dodaniu został przeniesiony do kolejki). Gdy będzie potrzebny, wygeneruj "
@@ -291,6 +401,8 @@ class MarzaMixin:
     def marza_clear(self):
         from marza import runner
         if self.marza_busy:
+            return
+        if self.marza_adding:
             return
         root = self._marza_root()
         names = runner.pending(root) if root else []
@@ -484,3 +596,39 @@ def marza_step_text(line):
         if line.startswith(frag):
             return f"{_marza_krok['t']} – {txt}…"
     return None
+
+
+def _sek(v):
+    """0.4123 → „0,4 s”."""
+    return f"{(v or 0):.1f} s".replace(".", ",")
+
+
+# postęp koła 0..1 z linii dziennika: krok 1 = 3%, Wrocław 8–52%, Opole 54–98%, koniec = done() → 100%
+_ETAPY = (("Odczytane raporty:", 1), ("Zaktualizowano w Excelu:", 2), ("Odświeżono plik podglądowy", 3),
+          ("Skopiowano na Dysk Google", 3.5), ("Wysłano ", 4), ("E-mail nie został wysłany", 4),
+          ("Kopia kalkulatora zapisana", 4.5), ("Wyniki zapisane w bazie", 5))
+_postep = {"krok": 0, "f": 0.0}
+
+
+def marza_step_fraction(line):
+    """Linia dziennika → nowy postęp 0..1 (tylko rośnie w przebiegu) albo None. Pusty tekst "" = nowy przebieg."""
+    if line == "":
+        _postep.update(krok=0, f=0.0)
+        return None
+    s = line.strip()
+    m = _KROK_RE.match(s)
+    f = None
+    if m:
+        n = int(m.group(1))
+        _postep["krok"] = n
+        f = {1: 0.03, 2: 0.08, 3: 0.54}.get(n)
+    elif _postep["krok"] in (2, 3):
+        base = 0.08 if _postep["krok"] == 2 else 0.54
+        for frag, i in _ETAPY:
+            if s.startswith(frag):
+                f = base + 0.44 * i / 5.0
+                break
+    if f is None or f <= _postep["f"]:
+        return None
+    _postep["f"] = f
+    return f

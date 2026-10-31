@@ -12,6 +12,18 @@ kopiuje i próbuje usunąć oryginał; błąd usunięcia = tylko uwaga), a po ud
 kasuje plik z komputera (z pytaniem). Do chmury idzie tylko kalkulator (`_cloud_save`), nazwa raportu zostaje
 w `marza_results.source_pdf`.
 
+**Dodawanie do kolejki (w tle):** `zakladka.marza_add` uruchamia `runner.add_reports` + `pending_info` w wątku
+(pasek „Dodaję raport…” z kołem postępu); pytanie o zastąpienie raportu (`_marza_ui_call`) i komunikaty idą
+z wątku okna. `runner.inspect` pamięta wynik wg (ścieżka, rozmiar, czas zmiany) – odświeżenie kolejki nie czyta
+PDF-ów ponownie; po przeniesieniu wynik jest przypisany do pliku w kolejce. Czytana tylko 1. strona
+(`PdfReader(..., strict=False)`). Czas dodania: linia „Dodano raport w 0,4 s (odczyt …, przeniesienie …, kolejka …)”
+w dzienniku przebiegu + zdarzenie `log_event` (`pomiar` / „MARŻA dodanie”, sekundy w `p_detail`) – w tle, błąd pomijany.
+
+**Koło postępu:** `ui.WheelProgress` (wspólny widżet: felga z pierścieniem, `start/set/done/reset`) obok paska stanu
+w czasie aktualizacji i dodawania. Procent z linii dziennika – `zakladka.marza_step_fraction` (krok 1 = 3%,
+Wrocław 8–52%, Opole 54–98%: odczyt, kalkulator, podgląd, e-maile, baza); koniec = `done('ok'|'warn'|'bad')` → ✔/⚠/✖,
+bez zaplanowanych klatek; po `WHEEL_HIDE_MS` (4 s) koło znika, żeby karty miały miejsce na małym ekranie.
+
 **Czytelny przebieg:** w trakcie pasek pokazuje bieżący krok (`zakladka.marza_step_text` – linie
 `--- Krok N/3: … ---` z `runner._run` + fragmenty dziennika silnika). Po zakończeniu karta na oddział: status ✔/⚠/✖,
 miesiąc, było → jest, zmiana, cel, zrobione, % wykonania, liczba e-maili, kroki ✔/✖/— (raport, kalkulator, podgląd,
@@ -25,7 +37,7 @@ Uprawnienie: moduł `marza`.
 | Plik | Rola |
 |---|---|
 | `zakladka.py` | `MarzaMixin` – zakładka MARŻA: folder, kolejka raportów, „AKTUALIZUJ WSZYSTKO” (wątek), dziennik przebiegu |
-| `okna.py` | okna: Odbiorcy maili (zapis firmowy), Wyniki online, Kopie w chmurze (pobieranie) |
+| `okna.py` | okna: Odbiorcy maili (zapis firmowy); Wyniki online i Kopie w chmurze – przyciski usunięte z zakładki; klasy zostają, bo importuje je `gui.py` i sprawdza `ui_smoke` |
 | `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
 | `rozdziel.py` | rozdziela raporty na oddziały, **rozpoznaje przebieg z dziennika silnika** (stałe `T_*` – te same teksty co w silnikach; zmieniasz tekst w silniku → zmień stałą i test), dane kart, podsumowanie; `kwota()` = „154 186,54 zł” |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |
@@ -73,4 +85,7 @@ Uprawnienie: moduł `marza`.
   kwoty i odmiana, krok w pasku, brak wysyłki PDF; podsłuch silnika na udawanym silniku i udawanej sesji: wysyłka przez serwer, kopia plików,
   zapis wyniku, przywrócenie `smtplib`; miesiące dla WYNIKÓW na kalkulatorze testowym (formuła z wynikiem Excela
   i bez, święta tylko z danego miesiąca i roku, błąd sesji/odczytu nie przerywa przebiegu, tryb testowy nic nie wysyła).
+- `tests/test_marza.py` (cd.) – pamięć `inspect` (bez ponownego czytania PDF), dodanie w wątku nie blokuje okna
+  (pętla okna, wynik w kolejce, linia czasu w dzienniku), koło: `set`/`done` nie rzucają, po `done()` brak `after`,
+  postęp z linii dziennika (rośnie, nowy przebieg od zera). Testy okna wymagają ekranu (`xvfb-run`), bez niego – pominięte.
 - `tests/ui_smoke.py` – zakładka i trzy okna MARŻY.
