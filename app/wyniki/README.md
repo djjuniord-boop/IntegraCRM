@@ -17,7 +17,7 @@ Kto co widzi (pilnuje baza, funkcja `can_see_marza`): handlowiec z modułem `wyn
   „(ręcznie)”, w ich edycji można zmienić też „zrobione”. Liczą się w tabeli/% celu/kolorach jak pozostałe.
 - Zapis: RPC `admin_set_month(p_branch, p_year, p_month, p_target, p_done)` w wątku, wynik przez `after`,
   potem odświeżenie. Baza: `supabase/wyniki_cele_2026-10-31.sql` (tylko administrator – sprawdza baza).
-- Tabela pokazuje do 12 poprzednich miesięcy (z przewijaniem).
+- Tabela pokazuje wszystkie zamknięte miesiące (z przewijaniem); po „Dodano miesiąc” zaznacza go. Legenda (✎, „(ręcznie)”, u admina „dwuklik”) jest nad tabelą. „Dodaj miesiąc” proponuje miesiąc przed najstarszym w wynikach. Zmiana ręcznego miesiąca zawsze wysyła `p_done`.
 
 ## Pliki
 

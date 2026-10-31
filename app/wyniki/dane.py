@@ -85,15 +85,15 @@ def wybierz_miesiac(rows: list, today: datetime.date | None = None):
     return max(past, key=lambda r: (int(r["year"]), int(r["month"]))) if past else None
 
 
-def poprzednie(rows: list, biezacy: dict | None, n: int = 12) -> list:
-    """Ostatnie zamknięte miesiące (z celem albo wykonaniem), najnowsze pierwsze."""
+def poprzednie(rows: list, biezacy: dict | None, n: int | None = None) -> list:
+    """Zamknięte miesiące (z celem albo wykonaniem), najnowsze pierwsze; domyślnie wszystkie (także ręczne)."""
     if biezacy is None:
         return []
     key = (int(biezacy["year"]), int(biezacy["month"]))
     out = [r for r in rows if (int(r["year"]), int(r["month"])) < key
            and (r.get("target") is not None or r.get("done") is not None)]
     out.sort(key=lambda r: (int(r["year"]), int(r["month"])), reverse=True)
-    return out[:n]
+    return out if n is None else out[:n]
 
 
 def punkty_wykresu(row: dict, runs: list, today: datetime.date | None = None) -> list:
@@ -204,3 +204,12 @@ def wiersz_tabeli(row: dict) -> tuple:
     cel = zl(p["cel"]) + (" ✎" if row.get("target_pending") else "")
     tag = () if p["pct"] is None else (("ok",) if p["pct"] >= 100 else ("bad",))
     return (label, zl(p["zrobione"]), cel, f"{p['pct']:.0f}%" if p["pct"] is not None else "—"), tag
+
+
+def domyslny_nowy_miesiac(rows: list, today: datetime.date | None = None) -> tuple:
+    """Domyślny miesiąc w oknie „Dodaj miesiąc”: miesiąc przed najstarszym w wynikach (brak wyników – poprzedni)."""
+    today = today or datetime.date.today()
+    keys = [(int(r["year"]), int(r["month"])) for r in rows]
+    y, m = min(keys) if keys else (today.year, today.month)
+    y, m = (y - 1, 12) if m == 1 else (y, m - 1)
+    return (max(y, 2020), m) if y >= 2020 else (2020, 1)

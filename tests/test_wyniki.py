@@ -197,3 +197,55 @@ def test_oznaczenia_reczny_i_czeka_na_excel():
     assert cur["month"] == 10
     assert [(r["year"], r["month"]) for r in dane.poprzednie(rows, cur)] == [(2026, 9), (2023, 2)]
     assert dane.znajdz_miesiac(rows, 2023, 2) is reczny and dane.znajdz_miesiac(rows, 2023, 3) is None
+
+
+def test_wszystkie_poprzednie_i_domyslny_nowy_miesiac():
+    from wyniki import dane
+    today = datetime.date(2026, 10, 14)
+    rows = [_row()] + [_row(year=y, month=m, label=f"{m}.{y}") for y in (2025, 2026) for m in range(1, 13)
+                       if (y, m) < (2026, 10)] + [_row(year=2022, month=5, label="Maj 2022", manual=True)]
+    out = dane.poprzednie(rows, dane.wybierz_miesiac(rows, today))
+    assert len(out) == 22 and out[-1]["manual"]                 # wszystkie zamknięte, także stary ręczny
+    assert dane.domyslny_nowy_miesiac(rows, today) == (2022, 4)  # przed najstarszym w wynikach
+    assert dane.domyslny_nowy_miesiac([_row(year=2025, month=1)], today) == (2024, 12)
+    assert dane.domyslny_nowy_miesiac([], today) == (2026, 9)
+
+
+def test_zmiana_recznego_miesiaca_wysyla_zrobione():
+    import tkinter as tk
+    from wyniki.zakladka import WynikiMixin
+    from ui import Fonts
+    calls = []
+
+    class Sess:
+        is_admin = True
+
+    def _zapisz(w):                       # klik „Zapisz”
+        def find(x):
+            for c in x.winfo_children():
+                if getattr(c, "_cmd", None) and c.cget("text") == "Zapisz":
+                    return c
+                r = find(c)
+                if r:
+                    return r
+        find(w)._cmd()
+
+    class App(WynikiMixin, tk.Tk):
+        pass
+    app = App()
+    try:
+        app.withdraw()
+        app.session, app.fonts, app.wyn_branch, app.wyn_branches = Sess(), Fonts(app), "wroclaw", ["wroclaw"]
+        app.wyn_data, app.wyn_info = {}, tk.Label(app)
+        app.wyniki_zapisz = lambda params, cb: calls.append(params)
+        reczny = {"year": 2023, "month": 2, "label": "Luty 2023", "target": 200000, "done": 150000, "manual": True}
+        w = app.wyniki_zmien_cel(reczny)
+        _zapisz(w)
+        assert calls == [{"p_branch": "wroclaw", "p_year": 2023, "p_month": 2, "p_target": 200000.0,
+                          "p_done": 150000.0}]
+        w.destroy()
+        w = app.wyniki_zmien_cel(dict(reczny, manual=False))         # miesiąc z kalkulatora – bez p_done
+        _zapisz(w)
+        assert "p_done" not in calls[1]
+    finally:
+        app.destroy()

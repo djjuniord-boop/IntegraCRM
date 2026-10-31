@@ -141,6 +141,10 @@ class WynikiMixin:
             b = FlatButton(hh, "+ Dodaj miesiąc…", lambda: self.wyniki_dodaj_miesiac(), "ghost", f.small, 8, 3)
             b.pack(side="right")
             self.wyn_admin_btns.append(b)
+        # legenda nad tabelą (zawsze widoczna, także przy 1366x768)
+        self.wyn_hist_note = tk.Label(hist, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
+                                      wraplength=440)
+        self.wyn_hist_note.pack(fill="x", pady=(2, 0))
         tv_box = tk.Frame(hist, bg=SURFACE)
         tv_box.pack(fill="both", expand=True, pady=(6, 0))
         self.wyn_hist = ttk.Treeview(tv_box, columns=("m", "done", "cel", "pct"), show="headings", height=6,
@@ -156,9 +160,6 @@ class WynikiMixin:
         sb.pack(side="right", fill="y")
         self.wyn_hist.pack(side="left", fill="both", expand=True)
         self.wyn_hist_rows = {}           # id wiersza tabeli → wiersz marza_months
-        self.wyn_hist_note = tk.Label(hist, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w", justify="left",
-                                      wraplength=420)
-        self.wyn_hist_note.pack(side="bottom", fill="x", pady=(4, 0), before=tv_box)   # zawsze widoczny
         if self._wyn_admin():
             self.wyn_hist.bind("<Double-1>", lambda e: self._wyn_hist_dwuklik(e))
         self.wyn_sum = None
@@ -258,10 +259,20 @@ class WynikiMixin:
             self.wyn_hist_rows[self.wyn_hist.insert("", "end", values=values, tags=tag)] = r
         notes = []
         if m.get("target_pending") or any(r.get("target_pending") for r in rows):
-            notes.append("✎ cel czeka na wpisanie do Excela (przy najbliższej aktualizacji MARŻY)")
+            notes.append("✎ cel czeka na wpisanie do Excela")
+        if any(r.get("manual") for r in rows):
+            notes.append("(ręcznie) – dopisany przez administratora")
         if self._wyn_admin():
             notes.append("dwuklik – zmiana celu")
         self.wyn_hist_note.config(text="  ·  ".join(notes))
+        want = getattr(self, "wyn_zaznacz", None)      # po „Dodano miesiąc” – zaznacz i przewiń do niego
+        if want and want[0] == branch:
+            for iid, r in self.wyn_hist_rows.items():
+                if (int(r["year"]), int(r["month"])) == want[1:]:
+                    self.wyn_hist.selection_set(iid)
+                    self.wyn_hist.see(iid)
+                    self.wyn_zaznacz = None
+                    break
         when = _kiedy(m.get("updated_at"))
         self.wyn_info.config(text=f"Zaktualizowano {when}" if when else "", fg=MUTED)
         self._wyn_draw_bar()
@@ -339,7 +350,7 @@ class WynikiMixin:
         e.grid(row=row, column=1, sticky="we", pady=3)
         return e
 
-    def _wyn_wyslij(self, w, msg, save, params, ok_text):
+    def _wyn_wyslij(self, w, msg, save, params, ok_text, zaznacz=None):
         save.set_enabled(False, "Zapisuję…")
         msg.config(text="Zapisuję w bazie…", fg=MUTED)
 
@@ -352,6 +363,8 @@ class WynikiMixin:
             if w.winfo_exists():
                 w.destroy()
             self.wyn_info.config(text=ok_text, fg=OK)
+            if zaznacz:
+                self.wyn_zaznacz = zaznacz
             self._wyn_odswiez_po_zapisie()
         self.wyniki_zapisz(params, done)
 
@@ -422,7 +435,7 @@ class WynikiMixin:
             tk.Label(box, text="Oddział", bg=SURFACE, fg=MUTED, font=f.body, anchor="w").grid(row=r, column=0,
                                                                                              sticky="w", pady=3)
             tk.Label(box, text=v_br.get(), bg=SURFACE, fg=BLACK, font=f.label).grid(row=r, column=1, sticky="w")
-        prev = (today.year, today.month - 1) if today.month > 1 else (today.year - 1, 12)
+        prev = dane.domyslny_nowy_miesiac((self.wyn_data.get(self.wyn_branch) or {}).get("months", []), today)
         v_m = tk.StringVar(value=dane.MIESIACE[prev[1] - 1])
         v_y = tk.StringVar(value=str(prev[0]))
         tk.Label(box, text="Miesiąc", bg=SURFACE, fg=INK, font=f.body, anchor="w").grid(row=r + 1, column=0,
@@ -463,7 +476,7 @@ class WynikiMixin:
                     msg.config(text=f"{nazwa}: {ex}", fg=RED)
                     return
             self._wyn_wyslij(w, msg, save, dane.parametry_rpc(branch, year, month, vals["cel"], vals["done"]),
-                             f"Dodano miesiąc: {label}")
+                             f"Dodano miesiąc: {label}", (branch, year, month))
         msg, save = self._wyn_okno_dol(w, box, r + 5, "Miesiąc sprzed kalkulatora – wpisz cel i to, co zostało "
                                        "zrobione. Pojawi się w tabeli z dopiskiem „(ręcznie)”.", on_save)
         e_cel.focus_set()
