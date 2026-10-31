@@ -70,7 +70,7 @@ class KontrolaMixin:
         # wynik; podczas sprawdzania obok paska koło postępu (ui.WheelProgress), potem chowane
         self.check_status = tk.Frame(page, bg=SURFACE, highlightthickness=1, highlightbackground=LINE)
         self.check_status.pack(fill="x")
-        self.check_wheel = WheelProgress(self.check_status, size=96, bg=SURFACE, family=f.family)
+        self.check_wheel = WheelProgress(self.check_status, size=64, bg=SURFACE, family=f.family)
         self.check_frac = 0.0
         self.check_busy = False
         self.banner = tk.Label(self.check_status, text="Wybierz PDF z Integry i raport .xlsx z CRM, potem kliknij „Sprawdź”.",
@@ -167,7 +167,7 @@ class KontrolaMixin:
     def check_wheel_show(self, on=True):
         w = self.check_wheel
         if on and not w.winfo_manager():
-            w.pack(side="left", padx=(12, 0), pady=6, before=self.banner)
+            w.pack(side="left", padx=(10, 0), pady=2, before=self.banner)
         elif not on:
             w.reset()
             w.pack_forget()
