@@ -539,7 +539,8 @@ class MarzaMixin:
             kr = w.get("kroki") or {}
             steps = [("raport", "Raport odczytany"), ("kalkulator", "Kalkulator zaktualizowany"),
                      ("podglad", "Podgląd dla handlowców"), ("dysk", "Dysk Google"),
-                     ("email", "E-maile"), ("baza", "Baza / WYNIKI")]
+                     ("email", "E-maile"), ("baza", "Baza / WYNIKI"),
+                     ("cele", "Cele z programu")]
             st = tk.Frame(c, bg=SURFACE)
             st.pack(fill="x", pady=(2, 2))
             for j, (k, txt) in enumerate(steps):

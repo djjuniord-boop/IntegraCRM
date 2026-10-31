@@ -219,7 +219,7 @@ def uruchom_silnik(nazwa, folder, run_engine, info=None):
              "miesiac": None, "cel": None, "zrobione": None, "bylo": None, "jest": None, "zmiana": None,
              "procent": None, "emaile": None, "odjete": None, "raporty": [],
              "kroki": {"raport": None, "kalkulator": None, "podglad": None, "dysk": None, "email": None,
-                       "baza": None}}
+                       "baza": None, "cele": None}}
 
     def uwaga(tekst, status="UWAGA"):
         if status == "BŁĄD":
@@ -343,6 +343,12 @@ def uruchom_silnik(nazwa, folder, run_engine, info=None):
     if T_MAIL_BRAK_ODBIORCOW in tekst:
         wynik["emaile"] = 0
         wynik["info"].append("E-mail nie został wysłany – brak zaznaczonych odbiorców (MARŻA → „Odbiorcy e-maili”).")
+
+    ce = info.get("cele")   # cele z zakładki WYNIKI wpisane do kalkulatora przed silnikiem (runner._apply_targets)
+    if ce:
+        kroki["cele"] = ce.get("krok")
+        for t in ce.get("uwagi") or []:
+            uwaga(t)
 
     ch = info.get("chmura")
     if ch:
