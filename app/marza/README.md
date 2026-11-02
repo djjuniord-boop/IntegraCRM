@@ -66,6 +66,16 @@ Uprawnienie: moduł `marza`.
     (podgląd i mail pokazują wtedy 0). **Formuła** w kolumnie celu/marży daje wynik tylko, jeśli zapisał go Excel –
     openpyxl formuł nie liczy, a zapis kalkulatora przez silnik kasuje zapisane wyniki, więc po imporcie raportu
     formuła = `None` (+ „Uwaga: … formuły bez wyliczonej wartości” w dzienniku). Cele trzeba wpisywać liczbami.
+- **Cele z programu → kalkulator** (`runner._apply_targets`, plik bazy `supabase/wyniki_cele_2026-10-31.sql`):
+  administrator zmienia cel w zakładce WYNIKI (`admin_set_month`) → `marza_months.target_pending = true`. Przy
+  AKTUALIZUJ WSZYSTKO (po zalogowaniu, nie w trybie testowym) **przed silnikiem** oddziału runner pobiera
+  `GET marza_months?branch=eq.X&target_pending=eq.true`, szuka wiersza miesiąca po etykiecie (jak `find_month_rows`,
+  ostatni wiersz wygrywa), wpisuje cel do kolumny C (sama wartość – format komórki zostaje), robi kopię zapasową
+  (`eng._make_backup`) i zapisuje plik atomowo (`.tmp` + `os.replace`, flagi przeliczania jak silnik). Po zapisie
+  `rpc marza_target_written(p_branch, p_year, p_month)`. Brak miesiąca / plik otwarty w Excelu → pending zostaje,
+  uwaga na karcie („Cel na Listopad 2026 z programu nie trafił do kalkulatora – …”), przebieg idzie dalej.
+  Błąd zapytania (stara baza bez `target_pending`, brak sieci) → pominięte bez uwagi. Krok karty „Cele z programu”:
+  ✔ wpisane, ✖ coś nie trafiło, — nic nie czekało (`info["cele"]` → `kroki["cele"]`).
 - Schowek plików `marza` (Supabase Storage, prywatny): `<oddział>/<rok>/<data_godzina>/` kalkulator (starsze kopie
   mają też PDF-y raportów – okno „Kopie w chmurze” pobiera je jak każdy plik).
 
@@ -88,4 +98,6 @@ Uprawnienie: moduł `marza`.
 - `tests/test_marza.py` (cd.) – pamięć `inspect` (bez ponownego czytania PDF), dodanie w wątku nie blokuje okna
   (pętla okna, wynik w kolejce, linia czasu w dzienniku), koło: `set`/`done` nie rzucają, po `done()` brak `after`,
   postęp z linii dziennika (rośnie, nowy przebieg od zera). Testy okna wymagają ekranu (`xvfb-run`), bez niego – pominięte.
+- `tests/test_marza.py` (cele) – wpis celu do kalkulatora testowego (format, duplikat miesiąca, kopia, RPC), plik
+  zablokowany (pending zostaje, uwaga, mail i tak idzie), brak miesiąca, stara baza bez kolumny, tryb testowy.
 - `tests/ui_smoke.py` – zakładka i trzy okna MARŻY.

@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.22.2"
+VERSION = "0.22.3"
 RELEASED = "2026-10-14"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.22.3",
+        "date": "2026-11-01",
+        "changes": [
+            "WYNIKI (administrator): zmiana celu miesiąca – nowy cel widać od razu, a przy najbliższej aktualizacji MARŻY "
+            "trafia też do kalkulatora Excel",
+            "WYNIKI (administrator): dopisywanie brakujących starych miesięcy z celem i wynikiem; tabela pokazuje wszystkie "
+            "zamknięte miesiące",
+        ],
+    },
     {
         "version": "0.22.2",
         "date": "2026-10-31",

@@ -312,6 +312,13 @@ def _engine(folder, silnik_mod, podglad_mod, cfg, ask, info=None) -> int:
     eng.input = lambda q="": "T" if ask(q.strip()) else "N"
     cap = _listen(eng)   # podsłuch odczytanych raportów i podglądu (bez zmiany obliczeń)
     info.update(cap)
+    if SESSION is not None and os.environ.get("LATEX_TRYB_TESTOWY") != "1":
+        try:   # cele zmienione w zakładce WYNIKI → kalkulator, PRZED silnikiem; błąd nigdy nie przerywa przebiegu
+            info["cele"] = _apply_targets(eng, key, folder)
+        except Exception as e:
+            print(f"Uwaga: cele z programu nie zostały sprawdzone: {e}")
+            info["cele"] = {"krok": False, "uwagi": ["Cele z programu nie zostały sprawdzone – spróbuj "
+                                                     "AKTUALIZUJ WSZYSTKO jeszcze raz."]}
     captured = _cloud_hooks(eng, cap) if SESSION is not None else None
     if captured is not None and not eng.EMAIL_NADAWCA:   # nagłówek „Od” – serwer i tak wstawia swój adres
         eng.EMAIL_NADAWCA = SESSION.email
@@ -466,6 +473,140 @@ def _cloud_save(eng, key, folder, cap, pod=None):
         out["baza"] = False
         out["uwagi"].append("Zakładka WYNIKI nie została uzupełniona – szczegóły w „Szczegóły przebiegu”.")
     return out
+
+
+# ---------- cele zmienione w zakładce WYNIKI (target_pending) → kalkulator Excel ----------
+def _find_month_rows(ws):
+    """Jak silnik (find_month_rows): {etykieta: wiersz} od nagłówka „Miesiąc”; ten sam miesiąc dwa razy → ostatni."""
+    header = None
+    for row in ws.iter_rows(min_row=1, max_row=60):
+        for cell in row:
+            if cell.value == "Miesiąc":
+                header = cell.row
+                break
+        if header:
+            break
+    if header is None:
+        raise ValueError("w kalkulatorze nie ma nagłówka tabeli miesięcy („Miesiąc”)")
+    out, r = {}, header + 1
+    while True:
+        label = ws.cell(row=r, column=2).value
+        if label is None or label == "":
+            break
+        out[label] = r
+        r += 1
+    return out
+
+
+def _backup(eng, xlsx, folder):
+    """Kopia zapasowa jak silnik (_make_backup: folder „kopie_zapasowe”, ostatnie 10)."""
+    mk = getattr(eng, "_make_backup", None)
+    if mk is not None:
+        mk(xlsx, [])
+        return
+    d = os.path.join(folder, "kopie_zapasowe")
+    os.makedirs(d, exist_ok=True)
+    base, ext = os.path.splitext(os.path.basename(xlsx))
+    dst = os.path.join(d, f"{base}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}{ext}")
+    shutil.copy2(xlsx, dst)
+    print(f"Kopia zapasowa: {dst}")
+
+
+def _apply_targets(eng, key, folder):
+    """Cele czekające na Excel (marza_months.target_pending) → kolumna celu (C) kalkulatora oddziału.
+    Zwraca {"krok": True/False/None, "uwagi": [...]} – None = nic nie czekało (albo stara baza bez kolumny).
+    Miesiąc, którego nie ma w kalkulatorze, albo plik otwarty w Excelu → pending zostaje + uwaga na karcie."""
+    out = {"krok": None, "uwagi": []}
+    try:
+        rows = SESSION.call("GET", f"/rest/v1/marza_months?branch=eq.{key}&target_pending=eq.true"
+                                   "&select=year,month,target")
+    except Exception:
+        return out   # stara baza (brak kolumny target_pending) albo brak połączenia – pomijamy bez uwagi
+    rows = [r for r in rows if isinstance(r, dict)] if isinstance(rows, list) else []
+    todo = []
+    for r in rows:
+        try:
+            y, m, t = int(r["year"]), int(r["month"]), float(r["target"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if 1 <= m <= 12:
+            todo.append((y, m, round(t, 2)))
+    if not todo:
+        return out
+    nazwy = ", ".join(f"{MONTHS_PL[m - 1]} {y}" for y, m, _ in sorted(todo))
+    xlsx = os.path.join(folder, eng.XLSX_NAME)
+    import openpyxl
+    try:
+        wb = openpyxl.load_workbook(xlsx)
+        ws = wb["Kalkulator marży"]
+        month_rows = {}
+        for label, r in _find_month_rows(ws).items():
+            ym = _label_ym(label)
+            if ym is not None:
+                month_rows[ym] = r   # ostatni wiersz wygrywa – tak jak silnik
+    except Exception as e:
+        print(f"Uwaga: cele z programu ({nazwy}) nie trafiły do kalkulatora: {e}")
+        out["krok"] = False
+        out["uwagi"].append(f"Cel na {nazwy} z programu nie trafił do kalkulatora – nie da się otworzyć pliku "
+                            f"{eng.XLSX_NAME}. Zamknij Excel i kliknij AKTUALIZUJ WSZYSTKO jeszcze raz.")
+        return out
+    wpisane, brak = [], []
+    for y, m, t in sorted(todo):
+        r = month_rows.get((y, m))
+        if r is None:
+            brak.append(f"{MONTHS_PL[m - 1]} {y}")
+            continue
+        c = ws.cell(row=r, column=3)   # kolumna celu – ta sama, z której czyta podgląd i silnik
+        old = c.value
+        c.value = int(t) if t == int(t) else t   # tylko wartość – format komórki zostaje
+        wpisane.append((y, m, old, t))
+    for b in brak:
+        print(f"Uwaga: cel na {b} z programu nie trafił do kalkulatora – brak takiego miesiąca w tabeli.")
+        out["uwagi"].append(f"Cel na {b} z programu nie trafił do kalkulatora – brak miesiąca w kalkulatorze. "
+                            f"Dopisz wiersz „{b}” w Excelu albo zgłoś to administratorowi.")
+    if wpisane:
+        _backup(eng, xlsx, folder)
+        wb.calculation.calcMode = "auto"   # jak silnik – Excel przeliczy formuły po otwarciu
+        wb.calculation.fullCalcOnLoad = True
+        wb.calculation.calcOnSave = True
+        tmp = xlsx + ".tmp"
+        try:   # zapis atomowy: najpierw plik obok, potem podmiana (otwarty w Excelu → PermissionError)
+            wb.save(tmp)
+            os.replace(tmp, xlsx)
+        except OSError as e:
+            with contextlib.suppress(OSError):
+                os.remove(tmp)
+            nz = ", ".join(f"{MONTHS_PL[m - 1]} {y}" for y, m, _, _ in wpisane)
+            print(f"Uwaga: cele z programu ({nz}) nie zostały zapisane w kalkulatorze: {e}")
+            out["krok"] = False
+            out["uwagi"].append(f"Cel na {nz} z programu nie trafił do kalkulatora – zamknij Excel i kliknij "
+                                f"AKTUALIZUJ WSZYSTKO jeszcze raz.")
+            return out
+        for y, m, old, t in wpisane:
+            print(f"Cel z programu wpisany do kalkulatora: {MONTHS_PL[m - 1]} {y}: {old} -> {t} zł")
+            try:
+                if _target_written(key, y, m, t) is False:
+                    print(f"Uwaga: cel na {MONTHS_PL[m - 1]} {y} zmieniono w trakcie – zostanie wpisany przy "
+                          f"następnej aktualizacji.")
+            except Exception as e:   # cel jest w Excelu; przy następnym przebiegu wpisze się jeszcze raz (ta sama kwota)
+                print(f"Uwaga: nie udało się oznaczyć celu {MONTHS_PL[m - 1]} {y} jako wpisanego: {e}")
+    out["krok"] = not brak
+    return out
+
+
+def _target_written(key, y, m, t):
+    """Zdejmuje „czeka na Excel”. Nowa baza: 4 argumenty, False = admin zmienił cel w międzyczasie (pending zostaje).
+    Stara baza (brak funkcji 4-argumentowej) → wersja 3-argumentowa."""
+    path = "/rest/v1/rpc/marza_target_written"
+    try:
+        r = SESSION.call("POST", path, {"p_branch": key, "p_year": y, "p_month": m, "p_target": t})
+    except Exception as e:
+        txt = str(e)
+        if "marza_target_written" not in txt and "PGRST202" not in txt and "function" not in txt.lower():
+            raise
+        SESSION.call("POST", path, {"p_branch": key, "p_year": y, "p_month": m})
+        return None
+    return False if r is False else True
 
 
 # ---------- zakładka WYNIKI: tabela miesięcy z kalkulatora → baza (marza_months) ----------

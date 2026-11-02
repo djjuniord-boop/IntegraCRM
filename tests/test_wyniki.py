@@ -102,3 +102,150 @@ def test_oddzialy_konta():
     assert oddz(S("user", ["wyniki"], ["Latex Wrocław"])) == ["wroclaw"]
     assert oddz(S("user", ["wyniki"], ["Latex Opole", "Stangum Opole"])) == ["opole"]
     assert oddz(S("user", ["wyniki"], ["Stangum Opole"])) == []
+
+
+def test_parsowanie_kwoty_po_polsku():
+    from wyniki import dane
+    assert dane.parsuj_kwote("300 000") == 300000
+    assert dane.parsuj_kwote("128 450,50") == 128450.5
+    assert dane.parsuj_kwote("128 450,5 zł") == 128450.5
+    assert dane.parsuj_kwote("128.450,50") == 128450.5
+    assert dane.parsuj_kwote("128.450") == 128450
+    assert dane.parsuj_kwote("1500.5") == 1500.5
+    assert dane.parsuj_kwote(" 42 ") == 42
+    for zle in ("", "  ", "abc", "0", "-5", "0,00", "1,2,3", "200000000"):
+        try:
+            dane.parsuj_kwote(zle)
+        except ValueError as e:
+            assert str(e)                                   # komunikat dla użytkownika
+        else:
+            raise AssertionError(f"przyjęto błędną kwotę: {zle!r}")
+    assert dane.kwota_do_pola(300000) == "300 000" and dane.kwota_do_pola(128450.5) == "128 450,50"
+    assert dane.kwota_do_pola(None) == ""
+    assert dane.parsuj_kwote(dane.kwota_do_pola(128450.5)) == 128450.5
+
+
+def test_parametry_i_wywolanie_rpc():
+    import threading
+    from wyniki import dane
+    from wyniki.zakladka import WynikiMixin
+    assert dane.parametry_rpc("opole", 2026, 9, 160000.0) == {"p_branch": "opole", "p_year": 2026, "p_month": 9,
+                                                              "p_target": 160000.0}
+    assert dane.parametry_rpc("wroclaw", "2025", "3", 1.0, 2.0)["p_done"] == 2.0
+
+    calls, results = [], []
+
+    class Sess:
+        is_admin = True
+
+        def rpc(self, fn, **a):
+            calls.append((fn, a, threading.current_thread() is threading.main_thread()))
+            if a.get("p_month") == 13:
+                raise RuntimeError("Tylko administrator może zmieniać cele (42501)")
+
+    o = WynikiMixin()
+    o.session = Sess()
+    o.after = lambda ms, fn, *a: results.append((fn, a))   # wynik ma wrócić przez after, nie wprost z wątku
+    o.wyniki_zapisz(dane.parametry_rpc("wroclaw", 2024, 5, 250000.0, 231000.0), lambda e: None).join(5)
+    assert calls[0][0] == "admin_set_month" and calls[0][2] is False             # w wątku
+    assert calls[0][1] == {"p_branch": "wroclaw", "p_year": 2024, "p_month": 5, "p_target": 250000.0,
+                           "p_done": 231000.0}
+    assert results[0][1] == (None,)
+    o.wyniki_zapisz({"p_month": 13}, lambda e: None).join(5)
+    assert isinstance(results[1][1][0], RuntimeError)
+    assert dane.opis_bledu(results[1][1][0]) == "Tylko administrator może zmieniać cele."
+    assert "wkleić" in dane.opis_bledu("Could not find the function public.admin_set_month (PGRST202)")
+
+
+def test_brak_edycji_dla_nie_admina():
+    import cloud
+    from wyniki.zakladka import WynikiMixin
+
+    class S(cloud.Session):
+        def __init__(self, role):
+            self.access = self.refresh_token = "x"
+            self.email = "t@example.com"
+            self.profile = {"role": role, "modules": ["wyniki", "marza"], "branches": ["Latex Wrocław"]}
+
+    o = WynikiMixin()
+    o.session = S("user")
+    assert o._wyn_admin() is False
+    assert o.wyniki_zmien_cel({"year": 2026, "month": 9}) is None and o.wyniki_dodaj_miesiac() is None
+    o.session = S("admin")
+    assert o._wyn_admin() is True
+    o.session = None
+    assert o._wyn_admin() is False
+
+
+def test_oznaczenia_reczny_i_czeka_na_excel():
+    from wyniki import dane
+    zwykly = _row(month=9, label="Wrzesień 2026", done=310000)
+    vals, tag = dane.wiersz_tabeli(zwykly)
+    assert vals == ("Wrzesień 2026", "310 000 zł", "300 000 zł", "103%") and tag == ("ok",)
+    vals, tag = dane.wiersz_tabeli(dict(zwykly, target_pending=True, target=400000))
+    assert vals[2] == "400 000 zł ✎" and vals[3] == "78%" and tag == ("bad",)
+    reczny = {"branch": "wroclaw", "year": 2023, "month": 2, "label": "Luty 2023", "target": 200000, "done": 150000,
+              "holidays": None, "manual": True}
+    vals, _ = dane.wiersz_tabeli(reczny)
+    assert vals[0] == "Luty 2023 (ręcznie)" and vals[3] == "75%"
+    assert dane.oznaczenie(reczny) == "(ręcznie)" and "Excel" in dane.oznaczenie({"target_pending": True})
+    assert dane.wiersz_tabeli(dict(reczny, target=None, done=None))[0][1:] == ("—", "—", "—")
+    # ręczny stary miesiąc trafia do tabeli jak pozostałe, we właściwej kolejności; nie zostaje „bieżącym”
+    today = datetime.date(2026, 10, 14)
+    rows = [_row(), _row(month=9, label="Wrzesień 2026"), reczny]
+    cur = dane.wybierz_miesiac(rows, today)
+    assert cur["month"] == 10
+    assert [(r["year"], r["month"]) for r in dane.poprzednie(rows, cur)] == [(2026, 9), (2023, 2)]
+    assert dane.znajdz_miesiac(rows, 2023, 2) is reczny and dane.znajdz_miesiac(rows, 2023, 3) is None
+
+
+def test_wszystkie_poprzednie_i_domyslny_nowy_miesiac():
+    from wyniki import dane
+    today = datetime.date(2026, 10, 14)
+    rows = [_row()] + [_row(year=y, month=m, label=f"{m}.{y}") for y in (2025, 2026) for m in range(1, 13)
+                       if (y, m) < (2026, 10)] + [_row(year=2022, month=5, label="Maj 2022", manual=True)]
+    out = dane.poprzednie(rows, dane.wybierz_miesiac(rows, today))
+    assert len(out) == 22 and out[-1]["manual"]                 # wszystkie zamknięte, także stary ręczny
+    assert dane.domyslny_nowy_miesiac(rows, today) == (2022, 4)  # przed najstarszym w wynikach
+    assert dane.domyslny_nowy_miesiac([_row(year=2025, month=1)], today) == (2024, 12)
+    assert dane.domyslny_nowy_miesiac([], today) == (2026, 9)
+
+
+def test_zmiana_recznego_miesiaca_wysyla_zrobione():
+    import tkinter as tk
+    from wyniki.zakladka import WynikiMixin
+    from ui import Fonts
+    calls = []
+
+    class Sess:
+        is_admin = True
+
+    def _zapisz(w):                       # klik „Zapisz”
+        def find(x):
+            for c in x.winfo_children():
+                if getattr(c, "_cmd", None) and c.cget("text") == "Zapisz":
+                    return c
+                r = find(c)
+                if r:
+                    return r
+        find(w)._cmd()
+
+    class App(WynikiMixin, tk.Tk):
+        pass
+    app = App()
+    try:
+        app.withdraw()
+        app.session, app.fonts, app.wyn_branch, app.wyn_branches = Sess(), Fonts(app), "wroclaw", ["wroclaw"]
+        app.wyn_data, app.wyn_info = {}, tk.Label(app)
+        app.wyniki_zapisz = lambda params, cb: calls.append(params)
+        reczny = {"year": 2023, "month": 2, "label": "Luty 2023", "target": 200000, "done": 150000, "manual": True}
+        w = app.wyniki_zmien_cel(reczny)
+        _zapisz(w)
+        assert calls == [{"p_branch": "wroclaw", "p_year": 2023, "p_month": 2, "p_target": 200000.0,
+                          "p_done": 150000.0}]
+        w.destroy()
+        w = app.wyniki_zmien_cel(dict(reczny, manual=False))         # miesiąc z kalkulatora – bez p_done
+        _zapisz(w)
+        assert "p_done" not in calls[1]
+    finally:
+        app.destroy()

@@ -7,11 +7,23 @@ bez Excela i bez sieci poza dwoma zapytaniami (szybkie). Odświeża się co 5 mi
 Kto co widzi (pilnuje baza, funkcja `can_see_marza`): handlowiec z modułem `wyniki` – tylko oddziały z konta
 (Latex Wrocław → `wroclaw`, Latex Opole → `opole`); moduł `marza` i admin – oba. Stangum Opole nie ma wyników.
 
+## Edycja przez administratora (tylko `session.is_admin`; inni nie widzą przycisków)
+
+- **Zmiana celu**: „✎ Zmień cel…” przy celu bieżącego miesiąca albo dwuklik wiersza w „Poprzednie miesiące” →
+  okno z nowym celem (kwota po polsku: spacje, przecinek; > 0). Miesiąc z kalkulatora dostaje `target_pending`
+  – cel trafi do Excela przy najbliższej aktualizacji MARŻY (oznaczenie „✎”, w kaflu „czeka na Excel”).
+- **„+ Dodaj miesiąc…”**: brakujący zamknięty miesiąc (np. sprzed kalkulatora) – oddział, miesiąc, rok, cel
+  i zrobione (wymagane). Istniejący miesiąc → propozycja zmiany celu. Ręczne miesiące (`manual`) – dopisek
+  „(ręcznie)”, w ich edycji można zmienić też „zrobione”. Liczą się w tabeli/% celu/kolorach jak pozostałe.
+- Zapis: RPC `admin_set_month(p_branch, p_year, p_month, p_target, p_done)` w wątku, wynik przez `after`,
+  potem odświeżenie. Baza: `supabase/wyniki_cele_2026-10-31.sql` (tylko administrator – sprawdza baza).
+- Tabela pokazuje wszystkie zamknięte miesiące (z przewijaniem); po „Dodano miesiąc” zaznacza go. Legenda (✎, „(ręcznie)”, u admina „dwuklik”) jest nad tabelą. „Dodaj miesiąc” proponuje miesiąc przed najstarszym w wynikach. Zmiana ręcznego miesiąca zawsze wysyła `p_done`.
+
 ## Pliki
 
 | Plik | Rola |
 |---|---|
-| `dane.py` | obliczenia bez okna: dni sprzedażowe, podsumowanie miesiąca, wybór miesiąca, punkty wykresu |
+| `dane.py` | obliczenia bez okna: dni sprzedażowe, podsumowanie miesiąca, wybór miesiąca, punkty wykresu, kwoty po polsku, parametry RPC, oznaczenia |
 | `zakladka.py` | `WynikiMixin` – układ zakładki, wczytanie w tle, rysowanie paska i wykresu (Tk Canvas, bez matplotlib) |
 
 ## Wzory (takie same jak wykres w mailu MARŻY – `silnik_*._generuj_wykres_png`)
@@ -29,5 +41,5 @@ Kto co widzi (pilnuje baza, funkcja `can_see_marza`): handlowiec z modułem `wyn
 
 ## Testy
 
-`tests/test_wyniki.py` (wzory, puste wartości, wybór miesiąca, wykres, oddziały konta) i `tests/ui_smoke.py`
-(role: admin – oba oddziały, handlowiec Wrocław – tylko WYNIKI i Wrocław, Stangum – brak wyników).
+`tests/test_wyniki.py` (wzory, puste wartości, wybór miesiąca, wykres, oddziały konta, kwota po polsku, wywołanie `admin_set_month`, brak edycji dla nie-admina, oznaczenia „(ręcznie)”/„✎”) i `tests/ui_smoke.py`
+(role: admin – oba oddziały, handlowiec Wrocław – tylko WYNIKI i Wrocław, Stangum – brak wyników; okna zmiany celu i dodania miesiąca u admina, brak przycisków edycji u innych).
