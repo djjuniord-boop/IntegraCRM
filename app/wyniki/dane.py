@@ -27,6 +27,15 @@ def _data(v):
         return None
 
 
+def _data_lokalna(v):
+    """Znacznik czasu z bazy (UTC) → data w czasie lokalnym (zapis o 0:30 to już nowy dzień)."""
+    try:
+        t = datetime.datetime.fromisoformat(str(v).replace("Z", "+00:00"))
+        return t.astimezone().date() if t.tzinfo else t.date()
+    except (TypeError, ValueError):
+        return _data(v)
+
+
 def dni_sprzedazowe(year: int, month: int, holidays) -> list:
     """Lista dat dni sprzedażowych miesiąca (bez niedziel i świąt)."""
     swieta = {d for d in (_data(h) for h in holidays or []) if d}
@@ -48,15 +57,19 @@ def podsumowanie(row: dict, today: datetime.date | None = None) -> dict:
     dni = dni_sprzedazowe(year, month, row.get("holidays"))
     dni_all = len(dni)
     biezacy = (year, month) == (today.year, today.month)
+    dzien_dzis = sum(1 for d in dni if d <= today) if biezacy else None
     if biezacy:
-        dni_min = sum(1 for d in dni if d < today)
+        # Raport z Integry wgrany dziś obejmuje też dzisiejszą sprzedaż – dzisiejszy dzień liczy się wtedy
+        # jako miniony (inaczej średnia i prognoza dzielą kwotę z N dni przez N-1 dni).
+        upd = _data_lokalna(row.get("updated_at"))
+        dni_min = sum(1 for d in dni if (d <= today if upd is not None and upd >= today else d < today))
     elif (year, month) < (today.year, today.month):
         dni_min = dni_all          # miesiąc zamknięty
     else:
         dni_min = 0                # miesiąc przyszły
     dni_zost = dni_all - dni_min
     r = {"label": row.get("label") or f"{month:02d}.{year}", "year": year, "month": month, "cel": cel,
-         "zrobione": zrob, "biezacy": biezacy, "dni_all": dni_all, "dni_minelo": dni_min, "dni_zostalo": dni_zost,
+         "zrobione": zrob, "biezacy": biezacy, "dni_all": dni_all, "dni_minelo": dni_min, "dzien_dzis": dzien_dzis, "dni_zostalo": dni_zost,
          "pct": None, "plan_dzis": None, "tempo": None, "prognoza": None, "brakuje": None,
          "potrzeba_dziennie": None, "srednio_dziennie": None, "updated_at": row.get("updated_at")}
     if cel and cel > 0 and zrob is not None:

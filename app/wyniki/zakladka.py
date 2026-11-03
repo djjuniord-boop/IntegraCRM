@@ -239,7 +239,7 @@ class WynikiMixin:
                                + ("  ✎ czeka na Excel" if m.get("target_pending") else ""))
         self.wyn_pct.config(text=f"{s['pct']:.0f}%" if s["pct"] is not None else "—")
         self.wyn_plan.config(text=(f"▲ plan na dziś {dane.zl(s['plan_dzis'])}  ·  dzień roboczy "
-                                   f"{min(s['dni_minelo'] + 1, s['dni_all'])} z {s['dni_all']}")
+                                   f"{s.get('dzien_dzis') or min(s['dni_minelo'] + 1, s['dni_all'])} z {s['dni_all']}")
                              if s["biezacy"] and s["plan_dzis"] is not None else
                              ("brak celu w kalkulatorze" if s["cel"] is None else ""))
         t = self.wyn_tiles
