@@ -249,3 +249,17 @@ def test_zmiana_recznego_miesiaca_wysyla_zrobione():
         assert "p_done" not in calls[1]
     finally:
         app.destroy()
+
+
+def test_srednia_i_prognoza_licza_dzisiejszy_dzien_po_dzisiejszej_aktualizacji():
+    """Listopad 2026: 1.11 niedziela. Raporty z 2.11 i 3.11 wgrane 3.11 wieczorem → miną 2 dni, nie 1."""
+    import datetime
+    from wyniki import dane
+    row = {"year": 2026, "month": 11, "target": 387292, "done": 27660, "holidays": ["2026-11-11"],
+           "updated_at": "2026-11-03T18:32:00+00:00"}
+    s = dane.podsumowanie(row, datetime.date(2026, 11, 3))
+    assert s["dni_minelo"] == 2 and s["dzien_dzis"] == 2, s
+    assert round(s["srednio_dziennie"]) == 13830 and round(s["prognoza"]) == 13830 * s["dni_all"]
+    # dane z wczoraj (bez dzisiejszej aktualizacji) – dziś jeszcze trwa, nie liczy się
+    s2 = dane.podsumowanie(dict(row, updated_at="2026-11-02T18:00:00+00:00"), datetime.date(2026, 11, 3))
+    assert s2["dni_minelo"] == 1 and s2["dzien_dzis"] == 2
