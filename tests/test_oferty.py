@@ -109,14 +109,15 @@ def test_szablon_excel_i_wczytanie():
     path = S.szablon_xlsx()
     wb = load_workbook(path)
     ws = wb["Pojazdy"]
-    ws.append(["DX1209H", "Skoda", "Superb", "2155517", 2, "SUV/4x4", "TAK", 4, "koła"])
-    ws.append(["DX3985C", "Skoda", "Octavia", "205/60 16", 0, "osobowy", "TAK", "", "brak"])
+    ws.append(["DX1209H", "Skoda", "Superb", "2155517", 2, "SUV", "TAK", "TAK", "TAK"])
+    ws.append(["DX3985C", "Skoda", "Octavia", "205/60 16", 0, "osobowy", "TAK", "TAK", "NIE"])
     wb.save(path)
     poj = S.czytaj_xlsx(open(path, "rb").read())
     assert len(poj) == 3
     assert poj[1] == {"rej": "DX1209H", "pojazd": "Skoda Superb", "rozmiar": "215/55 R17", "ilosc": 2, "nowe": True,
-                      "wymiana": True, "typ": "suv", "tpms": 4, "przech": "kola"}
-    assert poj[2]["ilosc"] == 0 and poj[2]["przech"] == "" and poj[2]["wymiana"]
+                      "wymiana": True, "typ": "suv", "tpms": 2, "przech": "opony"}
+    assert poj[2]["ilosc"] == 0 and poj[2]["przech"] == "" and poj[2]["wymiana"] and poj[2]["tpms"] == 4
+    assert poj[0]["tpms"] == 0 and poj[0]["przech"] == ""
 
 
 def test_inna_tabela_excel():

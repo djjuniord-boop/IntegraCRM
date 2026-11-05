@@ -20,6 +20,8 @@ CHANGELOG = [
             "OFERTY OPON: opony DEMO (z demontażu) oznaczone pomarańczowym znaczkiem „DEMO”, filtr „Demo: bez / tylko”, "
             "w szybkim poleceniu „demo” albo „bez demo”; w e-mailu i w pliku XLSX dopisek „DEMO (opona z demontażu)”",
             "OFERTY OPON: w pliku XLSX kolumna „Indeks xPartner”",
+            "OFERTY OPON: szablon Excel – Typ auta (osobowy / SUV / dostawczy) oraz Wymiana, Czujniki TPMS i Przechowalnia "
+            "wybierane z listy TAK / NIE",
         ],
     },
     {

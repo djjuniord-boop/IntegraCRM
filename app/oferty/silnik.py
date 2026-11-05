@@ -635,7 +635,7 @@ def szablon_xlsx():
     ws = wb.active
     ws.title = "Pojazdy"
     ws.append(SZABLON_KOL)
-    ws.append(["DW5444LW", "Skoda", "Octavia", "205/55 R16", 4, "osobowy", "TAK", 0, "brak"])
+    ws.append(["DW5444LW", "Skoda", "Octavia", "205/55 R16", 4, "osobowy", "TAK", "NIE", "NIE"])
     for c in ws[1]:
         c.font = Font(b=True, color="FFFFFFFF")
         c.fill = PatternFill("solid", fgColor="FFE30613")
@@ -645,21 +645,21 @@ def szablon_xlsx():
     for col, w in zip("ABCDEFGHI", [14, 14, 16, 14, 11, 13, 10, 13, 16]):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A2"
-    for rng, lst in (("F2:F500", '"osobowy,SUV/4x4,dostawczy"'), ("G2:G500", '"TAK,NIE"'),
-                     ("I2:I500", '"brak,opony,koła"')):
+    for rng, lst in (("F2:F500", '"osobowy,SUV,dostawczy"'), ("G2:G500", '"TAK,NIE"'),
+                     ("H2:H500", '"TAK,NIE"'), ("I2:I500", '"TAK,NIE"')):
         dv = DataValidation(type="list", formula1=lst, allow_blank=True)
         ws.add_data_validation(dv)
         dv.add(rng)
     dv = DataValidation(type="whole", operator="between", formula1="0", formula2="20", allow_blank=True)
     ws.add_data_validation(dv)
     dv.add("E2:E500")
-    dv.add("H2:H500")
     inf = wb.create_sheet("Instrukcja")
     for line in ("Jak wypełnić:",
                  "• Jeden pojazd = jeden wiersz w arkuszu „Pojazdy”. Wiersz 2 to przykład – nadpisz go albo usuń.",
                  "• Rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16 albo 2055516. To jedyna wymagana kolumna.",
                  "• Ilość opon: 0 = auto tylko na wymianę (bez nowych opon). Puste = 4.",
-                 "• Typ auta, Wymiana, Przechowalnia – wybierz z listy (strzałka w komórce).",
+                 "• Typ auta (osobowy / SUV / dostawczy) oraz Wymiana, Czujniki TPMS, Przechowalnia (TAK / NIE) – wybierz z listy.",
+                 "• Czujniki TPMS = TAK: czujnik do każdej nowej opony (przy samej wymianie – 4). Przechowalnia = TAK: przechowanie opon.",
                  "• Zapisz plik i w programie kliknij „📤 Wczytaj z Excela”."):
         inf.append([line])
     inf.column_dimensions["A"].width = 100
@@ -719,11 +719,16 @@ def czytaj_xlsx(data: bytes):
             typ = g("typ").lower()
             typ = "suv" if ("suv" in typ or "4x4" in typ) else "dostawczy" if "dostaw" in typ else "osobowy"
             pr = g("przech").lower()
-            pr = "kola" if pr.startswith(("koł", "kol", "k")) and "brak" not in pr else "opony" if pr.startswith("opon") else ""
-            try:
-                tp = max(0, min(8, int(float(g("tpms").replace(",", ".") or 0))))
-            except ValueError:
-                tp = 0
+            pr = ("kola" if pr.startswith(("koł", "kol")) else "opony" if pr.startswith(("opon", "tak", "t", "1", "x"))
+                  and not pr.startswith("tr") else "")
+            tv = g("tpms").strip().upper()
+            if tv in ("TAK", "T", "X", "PRAWDA", "TRUE"):
+                tp = il if il > 0 else 4
+            else:
+                try:
+                    tp = max(0, min(8, int(float(tv.replace(",", ".") or 0))))
+                except ValueError:
+                    tp = 0
             wym = g("wym").upper() in ("TAK", "T", "1", "X", "PRAWDA", "TRUE") or (il == 0 and g("tak").upper() == "NIE")
             pojazd = " ".join(x.title() if not (len(x) <= 3 and x.isalpha()) else x.upper() for x in (g("marka"), g("model")) if x)
             out.append({"rej": re.sub(r"\s+", "", g("rej")).upper(), "pojazd": pojazd, "rozmiar": size, "ilosc": il,
