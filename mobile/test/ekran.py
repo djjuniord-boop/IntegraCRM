@@ -11,10 +11,19 @@ OUT = Path(sys.argv[1] if len(sys.argv) > 1 else "zrzuty"); OUT.mkdir(parents=Tr
 DB = json.dumps(T.DB, default=str)
 SB = "https://nlrwulrtaocuemfmlfav.supabase.co"
 saved = []
+PROF = {"p": {"email": "test@firma.pl", "name": "Jan Testowy", "role": "admin", "modules": ["oferty"], "branches": []}}
+import datetime as _dt
+_t = _dt.date.today(); _p = (_t.replace(day=1) - _dt.timedelta(days=1))
+MONTHS = [{"branch": b, "year": _t.year, "month": _t.month, "label": "Bieżący", "target": 300000, "done": d, "holidays": [], "updated_at": _t.isoformat() + "T08:00:00+00:00"}
+          for b, d in (("wroclaw", 123456), ("opole", 98000))] + \
+         [{"branch": "wroclaw", "year": _p.year, "month": _p.month, "label": "Poprzedni", "target": 280000, "done": 291000, "holidays": []}]
+RUNS = [{"branch": "wroclaw", "done": 40000 * i, "run_at": _t.replace(day=i).isoformat() + "T10:00:00+00:00"} for i in range(1, min(_t.day, 4))]
 def route(r):
     u, m = r.request.url, r.request.method
     if "/auth/v1/token" in u: return r.fulfill(json={"access_token": "a", "refresh_token": "r", "expires_in": 3600, "user": {"email": "test@firma.pl"}})
-    if "/rpc/me" in u: return r.fulfill(json=[{"email": "test@firma.pl", "name": "Jan Testowy", "role": "admin", "modules": ["oferty"]}])
+    if "/rpc/me" in u: return r.fulfill(json=[PROF["p"]])
+    if "marza_months" in u: return r.fulfill(json=MONTHS)
+    if "marza_results" in u: return r.fulfill(json=RUNS)
     if "oferty_konta" in u: return r.fulfill(json=[{"xp_login": "x", "xp_haslo": "y", "ustawienia": {}}])
     if "/rest/v1/oferty" in u and m == "POST": saved.append(r.request.post_data); return r.fulfill(status=201, body="")
     if "/rest/v1/oferty" in u: return r.fulfill(json=[{"id": 7, "owner": "test@firma.pl", "dane": json.loads(saved[-1])["dane"]}] if saved else [])
@@ -59,6 +68,24 @@ with sync_playwright() as p:
         pg.click("#tabs button[data-v=vHist]"); pg.wait_for_selector(".hrow"); shot("8_historia"); wide()
         pg.click("#tabs button[data-v=vUst]"); pg.check("input[value=kwota]"); shot("9_ustawienia"); wide()
         pg.click("text=Zapisz ustawienia"); pg.wait_for_selector("#cMsg .msg"); assert "Zapisano" in pg.inner_text("#cMsg"), pg.inner_text("#cMsg")
+        pg.click("#tabs button[data-v=vWyn]"); pg.wait_for_selector("#wBody .wtop"); shot("10_wyniki"); wide()
+        assert "Wrocław" in pg.inner_text("#wOdd") and "Opole" in pg.inner_text("#wOdd"), "admin widzi oba oddziały"
+        assert "41%" in pg.inner_text("#wBody .pct"), pg.inner_text("#wBody .pct")
+        pg.click("#wOdd button >> text=Opole"); assert "33%" in pg.inner_text("#wBody .pct")
+        ctx.close()
+        # handlowiec: tylko WYNIKI, oddział Wrocław – bez zakładek ofert, bez ustawień ofert
+        PROF["p"] = {"email": "h@firma.pl", "name": "Handlowiec", "role": "user", "modules": ["wyniki"], "branches": ["Latex Wrocław"]}
+        ctx = b.new_context(**dev); pg = ctx.new_page()
+        pg.on("pageerror", lambda e: errs.append(str(e))); pg.on("console", lambda c: c.type == "error" and "404" not in c.text and errs.append(c.text))
+        pg.route(SB + "/**", route); pg.route("https://github.com/**", lambda r: r.fulfill(status=404, body=""))
+        pg.goto((ROOT / "mobile/www/index.html").as_uri())
+        pg.fill("#lEmail", "h@firma.pl"); pg.fill("#lPass", "x"); pg.click("#bLogin"); pg.wait_for_selector("#vWyn:not([hidden]) .wtop")
+        vis = [x for x in pg.locator("#tabs button").all() if x.is_visible()]
+        assert [x.get_attribute("data-v") for x in vis] == ["vWyn", "vUst"], [x.get_attribute("data-v") for x in vis]
+        assert "Opole" not in pg.inner_text("#wOdd") and pg.inner_text("#tTitle") == "Wyniki marży"
+        shot("11_handlowiec"); wide()
+        pg.click("#tabs button[data-v=vUst]"); assert not pg.is_visible("#ustOferty") and pg.is_visible("text=Wyloguj")
+        PROF["p"] = {"email": "test@firma.pl", "name": "Jan Testowy", "role": "admin", "modules": ["oferty"], "branches": []}
         ctx.close()
     b.close()
 print("błędy JS:", errs or "brak"); print("zrzuty:", OUT)

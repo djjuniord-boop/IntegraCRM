@@ -14,7 +14,7 @@ const LSx = { get(k) { try { return localStorage.getItem(k); } catch (e) { retur
 function pokaz(zalogowany) {
   $("#vLogin").hidden = zalogowany;
   for (const id of ["#top", "#tabs"]) $(id).hidden = !zalogowany;
-  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vUst"]) $(v).hidden = true; $("#selBar").hidden = true; }
+  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vWyn", "#vUst"]) $(v).hidden = true; $("#selBar").hidden = true; }
 }
 async function startApp() {
   $("#lVer").textContent = "Wersja aplikacji: " + Aplikacja.wersja();
@@ -23,7 +23,14 @@ async function startApp() {
     const p = await Aplikacja.start();
     $("#tUser").textContent = (p.name || p.email) + (p.role === "admin" ? " · administrator" : "");
     $("#kInfo").textContent = "Zalogowano: " + p.email + ". Wersja aplikacji: " + Aplikacja.wersja();
-    pokaz(true); await loadCfg(); if (!VEH.length) { addVeh({}); drawVeh(); }
+    const M = Aplikacja.moze;   // zakładki wg uprawnień (jak w Panelu)
+    for (const v of ["vOferta", "vHist"]) document.querySelector(`#tabs button[data-v="${v}"]`).hidden = !M.oferty;
+    document.querySelector('#tabs button[data-v="vWyn"]').hidden = !M.wyniki;
+    $("#ustOferty").hidden = !M.oferty; $("#top .icon").hidden = !M.oferty;
+    $("#tTitle").textContent = M.oferty ? "Oferty opon" : "Wyniki marży";
+    const on = document.querySelector("#tabs button.on");
+    if (!on || on.hidden) document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b === pierwszaZakladka()));
+    pokaz(true); if (M.oferty) { await loadCfg(); if (!VEH.length) { addVeh({}); drawVeh(); } }
     sprawdzAkt(false);
   } catch (e) { pokaz(false); msg("#lMsg", e.message, 1); }
 }
@@ -36,10 +43,11 @@ async function zaloguj() {
 async function wyloguj() { if (!confirm("Wylogować z aplikacji?")) return; await Aplikacja.logout(); location.reload(); }
 function go(b) {
   document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
-  for (const v of ["vOferta", "vHist", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
+  for (const v of ["vOferta", "vHist", "vWyn", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
   updCnt();
   if (b.dataset.v === "vHist") loadHist();
-  if (b.dataset.v === "vUst") openCfg();
+  if (b.dataset.v === "vWyn") loadWyn();
+  if (b.dataset.v === "vUst" && Aplikacja.moze.oferty) openCfg();
   window.scrollTo(0, 0);
 }
 async function sprawdzAkt(reczne) {
@@ -324,11 +332,68 @@ async function saveCfg() {
 }
 async function testApi() { if (!(await saveCfg())) return; msg("#cMsg", "Łączę…"); try { const j = await api("/api/test", {}); msg("#cMsg", j.msg); } catch (e) { msg("#cMsg", e.message, 1); } }
 
+// ------------------------------------------------ wyniki marży (tylko podgląd; dane i uprawnienia z bazy)
+function pierwszaZakladka() { return [...document.querySelectorAll("#tabs button")].find((b) => !b.hidden); }
+let WD = null, WB = null, WCZAS = 0;
+async function loadWyn(force, cicho) {
+  const odd = Wyniki.oddzialy(Aplikacja.profil);
+  if (!odd.length) { $("#wOdd").innerHTML = ""; return ($("#wBody").innerHTML = '<div class="msg e">Twoje konto nie ma przypisanego oddziału z wynikami marży (Wrocław albo Opole). Skontaktuj się z administratorem.</div>'); }
+  if (!WB || !odd.includes(WB)) WB = odd[0];
+  if (WD && !force && Date.now() - WCZAS < 5 * 60 * 1000) return drawWyn();
+  if (!WD) $("#wBody").innerHTML = '<p class="muted">Wczytuję wyniki…</p>';
+  try { WD = await Aplikacja.wyniki(); WCZAS = Date.now(); drawWyn(); if (force && !cicho) toast("Odświeżono."); }
+  catch (e) { if (!WD) $("#wBody").innerHTML = '<div class="msg e">Nie udało się wczytać wyników. Sprawdź internet i kliknij „Odśwież”.</div>'; else if (!cicho) toast("Nie udało się odświeżyć: " + e.message); }
+}
+function drawWyn() {
+  const odd = Wyniki.oddzialy(Aplikacja.profil), names = Object.fromEntries(Wyniki.ODDZIALY), zl = Wyniki.zl;
+  const dane = (k) => ({ months: WD.months.filter((m) => m.branch === k), runs: WD.runs.filter((r) => r.branch === k) });
+  $("#wOdd").innerHTML = odd.length > 1 ? odd.map((k) => `<button class="${k === WB ? "on" : ""}" onclick="WB='${k}';drawWyn()">${names[k]}</button>`).join("") : `<button class="on">${names[odd[0]]}</button>`;
+  $("#wObie").innerHTML = odd.length > 1 ? odd.map((k) => { const m = Wyniki.wybierz_miesiac(dane(k).months), s = m && Wyniki.podsumowanie(m); return `${names[k]}: <b>${s && s.pct !== null ? Math.round(s.pct) + "% celu" : "brak danych"}</b>`; }).join(" · ") : "";
+  const d = dane(WB), m = Wyniki.wybierz_miesiac(d.months);
+  if (!m) return ($("#wBody").innerHTML = `<p class="muted">Brak wyników dla oddziału ${names[WB]} – pojawią się po najbliższej aktualizacji MARŻY.</p>`);
+  const s = Wyniki.podsumowanie(m), pts = Wyniki.punkty_wykresu(m, d.runs);
+  const plan = s.biezacy && s.plan_dzis !== null ? `▲ plan na dziś ${zl(s.plan_dzis)} · dzień roboczy ${s.dzien_dzis || Math.min(s.dni_minelo + 1, s.dni_all)} z ${s.dni_all}` : s.cel === null ? "brak celu w kalkulatorze" : "";
+  const kiedy = s.updated_at ? new Date(s.updated_at).toLocaleString("pl-PL", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  const tile = (t, v, c) => `<div class="tile"><small>${t}</small><b ${c ? `style="color:${c}"` : ""}>${v}</b></div>`;
+  const tc = s.tempo === null ? "" : s.tempo >= 100 ? "var(--ok)" : "var(--red)";
+  const rows = Wyniki.poprzednie(d.months, m);
+  $("#wBody").innerHTML = `<div class="wtop"><div class="mies">${esc(names[WB])} · ${esc(s.label)}${s.biezacy ? "" : " (ostatni miesiąc z wynikami)"}</div>
+    <div class="row" style="align-items:flex-end;justify-content:space-between"><div><div class="zr">ZROBIONE</div><div class="kw">${zl(s.zrobione)}</div>
+    <div class="cel">cel ${zl(s.cel)}${m.target_pending ? " ✎ czeka na Excel" : ""}</div></div><div style="text-align:right"><div class="pct">${s.pct !== null ? Math.round(s.pct) + "%" : "—"}</div><div class="cel">realizacji celu</div></div></div>
+    <div class="wbar"><i style="width:${s.pct !== null ? Math.min(s.pct, 100) : 0}%"></i>${s.biezacy && s.cel && s.plan_dzis !== null ? `<b style="left:calc(${Math.min(s.plan_dzis / s.cel, 1) * 100}% - 1px)"></b>` : ""}</div>
+    <div class="pl">${esc(plan)}</div></div>
+    <div class="tiles">${tile("Brakuje do celu", zl(s.brakuje))}${tile("Potrzeba dziennie", s.biezacy ? zl(s.potrzeba_dziennie) : "—", "var(--red)")}
+    ${tile("Średnio dziennie dotąd", zl(s.srednio_dziennie))}${tile("Prognoza na koniec", s.biezacy ? zl(s.prognoza) : "—")}
+    ${tile("Tempo wobec planu", s.tempo !== null ? Math.round(s.tempo) + "%" : "—", tc)}${tile("Zostało dni roboczych", s.biezacy ? s.dni_zostalo : "—")}</div>
+    <div class="card chart"><div class="lbl" style="margin-top:0">Plan i wykonanie (narastająco) <span style="color:var(--red)">■ wykonanie</span> · — plan</div>${wykres(s, pts)}
+    ${pts.length < 3 ? '<p class="hint">Wykres uzupełnia się przy każdej aktualizacji MARŻY.</p>' : ""}</div>
+    <div class="card"><div class="lbl" style="margin-top:0">Poprzednie miesiące</div>${rows.length ? '<table class="hist"><tr><th>Miesiąc</th><th>Zrobione</th><th>Cel</th><th>%</th></tr>' + rows.map((r) => {
+      const p = Wyniki.podsumowanie(r); return `<tr><td>${esc(p.label)}${r.manual ? " <small class=muted>(ręcznie)</small>" : ""}</td><td>${zl(p.zrobione)}</td><td>${zl(p.cel)}${r.target_pending ? " ✎" : ""}</td><td class="${p.pct === null ? "" : p.pct >= 100 ? "ok" : "bad"}">${p.pct !== null ? Math.round(p.pct) + "%" : "—"}</td></tr>`; }).join("") + "</table>" : '<p class="muted">Brak.</p>'}</div>
+    <p class="hint" style="padding:0 4px">${kiedy ? "Zaktualizowano " + kiedy + ". " : ""}Tylko podgląd – cele zmienia administrator w Panelu.</p>`;
+}
+function wykres(s, pts) {
+  if (!s.dni_all) return "";
+  const w = 340, h = 190, L = 48, R = 8, T = 8, B = 20, top = Math.max(s.cel || 0, ...pts.map((p) => p[1]), 1) * 1.08;
+  const X = (i) => L + ((w - L - R) * i) / s.dni_all, Y = (v) => T + (h - T - B) * (1 - v / top);
+  const k = (v) => (v >= 1000 ? Math.round(v / 1000) + " tys." : Math.round(v));
+  let g = "";
+  for (let i = 0; i <= 4; i++) { const v = (top * i) / 4; g += `<line x1="${L}" x2="${w - R}" y1="${Y(v)}" y2="${Y(v)}" stroke="#E4E4E4"/><text x="${L - 4}" y="${Y(v) + 3}" text-anchor="end" font-size="9" fill="#7A7A7A">${k(v)}</text>`; }
+  g += `<text x="${L}" y="${h - 4}" font-size="9" fill="#7A7A7A">1. dzień</text><text x="${w - R}" y="${h - 4}" font-size="9" fill="#7A7A7A" text-anchor="end">${s.dni_all}. dzień rob.</text>`;
+  if (s.cel) g += `<line x1="${X(0)}" y1="${Y(0)}" x2="${X(s.dni_all)}" y2="${Y(s.cel)}" stroke="#141414" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  if (pts.length) {
+    g += `<polyline fill="none" stroke="#E30613" stroke-width="2.5" points="${[[0, 0], ...pts].map(([i, v]) => X(i) + "," + Y(v)).join(" ")}"/>`;
+    g += pts.map(([i, v]) => `<circle cx="${X(i)}" cy="${Y(v)}" r="3.5" fill="#E30613" stroke="#fff" stroke-width="1.5"/>`).join("");
+  }
+  return `<svg viewBox="0 0 ${w} ${h}" role="img" aria-label="Wykres wykonania narastająco">${g}</svg>`;
+}
+setInterval(() => { if (!$("#vWyn").hidden && document.visibilityState === "visible") loadWyn(true, true); }, 5 * 60 * 1000);
+
 // Przycisk „wstecz” Androida: zamyka arkusz, potem wraca do zakładki Oferta.
 window.onBack = function () {
   if (!$("#sheet").hidden) { closeSheet(); return true; }
   const b = document.querySelector("#tabs button.on");
-  if (b && b.dataset.v !== "vOferta" && !$("#tabs").hidden) { go(document.querySelector('#tabs button[data-v="vOferta"]')); return true; }
+  const p = pierwszaZakladka();
+  if (b && p && b !== p && !$("#tabs").hidden) { go(p); return true; }
   return false;
 };
 
