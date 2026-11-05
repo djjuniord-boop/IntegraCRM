@@ -296,7 +296,7 @@
     return { typ, wymiana: wym, tpms: Math.min(tp, 8), przech: pr };
   }
   const STOP = new Set("marka model rejestracja rozmiar wymaga nowych opon opony szt sztuk tak nie tylko wymiana wymianę wymiane auto samochód samochod pojazd i oraz x r zr nr rej".split(" "));
-  const CRIT_RE = /^(demo|bez|suv|4x4|terenow[a-ząćęłńóśźż]*|dostawcz[a-ząćęłńóśźż]*|bus|van|czujnik[a-ząćęłńóśźż]*|tpms|przechow[a-ząćęłńóśźż]*|k[oó]ł|kola|koła|felg[a-ząćęłńóśźż]*|z|ze|wymian[a-ząćęłńóśźż]*|monta[żz][a-ząćęłńóśźż]*|przek[łl]ad[a-ząćęłńóśźż]*|premium|prem|[śs]redni[a-ząćęłńóśźż]*|middle|medium|bud[żz]et[a-ząćęłńóśźż]*|budget|ekonom[a-ząćęłńóśźż]*|tani[a-ząćęłńóśźż]*|zim[a-ząćęłńóśźż]*|letn[a-ząćęłńóśźż]*|lato|ca[łl]oroczn[a-ząćęłńóśźż]*|wielosezon[a-ząćęłńóśźż]*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon[a-ząćęłńóśźż]*|opony)$/i;
+  const CRIT_RE = /^(demo|bez|suv|4x4|terenow[a-ząćęłńóśźż]*|dostawcz[a-ząćęłńóśźż]*|bus|van|czujnik[a-ząćęłńóśźż]*|tpms|przechow[a-ząćęłńóśźż]*|k[oó]ł|kola|koła|felg[a-ząćęłńóśźż]*|z|ze|wymian[a-ząćęłńóśźż]*|monta[żz][a-ząćęłńóśźż]*|przek[łl]ad[a-ząćęłńóśźż]*|premium|prem|[śs]redni[a-ząćęłńóśźż]*|middle|medium|bud[żz]et[a-ząćęłńóśźż]*|budget|ekonom[a-ząćęłńóśźż]*|tani[a-ząćęłńóśźż]*|zim[a-ząćęłńóśźż]*|letn[a-ząćęłńóśźż]*|lato|lecie|summer[a-ząćęłńóśźż]*|winter[a-ząćęłńóśźż]*|ca[łl]orok|pory|roku|ca[łl]oroczn[a-ząćęłńóśźż]*|wielosezon[a-ząćęłńóśźż]*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon[a-ząćęłńóśźż]*|opony)$/i;
   const PLATE_RE = /(?<![A-Z0-9])([A-Z]{1,3})[ -]?([0-9][0-9A-Z]{2,5}|[A-Z]{0,2}[0-9][0-9A-Z]{1,4})(?![A-Z0-9])/g;
   const cap = (w) => (w.length <= 3 && /^[a-ząćęłńóśźż]+$/i.test(w)) || /\d/.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1);
 
@@ -357,9 +357,9 @@
     const q = /(?:^|\s)(\d{1,2})\s*(szt|opon|sztuk|x\b)/.exec(t) || /\bx\s*(\d{1,2})\b/.exec(t);
     const ilosc = q ? +q[1] : 4;
     const sezony = [];
-    if (/zim/.test(t)) sezony.push("Zimowa");
-    if (/ca[łl]oroczn|wielosezon|all ?season|4 ?season/.test(t)) sezony.push("Całoroczna");
-    if (/letn|lato/.test(t)) sezony.push("Letnia");
+    if (/(?<![a-ząćęłńóśźż])(zim|winter)/.test(t)) sezony.push("Zimowa");
+    if (/(?<![a-ząćęłńóśźż])(ca[łl]oroczn|ca[łl]orok|wielosezon|all ?-?season|4 ?season|4 ?pory)/.test(t)) sezony.push("Całoroczna");
+    if (/(?<![a-ząćęłńóśźż])(letn|lato|lecie|summer)/.test(t)) sezony.push("Letnia");
     const klasy = [];
     if (/premium|prem\b/.test(t)) klasy.push("PREMIUM");
     if (/[śs]redni|middle|medium/.test(t)) klasy.push("MIDDLE");

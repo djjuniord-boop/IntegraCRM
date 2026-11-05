@@ -152,6 +152,9 @@ def test_marka_z_listy_i_wyszukiwanie_po_marce():
     _setup()
     S.ucz_marki(S.load_cfg())
     assert S.parse_quick("2055516 sailun")["producenci"] == "SAILUN"
+    for w, sez in [("w lecie", ["Letnia"]), ("4 pory roku", ["Całoroczna"]), ("całorok", ["Całoroczna"]), ("summer", ["Letnia"]),
+                   ("winter", ["Zimowa"]), ("zimówki", ["Zimowa"]), ("wielosezonowe", ["Całoroczna"]), ("platon", []), ("stulecie", [])]:
+        assert S.parse_quick("2055516 " + w)["sezony"] == sez, w
     assert S.parse_quick("2055516 conti zimowe")["producenci"] == "CONTINENTAL"
     assert S.parse_quick("2055516 good-year")["producenci"] == "GOODYEAR"
     r = S.do_search(S.load_cfg(), {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "producenci": "BARUM"})

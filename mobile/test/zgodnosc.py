@@ -14,7 +14,7 @@ TEKSTY = ["2055516 zimowe premium", "205/55 16 sailun", "silun 2055516 x2", "rod
           "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia", "bmw x5 suv 275/40 20 dw12345 wymiana przechowalnia opon",
           "transit dostawczy 2156516 tylko wymiana", "vw passat 2055516 dw5444lw silun", "2055516 ling long 8 szt", "2254517 premium budzet całoroczne demo",
           "SKODA\tOCTAVIA\tDX1522H\t205/60 R16\tTAK\nSKODA\tOCTAVIA\tDX3985C\t205/60 R16\tNIE",
-          "superb 215/55 17 DX1209H 4 szt\nDX3985C octavia 205/60 16 tylko wymiana"]
+          "superb 215/55 17 DX1209H 4 szt\nDX3985C octavia 205/60 16 tylko wymiana", "2055516 w lecie", "2055516 4 pory roku 2 szt", "platon 2055516 winter", "całorok 2055516 summer"]
 SLOWA = ["silun", "rodx", "conti", "brigestone", "hankuk", "michlein", "goodyar", "debica", "vredstein", "passat", "tiguan", "octavia", "bfg", "toyo", "zimowe"]
 S.ucz_marki(S.load_cfg())
 py = {"quick": [S.parse_quick(t) for t in TEKSTY], "parse": [S.parse_request_text(t) for t in TEKSTY],
