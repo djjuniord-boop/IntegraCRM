@@ -146,3 +146,15 @@ def test_demo_i_indeks_xpartner():
     from openpyxl import load_workbook
     ws = load_workbook(res["plik"]).active
     assert ws.cell(4, 7).value == "Indeks xPartner" and ws.cell(5, 7).value == 5 and ws.cell(5, 11).value == "=I5*J5"
+
+
+def test_marka_z_listy_i_wyszukiwanie_po_marce():
+    _setup()
+    S.ucz_marki(S.load_cfg())
+    assert S.parse_quick("2055516 sailun")["producenci"] == "SAILUN"
+    assert S.parse_quick("2055516 conti zimowe")["producenci"] == "CONTINENTAL"
+    assert S.parse_quick("2055516 good-year")["producenci"] == "GOODYEAR"
+    r = S.do_search(S.load_cfg(), {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "producenci": "BARUM"})
+    assert [p["producent"] for g in r["wyniki"]["205/55 R16"].values() for p in g] == ["BARUM"]
+    v = S.parse_request_text("skoda octavia 2055516 dw5444lw sailun")[0]
+    assert v["pojazd"] == "Skoda Octavia"

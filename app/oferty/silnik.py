@@ -282,7 +282,7 @@ def parse_free_line(line):
         cand = m.group(1) + m.group(2)
         if any(c.isdigit() for c in cand) and 4 <= len(cand) <= 8 and not re.fullmatch(r"\d+", m.group(2)) or (len(m.group(1)) >= 2 and len(cand) >= 5):
             reg = cand; rest = rest[:m.start()] + " " + rest[m.end():]; break
-    words = [w for w in re.split(r"[\s,;/|\t]+", rest) if w and w.lower() not in STOP and not re.fullmatch(r"[\d.,]+", w) and not CRIT_RE.match(w)]
+    words = [w for w in re.split(r"[\s,;/|\t]+", rest) if w and w.lower() not in STOP and not re.fullmatch(r"[\d.,]+", w) and not CRIT_RE.match(w) and not (bkey(w) in MARKI and len(bkey(w)) >= 4)]
     ex = extras(line)
     return {"rej": reg, "pojazd": " ".join(_cap(w.lower()) for w in words), "rozmiar": sizes[0], "nowe": il > 0, "ilosc": il,
             "wymiana": ex["wymiana"] or only_swap, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]}
@@ -321,6 +321,33 @@ def parse_request_table(txt):
                 recs.append({"rej": reg.upper(), "pojazd": "", "rozmiar": size, "nowe": "NIE" not in line.upper(), "ilosc": 0 if "NIE" in line.upper() else 4, "wymiana": True})
     return recs
 
+# marki opon: listy z ustawień (premium / średnie / budżet) + popularne + producenci widziani w wynikach
+MARKI_STALE = ["MICHELIN", "CONTINENTAL", "GOODYEAR", "BRIDGESTONE", "PIRELLI", "NOKIAN", "DUNLOP", "HANKOOK", "VREDESTEIN",
+               "YOKOHAMA", "BARUM", "DĘBICA", "KLEBER", "FULDA", "FIRESTONE", "BFGOODRICH", "UNIROYAL", "SEMPERIT", "KUMHO",
+               "FALKEN", "TOYO", "NEXEN", "SAVA", "KORMORAN", "MATADOR", "SAILUN", "ROADX", "TRIANGLE", "LASSA", "GENERAL",
+               "LAUFENN", "MAXXIS", "PETLAS", "LINGLONG", "NANKANG", "TRACMAX", "WINDFORCE", "FORTUNE", "POWERTRAC", "OPTIMO",
+               "KENDA", "GISLAVED", "VIKING", "TIGAR", "RIKEN", "STRIAL", "ORIUM", "TAURUS", "HIFLY", "GRIPMAX", "COOPER",
+               "ZEETEX", "ROTALLA", "IMPERIAL", "MARSHAL", "GOODRIDE", "WESTLAKE", "APLUS", "MINERVA", "DAVANTI", "ARIVO"]
+MARKI = set(bkey(m) for m in MARKI_STALE)
+_ALIAS = {"GOODYEAR": "GOODYEAR", "GOOD-YEAR": "GOODYEAR", "DEBICA": "DĘBICA", "BFG": "BFGOODRICH"}
+
+
+def ucz_marki(cfg=None, nazwy=()):
+    for m in list((cfg or {}).get("premium", [])) + list((cfg or {}).get("srednie", [])) + list((cfg or {}).get("budzet", [])) + list(nazwy):
+        if m:
+            MARKI.add(bkey(m))
+
+
+def brand_of_word(w):
+    k = bkey(_ALIAS.get(w.upper(), w))
+    if len(k) < 3:
+        return ""
+    if k in MARKI:
+        return k
+    hits = [m for m in MARKI if len(k) >= 4 and m.startswith(k)]   # np. „conti” → CONTINENTAL
+    return hits[0] if len(hits) == 1 else ""
+
+
 def parse_quick(txt):
     """Szybkie polecenie, np. '205/55 r16 3 oferty premium średnia budżet zimowe 4 szt'."""
     t = txt.lower()
@@ -335,9 +362,11 @@ def parse_quick(txt):
     if re.search(r"premium|prem\b", t): klasy.append("PREMIUM")
     if re.search(r"[śs]redni|middle|medium", t): klasy.append("MIDDLE")
     if re.search(r"bud[żz]et|budget|ekonom|tani", t): klasy.append("BUDGET")
-    marki = [b for b in ["michelin", "continental", "goodyear", "good-year", "bridgestone", "pirelli", "nokian", "dunlop", "hankook", "vredestein", "yokohama",
-                         "barum", "dębica", "debica", "kleber", "fulda", "firestone", "bfgoodrich", "uniroyal", "semperit", "kumho", "falken", "toyo", "nexen", "sava", "kormoran", "matador"] if b in t]
-    marki = ["GOODYEAR" if m in ("goodyear", "good-year") else m.upper() for m in marki]
+    marki = []
+    for w in re.findall(r"[a-ząćęłńóśźż][a-ząćęłńóśźż0-9\-]+", t):
+        b = brand_of_word(w)
+        if b and b not in marki:
+            marki.append(b)
     ex = extras(t)
     wymiana = ex["wymiana"]
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
@@ -359,13 +388,14 @@ def do_search(cfg, req):
         found = dict(zip(sizes, ex.map(lambda s: search_size(cfg, s), sizes)))
     res = {}
     for s in sizes:
-        items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) == s and p["netto"] > 0]  # cena 0 = niedostępne do zamówienia
+        items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) == s and p["netto"] > 0]
+        ucz_marki(nazwy=[p["producent"] for p in items])  # cena 0 = niedostępne do zamówienia
         res[s] = {}
         for sez in sezony:
           for klasa in klasy:
             lst = [p for p in items if not sez or p["sezon"] == sez]
             if req.get("tylko_runflat"): lst = [p for p in lst if not p["standard"]]
-            if prod_f: lst = [p for p in lst if bkey(p["producent"]) in prod_f]
+            if prod_f: lst = [p for p in lst if any(bkey(p["producent"]).startswith(x) for x in prod_f)]
             if klasa:
                 lst = [p for p in lst if p["klasa"] == klasa]
             for p in lst:
@@ -754,6 +784,7 @@ def handle(path, body=None, open_path=None):
     qs = urllib.parse.parse_qs(u.query)
     route = u.path
     cfg = load_cfg()
+    ucz_marki(cfg)
     try:
         if body is None:
             if route == "/api/cfg":
