@@ -23,7 +23,7 @@
 <!-- ===================== GÓRNY PASEK ===================== -->
 <header id="top" hidden>
   <img src="logo.png" alt="" class="tlogo">
-  <div class="ttl"><b>Oferty opon</b><span id="tUser" class="muted small"></span></div>
+  <div class="ttl"><b id="tTitle">Oferty opon</b><span id="tUser" class="muted small"></span></div>
   <button class="icon" onclick="nowaOferta()" title="Nowa oferta" aria-label="Nowa oferta">🧹</button>
 </header>
 <div id="upd" class="upd" hidden></div>
@@ -105,9 +105,17 @@
   <div class="spacer"></div>
 </main>
 
+<!-- ===================== WYNIKI (tylko podgląd) ===================== -->
+<main id="vWyn" class="view" hidden>
+  <div class="row wrap gap" style="margin:2px 2px 10px"><div class="seg grow" id="wOdd"></div><button class="btn sec sm" onclick="loadWyn(true)">↻ Odśwież</button></div>
+  <div id="wObie" class="small" style="margin:0 4px 8px"></div>
+  <div id="wBody"><p class="muted">Wczytuję wyniki…</p></div>
+  <div class="spacer"></div>
+</main>
+
 <!-- ===================== USTAWIENIA ===================== -->
 <main id="vUst" class="view" hidden>
-  <div class="card">
+  <div class="card" id="ustOferty">
     <div class="h">⚙ Ustawienia ofert</div>
     <p class="hint">Zapisują się na Twoim koncie – te same co w Panelu. Login API xPartner wpisuje administrator.</p>
     <div class="lbl">Jak liczyć cenę opony</div>
@@ -152,6 +160,7 @@
 <nav id="tabs" hidden>
   <button data-v="vOferta" class="on" onclick="go(this)"><span>🛞</span>Oferta</button>
   <button data-v="vHist" onclick="go(this)"><span>🕘</span>Historia</button>
+  <button data-v="vWyn" onclick="go(this)"><span>📈</span>Wyniki</button>
   <button data-v="vUst" onclick="go(this)"><span>⚙</span>Ustawienia</button>
 </nav>
 
@@ -160,6 +169,7 @@
 <div id="toast" class="toast" hidden></div>
 
 <script src="silnik.js"></script>
+<script src="wyniki.js"></script>
 <script src="app.js"></script>
 <script src="ui.js"></script>
 </body>

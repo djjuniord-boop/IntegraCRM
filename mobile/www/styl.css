@@ -100,3 +100,16 @@ table.sum .num{text-align:right}
 .login p{text-align:center}
 @media (min-width:600px){.wgrid{grid-template-columns:repeat(6,1fr)}.pgrid{grid-template-columns:repeat(3,1fr)}}
 @media (max-width:350px){.row2{grid-template-columns:1fr}.prod .pr b{font-size:16px}}
+/* wyniki */
+.wtop{background:#111;color:#fff;border-radius:14px;padding:16px;margin-bottom:10px}
+.wtop .mies{font-size:12px;letter-spacing:.05em;color:#BDBDBD;text-transform:uppercase}
+.wtop .zr{font-size:13px;color:#BDBDBD;margin-top:10px}.wtop .kw{font-size:34px;font-weight:800;line-height:1.1}
+.wtop .cel{color:#BDBDBD;font-size:14px}.wtop .pct{font-size:40px;font-weight:800;color:#fff;line-height:1}
+.wtop .pl{font-size:12px;color:#BDBDBD;margin-top:6px}
+.wbar{position:relative;height:16px;background:#2C2C2C;border-radius:8px;overflow:hidden;margin-top:12px}
+.wbar i{position:absolute;left:0;top:0;bottom:0;background:var(--red)}.wbar b{position:absolute;top:0;bottom:0;width:3px;background:#fff}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+.tile{background:#fff;border-radius:12px;padding:10px 12px;box-shadow:0 1px 2px #0000000d}.tile small{display:block;font-size:12px;color:var(--muted)}.tile b{font-size:19px;color:var(--ink)}
+.chart svg{width:100%;height:auto;display:block}
+table.hist{width:100%;border-collapse:collapse;font-size:14px}table.hist td,table.hist th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}
+table.hist td:first-child,table.hist th:first-child{text-align:left}table.hist .ok{color:var(--ok)}table.hist .bad{color:#b00012;font-weight:700}

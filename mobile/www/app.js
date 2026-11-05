@@ -51,14 +51,24 @@
   };
 
   // ---------- profil, konto xPartner, historia (te same tabele co Panel)
-  A.profil = null;
+  A.profil = null; A.moze = {};
+  A.wyniki = async function () {   // jak Panel: miesiące + aktualizacje od początku poprzedniego miesiąca
+    const d = new Date(), od = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+    const ods = od.getFullYear() + "-" + String(od.getMonth() + 1).padStart(2, "0") + "-01";
+    const months = (await A.db("GET", "/rest/v1/marza_months?select=*&order=year.desc,month.desc")) || [];
+    const runs = (await A.db("GET", "/rest/v1/marza_results?select=branch,month_label,done,target,run_at&run_at=gte." + ods + "&order=run_at.asc")) || [];
+    return { months, runs };
+  };
   A.start = async function () {
     const me = await A.db("POST", "/rest/v1/rpc/me", {});
     const p = Array.isArray(me) ? me[0] : me;
     if (!p || !p.email) throw new Error("To konto jest nieaktywne albo nie ma dostępu do programu.");
-    const admin = p.role === "admin";
-    if (!admin && !(p.modules || []).includes("oferty")) throw new Error("Twoje konto nie ma dostępu do modułu Oferty opon – poproś administratora.");
+    const admin = p.role === "admin", mod = p.modules || [];
+    // zakładki jak w Panelu: OFERTY OPON – moduł „oferty”; WYNIKI – moduł „wyniki” albo „marza” (dane i tak pilnuje baza)
+    A.moze = { oferty: admin || mod.includes("oferty"), wyniki: admin || mod.includes("wyniki") || mod.includes("marza") };
+    if (!A.moze.oferty && !A.moze.wyniki) throw new Error("Twoje konto nie ma dostępu do Ofert opon ani do Wyników – poproś administratora.");
     A.profil = p;
+    if (!A.moze.oferty) return p;
     const rows = (await A.db("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo,ustawienia&email=eq." + encodeURIComponent(p.email.toLowerCase()))) || [];
     const r = rows[0] || {};
     Object.assign(S.KONTO, { login: r.xp_login || "", password: r.xp_haslo || "", ustawienia: r.ustawienia || {},
