@@ -85,8 +85,8 @@ def test_oferta_ceny_wymiana_uslugi_historia():
     code, res = S.handle("/api/offer", req)
     assert code == 200, res
     w = res["warianty"][0]
-    # 344,10 × 1,05 × 1,23 × 0,9 = 399,97 → w górę 400 zł; 2 szt.; wymiana 2 kół × 44; TPMS 4 × 150; przechowalnia 120
-    assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (800.0, 88.0, 600.0, 120.0)
+    # 344,10 × 1,05 × 1,23 = 444,41 → 445 zł; rabat 10% → 400,50 → 401 zł; 2 szt.; wymiana 2 × 44; TPMS 4 × 150; przechowalnia 120
+    assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (802.0, 88.0, 600.0, 120.0)
     assert os.path.exists(res["plik"]) and "Test" in res["email"]
     assert S.HIST.get("20261105_120000")["klient"] == "Test"
     code, lst = S.handle("/api/history?q=")
@@ -171,3 +171,14 @@ def test_literowki_i_skroty_marek():
     assert S.parse_quick("2055516 ling long")["producenci"] == "LINGLONG"
     v = S.parse_request_text("vw passat 2055516 dw5444lw silun")[0]
     assert v["pojazd"] == "VW Passat"
+
+
+def test_doplata_kwotowa_wg_progow():
+    _setup()
+    S.KONTO["ustawienia"] = {"narzut_tryb": "kwota"}
+    cfg = S.load_cfg()
+    # zakup netto -> brutto: 300 -> 369 (+50), 500 -> 615 (+70), 800 -> 984 (+90); 325,20 -> 399,996 ≈ 400 (+50)
+    assert [S.sell_price(cfg, n) for n in (300, 500, 800, 325.2)] == [419.0, 685.0, 1074.0, 450.0]
+    assert S.doplata_progowa(cfg, 400.0) == 50 and S.doplata_progowa(cfg, 400.5) == 70 and S.doplata_progowa(cfg, 899) == 70
+    assert S.doplata_progowa(cfg, 900) == 90
+    S.KONTO["ustawienia"] = {}
