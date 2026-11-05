@@ -29,12 +29,25 @@ py["search"] = [{s: {g: [p["id"] for p in l] for g, l in d.items()} for s, d in 
 offers = [{"oid": "1", "klient": "Firma", "rabat": "10", "pojazdy": [{"rej": "DW1", "pojazd": "Skoda", "rozmiar": "205/55 R16", "ilosc": 2, "nowe": True, "wymiana": True, "tpms": 4, "przech": "opony", "typ": "osobowy"},
             {"rej": "DX9", "pojazd": "", "rozmiar": "205/55 R16", "ilosc": 0, "nowe": False, "wymiana": True, "tpms": 0, "przech": "kola", "typ": "suv"}], "wybor": {"205/55 R16": {"wszystkie": [1, 2]}}},
           {"oid": "2", "osobno": True, "ceny": {"1": 500}, "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}, {"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}],
-           "wybor": {"205/55 R16": {"wszystkie": [1]}, "235/55 R18": {"wszystkie": [5]}}}]
+           "wybor": {"205/55 R16": {"wszystkie": [1]}, "235/55 R18": {"wszystkie": [5]}}},
+          {"oid": "20261105_221500", "klient": "Jan <Kowalski> & syn", "rabat": "7.5", "osobno": True, "pojazdy": [
+              {"rej": "dw1234a", "pojazd": "Octavia", "rozmiar": "205/55 R16", "ilosc": 4, "nowe": True, "wymiana": True, "tpms": 4, "przech": "kola", "typ": "osobowy"},
+              {"rej": "", "pojazd": "Tiguan", "rozmiar": "205/55 R16", "ilosc": 2, "nowe": True, "wymiana": True, "tpms": 0, "przech": "opony", "typ": "suv"},
+              {"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}], "wybor": {"205/55 R16": {"wszystkie": [1, 2]}, "235/55 R18": {"wszystkie": [5]}}}]
+ODDZ = {"Latex Wrocław": {"nazwa": "LATEX SERWIS WROCŁAW", "adres": "ul. Krakowska 54a, 50-425 Wrocław", "tel": "71 341 30 60", "www": "wroclaw.latex.net.pl", "email": "wroclaw@latexserwis.pl"}}
+S.KONTO.update(oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="Test")
+py["pdf"] = []
 py["offer"] = []
 for o in offers:
     c, r = S.handle("/api/offer", copy.deepcopy(o))
     py["offer"].append({"warianty": r["warianty"], "email": r["email"], "uwagi": r["uwagi"], "ulotki": [(u["id"], u["cena"]) for u in r["ulotki"]]})
-inp = {"TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
+    for u in r["ulotki"]:
+        py["pdf"].append(S.handle("/api/pdf", {"id": u["id"], "logo": "logo.png"})[1].get("html"))
+import importlib.util as _iu
+_spec = _iu.spec_from_file_location("zw", ROOT / "mobile/zrob_wzor.py"); _zw = _iu.module_from_spec(_spec); _spec.loader.exec_module(_zw)
+if (ROOT / "mobile/www/pdf_wzor.js").read_text(encoding="utf-8") != _zw.tresc():
+    print("RÓŻNICA: mobile/www/pdf_wzor.js nieaktualny – uruchom python3 mobile/zrob_wzor.py"); sys.exit(1)
+inp = {"ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
 js = subprocess.run(["node", str(Path(__file__).with_name("zgodnosc_js.cjs"))], input=json.dumps(inp), capture_output=True, text=True)
 if js.returncode:
     print(js.stderr); sys.exit(2)

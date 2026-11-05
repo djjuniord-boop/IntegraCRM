@@ -39,6 +39,11 @@ jobs:
           python tests/check_imports.py
           python tests/run_tests.py
 
+      - name: PDF oferty opon przez Edge (jak u pracowników)
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python tests/pdf_edge.py
+
       - name: Tesseract OCR
         run: choco install tesseract -y --no-progress
 

@@ -17,7 +17,7 @@ OUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Oferty opon")
 API_URL = "https://xpartner.net.pl/index.php"
 
 # uzupełnia okno.py po zalogowaniu: {"login": ..., "password": ..., "ustawienia": {...}, "zapisz": funkcja(dict)}
-KONTO = {"login": "", "password": "", "ustawienia": {}, "zapisz": None}
+KONTO = {"login": "", "password": "", "ustawienia": {}, "zapisz": None, "oddzialy": [], "oddzialy_dane": {}, "kto": ""}
 # historia ofert (baza): obiekt z metodami get(oid) -> dict|None, save(oid, klient, dane, szukaj), list(q) -> [dict]
 HIST = None
 
@@ -71,6 +71,24 @@ def _txt(el, tag):
     x = el.find(tag)
     return (x.text or "").strip() if x is not None and x.text else ""
 
+FOTO_TAG = re.compile(r"image|photo|picture|img|zdj|foto", re.I)
+FOTO_URL = re.compile(r"^https://[^\s\"'<>]+$", re.I)
+
+def _foto(p, attrs):
+    """Adres zdjęcia opony, jeśli xPartner go podaje (pole o nazwie typu image/photo albo cecha z adresem obrazka).
+    Tylko https – PDF nie pobiera niczego z adresów http ani lokalnych."""
+    for c in p.iter():
+        if c is not p and FOTO_TAG.search(c.tag or ""):
+            for v in [c.text or ""] + list(c.attrib.values()):
+                v = v.strip()
+                if FOTO_URL.match(v):
+                    return v
+    for k, v in attrs.items():
+        v = (v or "").strip()
+        if FOTO_URL.match(v) and (FOTO_TAG.search(k) or re.search(r"\.(jpe?g|png|webp)(\?|$)", v, re.I)):
+            return v
+    return ""
+
 def parse_products(xml_bytes):
     root = ET.fromstring(xml_bytes)
     ok = _txt(root, "success") or _txt(root, "productsResult")
@@ -89,7 +107,8 @@ def parse_products(xml_bytes):
             except ValueError: return 0.0
         out.append({
             "id": int(_txt(p, "productId") or 0),
-            "kod": _txt(p, "manufacturerCode"), "ean": _txt(p, "ean"),
+            "kod": _txt(p, "manufacturerCode"), "ean": _txt(p, "ean"), "foto": _foto(p, attrs),
+            "pola": sorted({c.tag for c in p}),
             "nazwa": _txt(p, "name"),
             "ilosc": int(_txt(p, "quantity") or 0),
             "netto": num("netDiscountPrice"), "brutto_zak": num("grossDiscountPrice"),
@@ -663,7 +682,7 @@ def save_hist(req, summ, path):
     rec = {"osobno": req.get("osobno"), "marza": req.get("marza"), "rabat": req.get("rabat"), "ceny": req.get("ceny") or {},
            "oid": oid, "data": datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "klient": req.get("klient", ""),
            "pojazdy": req.get("pojazdy", []), "wybor": req.get("wybor", {}), "sel": req.get("sel", []),
-           "warianty": summ, "plik": path}
+           "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or ""}
     hay = (rec["klient"] + " " + " ".join(v.get("rej", "") + " " + v.get("pojazd", "") + " " + v.get("rozmiar", "") for v in rec["pojazdy"])
            + " " + " ".join(m for w in summ for m in w.get("modele", []))).lower()
     HIST.save(oid, rec["klient"], rec, hay)
@@ -866,6 +885,168 @@ def _in_out_dir(p):
     return bool(p) and os.path.dirname(os.path.abspath(p)) == os.path.abspath(OUT_DIR)
 
 
+# ------------------------------------------------------------ PDF oferty (jeden model opony)
+# Wzór pdf_wzor.html jest wspólny z aplikacją Android (mobile/www/pdf_wzor.js – kopia, test zgodności pilnuje).
+PDF_WZOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_wzor.html")
+OSTATNIA = {}   # ostatnio wyliczona oferta (dla /api/pdf): req, wiersze
+EU_KOLORY = [("A", "#00A651", "#fff"), ("B", "#4CB848", "#fff"), ("C", "#BFD730", "#111"), ("D", "#FFF200", "#111"), ("E", "#F7941D", "#fff")]
+KLASA_PDF = {"PREMIUM": "PREMIUM", "MIDDLE": "ŚREDNIA", "BUDGET": "BUDŻET"}
+ODDZIAL_POLA = ("nazwa", "adres", "tel", "www", "email")
+
+def _esc(v):
+    return (str(v).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;"))
+
+def _szukaj(stos, k):
+    for c in reversed(stos):
+        if isinstance(c, dict) and k in c:
+            return c[k]
+    return None
+
+_TAG = re.compile(r"\{\{(\{?)([#^/>]?)\s*([\w.]+)\s*\}?\}\}")
+
+def wypelnij(tpl, ctx, stos=None):
+    """Wypełnia wzór: {{x}} (tekst zabezpieczony), {{{x}}}, {{#x}}…{{/x}} (gdy jest / każdy element listy), {{^x}}…{{/x}}."""
+    stos = (stos or []) + [ctx]
+    out, i = [], 0
+    while True:
+        m = _TAG.search(tpl, i)
+        if not m:
+            out.append(tpl[i:]); break
+        out.append(tpl[i:m.start()])
+        raw, typ, k = m.group(1), m.group(2), m.group(3)
+        if typ in ("#", "^"):
+            # znajdź pasujące zamknięcie (z zagnieżdżeniem tej samej nazwy)
+            glab, j, koniec_wn = 1, m.end(), m.end()
+            zn = re.compile(r"\{\{([#^/])\s*" + re.escape(k) + r"\s*\}\}")
+            while glab:
+                n = zn.search(tpl, j)
+                if not n:
+                    raise ValueError("wzór: brak {{/%s}}" % k)
+                glab += -1 if n.group(1) == "/" else 1
+                koniec_wn, j = n.start(), n.end()
+            wn, v = tpl[m.end():koniec_wn], _szukaj(stos, k)
+            if typ == "^":
+                if not v:
+                    out.append(wypelnij(wn, {}, stos))
+            elif isinstance(v, list):
+                out.extend(wypelnij(wn, e if isinstance(e, dict) else {".": e}, stos) for e in v)
+            elif v:
+                out.append(wypelnij(wn, v if isinstance(v, dict) else {}, stos))
+            i = j
+            continue
+        v = _szukaj(stos, k)
+        out.append("" if v is None or v is False else (str(v) if raw else _esc(v)))
+        i = m.end()
+    return "".join(out)
+
+def wzor_pdf():
+    with open(PDF_WZOR, encoding="utf-8") as f:
+        t = f.read()
+    glowny, _, etykieta = t.partition("<!--etykieta-->")
+    return glowny.replace("{{>etykieta}}", etykieta.strip())
+
+def _skala(lit):
+    return [{"l": l, "kolor": k, "tekst": t, "szer": 34 + 9 * i, "on": l == lit} for i, (l, k, t) in enumerate(EU_KOLORY)]
+
+def _data_oid(oid, dni=0):
+    try:
+        d = datetime.date(int(oid[0:4]), int(oid[4:6]), int(oid[6:8]))
+    except (ValueError, TypeError):
+        d = datetime.date.today()
+    return (d + datetime.timedelta(days=dni)).strftime("%d.%m.%Y")
+
+def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
+    """Dane PDF dla jednego modelu opony: pojazdy z tą oponą, każda usługa osobno, rabat, netto/VAT/brutto."""
+    R = [r for r in rows if r.get("p") and r["p"]["id"] == pid]
+    if not R:
+        raise ValueError("Tej opony nie ma w ofercie – wygeneruj ofertę ponownie.")
+    if not oddzial or not all((oddzial.get(k) or "").strip() for k in ("nazwa", "adres", "tel")):
+        raise ValueError("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.")
+    p = R[0]["p"]
+    vat = float(cfg.get("vat_proc") or 23)
+    try: rab = max(0.0, min(90.0, float(req.get("rabat") or 0)))
+    except ValueError: rab = 0.0
+    przed_szt = p["cena_brutto"] if (p.get("recznie") or not rab) else sell_price(cfg, p["netto"])
+    il = sum(int(r.get("ilosc") or 0) for r in R)
+    poz = [{"nazwa": "Opona " + p["nazwa"], "q": il, "j": "szt.", "c": przed_szt}]
+    kola = int(cfg["kola_na_auto"])
+    wym = {}
+    for r in R:
+        if r.get("wymiana"):
+            n = int(r.get("ilosc") or 0) or kola
+            dia = (re.search(r"R(\d{2})", r.get("rozmiar") or "") or [None, ""])[1]
+            typ = r.get("typ") or "osobowy"
+            key = (dia, typ, round(r["wymiana"] / n, 2))
+            wym[key] = wym.get(key, 0) + n
+    for (dia, typ, c), n in wym.items():
+        poz.append({"nazwa": "Wymiana opon – demontaż, montaż, wyważenie (R%s%s)" % (dia, "" if typ == "osobowy" else ", " + TYPY.get(typ, typ)),
+                    "q": n, "j": "szt.", "c": c})
+    n_tp = sum(int(r.get("tpms") or 0) for r in R)
+    if n_tp:
+        poz.append({"nazwa": "Czujnik ciśnienia TPMS (z montażem)", "q": n_tp, "j": "szt.", "c": float(cfg["tpms_cena"])})
+    dep = {}
+    for r in R:
+        if r.get("przech_kw"):
+            key = (r["przech_op"], r["przech_kw"])
+            dep[key] = dep.get(key, 0) + 1
+    for (op, c), n in dep.items():
+        poz.append({"nazwa": "Depozyt – " + op[:1].lower() + op[1:] + ", 1 sezon", "q": n, "j": "kpl.", "c": float(c)})
+    przed = round(sum(x["q"] * x["c"] for x in poz), 2)
+    rabat_kw = round((przed_szt - p["cena_brutto"]) * il, 2)
+    brutto = round(przed - rabat_kw, 2)
+    netto = round(brutto / (1 + vat / 100), 2)
+    oid = str(req.get("oid") or "")
+    poj = []
+    for r in R:
+        t = " · ".join(x for x in ((r.get("pojazd") or "").strip(), (r.get("rej") or "").strip().upper()) if x)
+        if t and t not in poj:
+            poj.append(t)
+    sez = (p.get("sezon") or "").upper()
+    lab = p.get("etykieta") or {}
+    hk = (lab.get("Hałas") or "").strip()[:1].upper()
+    eu = bool(p.get("mokra") or p.get("opory") or p.get("halas"))
+    vp = ("%g" % vat).replace(".", ",")
+    return {
+        "logo": logo, "nr": "OF/%s/%s/%s-%s" % (oid[0:4], oid[4:6], oid[6:8], oid[9:13]) if len(oid) >= 13 else "OF/" + oid,
+        "data": _data_oid(oid), "wazna": _data_oid(oid, int(cfg.get("waznosc_dni") or 7)),
+        "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
+        "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
+        "klient": (req.get("klient") or "").strip(), "pojazd": ", ".join(poj), "kto": kto,
+        "tag": "OPONA " + sez + (" · " + KLASA_PDF[p["klasa"]] if p.get("klasa") in KLASA_PDF else "") + (" · DEMO" if p.get("demo") else ""),
+        "tytul": p["nazwa"], "producent": p.get("producent", ""), "model": p.get("model", ""), "rozmiar": R[0].get("rozmiar", ""),
+        "indeks": p.get("indeks", ""), "dot": p.get("dot", ""), "foto": p.get("foto", ""), "ean": p.get("ean", ""),
+        "eu": eu, "ma_opory": bool(p.get("opory")), "ma_mokra": bool(p.get("mokra")),
+        "skala_opory": _skala(p.get("opory")), "skala_mokra": _skala(p.get("mokra")),
+        "halas": p.get("halas") or "", "halas_klasa": hk if hk in ("A", "B", "C") else "",
+        "cena_szt": pl(p["cena_brutto"]), "cena_szt_netto": pl(round(p["cena_brutto"] / (1 + vat / 100), 2)),
+        "pozycje": [{"nazwa": x["nazwa"], "ilosc": "%d %s" % (x["q"], x["j"]), "cena": pl(x["c"]), "wartosc": pl(round(x["q"] * x["c"], 2))} for x in poz],
+        "rabat": (("%g" % rab).replace(".", ",") + "%") if rabat_kw > 0 else "", "przed": pl(przed), "rabat_kw": pl(rabat_kw),
+        "netto": pl(netto), "vat": pl(round(brutto - netto, 2)), "vat_proc": vp, "brutto": pl(brutto),
+    }
+
+def pdf_html(cfg, req, rows, pid, oddzial, kto="", logo=""):
+    return wypelnij(wzor_pdf(), pdf_dane(cfg, req, rows, pid, oddzial, kto, logo))
+
+def oddzial_oferty(req):
+    """Oddział do PDF: tylko z przypisanych do konta (KONTO['oddzialy']); przy kilku – wybrany w ofercie."""
+    moje = KONTO.get("oddzialy") or []
+    dane = KONTO.get("oddzialy_dane") or {}
+    if not moje:
+        raise ValueError("Twoje konto nie ma przypisanego oddziału – poproś administratora (UŻYTKOWNICY → konto → oddziały).")
+    o = req.get("oddzial") if req.get("oddzial") in moje else moje[0]
+    return o, dict(dane.get(o) or {}, nazwa=(dane.get(o) or {}).get("nazwa") or o)
+
+
+def opis_pol(items):
+    """Do testu połączenia: co xPartner podaje przy produkcie (zdjęcie, EAN, etykieta UE)."""
+    if not items:
+        return ""
+    p = items[0]
+    et = [k for k in ("Opory toczenia", "Przyczepność na mokrej nawierzchni", "Poziom hałasu", "Hałas") if p["attrs"].get(k)]
+    return ("\nZdjęcie opony: %s · EAN: %s · etykieta UE: %s\nPola produktu: %s\nCechy: %s" % (
+        "TAK" if p.get("foto") else "brak", "TAK" if p.get("ean") else "brak", ", ".join(et) or "brak",
+        ", ".join(p.get("pola") or []), ", ".join(sorted(p["attrs"]))))
+
 def handle(path, body=None, open_path=None):
     """Polecenie strony -> (kod, odpowiedź). open_path(ścieżka) otwiera plik/folder w Windows."""
     u = urllib.parse.urlparse(path)
@@ -880,6 +1061,7 @@ def handle(path, body=None, open_path=None):
                 c["login"] = "tak" if cfg.get("login") else ""
                 c["marki_xp"] = MARKI_STALE
                 c["password"] = ""
+                c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 return 200, c
             if route == "/api/history":
                 if qs.get("id"):
@@ -906,8 +1088,14 @@ def handle(path, body=None, open_path=None):
             save_cfg(cfg)
             return 200, {"ok": True}
         if route == "/api/test":
-            count, _ = api_call(cfg, productName="205/55 R16", resultsPerPage=1)
-            return 200, {"ok": True, "msg": "Połączono z xPartner. Przykładowe zapytanie zwróciło %d produktów." % count}
+            count, items = api_call(cfg, productName="205/55 R16", resultsPerPage=1)
+            return 200, {"ok": True, "msg": "Połączono z xPartner. Przykładowe zapytanie zwróciło %d produktów." % count + opis_pol(items)}
+        if route == "/api/pdf":
+            if not OSTATNIA.get("rows"):
+                return 400, {"error": "Najpierw wygeneruj ofertę."}
+            o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
+            html = pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], int(body.get("id") or 0), dane, KONTO.get("kto") or "", body.get("logo") or "")
+            return 200, {"html": html, "oddzial": o}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
         if route == "/api/szablon":
@@ -932,6 +1120,7 @@ def handle(path, body=None, open_path=None):
             return 200, do_search(cfg, body)
         if route == "/api/offer":
             rows, variants, warns = build_offer(cfg, body)
+            OSTATNIA.clear(); OSTATNIA.update(req=body, rows=rows)
             if not rows:
                 return 400, {"error": "Brak wybranych opon."}
             path_x = write_xlsx(cfg, body, rows, variants)
@@ -949,7 +1138,7 @@ def handle(path, body=None, open_path=None):
                 save_hist(body, summ, path_x)
             except Exception as e:
                 warns.append("Nie zapisano oferty w historii: %s" % e)
-            return 200, {"ulotki": ul, "plik": path_x, "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
+            return 200, {"ulotki": ul, "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
     except ApiError as e:
         return 502, {"error": str(e)}
     except Exception as e:

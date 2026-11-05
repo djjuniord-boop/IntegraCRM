@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.7"
+VERSION = "0.23.8"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.23.8",
+        "date": "2026-11-05",
+        "changes": [
+            "OFERTY OPON: własny PDF oferty Latex dla klienta – bez logowania do xPartner. Jeden model opony, każda usługa "
+            "osobno (wymiana, czujniki TPMS, depozyt), rabat, netto/VAT/brutto i numer do rezerwacji terminu",
+            "Na PDF zawsze dane Twojego oddziału (z konta) – administrator wpisuje je w Ustawieniach ofert",
+            "Test połączenia z xPartner pokazuje, jakie dane podaje API (zdjęcie, EAN, etykieta UE)",
+        ],
+    },
     {
         "version": "0.23.7",
         "date": "2026-11-05",

@@ -9,7 +9,8 @@ Te same konta, ustawienia cen i historia ofert co w Panelu (tabele `oferty_konta
 | `www/wyniki.js` | port `app/wyniki/dane.py` – zakładka WYNIKI tylko do podglądu (bez zmiany celów); **zmiana wzorów w Panelu = ta sama zmiana tutaj** |
 | `www/app.js` | logowanie Supabase, baza, most do Androida (`Native`), sprawdzanie aktualizacji |
 | `www/ui.js`, `index.html`, `styl.css` | ekran telefonu (od 320 px) |
-| `android/` | okno WebView + most `Native.http/share/openUrl/version` (HTTP natywnie – xPartner nie pozwala na CORS) |
+| `www/pdf_wzor.js` | kopia `app/oferty/pdf_wzor.html` – generuje `python3 mobile/zrob_wzor.py` |
+| `android/` | okno WebView + most `Native.http/share/openUrl/version/pdf` (PDF: ukryty WebView → `android.print.PdfZapis` → cache/pdf → „Udostępnij” przez `Pliki` – ContentProvider tylko do odczytu, bez eksportu) (HTTP natywnie – xPartner nie pozwala na CORS) |
 | `build_apk.sh` | budowa APK bez Gradle (aapt2, javac, d8, apksigner; build-tools 35) |
 | `VERSION` | wersja aplikacji – podnieś przy każdej zmianie, inaczej telefony nie zobaczą aktualizacji |
 

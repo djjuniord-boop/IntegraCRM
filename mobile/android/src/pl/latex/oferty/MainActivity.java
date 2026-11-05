@@ -1,11 +1,16 @@
 package pl.latex.oferty;
 
 import android.app.Activity;
+import android.content.ClipData;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
+import android.print.PdfZapis;
+import android.print.PrintAttributes;
+import android.print.PrintDocumentAdapter;
+import java.io.File;
 import android.webkit.JavascriptInterface;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -22,6 +27,7 @@ import java.util.Iterator;
 /** Okno aplikacji: strona z assets/www w WebView + most "Native" (HTTP bez CORS, udostępnianie, linki, wersja). */
 public class MainActivity extends Activity {
     private WebView web;
+    private WebView pdfWeb;   // ukryta strona do wydruku PDF (pole, żeby nie zniknęła w trakcie)
 
     @Override
     protected void onCreate(Bundle b) {
@@ -55,6 +61,57 @@ public class MainActivity extends Activity {
     public void onBackPressed() {
         web.evaluateJavascript("window.onBack?window.onBack():false", new android.webkit.ValueCallback<String>() {
             public void onReceiveValue(String v) { if (!"true".equals(v)) finish(); } });
+    }
+
+    private void pdfWynik(boolean ok, String msg) {
+        final String js = "window.__pdfDone&&window.__pdfDone(" + ok + "," + JSONObject.quote(msg) + ")";
+        runOnUiThread(new Runnable() { public void run() { web.evaluateJavascript(js, null); } });
+    }
+
+    /** HTML oferty -> PDF A4 w cache/pdf -> okno „Udostępnij” (Gmail, WhatsApp, Dysk…). */
+    private void zrobPdf(String html, String nazwa) {
+        final File dir = new File(getCacheDir(), "pdf");
+        dir.mkdirs();
+        File[] stare = dir.listFiles();
+        if (stare != null) for (File f : stare) if (f.lastModified() < System.currentTimeMillis() - 86400000L) f.delete();
+        String n = nazwa == null ? "" : nazwa.replaceAll("[^0-9A-Za-z._-]+", "_").replaceAll("^_+|_+$", "");
+        if (n.isEmpty()) n = "Oferta";
+        final File out = new File(dir, (n.length() > 90 ? n.substring(0, 90) : n) + ".pdf");
+        pdfWeb = new WebView(this);
+        pdfWeb.getSettings().setJavaScriptEnabled(false);
+        pdfWeb.getSettings().setAllowFileAccess(true);
+        pdfWeb.setWebViewClient(new WebViewClient() {
+            private boolean raz = false;
+            @Override public void onPageFinished(WebView v, String url) {
+                if (raz) return;
+                raz = true;
+                PrintDocumentAdapter a = v.createPrintDocumentAdapter(out.getName());
+                PrintAttributes attrs = new PrintAttributes.Builder().setMediaSize(PrintAttributes.MediaSize.ISO_A4)
+                    .setResolution(new PrintAttributes.Resolution("pdf", "pdf", 600, 600))
+                    .setMinMargins(PrintAttributes.Margins.NO_MARGINS).setColorMode(PrintAttributes.COLOR_MODE_COLOR).build();
+                PdfZapis.zapisz(a, attrs, out, new PdfZapis.Wynik() {
+                    public void gotowe(boolean ok, String blad) {
+                        pdfWeb = null;
+                        if (!ok || !out.isFile()) { pdfWynik(false, "Nie udało się utworzyć PDF: " + blad); return; }
+                        pdfWynik(true, out.getName());
+                        udostepnij(out);
+                    }
+                });
+            }
+            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return true; }
+        });
+        pdfWeb.loadDataWithBaseURL("file:///android_asset/www/", html, "text/html", "utf-8", null);
+    }
+
+    private void udostepnij(File f) {
+        Uri u = Pliki.uri(f);
+        Intent i = new Intent(Intent.ACTION_SEND);
+        i.setType("application/pdf");
+        i.putExtra(Intent.EXTRA_STREAM, u);
+        i.putExtra(Intent.EXTRA_SUBJECT, "Oferta – opony");
+        i.setClipData(ClipData.newRawUri("", u));
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        startActivity(Intent.createChooser(i, "Wyślij PDF oferty"));
     }
 
     private void openExternal(String u) {
@@ -99,6 +156,11 @@ public class MainActivity extends Activity {
             i.putExtra(Intent.EXTRA_SUBJECT, title);
             i.putExtra(Intent.EXTRA_TEXT, text);
             runOnUiThread(new Runnable() { public void run() { startActivity(Intent.createChooser(i, "Wyślij ofertę")); } });
+        }
+
+        @JavascriptInterface
+        public void pdf(final String html, final String nazwa) {
+            runOnUiThread(new Runnable() { public void run() { zrobPdf(html, nazwa); } });
         }
 
         @JavascriptInterface
