@@ -1,0 +1,65 @@
+name: Aplikacja Android (Oferty opon)
+
+on:
+  push:
+    branches: [main, beta]
+    paths: ["mobile/**", ".github/workflows/mobile.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mobile-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - name: Android SDK (build-tools 35, platforma 34)
+        run: |
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;35.0.0" "platforms;android-34" > /dev/null
+      - name: Zgodność silnika z Panelem (Python ↔ JS)
+        run: |
+          sudo apt-get install -y python3-openpyxl > /dev/null || true
+          pip install openpyxl > /dev/null
+          python3 mobile/test/zgodnosc.py
+      - name: Klucz podpisu
+        env:
+          KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          if [ -n "$KS_B64" ]; then echo "$KS_B64" | base64 -d > "$RUNNER_TEMP/oferty.jks"; echo "KEYSTORE=$RUNNER_TEMP/oferty.jks" >> $GITHUB_ENV
+          elif [ "$GITHUB_REF_NAME" = "main" ]; then echo "::error::Brak sekretu ANDROID_KEYSTORE_B64 – wydanie bez stałego klucza zablokowałoby aktualizacje"; exit 1; fi
+      - name: Budowa APK
+        env:
+          KEYSTORE_PASS: ${{ secrets.ANDROID_KEYSTORE_PASS }}
+        run: |
+          V=$(cat mobile/VERSION); echo "V=$V" >> $GITHUB_ENV
+          mobile/build_apk.sh "$PWD/LatexOferty-$V.apk"
+      - uses: actions/upload-artifact@v4
+        with: { name: "LatexOferty-${{ env.V }}", path: "LatexOferty-*.apk" }
+      - name: Wydanie (tylko main) – stały adres aktualizacji aplikacji
+        if: github.ref_name == 'main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          R=aplikacja-android; A="LatexOferty-$V.apk"
+          URL="https://github.com/$GITHUB_REPOSITORY/releases/download/$R/$A"
+          printf '{"version":"%s","url":"%s"}\n' "$V" "$URL" > aplikacja.json
+          cp "$A" LatexOferty.apk
+          if gh release view $R > /dev/null 2>&1; then
+            gh release upload $R "$A" LatexOferty.apk aplikacja.json --clobber
+          else
+            gh release create $R "$A" LatexOferty.apk aplikacja.json --target main --latest=false --title "Aplikacja Android – Oferty opon" \
+              --notes "Instalacja: pobierz LatexOferty.apk na telefonie i otwórz (zezwól na instalację z tego źródła). Logowanie tym samym kontem co Panel."
+          fi
+          gh release edit $R --draft=false --latest=false --title "Aplikacja Android – Oferty opon $V"
+          # zostają tylko: bieżąca wersja, LatexOferty.apk, aplikacja.json
+          for a in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$R" --jq '.assets[] | "\(.id)|\(.name)"'); do
+            id=${a%%|*}; n=${a#*|}
+            case "$n" in "$A"|LatexOferty.apk|aplikacja.json) ;; *) gh api -X DELETE "repos/$GITHUB_REPOSITORY/releases/assets/$id"; echo "usunięto $n";; esac
+          done

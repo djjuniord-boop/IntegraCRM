@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ffffff">
+<title>Oferty opon – Latex Serwis</title>
+<link rel="stylesheet" href="styl.css">
+</head>
+<body>
+<!-- ===================== LOGOWANIE ===================== -->
+<section id="vLogin" class="view login" hidden>
+  <div class="logo"><img src="logo.png" alt="Latex Auto Serwis"></div>
+  <h1>Oferty opon</h1>
+  <p class="muted">Zaloguj się tym samym e-mailem i hasłem co w Panelu Latex Serwis.</p>
+  <label class="fld">E-mail<input id="lEmail" type="email" autocomplete="username" inputmode="email"></label>
+  <label class="fld">Hasło<input id="lPass" type="password" autocomplete="current-password"></label>
+  <button id="bLogin" class="btn big wide" onclick="zaloguj()">Zaloguj</button>
+  <div id="lMsg"></div>
+  <p class="muted small" id="lVer"></p>
+</section>
+
+<!-- ===================== GÓRNY PASEK ===================== -->
+<header id="top" hidden>
+  <img src="logo.png" alt="" class="tlogo">
+  <div class="ttl"><b>Oferty opon</b><span id="tUser" class="muted small"></span></div>
+  <button class="icon" onclick="nowaOferta()" title="Nowa oferta" aria-label="Nowa oferta">🧹</button>
+</header>
+<div id="upd" class="upd" hidden></div>
+
+<!-- ===================== OFERTA ===================== -->
+<main id="vOferta" class="view" hidden>
+  <div class="card">
+    <div class="h"><span class="n">⚡</span>Szybkie polecenie</div>
+    <div class="row"><input id="quick" class="grow" placeholder="np. 2055516 zimowe premium" enterkeyhint="search" onkeydown="if(event.key==='Enter'){this.blur();quick()}"><button class="btn" id="bQ" onclick="quick()">Szukaj</button></div>
+    <p class="hint">Rozmiar w dowolnym zapisie (205/55 R16, 2055516), sezon, klasa, marka (też literówki: „silun”, „conti”), ilość („2 szt”), „runflat”, „demo”, „z wymianą”, „4 czujniki”, „przechowalnia”.</p>
+    <div id="qMsg"></div>
+  </div>
+
+  <div class="card">
+    <div class="h"><span class="n">1</span>Zapytanie klienta</div>
+    <label class="fld">Klient (opcjonalnie)<input id="klient" placeholder="np. Firma XYZ" onchange="reoffer()"></label>
+    <details class="sub"><summary>Wpisz pojazdy tekstem</summary>
+      <textarea id="paste" rows="4" placeholder="każdy pojazd w osobnej linii, np.:&#10;skoda octavia 2055516 dw5444lw z wymianą&#10;superb 215/55 17 DX1209H 2 szt"></textarea>
+      <button class="btn sec" onclick="parsePaste()">Wczytaj pojazdy</button>
+    </details>
+    <div id="veh"></div>
+    <button class="btn sec wide" onclick="addVeh({});drawVeh()">+ Dodaj pojazd</button>
+  </div>
+
+  <div class="card">
+    <div class="h"><span class="n">2</span>Kryteria</div>
+    <div class="lbl">Sezon <span class="muted">(nic = wszystkie)</span></div>
+    <div class="chips" id="cSez"></div>
+    <div class="lbl">Klasa <span class="muted">(nic = wszystkie)</span></div>
+    <div class="chips" id="cKl"></div>
+    <div class="lbl">Producenci</div>
+    <button class="btn sec wide left" id="prodBtn" onclick="openProd()">Wszyscy producenci ▾</button>
+    <div class="row2">
+      <label class="fld">Min. stan (szt.)<input id="minstan" type="number" inputmode="numeric"></label>
+      <label class="tgl"><input type="checkbox" id="rf"><span>tylko run-flat</span></label>
+    </div>
+    <button class="btn big wide" id="bS" onclick="search()">🔎 Szukaj w xPartner</button>
+    <div id="sMsg"></div>
+  </div>
+
+  <div class="card" id="resCard" hidden>
+    <div class="h"><span class="n">3</span>Wybór opon</div>
+    <div class="row wrap gap">
+      <span class="tag" id="wzor"></span>
+      <button class="btn sec sm" onclick="hideBuy()">👁 ceny zakupu</button>
+      <button class="btn sec sm" onclick="openFil()">⚙ Filtry<span id="fCnt"></span></button>
+      <select id="sortSel" class="sm" onchange="SORT=this.value;PAGE={};render()">
+        <option value="">kolejność: dostępne, najtańsze</option><option value="cena">cena ↑</option><option value="-cena">cena ↓</option>
+        <option value="-stan">stan ↓</option><option value="mokra">hamowanie na mokrym</option><option value="halas">najcichsze</option>
+        <option value="-dot">najnowszy DOT</option><option value="producent">producent A–Z</option><option value="klasa">klasa (premium najpierw)</option>
+      </select>
+    </div>
+    <div id="res"></div>
+  </div>
+
+  <div class="card" id="outCard" hidden>
+    <div class="h"><span class="n">4</span>Oferta</div>
+    <div id="edit"></div>
+    <div id="sum"></div>
+    <div id="ul"></div>
+    <div class="row wrap gap" style="margin-top:10px">
+      <button class="btn big grow" onclick="Aplikacja.share(document.getElementById('email').value,'Oferta – opony')">📤 Wyślij ofertę</button>
+      <button class="btn sec" onclick="copyMail()">📋 Kopiuj</button>
+    </div>
+    <textarea id="email" rows="12"></textarea>
+    <div id="oMsg"></div>
+  </div>
+  <div class="spacer"></div>
+</main>
+
+<!-- ===================== HISTORIA ===================== -->
+<main id="vHist" class="view" hidden>
+  <div class="card">
+    <div class="h">🕘 Historia ofert</div>
+    <input id="hq" placeholder="Szukaj: klient, rejestracja, rozmiar, opona, osoba…" oninput="clearTimeout(window._ht);window._ht=setTimeout(loadHist,300)">
+    <div id="hfil"></div>
+  </div>
+  <div id="hl"></div>
+  <div class="spacer"></div>
+</main>
+
+<!-- ===================== USTAWIENIA ===================== -->
+<main id="vUst" class="view" hidden>
+  <div class="card">
+    <div class="h">⚙ Ustawienia ofert</div>
+    <p class="hint">Zapisują się na Twoim koncie – te same co w Panelu. Login API xPartner wpisuje administrator.</p>
+    <div class="lbl">Jak liczyć cenę opony</div>
+    <label class="tgl"><input type="radio" name="ntryb" value="procent" onchange="drawProgi()"><span>marża % od ceny zakupu</span></label>
+    <label class="tgl"><input type="radio" name="ntryb" value="kwota" onchange="drawProgi()"><span>stała kwota wg ceny zakupu brutto</span></label>
+    <div id="progiBox"></div>
+    <div class="row2">
+      <label class="fld" id="lblMarza">Marża %<input id="c_marza_proc" type="number" step="0.1" inputmode="decimal"></label>
+      <label class="fld">VAT %<input id="c_vat_proc" type="number" inputmode="decimal"></label>
+      <label class="fld">Domyślny min. stan<input id="c_min_stan" type="number" inputmode="numeric"></label>
+      <label class="fld">Ważność oferty (dni)<input id="c_waznosc_dni" type="number" inputmode="numeric"></label>
+    </div>
+    <div class="lbl">Cennik wymiany – brutto za 1 koło</div>
+    <div class="seg" id="wtabs"><button data-t="wymiana_kolo" class="on" onclick="wTab(this)">Osobowe</button><button data-t="wymiana_suv" onclick="wTab(this)">SUV / 4x4</button><button data-t="wymiana_dost" onclick="wTab(this)">Dostawcze</button></div>
+    <div id="c_wym" class="wgrid"></div>
+    <div class="lbl">Usługi dodatkowe (brutto)</div>
+    <div class="row2">
+      <label class="fld">Czujnik TPMS (1 szt.)<input id="c_tpms_cena" type="number" inputmode="decimal"></label>
+      <label class="fld">Kół na auto<input id="c_kola_na_auto" type="number" inputmode="numeric"></label>
+      <label class="fld">Przech. opon do R19<input id="c_przech_opony_do19" type="number" inputmode="decimal"></label>
+      <label class="fld">Przech. opon pow. R19<input id="c_przech_opony_pow19" type="number" inputmode="decimal"></label>
+      <label class="fld">Przech. kół do R19<input id="c_przech_kola_do19" type="number" inputmode="decimal"></label>
+      <label class="fld">Przech. kół pow. R19<input id="c_przech_kola_pow19" type="number" inputmode="decimal"></label>
+    </div>
+    <label class="fld">Marki premium (gdy xPartner nie poda klasy)<textarea id="c_premium" rows="2"></textarea></label>
+    <label class="fld">Podpis e-maila<textarea id="c_podpis" rows="2"></textarea></label>
+    <button class="btn big wide" onclick="saveCfg()">Zapisz ustawienia</button>
+    <button class="btn sec wide" onclick="testApi()">Test połączenia z xPartner</button>
+    <div id="cMsg"></div>
+  </div>
+  <div class="card">
+    <div class="h">Konto</div>
+    <p id="kInfo" class="small"></p>
+    <button class="btn sec wide" onclick="sprawdzAkt(true)">Sprawdź aktualizację aplikacji</button>
+    <button class="btn sec wide danger" onclick="wyloguj()">Wyloguj</button>
+  </div>
+  <div class="spacer"></div>
+</main>
+
+<!-- ===================== DOLNY PASEK ===================== -->
+<div id="selBar" class="selbar" hidden><button class="btn big wide" id="bO" onclick="offer()">📄 Generuj ofertę</button></div>
+<nav id="tabs" hidden>
+  <button data-v="vOferta" class="on" onclick="go(this)"><span>🛞</span>Oferta</button>
+  <button data-v="vHist" onclick="go(this)"><span>🕘</span>Historia</button>
+  <button data-v="vUst" onclick="go(this)"><span>⚙</span>Ustawienia</button>
+</nav>
+
+<!-- ===================== ARKUSZE (dół ekranu) ===================== -->
+<div id="sheet" class="sheetbg" hidden onclick="if(event.target===this)closeSheet()"><div class="sheet"><div class="grab"></div><div id="sheetBody"></div></div></div>
+<div id="toast" class="toast" hidden></div>
+
+<script src="silnik.js"></script>
+<script src="app.js"></script>
+<script src="ui.js"></script>
+</body>
+</html>
