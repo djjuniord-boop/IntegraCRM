@@ -16,7 +16,7 @@ TIMEOUT = 20
 SESSION_FILE = paths.DATA_DIR / "sesja.json"
 
 MODULES = [("crm", "Kontrola CRM"), ("historia", "Historia"), ("statystyki", "Statystyki"), ("marza", "MARŻA"),
-           ("wyniki", "Wyniki"), ("serwis", "SERWIS QR")]
+           ("wyniki", "Wyniki"), ("serwis", "SERWIS QR"), ("oferty", "Oferty opon")]
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 
 

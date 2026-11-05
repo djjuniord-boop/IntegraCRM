@@ -19,6 +19,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
 | **STATYSTYKI** | `app/statystyki/` | → [`app/statystyki/README.md`](app/statystyki/README.md) – listy kontrolne na 10 zleceń, prognoza |
 | **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) |
+| **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner (beta) |
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
 | Baza i serwer | `supabase/` | → [`supabase/README.md`](supabase/README.md) |
 | Testy | `tests/`, `app/selftest.py` | → sekcja „Sprawdzanie” niżej |

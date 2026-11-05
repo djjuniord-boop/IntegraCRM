@@ -33,6 +33,7 @@ from kontrola.historia_zakladka import HistoriaMixin
 from kontrola.zakladka import KontrolaMixin
 from marza.zakladka import MarzaMixin
 from serwis.zakladka import SerwisMixin
+from oferty.zakladka import OfertyMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
 from statystyki.zakladka import StatystykiMixin
@@ -84,6 +85,12 @@ HELP_MODULES = [
         ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i e-maile do zaznaczonych odbiorców aktualizują się "
                             "same; wyniki trafiają też do zakładki WYNIKI."),
     ]),
+    ("oferty", "OFERTY OPON", [
+        ("Szybkie polecenie", "Wpisz np. „2055516 zimowe premium” albo „skoda octavia 2055516 dw5444lw z wymianą” – "
+                              "program sprawdzi ceny i stany w xPartner na żywo."),
+        ("Oferta", "Zaznacz opony i kliknij „Generuj ofertę”: karta z sumą, e-mail do skopiowania, plik XLSX "
+                   "(folder Dokumenty\\Oferty opon) i ulotki PDF. Historia ofert jest zapisana na Twoim koncie."),
+    ]),
     ("serwis", "SERWIS QR", [
         ("Wpis serwisowy", "W zakładce SERWIS QR dodaj wpis (numer, przebieg, olej, filtry) i wydrukuj naklejkę "
                            "z kodem QR – klient zeskanuje ją telefonem i zobaczy historię auta."),
@@ -92,7 +99,7 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, UzytkownicyMixin,
+class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
           tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
@@ -326,6 +333,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             tab_list.append(("wyniki", "WYNIKI"))
         if can("serwis"):
             tab_list.append(("serwis", "SERWIS QR  β"))
+        if can("oferty"):
+            tab_list.append(("oferty", "OFERTY OPON  β"))
         if self.session and self.session.is_admin:
             tab_list.append(("users", "UŻYTKOWNICY"))
         tab_list.append(("help", "POMOC I WERSJE"))
@@ -337,7 +346,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
             nazwa = label.replace("β", "").strip()
-            self.tab_names[key] = nazwa if nazwa == "SERWIS QR" else nazwa.capitalize()
+            self.tab_names[key] = nazwa if nazwa in ("SERWIS QR", "OFERTY OPON") else nazwa.capitalize()
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
         # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
         self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
@@ -356,6 +365,12 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 self._build_serwis(self.pages["serwis"])
             except Exception as e:   # beta nie może zablokować reszty programu
                 tk.Label(self.pages["serwis"], text=f"Nie udało się wczytać zakładki SERWIS QR: {e}",
+                         bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
+        if "oferty" in self.pages:
+            try:
+                self._build_oferty(self.pages["oferty"])
+            except Exception as e:   # beta nie może zablokować reszty programu
+                tk.Label(self.pages["oferty"], text=f"Nie udało się wczytać zakładki OFERTY OPON: {e}",
                          bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
         self.show_tab(self.current_tab)
 
@@ -382,6 +397,10 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
 
     def _on_close(self):
         self.serwis_stop()
+        try:
+            self.oferty_stop()
+        except Exception:
+            pass
         try:
             from serwis import serwis_qr
             serwis_qr.clear_token()
@@ -426,6 +445,14 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                     self.after(50, self.serwis_on_show)
                 else:
                     self.serwis_on_hide()
+            except Exception:
+                pass
+        if "oferty" in self.pages and hasattr(self, "of_host"):
+            try:
+                if key == "oferty":
+                    self.after(50, self.oferty_on_show)
+                else:
+                    self.oferty_on_hide()
             except Exception:
                 pass
 
