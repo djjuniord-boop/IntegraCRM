@@ -236,6 +236,7 @@ jobs:
           gh release view "v$v" 2>$null
           if ($LASTEXITCODE -eq 0) {
             gh release upload "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
+            gh release edit "v$v" --draft=false --latest   # po przerwanym wydaniu (np. błąd 502 GitHuba) wersja zostawała szkicem
           } else {
             gh release create "v$v" "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target main --latest --title "IntegraCRM $v" --notes "Automatyczna kompilacja wersji $v"
           }
