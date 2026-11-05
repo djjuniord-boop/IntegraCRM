@@ -268,7 +268,7 @@ PLATE_RE = re.compile(r"(?<![A-Z0-9])([A-Z]{1,3})[ -]?([0-9][0-9A-Z]{2,5}|[A-Z]{
 STOP = {"marka", "model", "rejestracja", "rozmiar", "wymaga", "nowych", "opon", "opony", "szt", "sztuk", "tak", "nie", "tylko",
         "wymiana", "wymianę", "wymiane", "auto", "samochód", "samochod", "pojazd", "i", "oraz", "x", "r", "zr", "nr", "rej"}
 
-CRIT_RE = re.compile(r"^(demo|bez|suv|4x4|terenow\w*|dostawcz\w*|bus|van|czujnik\w*|tpms|przechow\w*|k[oó]ł|kola|koła|felg\w*|z|ze|wymian\w*|monta[żz]\w*|przek[łl]ad\w*|premium|prem|[śs]redni\w*|middle|medium|bud[żz]et\w*|budget|ekonom\w*|tani\w*|zim\w*|letn\w*|lato|ca[łl]oroczn\w*|wielosezon\w*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon\w*|opony|michelin|continental|goodyear|good-year|bridgestone|pirelli|nokian|dunlop|hankook|vredestein|yokohama|barum|dębica|debica|kleber|fulda|firestone|bfgoodrich|uniroyal|semperit|kumho|falken|toyo|nexen|sava|kormoran|matador)$", re.I)
+CRIT_RE = re.compile(r"^(demo|bez|suv|4x4|terenow\w*|dostawcz\w*|bus|van|czujnik\w*|tpms|przechow\w*|k[oó]ł|kola|koła|felg\w*|z|ze|wymian\w*|monta[żz]\w*|przek[łl]ad\w*|premium|prem|[śs]redni\w*|middle|medium|bud[żz]et\w*|budget|ekonom\w*|tani\w*|zim\w*|letn\w*|lato|lecie|summer\w*|winter\w*|ca[łl]orok|pory|roku|ca[łl]oroczn\w*|wielosezon\w*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon\w*|opony|michelin|continental|goodyear|good-year|bridgestone|pirelli|nokian|dunlop|hankook|vredestein|yokohama|barum|dębica|debica|kleber|fulda|firestone|bfgoodrich|uniroyal|semperit|kumho|falken|toyo|nexen|sava|kormoran|matador)$", re.I)
 
 def extras(t):
     """Typ auta, wymiana, TPMS, przechowalnia z dowolnego tekstu."""
@@ -430,9 +430,9 @@ def parse_quick(txt):
     q = re.search(r"(?:^|\s)(\d{1,2})\s*(szt|opon|sztuk|x\b)", t) or re.search(r"\bx\s*(\d{1,2})\b", t)
     ilosc = int(q.group(1)) if q else 4
     sezony = []
-    if re.search(r"zim", t): sezony.append("Zimowa")
-    if re.search(r"ca[łl]oroczn|wielosezon|all ?season|4 ?season", t): sezony.append("Całoroczna")
-    if re.search(r"letn|lato", t): sezony.append("Letnia")
+    if re.search(r"(?<![a-ząćęłńóśźż])(zim|winter)", t): sezony.append("Zimowa")
+    if re.search(r"(?<![a-ząćęłńóśźż])(ca[łl]oroczn|ca[łl]orok|wielosezon|all ?-?season|4 ?season|4 ?pory)", t): sezony.append("Całoroczna")
+    if re.search(r"(?<![a-ząćęłńóśźż])(letn|lato|lecie|summer)", t): sezony.append("Letnia")
     klasy = []
     if re.search(r"premium|prem\b", t): klasy.append("PREMIUM")
     if re.search(r"[śs]redni|middle|medium", t): klasy.append("MIDDLE")
@@ -581,6 +581,10 @@ def write_xlsx(cfg, req, rows, variants):
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     wb = Workbook(); ws = wb.active; ws.title = "Oferta"
+    _ws_append = ws.append
+    def _bez_formul(row):   # tekst wpisany przez użytkownika albo z xPartner nie może stać się formułą Excela
+        return [(" " + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") and not re.match(r"^=[A-Z]+\d+[*+]", v) else v for v in row]
+    ws.append = lambda row: _ws_append(_bez_formul(row))
     hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks xPartner", "Nośność/prędkość", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Czujniki TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
     kl = (req.get("klient") or "").strip()
     ws.append(["OFERTA – opony i usługi" + (" dla: " + kl if kl else "")])

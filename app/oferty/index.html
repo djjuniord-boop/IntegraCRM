@@ -147,7 +147,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <script>
 const $=s=>document.querySelector(s);let CFG={},RES=null;
 const zl=x=>x.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDigits:2})+' zł';
-const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(p,b){for(let i=0;i<100&&!(window.pywebview&&window.pywebview.api&&window.pywebview.api.call);i++)await new Promise(r=>setTimeout(r,100));
  const r=await window.pywebview.api.call(p,b===undefined?null:b);if(!r||r.code>=400)throw new Error((r&&r.body&&r.body.error)||'Błąd programu');return r.body}
 function openUrl(u){if(window.pywebview&&window.pywebview.api)window.pywebview.api.open_url(u);return false}
@@ -215,7 +215,7 @@ function drawProd(){const q=$('#pSearch').value.trim().toUpperCase(),g=brandGrou
  for(const[k,cfgk,col]of PG){let l=[...g[k]].sort((a,b)=>a.localeCompare(b,'pl'));if(q)l=l.filter(b=>b.includes(q));if(!l.length)continue;
   const all=l.every(b=>PSEL.has(b));const lim=(q||PMORE[k])?l.length:25;
   h+=`<div class="pgrp" style="border-color:${col}"><input type="checkbox" ${all?'checked':''} onchange="grpProd('${k}',this.checked)"> ${k}</div><div class="pgrid">`+
-   l.slice(0,lim).map(b=>`<label><input type="checkbox" ${PSEL.has(b)?'checked':''} onchange="this.checked?PSEL.add('${esc(b)}'):PSEL.delete('${esc(b)}');drawTitle()">${esc(b)}</label>`).join('')+
+   l.slice(0,lim).map(b=>`<label><input type="checkbox" ${PSEL.has(b)?'checked':''} data-b="${esc(b)}" onchange="this.checked?PSEL.add(this.dataset.b):PSEL.delete(this.dataset.b);drawTitle()">${esc(b)}</label>`).join('')+
    (l.length>lim?`<span class="pmore" onclick="PMORE['${k}']=1;drawProd()">Więcej (${l.length-lim}) ▼</span>`:'')+'</div>'}
  $('#pBody').innerHTML=h||'<p>Brak producentów.</p>';drawTitle()}
 function grpProd(k,on){const q=$('#pSearch').value.trim().toUpperCase();[...brandGroups()[k]].filter(b=>!q||b.includes(q)).forEach(b=>on?PSEL.add(b):PSEL.delete(b));drawProd()}
