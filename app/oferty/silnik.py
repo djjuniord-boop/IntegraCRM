@@ -581,6 +581,10 @@ def write_xlsx(cfg, req, rows, variants):
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     wb = Workbook(); ws = wb.active; ws.title = "Oferta"
+    _ws_append = ws.append
+    def _bez_formul(row):   # tekst wpisany przez użytkownika albo z xPartner nie może stać się formułą Excela
+        return [(" " + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") and not re.match(r"^=[A-Z]+\d+[*+]", v) else v for v in row]
+    ws.append = lambda row: _ws_append(_bez_formul(row))
     hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks xPartner", "Nośność/prędkość", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Czujniki TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
     kl = (req.get("klient") or "").strip()
     ws.append(["OFERTA – opony i usługi" + (" dla: " + kl if kl else "")])

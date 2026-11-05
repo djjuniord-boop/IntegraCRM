@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.5"
+VERSION = "0.23.6"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.23.6",
+        "date": "2026-11-05",
+        "changes": [
+            "OFERTY OPON (bezpieczeństwo): tekst wpisany w ofertę (klient, rejestracja, pojazd) nie może już zamienić się "
+            "w formułę w pliku Excel; dodatkowe zabezpieczenie nazw producentów w oknie wyboru",
+        ],
+    },
     {
         "version": "0.23.5",
         "date": "2026-11-05",

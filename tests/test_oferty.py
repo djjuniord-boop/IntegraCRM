@@ -182,3 +182,15 @@ def test_doplata_kwotowa_wg_progow():
     assert S.doplata_progowa(cfg, 400.0) == 50 and S.doplata_progowa(cfg, 400.5) == 70 and S.doplata_progowa(cfg, 899) == 70
     assert S.doplata_progowa(cfg, 900) == 90
     S.KONTO["ustawienia"] = {}
+
+
+def test_xlsx_bez_wstrzykiwania_formul():
+    _setup()
+    req = {"oid": "2", "klient": "=HYPERLINK(\"http://zly\")", "pojazdy": [{"rej": "=1+1", "pojazd": "@SUM(A1)", "rozmiar": "205/55 R16",
+           "ilosc": 4, "nowe": True}], "wybor": {"205/55 R16": {"wszystkie": [1]}}}
+    code, res = S.handle("/api/offer", req)
+    assert code == 200
+    from openpyxl import load_workbook
+    ws = load_workbook(res["plik"]).active
+    assert ws.cell(5, 1).value == " =1+1" and ws.cell(5, 2).value == " @SUM(A1)"
+    assert str(ws.cell(5, 11).value).startswith("=I5*J5")
