@@ -45,7 +45,7 @@ function go(b) {
 async function sprawdzAkt(reczne) {
   const j = await Aplikacja.sprawdzAktualizacje();
   if (j && j.url) { const u = $("#upd"); u.innerHTML = `<span class="grow">Jest nowa wersja aplikacji ${esc(j.version)}.</span><button class="btn" onclick="Aplikacja.openUrl('${esc(j.url)}')">Aktualizuj</button>`; u.hidden = false; }
-  else if (reczne) toast("Masz najnowszą wersję (" + Aplikacja.wersja() + ").");
+  else if (reczne) toast(j && j.blad ? "Nie udało się sprawdzić aktualizacji – sprawdź internet albo spróbuj później." : "Masz najnowszą wersję (" + Aplikacja.wersja() + ").");
 }
 
 // ------------------------------------------------ kryteria

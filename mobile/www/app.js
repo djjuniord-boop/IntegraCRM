@@ -90,10 +90,10 @@
   A.sprawdzAktualizacje = async function () {
     try {
       const r = await A.http("https://github.com/djjuniord-boop/IntegraCRM/releases/download/aplikacja-android/aplikacja.json", "GET", {});
-      if (r.status !== 200) return null;
+      if (r.status !== 200) return { blad: true };
       const j = JSON.parse(r.text), cur = A.wersja().split(".").map(Number), nw = String(j.version || "").split(".").map(Number);
       for (let i = 0; i < 3; i++) { if ((nw[i] || 0) > (cur[i] || 0)) return j; if ((nw[i] || 0) < (cur[i] || 0)) return null; }
-    } catch (e) {}
-    return null;
+    } catch (e) { return { blad: true }; }
+    return null;  // null = masz najnowszą, {blad} = nie udało się sprawdzić, {version,url} = jest nowa
   };
 })();
