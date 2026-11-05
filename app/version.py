@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.4"
+VERSION = "0.23.5"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.23.5",
+        "date": "2026-11-05",
+        "changes": [
+            "OFERTY OPON: nowy sposób liczenia ceny (Ustawienia modułu) – zamiast marży % stała kwota doliczana do ceny "
+            "zakupu brutto wg progów, np. do 400 zł +50 zł, do 899 zł +70 zł, powyżej +90 zł; progi można dodawać i zmieniać, "
+            "każdy użytkownik ustawia swoje",
+            "OFERTY OPON: rabat dla klienta liczony od ceny w ofercie (po narzucie), nadal w górę do pełnych złotych",
+        ],
+    },
     {
         "version": "0.23.4",
         "date": "2026-11-05",

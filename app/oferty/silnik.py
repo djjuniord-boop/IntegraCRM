@@ -23,6 +23,9 @@ HIST = None
 
 DEFAULT_CFG = {
     "marza_proc": 5.0, "vat_proc": 23.0,
+    # sposób liczenia ceny: "procent" (marża % od zakupu netto) albo "kwota" (dopłata zł brutto wg progów ceny zakupu brutto)
+    "narzut_tryb": "procent",
+    "progi": [{"do": 400, "kwota": 50}, {"do": 899, "kwota": 70}, {"do": None, "kwota": 90}],
     "min_stan": 50, "propozycji_na_sezon": 1,
     "tylko_standard": True,
     # cena wymiany brutto za 1 koło wg średnicy
@@ -212,9 +215,25 @@ def vlabel(variants, key):
     multi = sum(1 for k in variants if k[0] == key[0]) > 1
     return key[0] + (" – propozycja %d" % (key[1] + 1) if multi else "")
 
+def doplata_progowa(cfg, zakup_brutto):
+    """Kwota doliczana do ceny zakupu brutto wg progów (pierwszy próg, którego „do” obejmuje cenę; puste „do” = powyżej)."""
+    progi = sorted((p for p in cfg.get("progi") or [] if p.get("do") not in (None, "")), key=lambda p: float(p["do"]))
+    reszta = [p for p in cfg.get("progi") or [] if p.get("do") in (None, "")]
+    for p in progi:
+        if zakup_brutto <= float(p["do"]) + 0.004:
+            return float(p.get("kwota") or 0)
+    return float(reszta[0].get("kwota") or 0) if reszta else (float(progi[-1].get("kwota") or 0) if progi else 0.0)
+
+
 def sell_price(cfg, netto):
     import math
-    return float(math.ceil(round(netto * (1 + cfg["marza_proc"] / 100) * (1 + cfg["vat_proc"] / 100), 2) - 1e-9))  # w górę do pełnych zł
+    vat = 1 + cfg["vat_proc"] / 100
+    if cfg.get("narzut_tryb") == "kwota":
+        brutto = round(netto * vat, 2)
+        cena = brutto + doplata_progowa(cfg, brutto)
+    else:
+        cena = netto * (1 + cfg["marza_proc"] / 100) * vat
+    return float(math.ceil(round(cena, 2) - 1e-9))  # w górę do pełnych zł
 
 def enrich(cfg, p):
     p = dict(p)
@@ -486,7 +505,10 @@ def build_offer(cfg, req):
     c2 = dict(cfg, marza_proc=cfg["marza_proc"] if m_off is None else m_off)
     for pid, p in fresh.items():
         if not p: continue
-        auto = sell_price(c2, p["netto"] * (1 - rab / 100))
+        import math
+        auto = sell_price(c2, p["netto"])
+        if rab:
+            auto = float(math.ceil(round(auto * (1 - rab / 100), 2) - 1e-9))
         p["cena_auto"] = auto
         p["cena_brutto"] = over.get(pid, auto)
         p["recznie"] = pid in over
