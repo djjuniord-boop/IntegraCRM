@@ -221,18 +221,36 @@ async function offer(quiet) {
     const wybor = {}; SEL.forEach((k) => { const [s, z, id] = k.split("|"); ((wybor[s] ??= {})[z] ??= []).push(+id); });
     if (!OID) OID = newOid();
     if (OSOBNO === null) { const V = vehicles().filter((v) => v.nowe); OSOBNO = V.length > 1 && !V.some((v) => v.rej || v.pojazd); }
-    const j = await api("/api/offer", { osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY });
+    const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY });
     ULS = j.ulotki;
     msg("#oMsg", j.uwagi.length ? "⚠ " + j.uwagi.join("\n⚠ ") : quiet ? "" : "Zapisano w historii.", j.uwagi.length > 0);
     $("#sum").innerHTML = j.warianty.map((v) => `<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(", "))}</div>
       <div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana ? `<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>` : ""}
       ${v.tpms ? `<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>` : ""}${v.przech ? `<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>` : ""}
       <div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join("");
-    $("#ul").innerHTML = '<div class="lbl">Ulotki PDF dla klienta (otwierają się w przeglądarce zalogowanej do xPartner)</div>' +
-      j.ulotki.map((u) => `<button class="ulk" data-u="${esc(u.url)}" onclick="Aplikacja.openUrl(this.dataset.u)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("");
+    drawUl();
     $("#email").value = j.email; drawEdit();
     const first = $("#outCard").hidden; $("#outCard").hidden = false; if (!quiet || first) $("#outCard").scrollIntoView({ behavior: "smooth" });
   } catch (e) { msg("#oMsg", e.message, 1); $("#outCard").hidden = false; }
+  b.disabled = false;
+}
+let OODD = "";
+function drawUl() {
+  const od = CFG.oddzialy || []; if (!od.includes(OODD)) OODD = od[0] || "";
+  $("#ul").innerHTML = '<div class="lbl">PDF oferty dla klienta – jeden model opony, każda usługa osobno</div>' +
+    (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="OODD=this.value">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
+    (od.length ? "" : '<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora.</div>') +
+    ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
+    '<details class="sub"><summary class="small">Ulotki xPartner (wymagają logowania do xPartner)</summary>' +
+    ULS.map((u) => `<button class="btn sec sm" style="margin:4px 4px 0 0" data-u="${esc(u.url)}" onclick="Aplikacja.openUrl(this.dataset.u)">${esc(u.nazwa.split(" ").slice(0, 3).join(" "))}</button>`).join("") + "</details>";
+}
+async function pdfOferta(b) {
+  b.disabled = true; toast("Tworzę PDF…");
+  try {
+    const j = await api("/api/pdf", { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });   // logo z plików aplikacji (PDF ładuje się z android_asset/www)
+    const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + b.dataset.n);
+    if (!r.ok) msg("#oMsg", r.msg, 1);
+  } catch (e) { msg("#oMsg", e.message, 1); }
   b.disabled = false;
 }
 function drawEdit() {
@@ -291,7 +309,7 @@ async function restoreHist(id) {
     $("#klient").value = r.klient || ""; VEH = []; (r.pojazdy || []).forEach(addVeh); if (!VEH.length) addVeh({}); drawVeh();
     SEL = new Set(r.sel && r.sel.length ? r.sel : Object.entries(r.wybor || {}).flatMap(([s, g]) => Object.entries(g).flatMap(([z, l]) => l.map((i) => s + "|" + z + "|" + i))));
     RES = null; $("#res").innerHTML = '<p class="muted">Oferta z historii (' + esc(r.data) + '). Aby wybrać inne opony, użyj „Szukaj w xPartner”.</p>'; $("#resCard").hidden = false;
-    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; OSOBNO = r.osobno ?? null; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
+    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; if (r.oddzial) OODD = r.oddzial; OSOBNO = r.osobno ?? null; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
   } catch (e) { toast(e.message); }
 }
 

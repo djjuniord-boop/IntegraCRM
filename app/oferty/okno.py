@@ -7,6 +7,8 @@ Logowanie: token programu głównego (serwis_qr.read_token) – baza: oferty_kon
 import base64
 import json
 import os
+import re
+import shutil
 import sys
 import time
 import urllib.parse
@@ -93,6 +95,87 @@ def wczytaj_konto():
     except Exception:
         h.admin = False
     silnik.HIST = h
+    wczytaj_oddzialy(h.admin)
+
+
+def wczytaj_oddzialy(admin=False):
+    """Oddziały konta (z bazy – nie do zmiany przez pracownika) i dane oddziałów do PDF (app_config 'oddzialy')."""
+    from oferty import silnik
+    try:
+        me = _db("POST", "/rest/v1/rpc/me", {})
+        me = (me[0] if isinstance(me, list) and me else me) or {}
+    except Exception:
+        me = {}
+    try:
+        rows = _db("GET", "/rest/v1/app_config?key=eq.oddzialy&select=value") or []
+        dane = rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
+    except Exception:
+        dane = {}
+    moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
+    silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin)
+
+
+def zapisz_oddzialy(dane: dict):
+    """Administrator: dane oddziałów do PDF (bazę i tak chroni zasada admin_write)."""
+    czyste = {}
+    for nazwa, o in (dane or {}).items():
+        if isinstance(o, dict) and str(nazwa).strip():
+            czyste[str(nazwa).strip()[:60]] = {k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "www", "email")}
+    _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "oddzialy", "value": czyste}, prefer="resolution=merge-duplicates,return=minimal")
+    wczytaj_oddzialy(True)
+
+
+# ---------- PDF oferty: przeglądarka Edge (jest w każdym Windows 10/11) drukuje stronę do pliku ----------
+def _przegladarka():
+    kand = [os.environ.get("OFERTY_PRZEGLADARKA", "")]
+    for base in (os.environ.get("ProgramFiles(x86)", ""), os.environ.get("ProgramFiles", ""), os.environ.get("LOCALAPPDATA", "")):
+        if base:
+            kand += [os.path.join(base, "Microsoft", "Edge", "Application", "msedge.exe"),
+                     os.path.join(base, "Google", "Chrome", "Application", "chrome.exe")]
+    return next((k for k in kand if k and os.path.isfile(k)), "")
+
+
+def zrob_pdf(html: str, nazwa: str) -> str:
+    """HTML oferty -> plik PDF w folderze ofert. Zwraca ścieżkę PDF (albo HTML, gdy brak Edge/Chrome)."""
+    import subprocess, tempfile
+    from oferty import silnik
+    os.makedirs(silnik.OUT_DIR, exist_ok=True)
+    nazwa = re.sub(r"[^0-9A-Za-z._-]+", "_", nazwa).strip("_")[:90] or "oferta"
+    pdf = os.path.join(silnik.OUT_DIR, nazwa + ".pdf")
+    tmp = tempfile.NamedTemporaryFile("w", suffix=".html", delete=False, encoding="utf-8")
+    tmp.write(html)
+    tmp.close()
+    exe = _przegladarka()
+    try:
+        if exe:
+            prof = tempfile.mkdtemp(prefix="oferty_pdf_")
+            args = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--disable-extensions", "--user-data-dir=" + prof,
+                    "--no-pdf-header-footer", "--print-to-pdf-no-header", "--print-to-pdf=" + pdf, Path(tmp.name).as_uri()]
+            kw = {"creationflags": 0x08000000} if os.name == "nt" else {}   # bez okna konsoli
+            if os.name != "nt":   # tylko testy na Linuksie (root)
+                args.insert(1, "--no-sandbox")
+            if os.path.exists(pdf):
+                os.remove(pdf)
+            subprocess.run(args, timeout=90, capture_output=True, **kw)
+            shutil.rmtree(prof, ignore_errors=True)
+            if os.path.isfile(pdf) and os.path.getsize(pdf) > 1000:
+                return pdf
+        dst = os.path.join(silnik.OUT_DIR, nazwa + ".html")   # awaryjnie: strona do wydruku „Zapisz jako PDF”
+        shutil.copyfile(tmp.name, dst)
+        return dst
+    finally:
+        try:
+            os.remove(tmp.name)
+        except OSError:
+            pass
+
+
+def logo_uri() -> str:
+    p = Path(__file__).resolve().parent.parent / "assets" / "logo.png"
+    try:
+        return "data:image/png;base64," + base64.b64encode(p.read_bytes()).decode()
+    except OSError:
+        return ""
 
 
 # ---------- funkcje dla strony (window.pywebview.api.*) ----------
@@ -107,7 +190,26 @@ class Api:
                 wczytaj_konto()
         except Exception as e:
             return {"code": 502, "body": {"error": f"Nie udało się wczytać konta z bazy: {e}"}}
-        code, res = silnik.handle(str(path or ""), body, open_path=_open_path)
+        path = str(path or "")
+        if path == "/api/oddzialy":   # administrator: dane oddziałów do PDF
+            if not silnik.KONTO.get("admin"):
+                return {"code": 403, "body": {"error": "Dane oddziałów zmienia tylko administrator."}}
+            try:
+                zapisz_oddzialy((body or {}).get("oddzialy") or {})
+                return {"code": 200, "body": {"ok": True}}
+            except Exception as e:
+                return {"code": 502, "body": {"error": f"Nie zapisano danych oddziałów: {e}"}}
+        if path == "/api/pdf":
+            code, res = silnik.handle(path, dict(body or {}, logo=logo_uri()), open_path=_open_path)
+            if code != 200:
+                return {"code": code, "body": res}
+            try:
+                plik = zrob_pdf(res["html"], (body or {}).get("nazwa") or "oferta")
+            except Exception as e:
+                return {"code": 500, "body": {"error": f"Nie udało się zapisać PDF: {e}"}}
+            _open_path(plik)
+            return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        code, res = silnik.handle(path, body, open_path=_open_path)
         return {"code": code, "body": res}
 
     def open_url(self, url):

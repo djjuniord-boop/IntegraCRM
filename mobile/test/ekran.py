@@ -24,6 +24,8 @@ def route(r):
     if "/rpc/me" in u: return r.fulfill(json=[PROF["p"]])
     if "marza_months" in u: return r.fulfill(json=MONTHS)
     if "marza_results" in u: return r.fulfill(json=RUNS)
+    if "app_config" in u and "oddzialy" in u: return r.fulfill(json=[{"value": {"Latex Wrocław": {"nazwa": "LATEX SERWIS WROCŁAW", "adres": "ul. Krakowska 54a, 50-425 Wrocław", "tel": "71 341 30 60"},
+                                                                            "Latex Opole": {"nazwa": "LATEX SERWIS OPOLE", "adres": "ul. Krapkowicka 18A, 45-732 Opole", "tel": "77 474 80 89"}}}])
     if "oferty_konta" in u: return r.fulfill(json=[{"xp_login": "x", "xp_haslo": "y", "ustawienia": {}}])
     if "/rest/v1/oferty" in u and m == "POST": saved.append(r.request.post_data); return r.fulfill(status=201, body="")
     if "/rest/v1/oferty" in u: return r.fulfill(json=[{"id": 7, "owner": "test@firma.pl", "dane": json.loads(saved[-1])["dane"]}] if saved else [])
@@ -60,6 +62,14 @@ with sync_playwright() as p:
         pg.click("#bO"); pg.wait_for_selector("#outCard:not([hidden]) .vcard")
         shot("4_oferta"); wide()
         assert "RAZEM" in pg.inner_text("#sum"); assert len(pg.input_value("#email")) > 50
+        # PDF oferty: admin ma oba oddziały -> wybór; PDF z danymi wybranego oddziału
+        pg.evaluate("window.__pdf=null;Aplikacja.pdf=async(h,n)=>{window.__pdf={h,n};return{ok:true}}")
+        pg.select_option("#ul select", "Latex Opole"); pg.locator("#ul .ulk").first.click(); pg.wait_for_function("window.__pdf")
+        h = pg.evaluate("window.__pdf.h")
+        assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h and "DO ZAPŁATY BRUTTO" in h and "Wymiana opon" in h, h[:300]
+        assert pg.evaluate("window.__pdf.n").startswith("Oferta ")
+        assert 'src="logo.png"' in h, "PDF bez logo"
+        (OUT / f"{name}_pdf.html").write_text(h, encoding="utf-8")
         pg.click("#edit summary"); pg.locator("#edit input[type=number]").nth(0).fill("10"); pg.locator("#edit input[type=number]").nth(0).dispatch_event("change")
         pg.wait_for_timeout(900); shot("5_edycja"); wide()
         pg.click("#prodBtn" ) if False else None

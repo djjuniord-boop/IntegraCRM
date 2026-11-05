@@ -14,6 +14,17 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 | `okno.py` | proces okna (`start.py --oferty`): pywebview/Edge WebView2, `Api.call` → `silnik.handle`, konto i historia z bazy |
 | `zakladka.py` | `OfertyMixin` – osadzenie okna w zakładce (jak SERWIS QR; używa `serwis/embed_win.py`) |
 
+## PDF oferty (jeden model opony)
+
+- Przycisk przy każdej oponie w sekcji 4 → `/api/pdf` → `pdf_dane` + `wypelnij(pdf_wzor.html)` → HTML → **Edge headless**
+  (`--print-to-pdf`, jest w każdym Windows 10/11) zapisuje PDF w `Dokumenty\Oferty opon` i otwiera go. Brak Edge/Chrome → HTML do „Drukuj → PDF”.
+- Pozycje osobno: opona, wymiana (per średnica/typ auta), TPMS, depozyt; rabat tylko na opony (jak w silniku), netto/VAT/brutto.
+  Puste pola (klient, pojazd, rabat, usługi) znikają. Zdjęcie – tylko gdy API poda adres https (`_foto`), etykieta UE z cech API.
+- **Oddział na PDF z konta** (`app_users.branches`, admin – wszystkie z danymi); strona może wybrać tylko spośród nich (`oddzial_oferty`).
+  Dane oddziałów: `app_config` klucz `oddzialy` (SQL `supabase/oddzialy_pdf_2026-11-05.sql`), edycja: Ustawienia → „Dane oddziałów na PDF” (admin).
+- Wzór wspólny z aplikacją Android: po zmianie `pdf_wzor.html` uruchom `python3 mobile/zrob_wzor.py` (test zgodności tego pilnuje).
+- Test na prawdziwym Windows/Edge: `tests/pdf_edge.py` (krok CI).
+
 ## Dane w bazie
 
 - `oferty_konta` – `xp_login`, `xp_haslo`, `ustawienia` (marża, VAT, cenniki wymiany osobowe/SUV/dostawcze, TPMS,

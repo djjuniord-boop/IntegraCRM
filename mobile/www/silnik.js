@@ -72,13 +72,24 @@
       const mag = {};
       for (const i of p.getElementsByTagName("item")) mag[txt(i, "warehouseName")] = parseInt(txt(i, "quantity") || "0", 10) || 0;
       const num = (t) => { const v = parseFloat(txt(p, t).replace(",", ".")); return isNaN(v) ? 0 : v; };
-      out.push({ id: parseInt(txt(p, "productId") || "0", 10) || 0, kod: txt(p, "manufacturerCode"), ean: txt(p, "ean"),
+      out.push({ id: parseInt(txt(p, "productId") || "0", 10) || 0, kod: txt(p, "manufacturerCode"), ean: txt(p, "ean"), foto: foto_of(p, attrs),
+        pola: [...new Set([...p.children].map((c) => c.tagName))].sort(),
         nazwa: txt(p, "name"), ilosc: parseInt(txt(p, "quantity") || "0", 10) || 0, netto: num("netDiscountPrice"),
         brutto_zak: num("grossDiscountPrice"), netto_kat: num("netListPrice"), attrs, magazyny: mag });
     }
     return [count, out];
   }
   S.parse_products = parse_products;
+  // zdjęcie opony, jeśli xPartner je podaje (jak _foto w silnik.py) – tylko https
+  const FOTO_TAG = /image|photo|picture|img|zdj|foto/i, FOTO_URL = /^https:\/\/[^\s"'<>]+$/i;
+  function foto_of(p, attrs) {
+    for (const c of p.getElementsByTagName("*")) {
+      if (!FOTO_TAG.test(c.tagName || "")) continue;
+      for (const v0 of [c.textContent || "", ...[...c.attributes].map((a) => a.value)]) { const v = v0.trim(); if (FOTO_URL.test(v)) return v; }
+    }
+    for (const [k, v0] of Object.entries(attrs)) { const v = (v0 || "").trim(); if (FOTO_URL.test(v) && (FOTO_TAG.test(k) || /\.(jpe?g|png|webp)(\?|$)/i.test(v))) return v; }
+    return "";
+  }
 
   S.api_call = async function (cfg, params) {
     if (!cfg.login || !cfg.password)
@@ -219,7 +230,8 @@
   function enrich(cfg, p0) {
     const p = Object.assign({}, p0);
     Object.assign(p, { sezon: season_of(p), producent: producer_of(p), klasa: klasa_of(p, cfg), model: model_of(p), indeks: index_of(p),
-      dot: dot_of(p), standard: is_standard(p), cena_brutto: sell_price(cfg, p.netto) });
+      dot: dot_of(p), standard: is_standard(p), cena_brutto: sell_price(cfg, p.netto),
+      etykieta: Object.fromEntries(["Opory toczenia", "Przyczepność na mokrej nawierzchni", "Hałas", "Poziom hałasu"].map((k) => [k, p.attrs[k] || ""])) });
     const nz = /(\d{2})/.exec(p.attrs["Poziom hałasu"] || "");
     Object.assign(p, { mokra: (p.attrs["Przyczepność na mokrej nawierzchni"] || "").trim().slice(0, 1).toUpperCase(),
       opory: (p.attrs["Opory toczenia"] || "").trim().slice(0, 1).toUpperCase(), halas: nz ? +nz[1] : 0, homol: homol_of(p), demo: is_demo(p) });
@@ -553,7 +565,7 @@
     if (!S.HIST) return;
     const oid = String(req.oid || S.nowy_oid()).replace(/[^0-9_]/g, "") || S.nowy_oid();
     const rec = { osobno: req.osobno, marza: req.marza, rabat: req.rabat, ceny: req.ceny || {}, oid, data: data_txt(), klient: req.klient || "",
-      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon" };
+      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon", oddzial: req.oddzial || "" };
     const hay = (rec.klient + " " + rec.pojazdy.map((v) => (v.rej || "") + " " + (v.pojazd || "") + " " + (v.rozmiar || "")).join(" ") + " " + summ.flatMap((w) => w.modele).join(" ")).toLowerCase();
     await S.HIST.save(oid, rec.klient, rec, hay);
   }
@@ -568,6 +580,102 @@
     });
   };
 
+  // ------------------------------------------------------------ PDF oferty (jak pdf_dane/wypelnij w silnik.py)
+  const OSTATNIA = {};
+  const EU_KOLORY = [["A", "#00A651", "#fff"], ["B", "#4CB848", "#fff"], ["C", "#BFD730", "#111"], ["D", "#FFF200", "#111"], ["E", "#F7941D", "#fff"]];
+  const KLASA_PDF = { PREMIUM: "PREMIUM", MIDDLE: "ŚREDNIA", BUDGET: "BUDŻET" };
+  const esc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  const reEsc = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const szukaj = (stos, k) => { for (let i = stos.length - 1; i >= 0; i--) { const c = stos[i]; if (c && typeof c === "object" && !Array.isArray(c) && k in c) return c[k]; } return null; };
+  const pusty = (v) => !v || (Array.isArray(v) && !v.length);
+  function wypelnij(tpl, ctx, stos0) {
+    const stos = (stos0 || []).concat([ctx]), out = [], TAG = /\{\{(\{?)([#^/>]?)\s*([\w.]+)\s*\}?\}\}/g;
+    let i = 0;
+    for (;;) {
+      TAG.lastIndex = i; const m = TAG.exec(tpl);
+      if (!m) { out.push(tpl.slice(i)); break; }
+      out.push(tpl.slice(i, m.index));
+      const raw = m[1], typ = m[2], k = m[3];
+      if (typ === "#" || typ === "^") {
+        const zn = new RegExp("\\{\\{([#^/])\\s*" + reEsc(k) + "\\s*\\}\\}", "g");
+        let glab = 1, j = m.index + m[0].length, koniec = j;
+        while (glab) { zn.lastIndex = j; const n = zn.exec(tpl); if (!n) throw new Error("wzór: brak {{/" + k + "}}"); glab += n[1] === "/" ? -1 : 1; koniec = n.index; j = n.index + n[0].length; }
+        const wn = tpl.slice(m.index + m[0].length, koniec), v = szukaj(stos, k);
+        if (typ === "^") { if (pusty(v)) out.push(wypelnij(wn, {}, stos)); }
+        else if (Array.isArray(v)) for (const e of v) out.push(wypelnij(wn, e && typeof e === "object" ? e : { ".": e }, stos));
+        else if (v) out.push(wypelnij(wn, typeof v === "object" ? v : {}, stos));
+        i = j; continue;
+      }
+      const v = szukaj(stos, k);
+      out.push(v === null || v === undefined || v === false ? "" : raw ? String(v) : esc(v));
+      i = m.index + m[0].length;
+    }
+    return out.join("");
+  }
+  S.wypelnij = wypelnij;
+  S.wzor_pdf = function () { const t = root.PDF_WZOR || ""; const i = t.indexOf("<!--etykieta-->"); return i < 0 ? t : t.slice(0, i).replace("{{>etykieta}}", t.slice(i + 15).trim()); };
+  const skala = (lit) => EU_KOLORY.map(([l, k, t], i) => ({ l, kolor: k, tekst: t, szer: 34 + 9 * i, on: l === lit }));
+  const p2 = (n) => String(n).padStart(2, "0");
+  function data_oid(oid, dni) {
+    let d = new Date(Date.UTC(+oid.slice(0, 4), +oid.slice(4, 6) - 1, +oid.slice(6, 8)));
+    if (isNaN(d) || !/^\d{8}/.test(oid)) { const t = new Date(); d = new Date(Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())); }
+    d = new Date(d.getTime() + (dni || 0) * 864e5);
+    return p2(d.getUTCDate()) + "." + p2(d.getUTCMonth() + 1) + "." + d.getUTCFullYear();
+  }
+  const g = (n) => String(n).replace(".", ",");
+  S.pdf_dane = function (cfg, req, rows, pid, oddzial, kto, logo) {
+    const R = rows.filter((r) => r.p && r.p.id === pid);
+    if (!R.length) throw new Error("Tej opony nie ma w ofercie – wygeneruj ofertę ponownie.");
+    if (!oddzial || !["nazwa", "adres", "tel"].every((k) => (oddzial[k] || "").trim())) throw new Error("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.");
+    const p = R[0].p, vat = parseFloat(cfg.vat_proc || 23);
+    let rab = parseFloat(req.rabat || 0); rab = isNaN(rab) ? 0 : Math.max(0, Math.min(90, rab));
+    const przed_szt = p.recznie || !rab ? p.cena_brutto : sell_price(cfg, p.netto);
+    const il = R.reduce((a, r) => a + (parseInt(r.ilosc, 10) || 0), 0);
+    const poz = [{ nazwa: "Opona " + p.nazwa, q: il, j: "szt.", c: przed_szt }];
+    const kola = parseInt(cfg.kola_na_auto, 10), wym = new Map();
+    for (const r of R) if (r.wymiana) {
+      const n = (parseInt(r.ilosc, 10) || 0) || kola, dia = (/R(\d{2})/.exec(r.rozmiar || "") || [null, ""])[1], typ = r.typ || "osobowy";
+      const key = [dia, typ, r2(r.wymiana / n)].join("\u0001"); wym.set(key, (wym.get(key) || 0) + n);
+    }
+    for (const [key, n] of wym) { const [dia, typ, c] = key.split("\u0001"); poz.push({ nazwa: `Wymiana opon – demontaż, montaż, wyważenie (R${dia}${typ === "osobowy" ? "" : ", " + (TYPY[typ] || typ)})`, q: n, j: "szt.", c: +c }); }
+    const n_tp = R.reduce((a, r) => a + (parseInt(r.tpms, 10) || 0), 0);
+    if (n_tp) poz.push({ nazwa: "Czujnik ciśnienia TPMS (z montażem)", q: n_tp, j: "szt.", c: parseFloat(cfg.tpms_cena) });
+    const dep = new Map();
+    for (const r of R) if (r.przech_kw) { const key = r.przech_op + "\u0001" + r.przech_kw; dep.set(key, (dep.get(key) || 0) + 1); }
+    for (const [key, n] of dep) { const [op, c] = key.split("\u0001"); poz.push({ nazwa: "Depozyt – " + op.slice(0, 1).toLowerCase() + op.slice(1) + ", 1 sezon", q: n, j: "kpl.", c: +c }); }
+    const przed = r2(poz.reduce((a, x) => a + x.q * x.c, 0)), rabat_kw = r2((przed_szt - p.cena_brutto) * il);
+    const brutto = r2(przed - rabat_kw), netto = r2(brutto / (1 + vat / 100)), oid = String(req.oid || "");
+    const poj = [];
+    for (const r of R) { const t = [(r.pojazd || "").trim(), (r.rej || "").trim().toUpperCase()].filter(Boolean).join(" · "); if (t && !poj.includes(t)) poj.push(t); }
+    const hk = ((p.etykieta || {})["Hałas"] || "").trim().slice(0, 1).toUpperCase();
+    return {
+      logo: logo || "", nr: oid.length >= 13 ? `OF/${oid.slice(0, 4)}/${oid.slice(4, 6)}/${oid.slice(6, 8)}-${oid.slice(9, 13)}` : "OF/" + oid,
+      data: data_oid(oid, 0), wazna: data_oid(oid, parseInt(cfg.waznosc_dni || 7, 10)),
+      o_nazwa: oddzial.nazwa || "", o_adres: oddzial.adres || "", o_tel: oddzial.tel || "", o_www: oddzial.www || "", o_email: oddzial.email || "",
+      klient: (req.klient || "").trim(), pojazd: poj.join(", "), kto: kto || "",
+      tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : ""),
+      tytul: p.nazwa, producent: p.producent || "", model: p.model || "", rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
+      foto: p.foto || "", ean: p.ean || "", eu: !!(p.mokra || p.opory || p.halas), ma_opory: !!p.opory, ma_mokra: !!p.mokra,
+      skala_opory: skala(p.opory), skala_mokra: skala(p.mokra), halas: p.halas || "", halas_klasa: ["A", "B", "C"].includes(hk) ? hk : "",
+      cena_szt: pl(p.cena_brutto), cena_szt_netto: pl(r2(p.cena_brutto / (1 + vat / 100))),
+      pozycje: poz.map((x) => ({ nazwa: x.nazwa, ilosc: x.q + " " + x.j, cena: pl(x.c), wartosc: pl(r2(x.q * x.c)) })),
+      rabat: rabat_kw > 0 ? g(rab) + "%" : "", przed: pl(przed), rabat_kw: pl(rabat_kw),
+      netto: pl(netto), vat: pl(r2(brutto - netto)), vat_proc: g(vat), brutto: pl(brutto),
+    };
+  };
+  S.pdf_html = (cfg, req, rows, pid, oddzial, kto, logo) => wypelnij(S.wzor_pdf(), S.pdf_dane(cfg, req, rows, pid, oddzial, kto, logo));
+  S.oddzial_oferty = function (req) {
+    const moje = S.KONTO.oddzialy || [], dane = S.KONTO.oddzialy_dane || {};
+    if (!moje.length) throw new Error("Twoje konto nie ma przypisanego oddziału – poproś administratora (Panel → UŻYTKOWNICY → konto → oddziały).");
+    const o = moje.includes(req.oddzial) ? req.oddzial : moje[0];
+    return [o, Object.assign({}, dane[o] || {}, { nazwa: (dane[o] || {}).nazwa || o })];
+  };
+  S.opis_pol = function (items) {
+    if (!items.length) return "";
+    const p = items[0], et = ["Opory toczenia", "Przyczepność na mokrej nawierzchni", "Poziom hałasu", "Hałas"].filter((k) => p.attrs[k]);
+    return `\nZdjęcie opony: ${p.foto ? "TAK" : "brak"} · EAN: ${p.ean ? "TAK" : "brak"} · etykieta UE: ${et.join(", ") || "brak"}\nPola produktu: ${(p.pola || []).join(", ")}\nCechy: ${Object.keys(p.attrs).sort().join(", ")}`;
+  };
+
   // ------------------------------------------------------------ polecenia (jak handle() w Panelu)
   S.handle = async function (path, body) {
     const u = new URL(path, "http://x"), route = u.pathname, qs = u.searchParams;
@@ -575,7 +683,7 @@
     S.ucz_marki(cfg);
     try {
       if (body === null || body === undefined) {
-        if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; return [200, c]; }
+        if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; c.oddzialy = S.KONTO.oddzialy || []; c.oddzialy_dane = S.KONTO.oddzialy_dane || {}; return [200, c]; }
         if (route === "/api/history") {
           if (qs.get("id")) { const r = S.HIST ? await S.HIST.get_id(qs.get("id")) : null; return r ? [200, r] : [404, { error: "Brak oferty" }]; }
           return [200, { lista: await S.list_hist(qs.get("q") || ""), admin: !!(S.HIST && S.HIST.admin) }];
@@ -583,12 +691,18 @@
         return [404, { error: "404" }];
       }
       if (route === "/api/cfg") { for (const k of Object.keys(DEFAULT_CFG)) if (k in body) cfg[k] = body[k]; await S.save_cfg(cfg); return [200, { ok: true }]; }
-      if (route === "/api/test") { const [count] = await S.api_call(cfg, { productName: "205/55 R16", resultsPerPage: 1 }); return [200, { ok: true, msg: `Połączono z xPartner. Przykładowe zapytanie zwróciło ${count} produktów.` }]; }
+      if (route === "/api/test") { const [count, items] = await S.api_call(cfg, { productName: "205/55 R16", resultsPerPage: 1 }); return [200, { ok: true, msg: `Połączono z xPartner. Przykładowe zapytanie zwróciło ${count} produktów.` + S.opis_pol(items) }]; }
+      if (route === "/api/pdf") {
+        if (!OSTATNIA.rows) return [400, { error: "Najpierw wygeneruj ofertę." }];
+        const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
+        return [200, { html: S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, +body.id || 0, dane, S.KONTO.kto || "", body.logo || ""), oddzial: o }];
+      }
       if (route === "/api/quick") return [200, S.parse_quick(body.text || "")];
       if (route === "/api/parse") { const t = body.text || "", q = S.parse_quick(t); return [200, { pojazdy: S.parse_request_text(t), kryteria: { sezony: q.sezony, klasy: q.klasy, producenci: q.producenci, runflat: q.runflat } }]; }
       if (route === "/api/search") return [200, await S.do_search(cfg, body)];
       if (route === "/api/offer") {
         const { rows, variants, warnings } = await S.build_offer(cfg, body);
+        OSTATNIA.req = body; OSTATNIA.rows = rows;
         if (!rows.length) return [400, { error: "Brak wybranych opon." }];
         const keys = variants.map((v) => v.key);
         const summ = variants.map((v) => ({ wariant: vlabel(keys, v.key), modele: v.modele, opony: r2(v.opony), wymiana: r2(v.wymiana),
@@ -596,7 +710,7 @@
         const ul = [], seen = new Set();
         for (const r of rows) if (r.p && !seen.has(r.p.id)) { seen.add(r.p.id); ul.push({ id: r.p.id, nazwa: r.p.nazwa, cena: r.p.cena_brutto, auto: r.p.cena_auto, recznie: r.p.recznie, zakup: r.p.brutto_zak, url: S.leaflet_url(r.p.id, r.p.cena_brutto) }); }
         try { await save_hist(body, summ); } catch (e) { warnings.push("Nie zapisano oferty w historii: " + (e.message || e)); }
-        return [200, { ulotki: ul, plik: "", email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
+        return [200, { ulotki: ul, plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
       }
     } catch (e) {
       if (e instanceof ApiError) return [502, { error: e.message }];

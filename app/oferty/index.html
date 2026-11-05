@@ -142,6 +142,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <label style="grid-column:1/3">Marki premium (gdy API nie poda klasy)<input id="c_premium"></label>
 <label style="grid-column:1/3">Podpis e-maila<textarea id="c_podpis" style="min-height:50px"></textarea></label>
 </div>
+<div id="oddzBox"></div>
 <div class="row" style="margin-top:12px"><button onclick="saveCfg()">Zapisz</button><button class="sec" onclick="testApi()">Test połączenia</button><button class="sec" onclick="dlg.close()">Zamknij</button></div><div id="cMsg"></div>
 </dialog>
 <script>
@@ -201,7 +202,7 @@ async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.clo
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
- OMARZA=r.marza??'';ORABAT=r.rabat??'';CENY=r.ceny||{};OSOBNO=r.osobno??null;OID=newOid();$('#outCard').style.display='none';await offer()}
+ OMARZA=r.marza??'';ORABAT=r.rabat??'';if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;OID=newOid();$('#outCard').style.display='none';await offer()}
 let PSEL=new Set(),PMORE={};
 const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGET','budzet','#111']];
 const bk=x=>String(x||'').toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g,'');
@@ -269,12 +270,29 @@ function reoffer(){if($('#outCard').style.display==='none'||!SEL.size)return;cle
 document.addEventListener('change',e=>{if(e.target.closest('#veh')||e.target.id==='klient')reoffer()});
 async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświeżam ceny i stany w xPartner, generuję ofertę…');try{
  const wybor={};SEL.forEach(k=>{const[s,z,id]=k.split('|');((wybor[s]??={})[z]??=[]).push(+id)});
- if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{osobno:OSOBNO,oid:OID,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY});ULS=j.ulotki;
+ if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY});ULS=j.ulotki;
  msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+'Zapisano: '+j.plik,j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
- $('#ul').innerHTML='<b style="font-size:16px">Ulotki PDF dla klienta</b> <span class="tag">z ceną z oferty · otwierają się w przeglądarce zalogowanej do xPartner</span><br>'+j.ulotki.map(u=>`<a class="ulk" href="#" data-u="${esc(u.url)}" onclick="return openUrl(this.dataset.u)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></a>`).join('')+(j.ulotki.length>1?' <button class="sec" onclick="document.querySelectorAll(\'.ulk\').forEach(a=>openUrl(a.dataset.u))">Otwórz wszystkie</button>':'');
+ ULS=j.ulotki;drawUl();
  $('#email').value=j.email;drawEdit();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
+let OODD='';
+function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';
+ $('#ul').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">jeden model opony · każda usługa osobno · dane Twojego oddziału</span>'+
+ (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="OODD=this.value" style="width:auto">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
+ '<br>'+ULS.map(u=>`<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></button>`).join('')+
+ (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')+
+ '<div style="font-size:12px;color:var(--muted);margin-top:6px">Ulotki xPartner (wymagają przeglądarki zalogowanej do xPartner): '+ULS.map(u=>`<a href="#" data-u="${esc(u.url)}" onclick="return openUrl(this.dataset.u)">${esc(u.nazwa.split(' ').slice(0,3).join(' '))}</a>`).join(' · ')+'</div>'}
+async function pdfOferta(b){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
+ msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
+const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['www','Strona www'],['email','E-mail']];
+function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
+ $('#oddzBox').innerHTML='<h3 style="margin:14px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
+ L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>`).join('')+
+ '<button class="sec" style="margin-top:6px" onclick="saveOddz()">Zapisz dane oddziałów</button>'}
+async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o[i.dataset.o]??={})[i.dataset.k]=i.value.trim()});
+ for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
+ try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
 function copyMail(){navigator.clipboard.writeText($('#email').value)}
 async function loadCfg(){CFG=await api('/api/cfg');try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 let WT={},WCUR='wymiana_kolo';
@@ -287,7 +305,7 @@ function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')
  $('#progiBox').innerHTML='<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+PROGI.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="PROGI[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="PROGI[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="PROGI.splice(${i},1);drawProgi()">✕</button></td></tr>`).join('')+'</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="PROGI.splice(PROGI.length-1,0,{do:null,kwota:0});drawProgi()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, w górę do pełnych zł.</span>'}
 function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','podpis'])$('#c_'+k).value=CFG[k]??'';
  WT={wymiana_kolo:{...CFG.wymiana_kolo},wymiana_suv:{...CFG.wymiana_suv},wymiana_dost:{...CFG.wymiana_dost}};WCUR='wymiana_kolo';document.querySelectorAll('.wtabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==WCUR));drawW();
- for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_premium').value=CFG.premium.join(', ');PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));drawProgi();msg('#cMsg','');dlg.showModal()}
+ for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_premium').value=CFG.premium.join(', ');PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));drawProgi();drawOddz();msg('#cMsg','');dlg.showModal()}
 async function saveCfg(){const c={};for(const k of['podpis'])c[k]=$('#c_'+k).value;for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])c[k]=+$('#c_'+k).value;
  readW();Object.assign(c,WT);for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])c[k]=+$('#c_'+k).value||0;
  c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=PROGI.filter(p=>p.kwota!==undefined&&p.kwota!=='').map(p=>({do:p.do===null||p.do===''?null:+p.do,kwota:+p.kwota}));

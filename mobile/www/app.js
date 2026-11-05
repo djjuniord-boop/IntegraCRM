@@ -69,6 +69,10 @@
     if (!A.moze.oferty && !A.moze.wyniki) throw new Error("Twoje konto nie ma dostępu do Ofert opon ani do Wyników – poproś administratora.");
     A.profil = p;
     if (!A.moze.oferty) return p;
+    // oddział na PDF: z konta (nie do zmiany przez pracownika); dane oddziałów wpisuje administrator w Panelu
+    let odd = {};
+    try { const c = (await A.db("GET", "/rest/v1/app_config?key=eq.oddzialy&select=value")) || []; odd = (c[0] && c[0].value) || {}; } catch (e) {}
+    Object.assign(S.KONTO, { oddzialy: admin ? Object.keys(odd) : (p.branches || []), oddzialy_dane: odd, kto: p.name || p.email });
     const rows = (await A.db("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo,ustawienia&email=eq." + encodeURIComponent(p.email.toLowerCase()))) || [];
     const r = rows[0] || {};
     Object.assign(S.KONTO, { login: r.xp_login || "", password: r.xp_haslo || "", ustawienia: r.ustawienia || {},
@@ -96,6 +100,13 @@
   // ---------- Android: udostępnianie, linki, wersja
   A.share = (text, title) => { if (window.Native && window.Native.share) window.Native.share(text, title || "Oferta"); else if (navigator.share) navigator.share({ text, title }); else navigator.clipboard.writeText(text); };
   A.openUrl = (u) => { if (!/^https:\/\//.test(u)) return; if (window.Native && window.Native.openUrl) window.Native.openUrl(u); else window.open(u, "_blank"); };
+  // PDF oferty: Android tworzy plik i otwiera „Udostępnij”; w przeglądarce (testy) – podgląd strony
+  let pdfOk = null;
+  window.__pdfDone = (ok, m) => { const f = pdfOk; pdfOk = null; if (f) f(ok, m); };
+  A.pdf = (html, nazwa) => new Promise((ok) => {
+    if (window.Native && window.Native.pdf) { pdfOk = (o, m) => ok({ ok: o, msg: m }); window.Native.pdf(html, nazwa); }
+    else { const w = window.open("", "_blank"); if (w) { w.document.write(html); w.document.close(); } ok({ ok: true, msg: "podgląd" }); }
+  });
   A.wersja = () => (window.Native && window.Native.version ? window.Native.version() : "dev");
   A.sprawdzAktualizacje = async function () {
     try {

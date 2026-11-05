@@ -197,3 +197,56 @@ def test_xlsx_bez_wstrzykiwania_formul():
     ws = load_workbook(res["plik"]).active
     assert ws.cell(5, 1).value == " =1+1" and ws.cell(5, 2).value == " @SUM(A1)"
     assert str(ws.cell(5, 11).value).startswith("=I5*J5")
+
+
+ODDZ = {"Latex Wrocław": {"nazwa": "LATEX SERWIS WROCŁAW", "adres": "ul. Krakowska 54a, 50-425 Wrocław", "tel": "71 341 30 60"},
+        "Latex Opole": {"nazwa": "LATEX SERWIS OPOLE", "adres": "ul. Krapkowicka 18A, 45-732 Opole", "tel": "77 474 80 89"}}
+
+
+def _pdf(oddzialy, body_pdf, req_extra=None):
+    _setup()
+    S.KONTO.update(oddzialy=oddzialy, oddzialy_dane=ODDZ, kto="Ania")
+    req = {"oid": "20261105_120000", "klient": "Jan <b>Kowalski</b>", "rabat": "10",
+           "pojazdy": [{"rej": "dw1", "pojazd": "Octavia", "rozmiar": "205/55 R16", "ilosc": 4, "nowe": True, "wymiana": True, "tpms": 4, "przech": "opony"}],
+           "wybor": {"205/55 R16": {"wszystkie": [1]}}, **(req_extra or {})}
+    assert S.handle("/api/offer", req)[0] == 200
+    return S.handle("/api/pdf", body_pdf)
+
+
+def test_pdf_oferty_pozycje_rabat_i_oddzial():
+    code, r = _pdf(["Latex Wrocław", "Latex Opole"], {"id": 1, "oddzial": "Latex Opole"})
+    assert code == 200 and r["oddzial"] == "Latex Opole", r
+    h = r["html"]
+    assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h
+    assert "Jan &lt;b&gt;Kowalski&lt;/b&gt;" in h and "<b>Kowalski" not in h          # tekst klienta nie staje się HTML
+    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "Rabat 10% na opony", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
+        assert txt in h, txt
+    assert "{{" not in h and "}}" not in h
+
+
+def test_pdf_tylko_oddzial_z_konta():
+    # pracownik Opola nie wybierze danych Wrocławia, nawet gdy strona je wyśle
+    code, r = _pdf(["Latex Opole"], {"id": 1, "oddzial": "Latex Wrocław"})
+    assert code == 200 and r["oddzial"] == "Latex Opole" and "WROCŁAW" not in r["html"]
+    # konto bez oddziału -> brak PDF
+    code, r = _pdf([], {"id": 1})
+    assert code == 500 and "oddziału" in r["error"]
+    # oddział bez danych (np. Stangum) -> brak PDF zamiast pustego nagłówka
+    code, r = _pdf(["Stangum Opole"], {"id": 1})
+    assert code == 500 and "Brak danych oddziału" in r["error"]
+
+
+def test_pdf_bez_uslug_i_bez_klienta():
+    code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"klient": "", "rabat": "", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 2, "nowe": True}]})
+    h = r["html"]
+    assert code == 200 and "Wymiana opon" not in h and "Depozyt" not in h and "TPMS" not in h and "Rabat" not in h
+    assert ">Dla<" not in h and "Ważna do" in h and "2 szt." in h
+
+
+def test_foto_z_api():
+    xml = (b"<r><success>true</success><productsCount>1</productsCount><product><productId>7</productId><name>X</name>"
+           b"<imageUrl>https://img.example.com/opona.jpg</imageUrl><ean>590</ean></product></r>")
+    _, it = S.parse_products(xml)
+    assert it[0]["foto"] == "https://img.example.com/opona.jpg" and "imageUrl" in it[0]["pola"]
+    _, it = S.parse_products(xml.replace(b"https://img.example.com/opona.jpg", b"http://zly/x.jpg"))
+    assert it[0]["foto"] == ""   # tylko https
