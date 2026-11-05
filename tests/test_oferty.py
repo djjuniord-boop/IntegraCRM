@@ -41,8 +41,11 @@ class _Hist:
     def save(self, oid, klient, dane, szukaj):
         self.d[oid] = dane
 
+    def get_id(self, rid):
+        return list(self.d.values())[int(rid) - 1]
+
     def list(self, q=""):
-        return list(self.d.values())
+        return [{"id": i + 1, "owner": "a@b.pl", "kto": "Jan", "dane": d} for i, d in enumerate(self.d.values())]
 
 
 def _setup():
@@ -86,7 +89,9 @@ def test_oferta_ceny_wymiana_uslugi_historia():
     assert os.path.exists(res["plik"]) and "Test" in res["email"]
     assert S.HIST.get("20261105_120000")["klient"] == "Test"
     code, lst = S.handle("/api/history?q=")
-    assert code == 200 and lst["lista"][0]["klient"] == "Test"
+    assert code == 200 and lst["lista"][0]["klient"] == "Test" and lst["lista"][0]["kto"] == "Jan"
+    code, one = S.handle("/api/history?id=1")
+    assert code == 200 and one["oid"] == "20261105_120000"
 
 
 def test_brak_loginu_xpartner():

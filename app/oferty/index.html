@@ -90,7 +90,7 @@ DX3985C octavia 205/60 16 tylko wymiana
 </main>
 <dialog id="hdlg" style="max-width:1100px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
-<div style="padding:14px 18px;max-height:70vh;overflow:auto"><input id="hq" placeholder="Szukaj: klient, rejestracja, pojazd, rozmiar, model opony…" oninput="clearTimeout(window._ht);window._ht=setTimeout(loadHist,250)" style="width:100%;font-size:15px;padding:9px 12px;margin-bottom:10px"><div id="hl"></div></div>
+<div style="padding:14px 18px;max-height:70vh;overflow:auto"><input id="hq" placeholder="Szukaj: klient, rejestracja, pojazd, rozmiar, model opony, osoba…" oninput="clearTimeout(window._ht);window._ht=setTimeout(loadHist,250)" style="width:100%;font-size:15px;padding:9px 12px;margin-bottom:10px"><div id="hfil" style="margin-bottom:8px"></div><div id="hl"></div></div>
 </dialog>
 <dialog id="pdlg" style="max-width:980px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b id="pTitle" style="font-size:16px">Wybierz producentów</b><button class="sec" onclick="pdlg.close()" style="padding:2px 10px">✕</button></div>
@@ -177,9 +177,15 @@ function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (
 let OID=null;
 const newOid=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
 function openHist(){$('#hq').value='';loadHist();hdlg.showModal()}
-async function loadHist(){const j=await api('/api/history?q='+encodeURIComponent($('#hq').value));
- $('#hl').innerHTML=j.lista.length?'<table><tr><th>Data</th><th>Klient</th><th>Pojazdy</th><th>Warianty</th><th></th></tr>'+j.lista.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td><td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}</td><td style="white-space:nowrap"><button onclick="restoreHist('${h.oid}')">Otwórz i odśwież</button> ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?oid=${h.oid}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>'}
-async function restoreHist(oid){const r=await api('/api/history?oid='+oid);hdlg.close();
+let HL=[],HADM=false;
+async function loadHist(){const j=await api('/api/history?q='+encodeURIComponent($('#hq').value));HL=j.lista;HADM=j.admin;
+ const osoby=[...new Set(HL.map(h=>h.kto))].sort();const cur=$('#hk')?$('#hk').value:'';
+ $('#hfil').innerHTML=HADM?`<label style="font-size:12px;color:var(--muted)">Osoba <select id="hk" onchange="drawHist()"><option value="">wszyscy (${HL.length})</option>${osoby.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'';drawHist()}
+function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'';const L=HL.filter(h=>!k||h.kto===k);
+ let sum='';if(HADM){const by={};for(const h of L){const o=by[h.kto]??={n:0,kl:new Set(),wart:0,mod:{}};o.n++;if(h.klient)o.kl.add(h.klient);o.wart+=h.razem||0;for(const w of h.warianty)for(const m of(w.modele||'').split(', ').filter(Boolean))o.mod[m]=(o.mod[m]||0)+1}
+  sum='<div class="t" style="margin:4px 0">Podsumowanie (wg aktualnego wyszukiwania)</div><table style="margin-bottom:14px"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Klientów</th><th class="num">Wartość ofert</th><th>Najczęściej proponowane</th></tr>'+Object.entries(by).sort((a,b)=>b[1].n-a[1].n).map(([o,v])=>`<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${v.kl.size}</td><td class="num">${zl(v.wart)}</td><td>${esc(Object.entries(v.mod).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', '))}</td></tr>`).join('')+'</table>'}
+ $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(HADM?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${HADM?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}</td><td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button> ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
+async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';

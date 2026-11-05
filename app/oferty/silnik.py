@@ -546,10 +546,15 @@ def list_hist(q=""):
         recs = HIST.list(q) if HIST else []
     except Exception:
         recs = []
-    for r in recs:
-        out.append({"oid": r["oid"], "data": r.get("data"), "klient": r.get("klient", ""),
+    for row in recs:
+        r = row.get("dane") or {}
+        if not r.get("oid"):
+            continue
+        out.append({"id": row.get("id"), "kto": row.get("kto") or row.get("owner") or "", "owner": row.get("owner") or "",
+                    "oid": r["oid"], "data": r.get("data"), "klient": r.get("klient", ""),
                     "pojazdy": ", ".join(" ".join(x for x in (v.get("rej"), v.get("pojazd")) if x) or v.get("rozmiar", "") for v in r.get("pojazdy", [])),
                     "warianty": [{"wariant": w["wariant"], "modele": ", ".join(w["modele"]), "razem": w["razem"]} for w in r.get("warianty", [])],
+                    "razem": max([w.get("razem", 0) for w in r.get("warianty", [])] or [0]),
                     "plik_ok": os.path.exists(r.get("plik") or "")})
     return out
 
@@ -632,12 +637,12 @@ def handle(path, body=None, open_path=None):
                 c["password"] = ""
                 return 200, c
             if route == "/api/history":
-                if qs.get("oid"):
-                    r = load_hist(qs["oid"][0])
+                if qs.get("id"):
+                    r = HIST.get_id(qs["id"][0]) if HIST else None
                     return (200, r) if r else (404, {"error": "Brak oferty"})
-                return 200, {"lista": list_hist(qs.get("q", [""])[0])}
+                return 200, {"lista": list_hist(qs.get("q", [""])[0]), "admin": bool(getattr(HIST, "admin", False))}
             if route == "/api/openfile":
-                r = load_hist((qs.get("oid") or [""])[0]) or {}
+                r = (HIST.get_id((qs.get("id") or [""])[0]) if HIST else None) or {}
                 p = r.get("plik") or ""
                 if _in_out_dir(p) and os.path.exists(p) and open_path:
                     open_path(p)

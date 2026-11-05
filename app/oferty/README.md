@@ -19,7 +19,7 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 - `oferty_konta` – `xp_login`, `xp_haslo`, `ustawienia` (marża, VAT, cenniki wymiany osobowe/SUV/dostawcze, TPMS,
   przechowalnia, marki premium/średnie/budżet, podpis). Odczyt: swój wiersz albo admin. Zapis: `oferty_admin_set_konto`
   (admin, puste hasło = bez zmiany), `oferty_zapisz_ustawienia` (właściciel, bez loginu i hasła).
-- `oferty` – historia (`owner`, `oid`, `klient`, `dane` jsonb, `szukaj`): każdy widzi i zmienia tylko swoje (także admin).
+- `oferty` – historia (`owner`, `oid`, `klient`, `dane` jsonb, `szukaj`): każdy widzi swoje, administrator wszystkie (kolumna „Kto”, podsumowanie); zmieniać można tylko swoje.
 
 ## Uwagi
 

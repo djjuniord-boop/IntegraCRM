@@ -42,10 +42,17 @@ def _db(method, path, body=None, prefer="return=representation"):
 
 
 class Historia:
-    """Historia ofert w bazie (tabela oferty) – każdy widzi tylko swoje (RLS)."""
+    """Historia ofert w bazie (tabela oferty): użytkownik – swoje, administrator – wszystkie (RLS)."""
+    admin = False
 
-    def get(self, oid):
-        rows = _db("GET", "/rest/v1/oferty?select=dane&oid=eq." + urllib.parse.quote(oid)) or []
+    def get(self, oid):   # własna oferta (nadpisywanie pliku przy kolejnym przeliczeniu)
+        me = _email(_token())
+        rows = _db("GET", "/rest/v1/oferty?select=dane&oid=eq." + urllib.parse.quote(oid)
+                   + "&owner=eq." + urllib.parse.quote(me)) or []
+        return rows[0]["dane"] if rows else None
+
+    def get_id(self, rid):
+        rows = _db("GET", "/rest/v1/oferty?select=dane&id=eq." + str(int(rid))) or []
         return rows[0]["dane"] if rows else None
 
     def save(self, oid, klient, dane, szukaj):
@@ -56,11 +63,18 @@ class Historia:
 
     def list(self, q=""):
         flt = ""
-        q = (q or "").strip().lower().replace("*", "").replace(",", " ")
+        q = (q or "").strip().lower().replace("*", "").replace(",", " ").replace("(", " ").replace(")", " ")
         if q:
-            flt = "&szukaj=ilike." + urllib.parse.quote("*" + q + "*")
-        rows = _db("GET", "/rest/v1/oferty?select=dane&order=updated_at.desc&limit=300" + flt) or []
-        return [r["dane"] for r in rows if isinstance(r.get("dane"), dict)]
+            w = urllib.parse.quote("*" + q + "*")
+            flt = f"&or=(szukaj.ilike.{w},owner.ilike.{w})"
+        rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []
+        try:
+            names = {u["email"].lower(): (u.get("name") or "") for u in _db("GET", "/rest/v1/app_users?select=email,name") or []}
+        except Exception:
+            names = {}
+        for r in rows:
+            r["kto"] = names.get((r.get("owner") or "").lower()) or r.get("owner") or ""
+        return [r for r in rows if isinstance(r.get("dane"), dict)]
 
 
 def wczytaj_konto():
@@ -72,7 +86,13 @@ def wczytaj_konto():
     silnik.KONTO.update(login=r.get("xp_login") or "", password=r.get("xp_haslo") or "",
                         ustawienia=r.get("ustawienia") or {},
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
-    silnik.HIST = Historia()
+    h = Historia()
+    try:
+        prof = _db("POST", "/rest/v1/rpc/is_admin", {})
+        h.admin = prof is True
+    except Exception:
+        h.admin = False
+    silnik.HIST = h
 
 
 # ---------- funkcje dla strony (window.pywebview.api.*) ----------

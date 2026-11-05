@@ -17,7 +17,7 @@ Projekt `latex-serwis-qr` (id `nlrwulrtaocuemfmlfav`, Frankfurt, plan darmowy). 
 | `visit_stats` | Kontrola (zapis), STATYSTYKI | licznik dzienny na oddział (klucz `branch, day`; `branch` = `Latex Wrocław` / `Latex Opole` / `Stangum Opole`): `visits` (zlecenia z pojazdem w Integrze), `lists` (wiersze list kontrolnych z CRM), `missing`, `check_id` → `checks`, `updated_at`/`updated_by` (wyzwalacz `stamp`). Odczyt: aktywne konto z modułem `statystyki` + oddział (admin wszystko). Zapis: **`rpc/save_visit_stats`** (moduł `crm` + oddział; kolejny zapis tego dnia nadpisuje). Usuwanie: nikt; anon: brak prawa |
 | `cars`, `services` | SERWIS QR | moduł `serwis` + oddział auta (`cars.branch`) |
 | `oferty_konta` | OFERTY OPON | login/hasło API xPartner i ustawienia ofert: odczyt swój wiersz albo admin; zapis tylko `oferty_admin_set_konto` (admin) i `oferty_zapisz_ustawienia` (właściciel, moduł `oferty`) |
-| `oferty` | OFERTY OPON | historia ofert – każdy (także admin) widzi i zmienia tylko swoje, moduł `oferty` |
+| `oferty` | OFERTY OPON | historia ofert – odczyt: swoje (moduł `oferty`) albo admin wszystkie; zapis/zmiana/usuwanie: tylko swoje (`oferty_admin_2026-11-05.sql`) |
 | `settings` | SERWIS QR | odczyt: anon (strona klienta) i moduł `serwis`; zapis: admin |
 | Storage `marza` | MARŻA | moduł `marza` (odczyt, dodawanie) |
 
