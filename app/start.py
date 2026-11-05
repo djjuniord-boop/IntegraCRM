@@ -27,6 +27,21 @@ def main():
             except OSError:
                 pass
             sys.exit(3)
+    if "--oferty" in sys.argv:   # okno modułu OFERTY OPON (osobny proces)
+        try:
+            from oferty import okno
+            sys.exit(okno.run())
+        except SystemExit:
+            raise
+        except Exception:
+            log = APP.parent / "data" / "error.log"
+            try:
+                log.parent.mkdir(parents=True, exist_ok=True)
+                with open(log, "a", encoding="utf-8") as f:
+                    f.write(f"\n[{datetime.datetime.now():%Y-%m-%d %H:%M:%S}] OFERTY OPON\n{traceback.format_exc()}")
+            except OSError:
+                pass
+            sys.exit(3)
     try:
         import gui
         gui.main()

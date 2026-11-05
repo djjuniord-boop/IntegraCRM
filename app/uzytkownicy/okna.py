@@ -48,6 +48,39 @@ class UserDialog(tk.Toplevel):
         group("Oddziały", [(b, self.v_br[b]) for b in cloud.BRANCHES])
         group("Konto", [("Administrator (dostęp do wszystkiego)", self.v_admin), ("Aktywne", self.v_active)])
 
+        # OFERTY OPON: konto API xPartner tej osoby (każdy ma swoje; hasło nie jest pokazywane)
+        self.v_xp_login, self.v_xp_pass = tk.StringVar(), tk.StringVar()
+        tk.Label(self, text="xPartner – konto API (moduł Oferty opon)", bg=SURFACE, fg=INK,
+                 font=f.label).pack(anchor="w", pady=(10, 0))
+        xr = tk.Frame(self, bg=SURFACE)
+        xr.pack(anchor="w", pady=(2, 0))
+        tk.Label(xr, text="Login", bg=SURFACE, fg=MUTED, font=f.small).grid(row=0, column=0, sticky="w")
+        tk.Label(xr, text="Hasło", bg=SURFACE, fg=MUTED, font=f.small).grid(row=0, column=1, sticky="w", padx=(10, 0))
+        tk.Entry(xr, textvariable=self.v_xp_login, width=20, font=f.body, relief="solid", bd=1).grid(row=1, column=0, ipady=3)
+        tk.Entry(xr, textvariable=self.v_xp_pass, show="•", width=20, font=f.body, relief="solid", bd=1).grid(
+            row=1, column=1, ipady=3, padx=(10, 0))
+        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany.", bg=SURFACE, fg=MUTED, font=f.small)
+        self.xp_info.pack(anchor="w")
+        self._xp_old_login = ""
+        if u:
+            def load_xp():
+                try:
+                    rows = app.session.call("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo&email=eq."
+                                            + __import__("urllib.parse").parse.quote(u["email"])) or []
+                except Exception:
+                    rows = []
+                r = rows[0] if rows else {}
+
+                def show():
+                    if not self.winfo_exists():
+                        return
+                    self._xp_old_login = r.get("xp_login") or ""
+                    self.v_xp_login.set(self._xp_old_login)
+                    self.xp_info.config(text="Hasło zapisane – puste pole = bez zmiany." if r.get("xp_haslo")
+                                        else "Brak hasła – wpisz, żeby moduł Oferty opon działał.")
+                app.after(0, show)
+            threading.Thread(target=load_xp, daemon=True).start()
+
         self.msg = tk.Label(self, text="", bg=SURFACE, fg=RED, font=f.small, wraplength=380, justify="left")
         self.msg.pack(anchor="w", pady=(10, 4))
         bar = tk.Frame(self, bg=SURFACE)
@@ -88,6 +121,8 @@ class UserDialog(tk.Toplevel):
             self.msg.config(text="Zaznacz co najmniej jeden moduł i jeden oddział.")
             return
         s, name, active = self.app.session, self.v_name.get().strip(), self.v_active.get()
+        xp_login, xp_pass = self.v_xp_login.get().strip(), self.v_xp_pass.get()
+        xp_change = xp_pass != "" or xp_login != self._xp_old_login
 
         def fn():
             if not self.user:
@@ -99,6 +134,8 @@ class UserDialog(tk.Toplevel):
                 s.set_user(email, name, role, mods, brs, active)
                 if pw:
                     s.admin_fn(action="set_password", email=email, password=pw)
+            if xp_change:
+                s.rpc("oferty_admin_set_konto", p_email=email, p_login=xp_login, p_haslo=xp_pass)
         self._run(fn, f"Zapisano: {email}" + (" – przekaż użytkownikowi hasło." if pw else ""))
 
     def logout(self):
