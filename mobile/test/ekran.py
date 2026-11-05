@@ -40,6 +40,12 @@ with sync_playwright() as p:
         shot("2_oferta"); wide()
         pg.fill("#quick", "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki"); pg.click("#bQ"); pg.wait_for_selector("#resCard:not([hidden]) .prod")
         shot("3_wyniki"); wide()
+        # sezon i klasa z polecenia muszą zadziałać jak w Panelu (błąd 1.0.0: „zimowe” pokazywało też letnie)
+        pg.fill("#quick", "2055516 zimowe premium"); pg.click("#bQ"); pg.wait_for_timeout(500)
+        g = pg.inner_text("#res .grp"); assert "Zimowa" in g and "wszystkie" not in g, g
+        assert pg.locator(".sez.on").count() == 1 and pg.locator(".kl.on").count() == 1, "chipy nie zaznaczone"
+        assert all("Zimowa" in t for t in pg.locator(".prod .t2").all_inner_texts()), "w wynikach są inne sezony"
+        pg.fill("#quick", "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki"); pg.click("#bQ"); pg.wait_for_timeout(500)
         pg.locator(".prod input").first.check(); pg.locator(".prod input").nth(1).check()
         assert pg.is_visible("#selBar"), "brak paska Generuj"
         pg.click("#bO"); pg.wait_for_selector("#outCard:not([hidden]) .vcard")

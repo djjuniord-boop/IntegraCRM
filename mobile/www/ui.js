@@ -49,7 +49,7 @@ async function sprawdzAkt(reczne) {
 }
 
 // ------------------------------------------------ kryteria
-const SEZ = [["letnie", "letnie"], ["zimowe", "zimowe"], ["całoroczne", "całoroczne"]];
+const SEZ = [["Letnia", "letnie"], ["Zimowa", "zimowe"], ["Całoroczna", "całoroczne"]];  // wartości jak w silniku (sezon z xPartner)
 const KL = [["PREMIUM", "premium"], ["MIDDLE", "średnia"], ["BUDGET", "budżet"]];
 function drawChips() {
   $("#cSez").innerHTML = SEZ.map(([v, t]) => `<button class="chip sez" data-v="${v}" onclick="this.classList.toggle('on')">${t}</button>`).join("");
