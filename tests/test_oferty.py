@@ -16,7 +16,8 @@ def _p(pid, name, qty, net, prod, model, sez, klasa, li="91", si="H", ext=None):
             "netto_kat": net, "attrs": attrs, "magazyny": {}}
 
 
-DB = [_p(1, "BRIDGESTONE Z205/55 R16 BLIZZAK 6 91H", 80, 344.10, "BRIDGESTONE", "BLIZZAK 6", "ZIMOWA", "PREMIUM",
+DB = [_p(5, "CONTINENTAL L235/55 R18 ECOCONTACT 6 104V XL DOT2025 DEMO", 4, 300.0, "CONTINENTAL", "", "LETNIA", "PREMIUM"),
+      _p(1, "BRIDGESTONE Z205/55 R16 BLIZZAK 6 91H", 80, 344.10, "BRIDGESTONE", "BLIZZAK 6", "ZIMOWA", "PREMIUM",
          ext={"Przyczepność na mokrej nawierzchni": "B", "Poziom hałasu": "70 dB"}),
       _p(2, "BARUM Z205/55 R16 POLARIS 6 91H", 99, 236.44, "BARUM", "POLARIS 6", "ZIMOWA", "BUDGET"),
       _p(3, "NOKIAN W205/55 R16 SEASONPROOF 2 94V XL", 60, 0.0, "NOKIAN", "SEASONPROOF 2", "CAŁOROCZNA", "PREMIUM"),
@@ -100,3 +101,48 @@ def test_brak_loginu_xpartner():
     importlib.reload(S)
     code, res = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}]})
     assert code == 502 and "administratora" in res["error"]
+
+
+def test_szablon_excel_i_wczytanie():
+    _setup()
+    from openpyxl import load_workbook
+    path = S.szablon_xlsx()
+    wb = load_workbook(path)
+    ws = wb["Pojazdy"]
+    ws.append(["DX1209H", "Skoda", "Superb", "2155517", 2, "SUV", "TAK", "TAK", "TAK"])
+    ws.append(["DX3985C", "Skoda", "Octavia", "205/60 16", 0, "osobowy", "TAK", "TAK", "NIE"])
+    wb.save(path)
+    poj = S.czytaj_xlsx(open(path, "rb").read())
+    assert len(poj) == 3
+    assert poj[1] == {"rej": "DX1209H", "pojazd": "Skoda Superb", "rozmiar": "215/55 R17", "ilosc": 2, "nowe": True,
+                      "wymiana": True, "typ": "suv", "tpms": 2, "przech": "opony"}
+    assert poj[2]["ilosc"] == 0 and poj[2]["przech"] == "" and poj[2]["wymiana"] and poj[2]["tpms"] == 4
+    assert poj[0]["tpms"] == 0 and poj[0]["przech"] == ""
+
+
+def test_inna_tabela_excel():
+    from openpyxl import Workbook
+    import io
+    wb = Workbook()
+    ws = wb.active
+    for r in (["Marka", "Model", "Rejestracja", "Rozmiar", "Wymaga nowych opon"],
+              ["SKODA", "OCTAVIA", "DX1522H", "205/60 R16", "TAK"], ["SKODA", "OCTAVIA", "DX3985C", "205/60 R16", "NIE"]):
+        ws.append(r)
+    b = io.BytesIO()
+    wb.save(b)
+    poj = S.czytaj_xlsx(b.getvalue())
+    assert [(p["rej"], p["ilosc"]) for p in poj] == [("DX1522H", 4), ("DX3985C", 0)]
+
+
+def test_demo_i_indeks_xpartner():
+    _setup()
+    p = S.enrich(S.load_cfg(), DB[0])
+    assert p["demo"] and p["model_oferta"].endswith("DEMO (opona z demontażu)")
+    q = S.parse_quick("2355518 demo")
+    assert q["demo"] == "tylko" and S.parse_quick("2355518 bez demo")["demo"] == "bez"
+    req = {"oid": "1", "pojazdy": [{"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}], "wybor": {"235/55 R18": {"wszystkie": [5]}}}
+    code, res = S.handle("/api/offer", req)
+    assert code == 200 and "DEMO" in res["email"]
+    from openpyxl import load_workbook
+    ws = load_workbook(res["plik"]).active
+    assert ws.cell(4, 7).value == "Indeks xPartner" and ws.cell(5, 7).value == 5 and ws.cell(5, 11).value == "=I5*J5"

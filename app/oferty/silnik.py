@@ -176,7 +176,7 @@ def klasa_of(p, cfg):
 def model_of(p):
     m = p["attrs"].get("Nazwa bieżnika")
     if m: return m.title()
-    n = re.sub(r"^\S+\s+[ZWL]?\d{3}/\d{2}\s*Z?R\d{2}\s*", "", p["nazwa"])
+    n = re.sub(r"\s+(DEMO|DOT\s?\d{4})\b", "", re.sub(r"^\S+\s+[ZWL]?\d{3}/\d{2}\s*Z?R\d{2}\s*", "", p["nazwa"]))
     return re.sub(r"\s+\d{2,3}[A-Z].*$", "", n).title()
 
 def index_of(p):
@@ -225,12 +225,20 @@ def enrich(cfg, p):
     nz = re.search(r"(\d{2})", p["attrs"].get("Poziom hałasu", "") or "")
     p.update(mokra=(p["attrs"].get("Przyczepność na mokrej nawierzchni") or "").strip()[:1].upper(),
              opory=(p["attrs"].get("Opory toczenia") or "").strip()[:1].upper(),
-             halas=int(nz.group(1)) if nz else 0, homol=homol_of(p))
+             halas=int(nz.group(1)) if nz else 0, homol=homol_of(p), demo=is_demo(p))
+    p["model_oferta"] = p["model"] + (" – DEMO (opona z demontażu)" if p["demo"] else "")
     return p
 
 HOMOL = [("MO", r"\bMOE?\b|\bMO1\b|\bMO-S\b", "Mercedes (MO)"), ("AO", r"\bAOE?\b|\bRO[12]\b|\bA8A\b", "Audi (AO/RO)"), ("*", r"\*|\bBMW\b", "BMW (*)"),
          ("N", r"\bN[0-9]\b", "Porsche (N0–N9)"), ("VOL", r"\bVOL\b", "Volvo (VOL)"), ("T0", r"\bT[0O][0-9]?\b", "Tesla (T0)"),
          ("J", r"\bJLR\b|\bJ\b", "Jaguar (J)"), ("LR", r"\bLR\b", "Land Rover (LR)"), ("VW", r"\bVW\b", "VW"), ("FR", r"\b(FR|MFS|FP|RG)\b", "rant ochronny felgi")]
+
+def is_demo(p):
+    """Opona „DEMO” (z demontażu z nowego auta) – w xPartner oznaczona w nazwie albo w cechach."""
+    if re.search(r"\bDEMO\b", p["nazwa"].upper()):
+        return True
+    return any("demont" in (k + " " + str(v)).lower() and str(v).strip().upper() not in ("", "NIE", "0", "FALSE")
+               for k, v in p["attrs"].items())
 
 def homol_of(p):
     src = " ".join([p["nazwa"].upper(), (p["attrs"].get("Homologacja") or "").upper()])
@@ -241,7 +249,7 @@ PLATE_RE = re.compile(r"(?<![A-Z0-9])([A-Z]{1,3})[ -]?([0-9][0-9A-Z]{2,5}|[A-Z]{
 STOP = {"marka", "model", "rejestracja", "rozmiar", "wymaga", "nowych", "opon", "opony", "szt", "sztuk", "tak", "nie", "tylko",
         "wymiana", "wymianę", "wymiane", "auto", "samochód", "samochod", "pojazd", "i", "oraz", "x", "r", "zr", "nr", "rej"}
 
-CRIT_RE = re.compile(r"^(suv|4x4|terenow\w*|dostawcz\w*|bus|van|czujnik\w*|tpms|przechow\w*|k[oó]ł|kola|koła|felg\w*|z|ze|wymian\w*|monta[żz]\w*|przek[łl]ad\w*|premium|prem|[śs]redni\w*|middle|medium|bud[żz]et\w*|budget|ekonom\w*|tani\w*|zim\w*|letn\w*|lato|ca[łl]oroczn\w*|wielosezon\w*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon\w*|opony|michelin|continental|goodyear|good-year|bridgestone|pirelli|nokian|dunlop|hankook|vredestein|yokohama|barum|dębica|debica|kleber|fulda|firestone|bfgoodrich|uniroyal|semperit|kumho|falken|toyo|nexen|sava|kormoran|matador)$", re.I)
+CRIT_RE = re.compile(r"^(demo|bez|suv|4x4|terenow\w*|dostawcz\w*|bus|van|czujnik\w*|tpms|przechow\w*|k[oó]ł|kola|koła|felg\w*|z|ze|wymian\w*|monta[żz]\w*|przek[łl]ad\w*|premium|prem|[śs]redni\w*|middle|medium|bud[żz]et\w*|budget|ekonom\w*|tani\w*|zim\w*|letn\w*|lato|ca[łl]oroczn\w*|wielosezon\w*|runflat|run-?flat|rft|ssr|klas[aey]?|półk[aią]|polk[aią]|sezon\w*|opony|michelin|continental|goodyear|good-year|bridgestone|pirelli|nokian|dunlop|hankook|vredestein|yokohama|barum|dębica|debica|kleber|fulda|firestone|bfgoodrich|uniroyal|semperit|kumho|falken|toyo|nexen|sava|kormoran|matador)$", re.I)
 
 def extras(t):
     """Typ auta, wymiana, TPMS, przechowalnia z dowolnego tekstu."""
@@ -334,7 +342,8 @@ def parse_quick(txt):
     wymiana = ex["wymiana"]
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
     pojazdy = [{"rej": "", "pojazd": "", "rozmiar": s, "ilosc": ilosc, "nowe": True, "wymiana": wymiana, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]} for s in sizes]
-    return {"pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki))}
+    demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
+    return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki))}
 
 def do_search(cfg, req):
     sizes = sorted({norm_size(v["rozmiar"]) for v in req["pojazdy"] if v.get("nowe") and norm_size(v["rozmiar"])})
@@ -394,6 +403,7 @@ def build_offer(cfg, req):
     rows, variants = [], {}
     sep = bool(req.get("osobno"))
     for vi, v in enumerate(req["pojazdy"]):
+        v = {"rej": "", "pojazd": "", **v}
         s = norm_size(v["rozmiar"]) or v["rozmiar"]
         dia = (re.search(r"R(\d{2})", s) or [None, "16"])[1]
         typ = v.get("typ") or "osobowy"
@@ -457,7 +467,7 @@ def write_xlsx(cfg, req, rows, variants):
     from openpyxl import Workbook
     from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
     wb = Workbook(); ws = wb.active; ws.title = "Oferta"
-    hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Czujniki TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
+    hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks xPartner", "Nośność/prędkość", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Czujniki TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
     kl = (req.get("klient") or "").strip()
     ws.append(["OFERTA – opony i usługi" + (" dla: " + kl if kl else "")])
     ws["A1"].font = Font(b=True, size=14)
@@ -476,13 +486,13 @@ def write_xlsx(cfg, req, rows, variants):
         i = ws.max_row + 1; p = r["p"]
         wh = r["wymiana"]
         if p:
-            ws.append([r["rej"], (r["pojazd"] + (" (%s)" % TYPY[r.get("typ")] if r.get("typ") in ("suv", "dostawczy") else "")).strip(), r["rozmiar"], r["rodzaj"], p["producent"].title(), p["model"], p["indeks"], p["cena_brutto"], r["ilosc"], "=H%d*I%d" % (i, i), wh, r["tpms_kw"], r["przech_kw"], "=J%d+K%d+L%d+M%d" % (i, i, i, i), p["dot"], p["ilosc"], "; ".join(x for x in (r["tpms_op"], r["przech_op"]) if x)])
+            ws.append([r["rej"], (r["pojazd"] + (" (%s)" % TYPY[r.get("typ")] if r.get("typ") in ("suv", "dostawczy") else "")).strip(), r["rozmiar"], r["rodzaj"], p["producent"].title(), p["model_oferta"], p["id"], p["indeks"], p["cena_brutto"], r["ilosc"], "=I%d*J%d" % (i, i), wh, r["tpms_kw"], r["przech_kw"], "=K%d+L%d+M%d+N%d" % (i, i, i, i), p["dot"], p["ilosc"], "; ".join(x for x in (r["tpms_op"], r["przech_op"]) if x)])
         else:
-            ws.append([r["rej"], r["pojazd"], r["rozmiar"], r["rodzaj"], None, None, None, None, None, 0, wh, r["tpms_kw"], r["przech_kw"], "=J%d+K%d+L%d+M%d" % (i, i, i, i), None, None, "; ".join(x for x in (r["tpms_op"], r["przech_op"]) if x)])
+            ws.append([r["rej"], r["pojazd"], r["rozmiar"], r["rodzaj"], None, None, None, None, None, None, 0, wh, r["tpms_kw"], r["przech_kw"], "=K%d+L%d+M%d+N%d" % (i, i, i, i), None, None, "; ".join(x for x in (r["tpms_op"], r["przech_op"]) if x)])
         col = palette[regs.index(r["rej"]) % len(palette)]
         for c in ws[i]:
             c.fill = PatternFill("solid", fgColor=col); c.border = B
-            if c.column in (8, 10, 11, 12, 13, 14): c.number_format = money
+            if c.column in (9, 11, 12, 13, 14, 15): c.number_format = money
     for c in ws[HR]:
         c.font = Font(b=True, color="FFFFFFFF"); c.fill = PatternFill("solid", fgColor="FF305496")
         c.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center"); c.border = B
@@ -492,10 +502,10 @@ def write_xlsx(cfg, req, rows, variants):
     for (sez, k), var in sorted(variants.items(), key=lambda kv: vkey(kv[0])):
         r0 += 1
         ws.cell(r0, 1, "Wariant %s – %s" % (vlabel(variants, (sez, k)).upper(), ", ".join(var["modele"]))).font = Font(b=True)
-        for col, val in ((10, var["opony"]), (11, var["wymiana"]), (12, var["tpms_kw"]), (13, var["przech_kw"]), (14, total(var))):
+        for col, val in ((11, var["opony"]), (12, var["wymiana"]), (13, var["tpms_kw"]), (14, var["przech_kw"]), (15, total(var))):
             c = ws.cell(r0, col, round(val, 2)); c.number_format = money; c.border = B
             c.fill = PatternFill("solid", fgColor="FFD9E1F2")
-        ws.cell(r0, 14).font = Font(b=True)
+        ws.cell(r0, 15).font = Font(b=True)
     r0 += 2
     notes = ["Ceny brutto (VAT %g%%). Wymiana obejmuje demontaż, montaż i wyważenie (liczona za każde wymieniane koło)." % cfg["vat_proc"],
              "Ceny i stany pobrane z xPartner: %s." % datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
@@ -503,7 +513,7 @@ def write_xlsx(cfg, req, rows, variants):
              "Ceny ważne %d dni, z zastrzeżeniem dostępności." % cfg["waznosc_dni"]]
     for t in notes:
         ws.cell(r0, 1, t).font = Font(i=True, size=9, color="FF595959"); r0 += 1
-    for col, w in zip("ABCDEFGHIJKLMNOPQ", [11, 18, 12, 13, 13, 26, 10, 13, 6, 14, 14, 13, 13, 15, 7, 9, 40]):
+    for col, w in zip("ABCDEFGHIJKLMNOPQR", [11, 18, 12, 13, 13, 30, 10, 10, 13, 6, 14, 14, 13, 13, 15, 7, 9, 40]):
         ws.column_dimensions[col].width = w
     ws.freeze_panes = "A%d" % (HR + 1)
     os.makedirs(OUT_DIR, exist_ok=True)
@@ -575,14 +585,14 @@ def email_text(cfg, req, rows, variants):
         if per_car:
             for r in by_var.get(key, []):
                 p = r["p"]; kto = " ".join(x for x in (r.get("rej"), r.get("pojazd")) if x) or r["rozmiar"]
-                L.append("• %s: %s %s %s %s – %s brutto/szt. × %d = %s" % (kto, p["producent"].title(), p["model"], r["rozmiar"], p["indeks"], pl(p["cena_brutto"]), r["ilosc"], pl(r["opony"])))
+                L.append("• %s: %s %s %s %s – %s brutto/szt. × %d = %s" % (kto, p["producent"].title(), p["model_oferta"], r["rozmiar"], p["indeks"], pl(p["cena_brutto"]), r["ilosc"], pl(r["opony"])))
         else:
             seen = {}
             for r in by_var.get(key, []):
                 p = r["p"]; kk = (p["id"])
                 seen.setdefault(kk, [p, r["rozmiar"], 0]); seen[kk][2] += r["ilosc"]
             for p, s, q in seen.values():
-                L.append("• %s %s %s %s – %s brutto/szt. × %d = %s" % (p["producent"].title(), p["model"], s, p["indeks"], pl(p["cena_brutto"]), q, pl(p["cena_brutto"] * q)))
+                L.append("• %s %s %s %s – %s brutto/szt. × %d = %s" % (p["producent"].title(), p["model_oferta"], s, p["indeks"], pl(p["cena_brutto"]), q, pl(p["cena_brutto"] * q)))
         parts = []
         if var["opony"]: parts.append("Opony: " + pl(var["opony"]))
         if var["wymiana"]: parts.append("Wymiana: " + pl(var["wymiana"]))
@@ -611,6 +621,121 @@ def email_text(cfg, req, rows, variants):
     return "\n".join(L)
 
 # ---------------------------------------------------------------- HTTP
+
+# ---------------------------------------------------------------- szablon Excel z pojazdami
+SZABLON_KOL = ["Rejestracja", "Marka", "Model", "Rozmiar", "Ilość opon", "Typ auta", "Wymiana", "Czujniki TPMS", "Przechowalnia"]
+
+
+def szablon_xlsx():
+    """Pusty szablon zapytania (lista pojazdów) z listami wyboru i przykładem. Zwraca ścieżkę pliku."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pojazdy"
+    ws.append(SZABLON_KOL)
+    ws.append(["DW5444LW", "Skoda", "Octavia", "205/55 R16", 4, "osobowy", "TAK", "NIE", "NIE"])
+    for c in ws[1]:
+        c.font = Font(b=True, color="FFFFFFFF")
+        c.fill = PatternFill("solid", fgColor="FFE30613")
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for c in ws[2]:
+        c.font = Font(i=True, color="FF7A7A7A")
+    for col, w in zip("ABCDEFGHI", [14, 14, 16, 14, 11, 13, 10, 13, 16]):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+    for rng, lst in (("F2:F500", '"osobowy,SUV,dostawczy"'), ("G2:G500", '"TAK,NIE"'),
+                     ("H2:H500", '"TAK,NIE"'), ("I2:I500", '"TAK,NIE"')):
+        dv = DataValidation(type="list", formula1=lst, allow_blank=True)
+        ws.add_data_validation(dv)
+        dv.add(rng)
+    dv = DataValidation(type="whole", operator="between", formula1="0", formula2="20", allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add("E2:E500")
+    inf = wb.create_sheet("Instrukcja")
+    for line in ("Jak wypełnić:",
+                 "• Jeden pojazd = jeden wiersz w arkuszu „Pojazdy”. Wiersz 2 to przykład – nadpisz go albo usuń.",
+                 "• Rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16 albo 2055516. To jedyna wymagana kolumna.",
+                 "• Ilość opon: 0 = auto tylko na wymianę (bez nowych opon). Puste = 4.",
+                 "• Typ auta (osobowy / SUV / dostawczy) oraz Wymiana, Czujniki TPMS, Przechowalnia (TAK / NIE) – wybierz z listy.",
+                 "• Czujniki TPMS = TAK: czujnik do każdej nowej opony (przy samej wymianie – 4). Przechowalnia = TAK: przechowanie opon.",
+                 "• Zapisz plik i w programie kliknij „📤 Wczytaj z Excela”."):
+        inf.append([line])
+    inf.column_dimensions["A"].width = 100
+    inf["A1"].font = Font(b=True, size=13)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    path = os.path.join(OUT_DIR, "Szablon_zapytania_opony.xlsx")
+    try:
+        wb.save(path)
+    except PermissionError:   # plik otwarty w Excelu
+        path = os.path.join(OUT_DIR, "Szablon_zapytania_opony_%s.xlsx" % datetime.datetime.now().strftime("%H%M%S"))
+        wb.save(path)
+    return path
+
+
+def _norm_head(h):
+    return re.sub(r"[^a-ząćęłńóśźż]", "", str(h or "").lower())
+
+
+def czytaj_xlsx(data: bytes):
+    """Pojazdy z pliku Excel: najpierw po nagłówkach (szablon albo podobna tabela), inaczej każdy wiersz jak tekst."""
+    import io
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    ws = wb["Pojazdy"] if "Pojazdy" in wb.sheetnames else wb.worksheets[0]
+    rows = [["" if v is None else str(v).strip() for v in r] for r in ws.iter_rows(values_only=True)]
+    rows = [r for r in rows if any(r)]
+    if not rows:
+        return []
+    alias = {"rej": ("rejestracja", "nrrej", "nrrejestracyjny", "numerrejestracyjny", "tablica", "rej"),
+             "marka": ("marka", "producentauta"), "model": ("model", "pojazd", "samochód", "samochod", "auto"),
+             "rozmiar": ("rozmiar", "rozmiaropon", "rozmiaropony", "opony", "opona"),
+             "ilosc": ("iloscopon", "ilośćopon", "ilosc", "ilość", "szt", "sztuk"),
+             "typ": ("typauta", "typ", "rodzajauta"), "wym": ("wymiana", "montaż", "montaz"),
+             "tpms": ("czujnikitpms", "tpms", "czujniki"), "przech": ("przechowalnia", "depozyt"),
+             "tak": ("wymaganowychopon", "noweopony", "nowe")}
+    head = [_norm_head(h) for h in rows[0]]
+    col = {}
+    for key, names in alias.items():
+        for i, h in enumerate(head):
+            if h in names and i not in col.values():
+                col[key] = i
+                break
+    out = []
+    if "rozmiar" in col:
+        for r in rows[1:]:
+            g = lambda k: r[col[k]] if k in col and col[k] < len(r) else ""
+            size = norm_size(g("rozmiar"))
+            if not size:
+                continue
+            il_txt = g("ilosc")
+            try:
+                il = int(float(il_txt.replace(",", "."))) if il_txt != "" else 4
+            except ValueError:
+                il = 4
+            if g("tak").upper() == "NIE":
+                il = 0
+            typ = g("typ").lower()
+            typ = "suv" if ("suv" in typ or "4x4" in typ) else "dostawczy" if "dostaw" in typ else "osobowy"
+            pr = g("przech").lower()
+            pr = ("kola" if pr.startswith(("koł", "kol")) else "opony" if pr.startswith(("opon", "tak", "t", "1", "x"))
+                  and not pr.startswith("tr") else "")
+            tv = g("tpms").strip().upper()
+            if tv in ("TAK", "T", "X", "PRAWDA", "TRUE"):
+                tp = il if il > 0 else 4
+            else:
+                try:
+                    tp = max(0, min(8, int(float(tv.replace(",", ".") or 0))))
+                except ValueError:
+                    tp = 0
+            wym = g("wym").upper() in ("TAK", "T", "1", "X", "PRAWDA", "TRUE") or (il == 0 and g("tak").upper() == "NIE")
+            pojazd = " ".join(x.title() if not (len(x) <= 3 and x.isalpha()) else x.upper() for x in (g("marka"), g("model")) if x)
+            out.append({"rej": re.sub(r"\s+", "", g("rej")).upper(), "pojazd": pojazd, "rozmiar": size, "ilosc": il,
+                        "nowe": il > 0, "wymiana": wym, "typ": typ, "tpms": tp, "przech": pr})
+        return out
+    return parse_request_text("\n".join(" ".join(r) for r in rows))
+
 
 # ---------------------------------------------------------------- obsługa poleceń strony (window.pywebview.api.call)
 class Odpowiedz(Exception):
@@ -665,6 +790,20 @@ def handle(path, body=None, open_path=None):
             return 200, {"ok": True, "msg": "Połączono z xPartner. Przykładowe zapytanie zwróciło %d produktów." % count}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
+        if route == "/api/szablon":
+            path_s = szablon_xlsx()
+            if open_path:
+                open_path(path_s)
+            return 200, {"plik": path_s}
+        if route == "/api/xlsx":
+            import base64
+            try:
+                poj = czytaj_xlsx(base64.b64decode(body.get("b64", "")))
+            except Exception:
+                return 400, {"error": "Nie udało się odczytać pliku – zapisz go w Excelu jako .xlsx (np. z szablonu)."}
+            if not poj:
+                return 400, {"error": "W pliku nie znalazłem żadnego rozmiaru opony (np. 205/55 R16). Użyj szablonu."}
+            return 200, {"pojazdy": poj}
         if route == "/api/parse":
             txt = body.get("text", "")
             q = parse_quick(txt)
