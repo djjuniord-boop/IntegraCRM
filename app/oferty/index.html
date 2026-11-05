@@ -58,8 +58,8 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 skoda octavia 2055516 dw5444lw
 superb 215/55 17 DX1209H 4 szt
 DX3985C octavia 205/60 16 tylko wymiana
-(albo wklej tabelę z maila: Marka / Model / Rejestracja / Rozmiar / TAK-NIE)" onkeydown="if(event.key==='Enter'&&event.ctrlKey)parsePaste()"></textarea>
-<div class="row" style="margin:8px 0"><button onclick="parsePaste()">Wczytaj pojazdy</button><button class="sec" onclick="clearAll()">🧹 Wyczyść wszystko</button><span style="font-size:12px;color:var(--muted);align-self:center">Ctrl+Enter</span><button class="sec" onclick="addRow()">+ Dodaj pojazd</button></div>
+(albo wklej tabelę z maila, albo przeciągnij tu plik Excel z szablonu)" onkeydown="if(event.key==='Enter'&&event.ctrlKey)parsePaste()"></textarea>
+<div class="row" style="margin:8px 0"><button onclick="parsePaste()">Wczytaj pojazdy</button><button class="sec" onclick="api('/api/szablon',{}).catch(e=>alert(e.message))" title="Pobiera pusty arkusz Excel do wypełnienia (rejestracja, marka, model, rozmiar…)">📥 Szablon Excel</button><label class="sec xbtn" title="Wczytuje wypełniony szablon Excel">📤 Wczytaj z Excela<input type="file" accept=".xlsx,.xlsm" style="display:none" onchange="loadXlsx(this.files[0]);this.value=''"></label><button class="sec" onclick="clearAll()">🧹 Wyczyść wszystko</button><span style="font-size:12px;color:var(--muted);align-self:center">Ctrl+Enter</span><button class="sec" onclick="addRow()">+ Dodaj pojazd</button></div>
 <table id="veh"><thead><tr><th>Rejestracja</th><th>Pojazd</th><th>Typ</th><th>Rozmiar</th><th>Ilość opon</th><th>Wymiana</th><th>Czujniki TPMS</th><th>Przechowalnia</th><th></th></tr></thead><tbody></tbody></table>
 </div>
 <div class="card"><h2><span class="n">2</span>Kryteria</h2>
@@ -107,6 +107,8 @@ DX3985C octavia 205/60 16 tylko wymiana
 .fbar label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
 th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th.s.on{color:var(--red)}
 .pr-in{width:120px!important;text-align:right;font-weight:600}.pr-in.man{border-color:var(--red);background:#fff1f1}
+.xbtn,.row label.xbtn{display:inline-flex;flex-direction:row;gap:4px;align-items:center;font-weight:500;padding:8px 16px;border-radius:6px;border:1px solid #cfcfcf;background:#fff;color:#111;cursor:pointer;font-size:14px}.xbtn:hover{background:#EFEFEF}
+#paste.drag{border-color:var(--red);background:#fff1f1}
 .wtabs{display:flex;gap:6px;margin-bottom:8px}.wtabs .on{background:#141414;color:#fff;border-color:#141414}
 .wgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
 .wgrid .w{border:1px solid var(--line);border-radius:8px;padding:6px 8px;text-align:center;background:#fafafa}
@@ -154,6 +156,11 @@ async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/
 }catch(e){msg('#qMsg',e.message,1)}b.disabled=false}
 function addRow(v={}){v=Object.assign({rej:'',pojazd:'',rozmiar:'',ilosc:4,wymiana:false,typ:'osobowy',tpms:0,przech:''},v);const tr=document.createElement('tr');const o=(a,b,c)=>`<option value="${a}" ${c===a?'selected':''}>${b}</option>`;tr.innerHTML=`<td><input class="rej" value="${esc(v.rej)}"></td><td><input class="poj" value="${esc(v.pojazd)}"></td><td><select class="typ">${o('osobowy','osobowy',v.typ)}${o('suv','SUV / 4x4',v.typ)}${o('dostawczy','dostawczy',v.typ)}</select></td><td><input class="roz" value="${esc(v.rozmiar)}" placeholder="205/60 R16"></td><td><input class="il" type="number" value="${v.ilosc??4}" min="0" style="width:64px" title="0 = bez nowych opon"></td><td><input type="checkbox" class="wym" ${v.wymiana?'checked':''} style="width:auto"></td><td><input class="tp" type="number" min="0" max="8" value="${v.tpms||0}" style="width:60px"></td><td><select class="pr">${o('','—',v.przech)}${o('opony','opony',v.przech)}${o('kola','koła (z felgami)',v.przech)}</select></td><td><button class="sec" onclick="this.closest('tr').remove()">✕</button></td>`;$('#veh tbody').append(tr)}
 function vehicles(){return[...document.querySelectorAll('#veh tbody tr')].map(t=>({rej:t.querySelector('.rej').value.trim(),pojazd:t.querySelector('.poj').value.trim(),rozmiar:t.querySelector('.roz').value.trim(),ilosc:+t.querySelector('.il').value||0,nowe:(+t.querySelector('.il').value||0)>0,wymiana:t.querySelector('.wym').checked,typ:t.querySelector('.typ').value,tpms:+t.querySelector('.tp').value||0,przech:t.querySelector('.pr').value})).filter(v=>v.rozmiar)}
+async function loadXlsx(f){if(!f)return;if(!/\.xls[xm]$/i.test(f.name))return alert('Wybierz plik Excel .xlsx (najlepiej z szablonu).');
+ const b64=await new Promise((ok,er)=>{const r=new FileReader();r.onload=()=>ok(String(r.result).split(',')[1]);r.onerror=er;r.readAsDataURL(f)});
+ try{const j=await api('/api/xlsx',{b64});const rows=[...document.querySelectorAll('#veh tbody tr')];if(rows.length==1&&!vehicles().length)rows[0].remove();j.pojazdy.forEach(addRow);msg('#qMsg','Wczytano z Excela: '+j.pojazdy.length+' poj.')}catch(e){alert(e.message)}}
+document.addEventListener('DOMContentLoaded',()=>{const t=$('#paste');if(!t)return;t.addEventListener('dragover',e=>{e.preventDefault();t.classList.add('drag')});t.addEventListener('dragleave',()=>t.classList.remove('drag'));
+ t.addEventListener('drop',e=>{const f=e.dataTransfer.files&&e.dataTransfer.files[0];t.classList.remove('drag');if(f){e.preventDefault();loadXlsx(f)}})});
 async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').value});if(!j.pojazdy.length)return alert('Nie znalazłem rozmiaru opony w żadnej linii (np. 205/55 R16 albo 2055516).');
  const rows=[...document.querySelectorAll('#veh tbody tr')];if(rows.length==1&&!vehicles().length)rows[0].remove();j.pojazdy.forEach(addRow);$('#paste').value='';
  const k=j.kryteria;if(k.sezony.length)document.querySelectorAll('.sez').forEach(c=>c.checked=k.sezony.includes(c.value));

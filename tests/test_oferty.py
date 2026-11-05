@@ -100,3 +100,33 @@ def test_brak_loginu_xpartner():
     importlib.reload(S)
     code, res = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}]})
     assert code == 502 and "administratora" in res["error"]
+
+
+def test_szablon_excel_i_wczytanie():
+    _setup()
+    from openpyxl import load_workbook
+    path = S.szablon_xlsx()
+    wb = load_workbook(path)
+    ws = wb["Pojazdy"]
+    ws.append(["DX1209H", "Skoda", "Superb", "2155517", 2, "SUV/4x4", "TAK", 4, "koła"])
+    ws.append(["DX3985C", "Skoda", "Octavia", "205/60 16", 0, "osobowy", "TAK", "", "brak"])
+    wb.save(path)
+    poj = S.czytaj_xlsx(open(path, "rb").read())
+    assert len(poj) == 3
+    assert poj[1] == {"rej": "DX1209H", "pojazd": "Skoda Superb", "rozmiar": "215/55 R17", "ilosc": 2, "nowe": True,
+                      "wymiana": True, "typ": "suv", "tpms": 4, "przech": "kola"}
+    assert poj[2]["ilosc"] == 0 and poj[2]["przech"] == "" and poj[2]["wymiana"]
+
+
+def test_inna_tabela_excel():
+    from openpyxl import Workbook
+    import io
+    wb = Workbook()
+    ws = wb.active
+    for r in (["Marka", "Model", "Rejestracja", "Rozmiar", "Wymaga nowych opon"],
+              ["SKODA", "OCTAVIA", "DX1522H", "205/60 R16", "TAK"], ["SKODA", "OCTAVIA", "DX3985C", "205/60 R16", "NIE"]):
+        ws.append(r)
+    b = io.BytesIO()
+    wb.save(b)
+    poj = S.czytaj_xlsx(b.getvalue())
+    assert [(p["rej"], p["ilosc"]) for p in poj] == [("DX1522H", 4), ("DX3985C", 0)]

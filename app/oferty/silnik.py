@@ -612,6 +612,116 @@ def email_text(cfg, req, rows, variants):
 
 # ---------------------------------------------------------------- HTTP
 
+# ---------------------------------------------------------------- szablon Excel z pojazdami
+SZABLON_KOL = ["Rejestracja", "Marka", "Model", "Rozmiar", "Ilość opon", "Typ auta", "Wymiana", "Czujniki TPMS", "Przechowalnia"]
+
+
+def szablon_xlsx():
+    """Pusty szablon zapytania (lista pojazdów) z listami wyboru i przykładem. Zwraca ścieżkę pliku."""
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.worksheet.datavalidation import DataValidation
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Pojazdy"
+    ws.append(SZABLON_KOL)
+    ws.append(["DW5444LW", "Skoda", "Octavia", "205/55 R16", 4, "osobowy", "TAK", 0, "brak"])
+    for c in ws[1]:
+        c.font = Font(b=True, color="FFFFFFFF")
+        c.fill = PatternFill("solid", fgColor="FFE30613")
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for c in ws[2]:
+        c.font = Font(i=True, color="FF7A7A7A")
+    for col, w in zip("ABCDEFGHI", [14, 14, 16, 14, 11, 13, 10, 13, 16]):
+        ws.column_dimensions[col].width = w
+    ws.freeze_panes = "A2"
+    for rng, lst in (("F2:F500", '"osobowy,SUV/4x4,dostawczy"'), ("G2:G500", '"TAK,NIE"'),
+                     ("I2:I500", '"brak,opony,koła"')):
+        dv = DataValidation(type="list", formula1=lst, allow_blank=True)
+        ws.add_data_validation(dv)
+        dv.add(rng)
+    dv = DataValidation(type="whole", operator="between", formula1="0", formula2="20", allow_blank=True)
+    ws.add_data_validation(dv)
+    dv.add("E2:E500")
+    dv.add("H2:H500")
+    inf = wb.create_sheet("Instrukcja")
+    for line in ("Jak wypełnić:",
+                 "• Jeden pojazd = jeden wiersz w arkuszu „Pojazdy”. Wiersz 2 to przykład – nadpisz go albo usuń.",
+                 "• Rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16 albo 2055516. To jedyna wymagana kolumna.",
+                 "• Ilość opon: 0 = auto tylko na wymianę (bez nowych opon). Puste = 4.",
+                 "• Typ auta, Wymiana, Przechowalnia – wybierz z listy (strzałka w komórce).",
+                 "• Zapisz plik i w programie kliknij „📤 Wczytaj z Excela”."):
+        inf.append([line])
+    inf.column_dimensions["A"].width = 100
+    inf["A1"].font = Font(b=True, size=13)
+    os.makedirs(OUT_DIR, exist_ok=True)
+    path = os.path.join(OUT_DIR, "Szablon_zapytania_opony.xlsx")
+    try:
+        wb.save(path)
+    except PermissionError:   # plik otwarty w Excelu
+        path = os.path.join(OUT_DIR, "Szablon_zapytania_opony_%s.xlsx" % datetime.datetime.now().strftime("%H%M%S"))
+        wb.save(path)
+    return path
+
+
+def _norm_head(h):
+    return re.sub(r"[^a-ząćęłńóśźż]", "", str(h or "").lower())
+
+
+def czytaj_xlsx(data: bytes):
+    """Pojazdy z pliku Excel: najpierw po nagłówkach (szablon albo podobna tabela), inaczej każdy wiersz jak tekst."""
+    import io
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    ws = wb["Pojazdy"] if "Pojazdy" in wb.sheetnames else wb.worksheets[0]
+    rows = [["" if v is None else str(v).strip() for v in r] for r in ws.iter_rows(values_only=True)]
+    rows = [r for r in rows if any(r)]
+    if not rows:
+        return []
+    alias = {"rej": ("rejestracja", "nrrej", "nrrejestracyjny", "numerrejestracyjny", "tablica", "rej"),
+             "marka": ("marka", "producentauta"), "model": ("model", "pojazd", "samochód", "samochod", "auto"),
+             "rozmiar": ("rozmiar", "rozmiaropon", "rozmiaropony", "opony", "opona"),
+             "ilosc": ("iloscopon", "ilośćopon", "ilosc", "ilość", "szt", "sztuk"),
+             "typ": ("typauta", "typ", "rodzajauta"), "wym": ("wymiana", "montaż", "montaz"),
+             "tpms": ("czujnikitpms", "tpms", "czujniki"), "przech": ("przechowalnia", "depozyt"),
+             "tak": ("wymaganowychopon", "noweopony", "nowe")}
+    head = [_norm_head(h) for h in rows[0]]
+    col = {}
+    for key, names in alias.items():
+        for i, h in enumerate(head):
+            if h in names and i not in col.values():
+                col[key] = i
+                break
+    out = []
+    if "rozmiar" in col:
+        for r in rows[1:]:
+            g = lambda k: r[col[k]] if k in col and col[k] < len(r) else ""
+            size = norm_size(g("rozmiar"))
+            if not size:
+                continue
+            il_txt = g("ilosc")
+            try:
+                il = int(float(il_txt.replace(",", "."))) if il_txt != "" else 4
+            except ValueError:
+                il = 4
+            if g("tak").upper() == "NIE":
+                il = 0
+            typ = g("typ").lower()
+            typ = "suv" if ("suv" in typ or "4x4" in typ) else "dostawczy" if "dostaw" in typ else "osobowy"
+            pr = g("przech").lower()
+            pr = "kola" if pr.startswith(("koł", "kol", "k")) and "brak" not in pr else "opony" if pr.startswith("opon") else ""
+            try:
+                tp = max(0, min(8, int(float(g("tpms").replace(",", ".") or 0))))
+            except ValueError:
+                tp = 0
+            wym = g("wym").upper() in ("TAK", "T", "1", "X", "PRAWDA", "TRUE") or (il == 0 and g("tak").upper() == "NIE")
+            pojazd = " ".join(x.title() if not (len(x) <= 3 and x.isalpha()) else x.upper() for x in (g("marka"), g("model")) if x)
+            out.append({"rej": re.sub(r"\s+", "", g("rej")).upper(), "pojazd": pojazd, "rozmiar": size, "ilosc": il,
+                        "nowe": il > 0, "wymiana": wym, "typ": typ, "tpms": tp, "przech": pr})
+        return out
+    return parse_request_text("\n".join(" ".join(r) for r in rows))
+
+
 # ---------------------------------------------------------------- obsługa poleceń strony (window.pywebview.api.call)
 class Odpowiedz(Exception):
     def __init__(self, code, body):
@@ -665,6 +775,20 @@ def handle(path, body=None, open_path=None):
             return 200, {"ok": True, "msg": "Połączono z xPartner. Przykładowe zapytanie zwróciło %d produktów." % count}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
+        if route == "/api/szablon":
+            path_s = szablon_xlsx()
+            if open_path:
+                open_path(path_s)
+            return 200, {"plik": path_s}
+        if route == "/api/xlsx":
+            import base64
+            try:
+                poj = czytaj_xlsx(base64.b64decode(body.get("b64", "")))
+            except Exception:
+                return 400, {"error": "Nie udało się odczytać pliku – zapisz go w Excelu jako .xlsx (np. z szablonu)."}
+            if not poj:
+                return 400, {"error": "W pliku nie znalazłem żadnego rozmiaru opony (np. 205/55 R16). Użyj szablonu."}
+            return 200, {"pojazdy": poj}
         if route == "/api/parse":
             txt = body.get("text", "")
             q = parse_quick(txt)

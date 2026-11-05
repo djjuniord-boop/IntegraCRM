@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.1"
+VERSION = "0.23.2"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.23.2",
+        "date": "2026-11-05",
+        "changes": [
+            "OFERTY OPON: przycisk „📥 Szablon Excel” – gotowy arkusz do wypełnienia (rejestracja, marka, model, rozmiar, "
+            "ilość, typ auta, wymiana, czujniki TPMS, przechowalnia) z listami wyboru i instrukcją",
+            "OFERTY OPON: „📤 Wczytaj z Excela” albo przeciągnięcie pliku na pole zapytania – pojazdy wpisują się do tabeli; "
+            "działa też z inną tabelą, jeśli ma kolumnę z rozmiarem",
+        ],
+    },
     {
         "version": "0.23.1",
         "date": "2026-11-05",
