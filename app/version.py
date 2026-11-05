@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.3"
+VERSION = "0.23.4"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,18 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.23.4",
+        "date": "2026-11-05",
+        "changes": [
+            "OFERTY OPON: szybkie polecenie rozpoznaje wszystkie marki opon (także Sailun, Roadx, Triangle, Windforce… "
+            "i każdą markę, która pojawi się w wynikach) oraz skróty, np. „conti” = Continental – wyniki pokazują tylko "
+            "wybraną markę",
+            "OFERTY OPON: wszystkie marki z wyszukiwarki xPartner (ok. 100) – także w oknie wyboru producentów; "
+            "szybkie polecenie poprawia literówki (np. „silun” = Sailun, „rodx” = Roadx, „hankuk” = Hankook) "
+            "i rozumie marki dwuczłonowe („ling long”, „gt radial”, „vk tyre”)",
+        ],
+    },
     {
         "version": "0.23.3",
         "date": "2026-11-05",
