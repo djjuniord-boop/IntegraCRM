@@ -158,3 +158,16 @@ def test_marka_z_listy_i_wyszukiwanie_po_marce():
     assert [p["producent"] for g in r["wyniki"]["205/55 R16"].values() for p in g] == ["BARUM"]
     v = S.parse_request_text("skoda octavia 2055516 dw5444lw sailun")[0]
     assert v["pojazd"] == "Skoda Octavia"
+
+
+def test_literowki_i_skroty_marek():
+    S.ucz_marki()
+    for w, m in (("silun", "SAILUN"), ("rodx", "ROADX"), ("conti", "CONTINENTAL"), ("brigestone", "BRIDGESTONE"),
+                 ("hankuk", "HANKOOK"), ("michlein", "MICHELIN"), ("goodyar", "GOODYEAR"), ("debica", "DĘBICA"),
+                 ("vredstein", "VREDESTEIN"), ("winforce", "WINDFORCE"), ("bfg", "BFGOODRICH")):
+        assert S.brand_of_word(w) == m, w
+    for w in ("passat", "tiguan", "octavia", "skoda", "toyota", "zimowe", "transit", "ducato"):
+        assert S.brand_of_word(w) == "", w
+    assert S.parse_quick("2055516 ling long")["producenci"] == "LINGLONG"
+    v = S.parse_request_text("vw passat 2055516 dw5444lw silun")[0]
+    assert v["pojazd"] == "VW Passat"

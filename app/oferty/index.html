@@ -204,6 +204,7 @@ const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGE
 const bk=x=>String(x||'').toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g,'');
 function brandGroups(){const g={PREMIUM:new Set(CFG.premium||[]),MIDDLE:new Set(CFG.srednie||[]),BUDGET:new Set(CFG.budzet||[])};
  const known=new Set([...g.PREMIUM,...g.MIDDLE,...g.BUDGET].map(bk));
+ for(const m of(CFG.marki_xp||[]))if(!known.has(bk(m))){known.add(bk(m));g.BUDGET.add(m)}
  if(RES)for(const gr of Object.values(RES.wyniki))for(const l of Object.values(gr))for(const p of l)if(!known.has(bk(p.producent))){known.add(bk(p.producent));(g[p.klasa]||g.BUDGET).add(p.producent)}
  return g}
 function openProd(){PSEL=new Set($('#prod').value.split(',').map(x=>x.trim().toUpperCase()).filter(Boolean));$('#pSearch').value='';drawProd();pdlg.showModal()}

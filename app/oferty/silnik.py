@@ -282,7 +282,7 @@ def parse_free_line(line):
         cand = m.group(1) + m.group(2)
         if any(c.isdigit() for c in cand) and 4 <= len(cand) <= 8 and not re.fullmatch(r"\d+", m.group(2)) or (len(m.group(1)) >= 2 and len(cand) >= 5):
             reg = cand; rest = rest[:m.start()] + " " + rest[m.end():]; break
-    words = [w for w in re.split(r"[\s,;/|\t]+", rest) if w and w.lower() not in STOP and not re.fullmatch(r"[\d.,]+", w) and not CRIT_RE.match(w) and not (bkey(w) in MARKI and len(bkey(w)) >= 4)]
+    words = [w for w in re.split(r"[\s,;/|\t]+", rest) if w and w.lower() not in STOP and not re.fullmatch(r"[\d.,]+", w) and not CRIT_RE.match(w) and not brand_of_word(w)]
     ex = extras(line)
     return {"rej": reg, "pojazd": " ".join(_cap(w.lower()) for w in words), "rozmiar": sizes[0], "nowe": il > 0, "ilosc": il,
             "wymiana": ex["wymiana"] or only_swap, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]}
@@ -322,30 +322,86 @@ def parse_request_table(txt):
     return recs
 
 # marki opon: listy z ustawień (premium / średnie / budżet) + popularne + producenci widziani w wynikach
-MARKI_STALE = ["MICHELIN", "CONTINENTAL", "GOODYEAR", "BRIDGESTONE", "PIRELLI", "NOKIAN", "DUNLOP", "HANKOOK", "VREDESTEIN",
-               "YOKOHAMA", "BARUM", "DĘBICA", "KLEBER", "FULDA", "FIRESTONE", "BFGOODRICH", "UNIROYAL", "SEMPERIT", "KUMHO",
-               "FALKEN", "TOYO", "NEXEN", "SAVA", "KORMORAN", "MATADOR", "SAILUN", "ROADX", "TRIANGLE", "LASSA", "GENERAL",
-               "LAUFENN", "MAXXIS", "PETLAS", "LINGLONG", "NANKANG", "TRACMAX", "WINDFORCE", "FORTUNE", "POWERTRAC", "OPTIMO",
-               "KENDA", "GISLAVED", "VIKING", "TIGAR", "RIKEN", "STRIAL", "ORIUM", "TAURUS", "HIFLY", "GRIPMAX", "COOPER",
-               "ZEETEX", "ROTALLA", "IMPERIAL", "MARSHAL", "GOODRIDE", "WESTLAKE", "APLUS", "MINERVA", "DAVANTI", "ARIVO"]
-MARKI = set(bkey(m) for m in MARKI_STALE)
-_ALIAS = {"GOODYEAR": "GOODYEAR", "GOOD-YEAR": "GOODYEAR", "DEBICA": "DĘBICA", "BFG": "BFGOODRICH"}
+# marki opon z wyszukiwarki xPartner (listopad 2026) + producenci widziani w wynikach i z list w Ustawieniach
+MARKI_STALE = [
+    "BRIDGESTONE", "CONTINENTAL", "DUNLOP", "GOODYEAR", "METZELER", "MICHELIN", "NOKIAN", "PIRELLI", "PROMETEON",
+    "TRELLEBORG", "VREDESTEIN", "YOKOHAMA", "BFGOODRICH", "TOYO", "ALLIANCE", "SOLIDEAL", "NEXEN", "MITAS", "MAXAM",
+    "KUMHO", "HANKOOK", "GENERAL", "FULDA", "FIRESTONE", "FALKEN", "COOPER", "CAMSO", "UNIROYAL", "KLEBER", "SAILUN",
+    "ROADX", "OPTIMO", "TRACMAX", "TRIANGLE", "FORTUNE", "WINDFORCE", "POWERTRAC", "DĘBICA", "BARUM", "GLOBGUM2",
+    "KABAT", "KENDA", "LANVIGATOR", "MAXXIS", "PETLAS", "ROADHIKER", "STARMAXX", "TBBTIRES", "TRAXMAX", "TRAYAL",
+    "TRAZANO", "VK TYRE", "APLUS", "ANTEO", "ATF", "CHIŃSKIE", "COMPASAL", "CST", "CULTOR", "DEESTONE", "DELI",
+    "DYNAMAXX", "GISLAVED", "GITI", "GT RADIAL", "KORMORAN", "LEAO", "LING LONG", "MARCHER", "MATADOR", "MONTANA",
+    "NANKANG", "NEUMASTER", "PMT", "RIKEN", "ROSAVA", "SAVA", "STARCO", "TAURUS", "TECHSHIELD", "TIGAR", "VEE RUBBER",
+    "VIKING", "SEMPERIT", "LASSA", "LAUFENN", "HIFLY", "GRIPMAX", "ZEETEX", "ROTALLA", "IMPERIAL", "MARSHAL",
+    "GOODRIDE", "WESTLAKE", "MINERVA", "DAVANTI", "ARIVO", "LINGLONG", "STRIAL", "ORIUM", "NORDEXX"]
+MARKI = set()
+_ALIAS = {"GOODYEAR": "GOODYEAR", "GOODYER": "GOODYEAR", "GY": "GOODYEAR", "DEBICA": "DĘBICA", "BFG": "BFGOODRICH",
+          "CONTI": "CONTINENTAL", "BRIDGE": "BRIDGESTONE", "BS": "BRIDGESTONE", "MICH": "MICHELIN", "PIRA": "PIRELLI",
+          "LINGLONG": "LINGLONG", "GTRADIAL": "GTRADIAL", "VK": "VKTYRE", "CHINSKIE": "CHIŃSKIE", "CHINSKA": "CHIŃSKIE"}
 
 
 def ucz_marki(cfg=None, nazwy=()):
-    for m in list((cfg or {}).get("premium", [])) + list((cfg or {}).get("srednie", [])) + list((cfg or {}).get("budzet", [])) + list(nazwy):
-        if m:
+    for m in list(MARKI_STALE) + list((cfg or {}).get("premium", [])) + list((cfg or {}).get("srednie", [])) \
+            + list((cfg or {}).get("budzet", [])) + list(nazwy):
+        if m and len(bkey(m)) >= 2:
             MARKI.add(bkey(m))
 
 
+def _odl(a, b, limit=2):
+    """Odległość edycyjna (z zamianą sąsiednich liter), przerywana po przekroczeniu limitu."""
+    if abs(len(a) - len(b)) > limit:
+        return limit + 1
+    d = [[0] * (len(b) + 1) for _ in range(len(a) + 1)]
+    for i in range(len(a) + 1):
+        d[i][0] = i
+    for j in range(len(b) + 1):
+        d[0][j] = j
+    for i in range(1, len(a) + 1):
+        for j in range(1, len(b) + 1):
+            c = 0 if a[i - 1] == b[j - 1] else 1
+            d[i][j] = min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c)
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+    return d[-1][-1]
+
+
+_NIE_MARKI = {"ZIMA", "ZIMOWE", "LATO", "LETNIE", "OPONY", "OPONA", "PREMIUM", "SREDNIA", "ŚREDNIA", "BUDZET", "BUDŻET",
+              "WYMIANA", "DEMO", "RUNFLAT", "TYLKO", "PRZECHOWALNIA", "CZUJNIKI", "SZTUK", "OFERTA", "OFERTY", "TOYOTA",
+              "OSOBOWY", "DOSTAWCZY", "KOMPLET", "FELGI", "FELGAMI",
+              # marki i modele aut – nie mogą „podobieństwem” wpaść w marki opon
+              "SKODA", "OCTAVIA", "SUPERB", "FABIA", "KAMIQ", "KAROQ", "KODIAQ", "SCALA", "RAPID", "ENYAQ", "VOLKSWAGEN",
+              "PASSAT", "TIGUAN", "TOURAN", "GOLF", "POLO", "ARTEON", "TRANSPORTER", "CRAFTER", "CADDY", "AMAROK", "TAIGO",
+              "TROC", "AUDI", "BMW", "MERCEDES", "SPRINTER", "VITO", "VIANO", "TOYOTA", "YARIS", "COROLLA", "AURIS", "AVENSIS",
+              "RAV4", "CHR", "HILUX", "PROACE", "OPEL", "ASTRA", "CORSA", "INSIGNIA", "MOKKA", "VIVARO", "MOVANO", "ZAFIRA",
+              "FORD", "FOCUS", "FIESTA", "MONDEO", "KUGA", "TRANSIT", "CUSTOM", "PUMA", "RANGER", "RENAULT", "CLIO", "MEGANE",
+              "CAPTUR", "KADJAR", "TRAFIC", "MASTER", "KANGOO", "DACIA", "DUSTER", "SANDERO", "LOGAN", "JOGGER", "PEUGEOT",
+              "PARTNER", "EXPERT", "BOXER", "CITROEN", "BERLINGO", "JUMPER", "JUMPY", "FIAT", "DUCATO", "DOBLO", "TIPO",
+              "PANDA", "HYUNDAI", "TUCSON", "KONA", "I30", "SANTA", "KIA", "CEED", "SPORTAGE", "NIRO", "SORENTO", "PICANTO",
+              "MAZDA", "HONDA", "CIVIC", "NISSAN", "QASHQAI", "JUKE", "XTRAIL", "NAVARA", "VOLVO", "SEAT", "LEON", "IBIZA",
+              "ATECA", "ARONA", "CUPRA", "FORMENTOR", "SUZUKI", "VITARA", "SWIFT", "MITSUBISHI", "OUTLANDER", "TESLA",
+              "LEXUS", "JEEP", "SUBARU", "PORSCHE", "LAND", "ROVER", "MINI", "IVECO", "DAILY", "MAN", "SCANIA"}
+
+
 def brand_of_word(w):
-    k = bkey(_ALIAS.get(w.upper(), w))
-    if len(k) < 3:
+    """Marka z wpisanego słowa: dokładnie, skrót (np. „conti”), początek nazwy (≥4 litery) albo literówka
+    (1 błąd przy krótkich nazwach, 2 przy dłuższych – np. „silun” → SAILUN, „rodx” → ROADX)."""
+    if not MARKI:
+        ucz_marki()
+    k = bkey(_ALIAS.get(bkey(w), w))
+    if len(k) < 3 or k in _NIE_MARKI:
         return ""
     if k in MARKI:
         return k
-    hits = [m for m in MARKI if len(k) >= 4 and m.startswith(k)]   # np. „conti” → CONTINENTAL
-    return hits[0] if len(hits) == 1 else ""
+    if len(k) >= 4:
+        hits = sorted(m for m in MARKI if m.startswith(k))
+        if len(hits) == 1:
+            return hits[0]
+        lim = 1 if len(k) <= 5 else 2
+        best = sorted((_odl(k, m, lim), m) for m in MARKI if len(m) >= 4)
+        best = [b for b in best if b[0] <= lim]
+        if best and (len(best) == 1 or best[0][0] < best[1][0]):
+            return best[0][1]
+    return ""
 
 
 def parse_quick(txt):
@@ -363,8 +419,14 @@ def parse_quick(txt):
     if re.search(r"[śs]redni|middle|medium", t): klasy.append("MIDDLE")
     if re.search(r"bud[żz]et|budget|ekonom|tani", t): klasy.append("BUDGET")
     marki = []
-    for w in re.findall(r"[a-ząćęłńóśźż][a-ząćęłńóśźż0-9\-]+", t):
-        b = brand_of_word(w)
+    slowa = [w for w in re.findall(r"[a-ząćęłńóśźż][a-ząćęłńóśźż0-9\-.]*", t) if not SIZE_LOOSE.search(w)]
+    i = 0
+    while i < len(slowa):   # najpierw dwa słowa razem („ling long”, „gt radial”, „vk tyre”)
+        b2 = brand_of_word(slowa[i] + slowa[i + 1]) if i + 1 < len(slowa) else ""
+        if b2 and bkey(slowa[i] + slowa[i + 1]) in MARKI:
+            b, i = b2, i + 2
+        else:
+            b, i = brand_of_word(slowa[i]), i + 1
         if b and b not in marki:
             marki.append(b)
     ex = extras(t)
@@ -790,6 +852,7 @@ def handle(path, body=None, open_path=None):
             if route == "/api/cfg":
                 c = dict(cfg)
                 c["login"] = "tak" if cfg.get("login") else ""
+                c["marki_xp"] = MARKI_STALE
                 c["password"] = ""
                 return 200, c
             if route == "/api/history":
