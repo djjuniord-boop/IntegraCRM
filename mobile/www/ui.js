@@ -440,12 +440,12 @@ async function zLoad(force) {
   zKto(); zDraw(); if (force) toast("Odświeżono (" + j.czas + ").");
 }
 function zDraw() {
-  const D = ZT === "h" ? ZH : ZD; if (!D) return; try { localStorage.setItem("zam_kto", $("#zkto").value); } catch (e) {}
+  const D = ZT === "h" ? ZH : ZD; if (!D) return; 
   const q = $("#zq").value.trim().toLowerCase(), kto = $("#zkto").value, st = ZT === "h" && $("#zst").value === "otw" ? "" : $("#zst").value;
   const l = D.zamowienia.filter((z) => (!kto || z.kto === kto) && (!st || (st === "otw" ? z.status !== 6 : String(z.status) === st)) &&
     (!q || [z.nr, z.nr_erp, z.kto, z.komentarz, ...z.pozycje.map((p) => p.nazwa)].join(" ").toLowerCase().includes(q)));
   const bl = l.filter((z) => z.status === 5).length;
-  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "") + (ZT === "h" ? ` · faktur: ${D.faktur}` + (D.bledy ? ` · <b class="err">nie pobrano: ${D.bledy}</b>` : "") : "");
+  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "") + (D.oddzialy ? ` · tylko oddział: ${esc(D.oddzialy.join(", ") || "brak – poproś administratora")}` + (D.ukryte ? ` (innych: ${D.ukryte})` : "") : "") + (ZT === "h" ? ` · faktur: ${D.faktur}` + (D.bledy ? ` · <b class="err">nie pobrano: ${D.bledy}</b>` : "") : "");
   $("#zL").innerHTML = l.length ? l.map((z) => `<div class="card zk${z.status === 5 ? " zerr" : ""}"><div class="row"><b class="grow">${esc(z.nr)}${z.nr_erp ? " · " + esc(z.nr_erp) : ""}</b><span class="st s${z.status}">${esc(z.status_txt)}</span></div>
     <div class="small muted">${esc(z.data)}${z.kto ? " · " + esc(z.kto) : ""}${z.magazyn ? " · " + esc(z.magazyn) : ""} · <b>${zzl(z.netto)}</b> netto</div>
     ${z.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} szt.${p.zostalo ? ` · do wydania ${p.zostalo}` : ""}${p.zostalo && p.dostepne < p.zostalo ? ` · <b class="err">dostępne ${p.dostepne}</b>` : ""}</span></div>`).join("")}
@@ -456,7 +456,7 @@ async function zFak() {
   const [k, j] = await Silnik.handle("/api/faktury?od=" + encodeURIComponent($("#fod").value) + "&do=" + encodeURIComponent($("#fdo").value), null);
   if (k !== 200) { $("#fL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
   $("#fod").value = j.od; $("#fdo").value = j.do;
-  $("#fL").innerHTML = j.faktury.length ? j.faktury.map((f) => `<div class="card zk" onclick="zFakSz(this,'${esc(f.nr)}')"><div class="row"><b class="grow">${esc(f.nr)}</b><span class="small">${esc(f.data)}</span></div><div class="small muted">${esc(f.platnosc)}${f.magazyn ? " · " + esc(f.magazyn) : ""}</div><div class="fs"></div></div>`).join("") : '<p class="muted">Brak faktur w tym okresie.</p>';
+  $("#fL").innerHTML = j.faktury.length ? j.faktury.map((f) => `<div class="card zk" data-nr="${esc(f.nr)}" onclick="zFakSz(this, this.dataset.nr)"><div class="row"><b class="grow">${esc(f.nr)}</b><span class="small">${esc(f.data)}</span></div><div class="small muted">${esc(f.platnosc)}${f.magazyn ? " · " + esc(f.magazyn) : ""}</div><div class="fs"></div></div>`).join("") : '<p class="muted">Brak faktur w tym okresie.</p>';
 }
 async function zFakSz(el, nr) {
   const d = el.querySelector(".fs"); if (d.innerHTML) { d.innerHTML = ""; return; }

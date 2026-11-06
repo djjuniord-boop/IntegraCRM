@@ -56,9 +56,9 @@
   };
   Z.czytaj_zamowienie = function (r) { const o = dz(r, "order"); if (!o) throw new Blad("Brak zamówienia w odpowiedzi xPartner."); return zamowienie(o); };
   const pula = async (lista, fn, n) => { const wyn = new Array(lista.length); let i = 0;
-    await Promise.all(Array.from({ length: Math.min(n, lista.length) }, async () => { while (i < lista.length) { const j = i++; try { wyn[j] = { ok: await fn(lista[j]) }; } catch (e) { if (!(e instanceof Blad)) throw e; wyn[j] = { blad: e }; } } }));
+    await Promise.all(Array.from({ length: Math.min(n, lista.length) }, async () => { while (i < lista.length) { const j = i++; try { wyn[j] = { ok: await fn(lista[j]) }; } catch (e) { wyn[j] = { blad: e }; } } }));
     return wyn; };
-  const poz_faktury = (r) => { let f; try { f = Z.czytaj_fakture(r); } catch (e) { if (e instanceof Blad) return []; throw e; }
+  const poz_faktury = (r) => { let f; try { f = Z.czytaj_fakture(r); } catch (e) { return []; }
     return f.pozycje.map((p) => ({ lp: p.lp, id: i0(p.indeks), nazwa: p.nazwa, jedn: p.jedn || "szt", ilosc: i0(p.ilosc), zostalo: 0, dostepne: 0, cena: p.cena })); };
   Z.zamkniete = async function (cfg, od, dO) {
     const login = cfg.login || "";
@@ -89,7 +89,8 @@
   Z.czytaj_fakture = function (r) {
     const fak = [...r.getElementsByTagName("*")].find((c) => lok(c) === "Faktura");
     if (!fak) throw new Blad("Brak faktury w odpowiedzi xPartner.");
-    const fa = dz(fak, "Fa"), dzf = dzieci(fa);
+    const fa = dz(fak, "Fa"); if (!fa) throw new Blad("Faktura bez danych (brak sekcji Fa).");
+    const dzf = dzieci(fa);
     const suma = (re) => gr(dzf.filter((c) => re.test(lok(c))).reduce((a, c) => a + f2(c.textContent), 0));
     const plat = dz(fa, "Platnosc"), zam = [...fa.getElementsByTagName("*")].find((c) => lok(c) === "NrZamowienia");
     const poz = dzf.filter((c) => lok(c) === "FaWiersz").map((w) => ({ lp: i0(t(w, "NrWierszaFa")), nazwa: t(w, "P_7"), indeks: t(w, "Indeks"), jedn: t(w, "P_8A"),
@@ -114,7 +115,7 @@
     return lista.filter((z) => n.has(norm(z.kto))); };
   Z.handle = async function (route, q, cfg, admin, oddzialy) {
     const [k, w] = await handle_(route, q, cfg, admin);
-    if (k === 200 && !admin && w && w.zamowienia) return [k, Object.assign({}, w, { zamowienia: Z.tylko_oddzialy(w.zamowienia, oddzialy) })];
+    if (k === 200 && !admin && w && w.zamowienia) { const v = Z.tylko_oddzialy(w.zamowienia, oddzialy); return [k, Object.assign({}, w, { zamowienia: v, ukryte: w.zamowienia.length - v.length, oddzialy: (oddzialy || []).slice() })]; }
     return [k, w];
   };
   const handle_ = async function (route, q, cfg, admin) {

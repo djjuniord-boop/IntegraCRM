@@ -66,7 +66,7 @@
     const admin = p.role === "admin", mod = p.modules || [];
     // zakładki jak w Panelu: OFERTY OPON – moduł „oferty”; WYNIKI – moduł „wyniki” albo „marza” (dane i tak pilnuje baza)
     A.moze = { oferty: admin || mod.includes("oferty"), wyniki: admin || mod.includes("wyniki") || mod.includes("marza"), zamowienia: admin || mod.includes("zamowienia") };
-    if (!A.moze.oferty && !A.moze.wyniki && !A.moze.zamowienia) throw new Error("Twoje konto nie ma dostępu do Ofert opon ani do Wyników – poproś administratora.");
+    if (!A.moze.oferty && !A.moze.wyniki && !A.moze.zamowienia) throw new Error("Twoje konto nie ma dostępu do Ofert opon, Wyników ani Zamówień – poproś administratora.");
     A.profil = p;
     S.KONTO.admin = admin; S.KONTO.zamowienia = A.moze.zamowienia;
     if (!A.moze.oferty && !A.moze.zamowienia) return p;

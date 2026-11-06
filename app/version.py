@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.6"
+VERSION = "0.24.7"
 RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.7",
+        "date": "2026-11-06",
+        "changes": [
+            "Zamówienia: nietypowa faktura z xPartner nie blokuje już karty „Zrealizowane” (liczona jako „nie udało się pobrać”)",
+            "Zamówienia: pracownik widzi, że lista jest zawężona do jego oddziału (i ile zamówień innych oddziałów pominięto)",
+            "Zamówienia: zapamiętany filtr osoby nie gubi się przy przełączaniu kart",
+            "UŻYTKOWNICY: moduł opisany jako „Zamówienia xPartner (z Ofertami opon)” – w Panelu zamówienia są w zakładce OFERTY OPON",
+        ],
+    },
     {
         "version": "0.24.6",
         "date": "2026-11-06",
