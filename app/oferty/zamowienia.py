@@ -166,6 +166,16 @@ def czytaj_zamowienie(root):
     return _zamowienie(o)
 
 
+def _pozycje_faktury(root):
+    """Pozycje faktury w kształcie pozycji zamówienia (do zamówień zamkniętych, które przychodzą bez pozycji)."""
+    try:
+        f = czytaj_fakture(root)
+    except Blad:
+        return []
+    return [{"lp": p["lp"], "id": _i(p["indeks"]), "nazwa": p["nazwa"], "jedn": p["jedn"] or "szt", "ilosc": _i(p["ilosc"]),
+             "zostalo": 0, "dostepne": 0, "cena": p["cena"]} for p in f["pozycje"]]
+
+
 def zamkniete(cfg, od, do, rownolegle=6):
     """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder."""
     import concurrent.futures as cf
@@ -175,7 +185,11 @@ def zamkniete(cfg, od, do, rownolegle=6):
     def nr_z_faktury(f):
         k = (login, "F", f["nr"])
         if k not in _PAMIEC:
-            _PAMIEC[k] = numery_zamowien(api_xml(cfg, "getInvoice", invoiceNumber=f["nr"])) if FAKTURA_NR.match(f["nr"]) else []
+            if FAKTURA_NR.match(f["nr"]):
+                r = api_xml(cfg, "getInvoice", invoiceNumber=f["nr"])
+                _PAMIEC[k] = (numery_zamowien(r), _pozycje_faktury(r))
+            else:
+                _PAMIEC[k] = ([], [])
         return f, _PAMIEC[k]
 
     def zam(n):
@@ -187,14 +201,15 @@ def zamkniete(cfg, od, do, rownolegle=6):
             _PAMIEC[k] = z
         return z
 
-    faktury_zam, bledy = {}, 0
+    faktury_zam, poz_faktur, ile_zam, bledy = {}, {}, {}, 0
     with cf.ThreadPoolExecutor(rownolegle) as ex:
         for fu in [ex.submit(nr_z_faktury, f) for f in fak]:
             try:
-                f, nry = fu.result()
+                f, (nry, poz) = fu.result()
             except Blad:
                 bledy += 1
                 continue
+            poz_faktur[f["nr"]], ile_zam[f["nr"]] = poz, len(nry)
             for n in nry:
                 faktury_zam.setdefault(n, []).append(f["nr"])
         wyn = {}
@@ -208,7 +223,13 @@ def zamkniete(cfg, od, do, rownolegle=6):
         if z["nr"] in byly:
             continue
         byly.add(z["nr"])
-        out.append(dict(z, faktury=sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})))
+        fk = sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})
+        z = dict(z, faktury=fk)
+        if not z["pozycje"]:   # xPartner nie podaje pozycji zamówień zamkniętych – bierzemy je z faktury
+            z["pozycje"] = [p for x in fk for p in poz_faktur.get(x, [])]
+            z["szt"] = sum(p["ilosc"] for p in z["pozycje"])
+            z["poz_z_faktury"] = "wspolna" if any(ile_zam.get(x, 0) > 1 for x in fk) else "tak"
+        out.append(z)
     out.sort(key=lambda z: z["data"], reverse=True)
     return {"zamowienia": out, "faktur": len(fak), "bledy": bledy}
 

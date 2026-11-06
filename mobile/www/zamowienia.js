@@ -58,21 +58,25 @@
   const pula = async (lista, fn, n) => { const wyn = new Array(lista.length); let i = 0;
     await Promise.all(Array.from({ length: Math.min(n, lista.length) }, async () => { while (i < lista.length) { const j = i++; try { wyn[j] = { ok: await fn(lista[j]) }; } catch (e) { if (!(e instanceof Blad)) throw e; wyn[j] = { blad: e }; } } }));
     return wyn; };
+  const poz_faktury = (r) => { let f; try { f = Z.czytaj_fakture(r); } catch (e) { if (e instanceof Blad) return []; throw e; }
+    return f.pozycje.map((p) => ({ lp: p.lp, id: i0(p.indeks), nazwa: p.nazwa, jedn: p.jedn || "szt", ilosc: i0(p.ilosc), zostalo: 0, dostepne: 0, cena: p.cena })); };
   Z.zamkniete = async function (cfg, od, dO) {
     const login = cfg.login || "";
     const fak = Z.czytaj_faktury(await Z.api_xml(cfg, "getInvoices", { documentDateFrom: od, documentDateTo: dO }));
-    let bledy = 0; const fz = new Map();
+    let bledy = 0; const fz = new Map(), pf = new Map(), ile = new Map();
     const r1 = await pula(fak, async (f) => { const k = login + "|F|" + f.nr;
-      if (!PAMIEC.has(k)) PAMIEC.set(k, FAKTURA_NR.test(f.nr) ? Z.numery_zamowien(await Z.api_xml(cfg, "getInvoice", { invoiceNumber: f.nr })) : []);
+      if (!PAMIEC.has(k)) { if (FAKTURA_NR.test(f.nr)) { const r = await Z.api_xml(cfg, "getInvoice", { invoiceNumber: f.nr }); PAMIEC.set(k, [Z.numery_zamowien(r), poz_faktury(r)]); } else PAMIEC.set(k, [[], []]); }
       return PAMIEC.get(k); }, 6);
-    r1.forEach((x, i) => { if (x.blad) { bledy++; return; } for (const n of x.ok) { if (!fz.has(n)) fz.set(n, []); fz.get(n).push(fak[i].nr); } });
+    r1.forEach((x, i) => { if (x.blad) { bledy++; return; } pf.set(fak[i].nr, x.ok[1]); ile.set(fak[i].nr, x.ok[0].length); for (const n of x.ok[0]) { if (!fz.has(n)) fz.set(n, []); fz.get(n).push(fak[i].nr); } });
     const nry = [...fz.keys()];
     const r2 = await pula(nry, async (n) => { const k = login + "|Z|" + n; if (PAMIEC.has(k)) return PAMIEC.get(k);
       const z = Z.czytaj_zamowienie(await Z.api_xml(cfg, "getOrder", ZAM_XP.test(n) ? { orderXp: n } : { orderErp: n })); if (z.status === 6) PAMIEC.set(k, z); return z; }, 6);
     const out = [], byly = new Set();
     r2.forEach((x, i) => { if (x.blad) { bledy++; return; } const z = x.ok; if (byly.has(z.nr)) return; byly.add(z.nr);
       const f = new Set(); for (const m of [z.nr, z.nr_erp, nry[i]]) for (const y of fz.get(m) || []) f.add(y);
-      out.push(Object.assign({}, z, { faktury: [...f].sort() })); });
+      const fk = [...f].sort(), w = Object.assign({}, z, { faktury: fk });
+      if (!w.pozycje.length) { w.pozycje = fk.flatMap((y) => pf.get(y) || []); w.szt = w.pozycje.reduce((a, p) => a + p.ilosc, 0); w.poz_z_faktury = fk.some((y) => (ile.get(y) || 0) > 1) ? "wspolna" : "tak"; }
+      out.push(w); });
     out.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
     return { zamowienia: out, faktur: fak.length, bledy };
   };

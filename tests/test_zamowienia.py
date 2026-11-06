@@ -103,3 +103,21 @@ def test_zamkniete_z_faktur():
         assert ("getOrder", "11111111111") not in wywolania[n:]          # zrealizowane – z pamięci
     finally:
         Z.api_xml = stare
+
+
+def test_zamkniete_pozycje_z_faktury():
+    """Zamówienie zamknięte przychodzi z getOrder bez pozycji – pozycje bierzemy z jego faktury."""
+    fa = XML_FAKTURA.replace(b"XP/1/2026", b"33333333333")
+    odp = {"getInvoices": b"<response><success>true</success><invoices><invoice><documentNumber>FV0000002/26</documentNumber>"
+                          b"<documentDate>2026-10-05</documentDate></invoice></invoices></response>",
+           "getInvoice": fa,
+           "getOrder": b"<response><success>true</success><order><orderXp>33333333333</orderXp><createdAt>2026-10-04</createdAt>"
+                       b"<status>6</status><products/></order></response>"}
+    stare = Z.api_xml
+    Z.api_xml = lambda cfg, m, **p: Z.parsuj(odp[m])
+    Z._PAMIEC.clear()
+    try:
+        z = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")["zamowienia"][0]
+        assert z["poz_z_faktury"] == "tak" and z["szt"] == 4 and z["pozycje"][0]["nazwa"] == "Opona A" and z["pozycje"][0]["id"] == 111
+    finally:
+        Z.api_xml = stare

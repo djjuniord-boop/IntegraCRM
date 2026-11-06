@@ -449,7 +449,7 @@ function zDraw() {
   $("#zL").innerHTML = l.length ? l.map((z) => `<div class="card zk${z.status === 5 ? " zerr" : ""}"><div class="row"><b class="grow">${esc(z.nr)}${z.nr_erp ? " · " + esc(z.nr_erp) : ""}</b><span class="st s${z.status}">${esc(z.status_txt)}</span></div>
     <div class="small muted">${esc(z.data)}${z.kto ? " · " + esc(z.kto) : ""}${z.magazyn ? " · " + esc(z.magazyn) : ""} · <b>${zzl(z.netto)}</b> netto</div>
     ${z.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} szt.${p.zostalo ? ` · do wydania ${p.zostalo}` : ""}${p.zostalo && p.dostepne < p.zostalo ? ` · <b class="err">dostępne ${p.dostepne}</b>` : ""}</span></div>`).join("")}
-    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}${z.faktury && z.faktury.length ? `<div class="small muted">🧾 ${z.faktury.map(esc).join(", ")}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień' + (ZT === "h" ? " na fakturach z tego okresu" : "") + ".</p>";
+    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}${z.poz_z_faktury ? `<div class="small muted">Pozycje z faktury${z.poz_z_faktury === "wspolna" ? " (faktura obejmuje kilka zamówień)" : ""}</div>` : ""}${z.faktury && z.faktury.length ? `<div class="small muted">🧾 ${z.faktury.map(esc).join(", ")}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień' + (ZT === "h" ? " na fakturach z tego okresu" : "") + ".</p>";
 }
 async function zFak() {
   $("#fL").innerHTML = '<p class="muted">Wczytuję faktury…</p>';
