@@ -127,6 +127,8 @@ def czytaj_fakture(root):
     if fak is None:
         raise Blad("Brak faktury w odpowiedzi xPartner.")
     fa = _dz(fak, "Fa")
+    if fa is None:
+        raise Blad("Faktura bez danych (brak sekcji Fa).")
     netto = _gr(sum(_f(c.text) for c in list(fa) if re.match(r"P_13_\d+$", _lok(c.tag))))
     vat = _gr(sum(_f(c.text) for c in list(fa) if re.match(r"P_14_\d+$", _lok(c.tag))))
     plat = _dz(fa, "Platnosc")
@@ -170,7 +172,7 @@ def _pozycje_faktury(root):
     """Pozycje faktury w kształcie pozycji zamówienia (do zamówień zamkniętych, które przychodzą bez pozycji)."""
     try:
         f = czytaj_fakture(root)
-    except Blad:
+    except Exception:   # nietypowa faktura – bez pozycji, ale reszta historii działa
         return []
     return [{"lp": p["lp"], "id": _i(p["indeks"]), "nazwa": p["nazwa"], "jedn": p["jedn"] or "szt", "ilosc": _i(p["ilosc"]),
              "zostalo": 0, "dostepne": 0, "cena": p["cena"]} for p in f["pozycje"]]
@@ -206,7 +208,7 @@ def zamkniete(cfg, od, do, rownolegle=6):
         for fu in [ex.submit(nr_z_faktury, f) for f in fak]:
             try:
                 f, (nry, poz) = fu.result()
-            except Blad:
+            except Exception:   # jedna nietypowa faktura nie może wyłączyć całej listy
                 bledy += 1
                 continue
             poz_faktur[f["nr"]], ile_zam[f["nr"]] = poz, len(nry)
@@ -216,7 +218,7 @@ def zamkniete(cfg, od, do, rownolegle=6):
         for n, fu in [(n, ex.submit(zam, n)) for n in faktury_zam]:
             try:
                 wyn[n] = fu.result()
-            except Blad:
+            except Exception:
                 bledy += 1
     out, byly = [], set()
     for n, z in wyn.items():
@@ -274,7 +276,8 @@ def handle(route, q, cfg, admin=False, oddzialy=None):
     """Administrator widzi wszystko; pracownik – zamówienia swoich oddziałów (oddzialy z konta)."""
     k, w = _handle(route, q, cfg, admin)
     if k == 200 and not admin and isinstance(w, dict) and "zamowienia" in w:
-        w = dict(w, zamowienia=tylko_oddzialy(w["zamowienia"], oddzialy))
+        widoczne = tylko_oddzialy(w["zamowienia"], oddzialy)
+        w = dict(w, zamowienia=widoczne, ukryte=len(w["zamowienia"]) - len(widoczne), oddzialy=list(oddzialy or []))
     return k, w
 
 

@@ -28,6 +28,8 @@ jobs:
           sudo apt-get install -y python3-openpyxl > /dev/null || true
           pip install openpyxl > /dev/null
           python3 mobile/test/zgodnosc.py
+          pip install playwright > /dev/null && python3 -m playwright install --with-deps chromium > /dev/null
+          python3 mobile/test/zamowienia_zgodnosc.py
           TZ=Europe/Warsaw python3 mobile/test/zgodnosc_wyniki.py
       - name: Klucz podpisu
         env:

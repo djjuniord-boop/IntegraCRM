@@ -135,3 +135,21 @@ def test_pracownik_widzi_swoj_oddzial():
         assert Z.handle("/api/zamowienia", {}, {}, admin=False, oddzialy=["Latex Opole"])[1]["zamowienia"] == [{"kto": "Detal Opole"}]
     finally:
         Z._handle = stare
+
+
+def test_nietypowa_faktura_nie_psuje_historii():
+    """Faktura bez sekcji Fa: liczona jako „nie pobrano”, reszta historii działa (wcześniej TypeError -> 500)."""
+    import xml.etree.ElementTree as ET
+    assert Z._pozycje_faktury(ET.fromstring("<r><invoice><Faktura><X/></Faktura></invoice></r>")) == []
+    odp = {"getInvoices": XML_FAKTURY,
+           "getInvoice": b"<response><success>true</success><invoice><Faktura><X/></Faktura></invoice></response>"}
+    stare = Z.api_xml
+    Z.api_xml = lambda cfg, m, **p: Z.parsuj(odp[m])
+    Z._PAMIEC.clear()
+    try:
+        w = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
+        assert w["zamowienia"] == [] and w["faktur"] == 2
+        k, j = Z.handle("/api/zamkniete", {"od": "2026-10-01", "do": "2026-10-31"}, {"login": "t"}, admin=False, oddzialy=["Latex Opole"])
+        assert k == 200 and j["oddzialy"] == ["Latex Opole"] and j["ukryte"] == 0
+    finally:
+        Z.api_xml = stare
