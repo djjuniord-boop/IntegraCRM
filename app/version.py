@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.1"
-RELEASED = "2026-11-05"
+VERSION = "0.24.6"
+RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,46 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.6",
+        "date": "2026-11-06",
+        "changes": [
+            "PDF oferty: kwota netto także przy „Komplet z usługami”, indeks opony z xPartner, numery komórkowe oddziału w „Zarezerwuj termin”",
+            "Ustawienia → dane oddziałów: nowe pole „Komórki (po przecinku)”",
+            "Zamówienia xPartner: poprawione dopasowanie oddziału („Latex Wrocław” = „Detal Wrocław” w xPartner)",
+        ],
+    },
+    {
+        "version": "0.24.5",
+        "date": "2026-11-06",
+        "changes": [
+            "BETA – Zamówienia: pracownik widzi tylko zamówienia swojego oddziału („Detal Wrocław” = Wrocław, „Detal Opole” = Opole); administrator widzi wszystkie",
+        ],
+    },
+    {
+        "version": "0.24.4",
+        "date": "2026-11-06",
+        "changes": [
+            "BETA – Zamówienia zrealizowane: pokazują opony z faktury (xPartner nie podaje pozycji zamówień zamkniętych)",
+        ],
+    },
+    {
+        "version": "0.24.3",
+        "date": "2026-11-06",
+        "changes": [
+            "BETA – Zamówienia: nowa karta „✅ Zrealizowane” – zamówienia zamknięte z wybranego okresu (xPartner nie ma ich listy, więc program znajduje je po fakturach), z numerami faktur",
+            "Zamówienia: program pamięta wybraną osobę/oddział w filtrze",
+        ],
+    },
+    {
+        "version": "0.24.2",
+        "date": "2026-11-06",
+        "changes": [
+            "BETA – OFERTY OPON: nowy przycisk „📦 Zamówienia” – zamówione opony z xPartner (status, ilość do wydania, dostępność, wartość netto), wyszukiwanie i filtr osoby",
+            "BETA – Faktury xPartner (lista i szczegóły z pozycjami i kwotami) – widzi administrator",
+            "UŻYTKOWNICY: nowy moduł „Zamówienia xPartner” – zaznacz pracownikom, którzy mają widzieć zamówienia",
+        ],
+    },
     {
         "version": "0.24.1",
         "date": "2026-11-06",

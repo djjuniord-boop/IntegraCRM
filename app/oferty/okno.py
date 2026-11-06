@@ -169,7 +169,8 @@ def wczytaj_oddzialy(admin=False):
     except Exception:
         dane = {}
     moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
-    silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin)
+    silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
+                        zamowienia="zamowienia" in (me.get("modules") or []))
 
 
 def zapisz_oddzialy(dane: dict):
@@ -177,7 +178,7 @@ def zapisz_oddzialy(dane: dict):
     czyste = {}
     for nazwa, o in (dane or {}).items():
         if isinstance(o, dict) and str(nazwa).strip():
-            czyste[str(nazwa).strip()[:60]] = {k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "www", "email")}
+            czyste[str(nazwa).strip()[:60]] = {k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "kom", "www", "email")}
     _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "oddzialy", "value": czyste}, prefer="resolution=merge-duplicates,return=minimal")
     wczytaj_oddzialy(True)
 

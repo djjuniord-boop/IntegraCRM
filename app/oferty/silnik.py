@@ -1038,6 +1038,8 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         "data": _data_oid(oid), "wazna": _data_oid(oid, int(cfg.get("waznosc_dni") or 7)),
         "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
         "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
+        "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
+        "xp_id": str(p.get("id") or ""),
         "klient": (req.get("klient") or "").strip(), "pojazd": ", ".join(poj), "kto": kto,
         "tag": "OPONA " + sez + (" · " + KLASA_PDF[p["klasa"]] if p.get("klasa") in KLASA_PDF else "") + (" · DEMO" if p.get("demo") else ""),
         "tytul": p["nazwa"], "producent": p.get("producent", ""), "model": p.get("model", ""), "rozmiar": R[0].get("rozmiar", ""),
@@ -1100,7 +1102,13 @@ def handle(path, body=None, open_path=None):
                 c["marki_xp"] = MARKI_STALE
                 c["password"] = ""
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
+                c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 return 200, c
+            if route in ("/api/zamowienia", "/api/zamkniete", "/api/faktury", "/api/faktura"):
+                if not (KONTO.get("admin") or KONTO.get("zamowienia")):
+                    return 403, {"error": "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)."}
+                from oferty import zamowienia
+                return zamowienia.handle(route, {k: v[0] for k, v in qs.items()}, cfg, bool(KONTO.get("admin")), KONTO.get("oddzialy") or [])
             if route == "/api/history":
                 if qs.get("id"):
                     r = HIST.get_id(qs["id"][0]) if HIST else None

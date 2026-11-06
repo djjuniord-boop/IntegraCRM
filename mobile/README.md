@@ -20,3 +20,7 @@ Sprawdzanie: `python3 mobile/test/zgodnosc.py`, `TZ=Europe/Warsaw python3 mobile
 
 Wydanie: push na `main` (workflow `mobile.yml`) → wydanie `aplikacja-android` z `LatexOferty.apk` i `aplikacja.json`. Na `beta` tylko artefakt do pobrania z Actions.
 Podpis: sekrety `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS` – **ten sam klucz zawsze**; zgubiony klucz = każdy musi odinstalować i zainstalować aplikację od nowa.
+
+## Zamówienia (beta)
+
+Zakładka „📦 Zamówienia” (moduł `zamowienia` albo administrator): zamówienia xPartner i – dla administratora – faktury. Kod: `www/zamowienia.js` (port `app/oferty/zamowienia.py`).

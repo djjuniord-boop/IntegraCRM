@@ -33,6 +33,11 @@ td input{width:100%}.num{text-align:right;white-space:nowrap}
 .msg{padding:8px 12px;border-radius:6px;margin-top:8px;white-space:pre-wrap}.msg.e{background:#fdecec;color:#8a1111}.msg.i{background:#e9f5ec;color:#145a26}
 body.hidebuy .buy{display:none}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;background:#F0F0F0;color:#444}
+.zk{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:10px}.zk.err{border-color:var(--red);background:#fff5f5}
+.zk .h{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}.zk .h b{font-size:15px}.zk table{width:100%;border-collapse:collapse;margin-top:6px;font-size:13px}
+.zk td,.zk th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.zk .n{text-align:right;white-space:nowrap}
+.st{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:9px;background:#EEF3FF;color:#1d4f9c}.st.s5{background:#fde8e8;color:#b00012}.st.s6{background:#e9f5ec;color:#145a26}
+button.zt.on{background:var(--navy);color:#fff;border-color:var(--navy)}.fr{cursor:pointer}.fr:hover td{background:#fafafa}
 dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dialog::backdrop{background:#0006}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid2 label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
 #email{min-height:420px;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.55;padding:12px}
@@ -48,7 +53,7 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 #outCard h2{font-size:20px}#outCard button{font-size:15px;padding:9px 16px}
 </style></head><body>
 <header><div><h1>Oferty opon</h1><span class="v">xPartner · wersja beta</span></div><span class="sp"></span>
-<button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert</button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
+<button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert</button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main>
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
 <div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button></div>
@@ -94,6 +99,18 @@ DX3985C octavia 205/60 16 tylko wymiana
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
 <div style="padding:14px 18px;max-height:70vh;overflow:auto"><input id="hq" placeholder="Szukaj: klient, rejestracja, pojazd, rozmiar, model opony, osoba…" oninput="clearTimeout(window._ht);window._ht=setTimeout(loadHist,250)" style="width:100%;font-size:15px;padding:9px 12px;margin-bottom:10px"><div id="hfil" style="margin-bottom:8px"></div><div id="hl"></div></div>
 </dialog>
+<dialog id="zdlg" style="max-width:1150px;padding:0">
+<div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px;flex:1">Zamówienia xPartner</b>
+<button class="sec zt on" data-t="z" onclick="zTab(this)">📦 Otwarte</button><button class="sec zt" data-t="h" onclick="zTab(this)">✅ Zrealizowane</button><button class="sec zt" data-t="f" id="bFak" onclick="zTab(this)">🧾 Faktury</button>
+<button class="sec" onclick="zOdswiez()" title="Pobierz ponownie z xPartner">↻</button><button class="sec" onclick="zdlg.close()" style="padding:2px 10px">✕</button></div>
+<div style="padding:14px 18px;max-height:72vh;overflow:auto">
+<div id="zZ"><div id="zDaty" class="row" style="display:none;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">od <input type="date" id="hod" style="width:auto"> do <input type="date" id="hdo" style="width:auto"><button onclick="loadZamk()">Pokaż</button>
+<span class="muted" style="font-size:12px">xPartner nie ma listy zamówień zamkniętych – szukamy ich po fakturach z wybranego okresu (od 1.02.2026)</span></div><div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap"><input id="zq" placeholder="Szukaj: numer, opona, osoba, odbiorca…" oninput="zDraw()" style="flex:1;min-width:220px;padding:8px 10px">
+<select id="zkto" onchange="zDraw()" style="width:auto"></select><select id="zst" onchange="zDraw()" style="width:auto"><option value="">wszystkie statusy</option><option value="otw">bez „Zrealizowane”</option><option value="5">tylko z błędem</option></select></div>
+<div id="zSum"></div><div id="zL"><p class="muted">Wczytuję…</p></div></div>
+<div id="zF" style="display:none"><div class="row" style="gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">od <input type="date" id="fod" style="width:auto"> do <input type="date" id="fdo" style="width:auto"><button onclick="loadFak()">Pokaż</button>
+<span class="muted" style="font-size:12px">xPartner udostępnia faktury od 1.02.2026, maks. rok wstecz</span></div><div id="fL"></div></div>
+</div></dialog>
 <dialog id="pdlg" style="max-width:980px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b id="pTitle" style="font-size:16px">Wybierz producentów</b><button class="sec" onclick="pdlg.close()" style="padding:2px 10px">✕</button></div>
 <div style="padding:14px 18px;max-height:65vh;overflow:auto"><input id="pSearch" placeholder="Szukaj…" oninput="drawProd()" style="width:100%;font-size:15px;padding:9px 12px;margin-bottom:10px"><div id="pBody"></div></div>
@@ -189,6 +206,42 @@ function clearAll(){if(SEL.size&&!confirmClear())return;
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null;
 const newOid=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
+// ------------------------------------------------ ZAMÓWIENIA xPartner (podgląd)
+let ZAM=null,FAK=null,ZAMK=null,ZT='z';
+const ZKTO_KEY='zam_kto';
+function openZam(){$('#bFak').style.display=CFG.admin?'':'none';zdlg.showModal();if(!ZAM)loadZam();else zDraw()}
+function zTab(b){ZT=b.dataset.t;document.querySelectorAll('.zt').forEach(x=>x.classList.toggle('on',x===b));$('#zZ').style.display=ZT!=='f'?'':'none';$('#zDaty').style.display=ZT==='h'?'':'none';
+ if(ZT==='h'&&!ZAMK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#hdo').value=iso(d);d.setDate(d.getDate()-30);$('#hod').value=iso(d);loadZamk()}else if(ZT!=='f'){zKto();zDraw()}$('#zF').style.display=b.dataset.t==='f'?'':'none';
+ if(b.dataset.t==='f'&&!FAK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#fdo').value=iso(d);d.setDate(d.getDate()-30);$('#fod').value=iso(d);loadFak()}}
+function zOdswiez(){if(ZT==='f')loadFak();else if(ZT==='h')loadZamk();else{ZAM=null;loadZam()}}
+function zDane(){return ZT==='h'?ZAMK:ZAM}
+function zKto(){const D=zDane();if(!D)return;const k=[...new Set(D.zamowienia.map(z=>z.kto).filter(Boolean))].sort();let zap='';try{zap=localStorage.getItem(ZKTO_KEY)||''}catch(e){}
+ $('#zkto').innerHTML='<option value="">wszyscy ('+D.zamowienia.length+')</option>'+k.map(x=>`<option>${esc(x)}</option>`).join('');if(k.includes(zap))$('#zkto').value=zap}
+async function loadZamk(){$('#zL').innerHTML='<p class="muted">Szukam zamówień po fakturach z xPartner… (pierwszy raz może to potrwać kilkanaście sekund)</p>';$('#zSum').innerHTML='';
+ try{ZAMK=await api('/api/zamkniete?od='+$('#hod').value+'&do='+$('#hdo').value);$('#hod').value=ZAMK.od;$('#hdo').value=ZAMK.do;if(ZT==='h'){zKto();zDraw()}}
+ catch(e){$('#zL').innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
+async function loadZam(){$('#zL').innerHTML='<p class="muted">Pobieram zamówienia z xPartner…</p>';$('#zSum').innerHTML='';
+ try{ZAM=await api('/api/zamowienia');if(ZT==='z'){zKto();zDraw()}}
+ catch(e){$('#zL').innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
+function zDraw(){const ZAM=zDane();if(!ZAM)return;try{localStorage.setItem(ZKTO_KEY,$('#zkto').value)}catch(e){}const q=$('#zq').value.trim().toUpperCase(),kto=$('#zkto').value,st=ZT==='h'&&$('#zst').value==='otw'?'':$('#zst').value;
+ const L=ZAM.zamowienia.filter(z=>(!kto||z.kto===kto)&&(!st||(st==='otw'?z.status!==6:String(z.status)===st))&&(!q||JSON.stringify([z.nr,z.nr_erp,z.kto,z.odbiorca,z.dostawa,z.komentarz,z.pozycje.map(p=>p.nazwa+' '+p.id)]).toUpperCase().includes(q)));
+ const bl=L.filter(z=>z.status===5).length;
+ $('#zSum').innerHTML=`<div class="row" style="gap:16px;margin-bottom:10px;font-size:14px"><span>Zamówień: <b>${L.length}</b></span><span>Opon zamówionych: <b>${L.reduce((a,z)=>a+z.szt,0)}</b></span><span>Do wydania: <b>${L.reduce((a,z)=>a+z.do_wydania,0)}</b></span><span>Wartość netto: <b>${zl(L.reduce((a,z)=>a+z.netto,0))}</b></span>${bl?`<span style="color:var(--red)">⚠ z błędem: <b>${bl}</b></span>`:''}<span class="muted">stan z godz. ${esc(ZAM.czas)}${ZT==='h'?` · faktur w okresie: ${ZAM.faktur}${ZAM.bledy?` · <span style="color:var(--red)">nie udało się pobrać: ${ZAM.bledy}</span>`:''}`:''}</span></div>`;
+ $('#zL').innerHTML=L.length?L.map(z=>`<div class="zk ${z.status===5?'err':''}"><div class="h"><b>Nr ${esc(z.nr)}</b>${z.nr_erp?`<span class="muted">ERP ${esc(z.nr_erp)}</span>`:''}<span class="st s${z.status}">${esc(z.status_txt)}</span>
+  <span>${esc(z.data)}</span>${z.kto?`<span>👤 ${esc(z.kto)}</span>`:''}${z.magazyn?`<span>🏭 ${esc(z.magazyn)}</span>`:''}<span style="margin-left:auto"><b>${zl(z.netto)}</b> netto</span></div>
+  <div class="muted" style="font-size:12px">${[z.dostawa.name,z.dostawa.street,[z.dostawa.zipCode,z.dostawa.city].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(', ')}${z.wazne_do?' · ważne do '+esc(z.wazne_do):''}${z.komentarz?' · „'+esc(z.komentarz)+'”':''}${z.faktury&&z.faktury.length?' · faktury: <b>'+z.faktury.map(esc).join(', ')+'</b>':''}</div>
+  ${z.poz_z_faktury?`<div class="muted" style="font-size:12px;margin-top:4px">Pozycje z faktury${z.poz_z_faktury==='wspolna'?' (faktura obejmuje kilka zamówień – mogą być tu też opony z innych)':''} – xPartner nie podaje pozycji zamówień zamkniętych</div>`:''}${z.pozycje.length?`<table><tr><th>Opona</th><th class="n">Zamówiono</th><th class="n">Do wydania</th><th class="n">Dostępne</th><th class="n">Cena netto</th></tr>${z.pozycje.map(p=>`<tr><td>${esc(p.nazwa)} <span class="muted">ind. ${p.id}</span></td><td class="n">${p.ilosc} ${esc(p.jedn.toLowerCase())}</td><td class="n">${p.zostalo?'<b>'+p.zostalo+'</b>':'✓ 0'}</td><td class="n"${p.zostalo>p.dostepne?' style="color:var(--red);font-weight:700"':''}>${p.dostepne}</td><td class="n">${zl(p.cena)}</td></tr>`).join('')}</table>`:'<div class="muted" style="font-size:12px">brak pozycji w zamówieniu</div>'}</div>`).join('')
+  :'<p class="muted">Brak '+(ZT==='h'?'zamówień na fakturach z tego okresu':'otwartych zamówień')+(q||kto||st?' dla tych filtrów':'')+'.</p>'}
+async function loadFak(){$('#fL').innerHTML='<p class="muted">Pobieram faktury…</p>';
+ try{FAK=await api('/api/faktury?od='+$('#fod').value+'&do='+$('#fdo').value);$('#fod').value=FAK.od;$('#fdo').value=FAK.do;
+  $('#fL').innerHTML=FAK.faktury.length?'<table class="zk" style="display:table;width:100%;border-collapse:collapse"><tr><th>Numer</th><th>Data</th><th>Płatność</th><th>Magazyn</th><th></th></tr>'+FAK.faktury.map(f=>`<tr class="fr" data-nr="${esc(f.nr)}" onclick="fakSzcz(this)"><td><b>${esc(f.nr)}</b></td><td>${esc(f.data)}</td><td>${esc(f.platnosc)}</td><td>${esc(f.magazyn)}</td><td class="n">▸ szczegóły</td></tr><tr style="display:none"><td colspan="5"></td></tr>`).join('')+'</table>':'<p class="muted">Brak faktur w tym okresie.</p>'}
+ catch(e){$('#fL').innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
+async function fakSzcz(tr){const box=tr.nextElementSibling,td=box.firstElementChild;if(box.style.display!=='none'){box.style.display='none';return}box.style.display='';td.innerHTML='<span class="muted">Pobieram fakturę…</span>';
+ try{const f=await api('/api/faktura?nr='+encodeURIComponent(tr.dataset.nr));
+  td.innerHTML=`<div style="padding:6px 4px"><div class="row" style="gap:16px;flex-wrap:wrap;font-size:13px">${f.wz?'<span>WZ: <b>'+esc(f.wz)+'</b></span>':''}${f.zamowienie?'<span>Zamówienie: <b>'+esc(f.zamowienie)+'</b></span>':''}${f.termin?'<span>Termin płatności: <b>'+esc(f.termin)+'</b></span>':''}${f.forma?'<span>'+esc(f.forma)+'</span>':''}${f.ksef?'<span class="muted">KSeF '+esc(f.ksef)+'</span>':''}</div>
+  <table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:6px"><tr><th>Towar</th><th class="n">Ilość</th><th class="n">Cena netto</th><th class="n">Wartość netto</th><th class="n">VAT</th></tr>${f.pozycje.map(p=>`<tr><td>${esc(p.nazwa)}${p.indeks?' <span class="muted">ind. '+esc(p.indeks)+'</span>':''}</td><td class="n">${p.ilosc} ${esc((p.jedn||'').toLowerCase())}</td><td class="n">${zl(p.cena)}</td><td class="n">${zl(p.wartosc)}</td><td class="n">${esc(p.vat)}%</td></tr>`).join('')}
+  <tr><td colspan="3" class="n">Netto / VAT / <b>Brutto</b></td><td class="n" colspan="2">${zl(f.netto)} / ${zl(f.vat)} / <b>${zl(f.brutto)}</b></td></tr></table></div>`}
+ catch(e){td.innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
 function openHist(){$('#hq').value='';loadHist();hdlg.showModal()}
 let HL=[],HADM=false;
 async function loadHist(){const j=await api('/api/history?q='+encodeURIComponent($('#hq').value));HL=j.lista;HADM=j.admin;
@@ -285,7 +338,7 @@ function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||''
 ''}
 async function pdfOferta(b,wszystkie){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',wszystkie?{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length}:{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
  msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
-const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['www','Strona www'],['email','E-mail']];
+const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['kom','Komórki (po przecinku)'],['www','Strona www'],['email','E-mail']];
 function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
  $('#oddzBox').innerHTML='<h3 style="margin:14px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
  L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>`).join('')+
@@ -294,7 +347,7 @@ async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(
  for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
  try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
 function copyMail(){navigator.clipboard.writeText($('#email').value)}
-async function loadCfg(){CFG=await api('/api/cfg');try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
+async function loadCfg(){CFG=await api('/api/cfg');$('#bZam').style.display=CFG.zamowienia?'':'none';try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 let WT={},WCUR='wymiana_kolo';
 function readW(){WT[WCUR]=Object.fromEntries([...document.querySelectorAll('#c_wym input')].filter(i=>i.value!=='').map(i=>[i.dataset.d,+i.value]))}
 function drawW(){const W=WT[WCUR];$('#c_wym').innerHTML=Array.from({length:12},(_,i)=>String(i+12)).map(d=>`<div class="w"><b>R${d}</b><input type="number" min="0" step="1" data-d="${d}" value="${W[d]??''}" placeholder="—" oninput="this.nextElementSibling.textContent=this.value?'4 koła: '+(this.value*4)+' zł':'brak ceny'"><small>${W[d]!=null?'4 koła: '+(W[d]*4)+' zł':'brak ceny'}</small></div>`).join('')}

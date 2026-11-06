@@ -106,6 +106,12 @@
 </main>
 
 <!-- ===================== WYNIKI (tylko podgląd) ===================== -->
+<main id="vZam" class="view" hidden>
+  <div class="row wrap gap" style="margin:2px 2px 10px"><div class="seg grow" id="zTabs"><button class="on" data-z="z" onclick="zTab(this)">Otwarte</button><button data-z="h" onclick="zTab(this)">Zrealizowane</button><button data-z="f" id="zbF" onclick="zTab(this)" hidden>Faktury</button></div><button class="btn sec sm" onclick="zLoad(true)">↻</button></div>
+  <div id="zZ"><div id="zDaty" class="row gap" style="margin-bottom:8px" hidden><input type="date" id="hod" class="grow"><input type="date" id="hdo" class="grow"><button class="btn sm" onclick="zLoad()">Pokaż</button></div><input id="zq" placeholder="Szukaj: opona, numer, osoba…" oninput="zDraw()"><div class="row gap" style="margin:8px 0"><select id="zkto" class="sm grow" onchange="zDraw()"></select><select id="zst" class="sm" onchange="zDraw()"><option value="">wszystkie</option><option value="otw" selected>bez zrealizowanych</option><option value="5">tylko błąd</option></select></div><div id="zSum" class="small" style="margin:0 4px 8px"></div><div id="zL"><p class="muted">Wczytuję zamówienia…</p></div></div>
+  <div id="zF" hidden><div class="row gap" style="margin-bottom:8px"><input type="date" id="fod" class="grow"><input type="date" id="fdo" class="grow"><button class="btn sm" onclick="zFak()">Pokaż</button></div><div id="fL"></div></div>
+  <div class="spacer"></div>
+</main>
 <main id="vWyn" class="view" hidden>
   <div class="row wrap gap" style="margin:2px 2px 10px"><div class="seg grow" id="wOdd"></div><button class="btn sec sm" onclick="loadWyn(true)">↻ Odśwież</button></div>
   <div id="wObie" class="small" style="margin:0 4px 8px"></div>
@@ -161,6 +167,7 @@
   <button data-v="vOferta" class="on" onclick="go(this)"><span>🛞</span>Oferta</button>
   <button data-v="vHist" onclick="go(this)"><span>🕘</span>Historia</button>
   <button data-v="vWyn" onclick="go(this)"><span>📈</span>Wyniki</button>
+  <button data-v="vZam" onclick="go(this)" hidden><span>📦</span>Zamówienia</button>
   <button data-v="vUst" onclick="go(this)"><span>⚙</span>Ustawienia</button>
 </nav>
 
@@ -171,6 +178,7 @@
 <script src="pdf_wzor.js"></script>
 <script src="silnik.js"></script>
 <script src="wyniki.js"></script>
+<script src="zamowienia.js"></script>
 <script src="app.js"></script>
 <script src="ui.js"></script>
 </body>

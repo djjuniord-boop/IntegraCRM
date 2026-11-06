@@ -670,6 +670,7 @@
       logo: logo || "", nr: oid.length >= 13 ? `OF/${oid.slice(0, 4)}/${oid.slice(4, 6)}/${oid.slice(6, 8)}-${oid.slice(9, 13)}` : "OF/" + oid,
       data: data_oid(oid, 0), wazna: data_oid(oid, parseInt(cfg.waznosc_dni || 7, 10)),
       o_nazwa: oddzial.nazwa || "", o_adres: oddzial.adres || "", o_tel: oddzial.tel || "", o_www: oddzial.www || "", o_email: oddzial.email || "",
+      o_kom: (oddzial.kom || "").split(/[,;]/).map((t) => t.trim()).filter(Boolean).map((t) => ({ t })), xp_id: String(p.id || ""),
       klient: (req.klient || "").trim(), pojazd: poj.join(", "), kto: kto || "",
       tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : ""),
       tytul: p.nazwa, producent: p.producent || "", model: p.model || "", rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
@@ -703,6 +704,7 @@
   };
 
   // ------------------------------------------------------------ polecenia (jak handle() w Panelu)
+  const root_Z = () => (typeof window !== "undefined" ? window : globalThis).Zamowienia || require("./zamowienia.js");
   S.handle = async function (path, body) {
     const u = new URL(path, "http://x"), route = u.pathname, qs = u.searchParams;
     const cfg = S.load_cfg();
@@ -710,6 +712,10 @@
     try {
       if (body === null || body === undefined) {
         if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; c.oddzialy = S.KONTO.oddzialy || []; c.oddzialy_dane = S.KONTO.oddzialy_dane || {}; return [200, c]; }
+        if (route === "/api/zamowienia" || route === "/api/zamkniete" || route === "/api/faktury" || route === "/api/faktura") {
+          if (!S.KONTO.zamowienia) return [403, { error: "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)." }];
+          return await root_Z().handle(route, Object.fromEntries(qs.entries()), cfg, !!S.KONTO.admin, S.KONTO.oddzialy || []);
+        }
         if (route === "/api/history") {
           if (qs.get("id")) { const r = S.HIST ? await S.HIST.get_id(qs.get("id")) : null; return r ? [200, r] : [404, { error: "Brak oferty" }]; }
           return [200, { lista: await S.list_hist(qs.get("q") || ""), admin: !!(S.HIST && S.HIST.admin) }];

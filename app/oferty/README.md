@@ -36,6 +36,18 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 - Wzór wspólny z aplikacją Android: po zmianie `pdf_wzor.html` uruchom `python3 mobile/zrob_wzor.py` (test zgodności tego pilnuje).
 - Test na prawdziwym Windows/Edge: `tests/pdf_edge.py` (krok CI).
 
+## Zamówienia xPartner (beta)
+
+`zamowienia.py` (aplikacja: `mobile/www/zamowienia.js`, zgodność: `mobile/test/zamowienia_zgodnosc.py`) – tylko odczyt
+z konta xPartner pracownika: `getOpenOrders` (zamówione opony), `getInvoices`/`getInvoice` (faktury KSeF, od 2026-02-01).
+Dostęp: moduł `zamowienia` (UŻYTKOWNICY) albo administrator; faktury – tylko administrator (to porządek, nie
+zabezpieczenie – pracownik widzi faktury na stronie xPartner). „Wysłane opony” (listy przewozowe) wymagają tokenu
+głównego konta xPartner – na razie brak.
+Zamówienia zrealizowane (`/api/zamkniete`): xPartner nie ma ich listy – `getInvoices` z okresu → `getInvoice` (NrZamowienia)
+→ `getOrder`; zrealizowane i numery z faktur są zapamiętywane w pamięci programu. Zamówienie bez faktury tu nie trafi. Pozycje zamówień zamkniętych – z faktury (getOrder ich nie podaje).
+Pracownik widzi tylko zamówienia swoich oddziałów: `createdBy` „Detal Wrocław” = oddział „Wrocław” (`tylko_oddzialy`);
+to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi wszystko na stronie xPartner.
+
 ## Dane w bazie
 
 - `oferty_konta` – `xp_login`, hasło w **Vault** (`xp_haslo_id`; odczyt tylko własnego: rpc `oferty_moje_haslo()`, admin: `oferty_ma_haslo(email)`; jawna kolumna `xp_haslo` pusta po etapie 2 – SQL `oferty_haslo_vault_etap1/2_2026-11-06.sql`), `ustawienia` (marża, VAT, cenniki wymiany osobowe/SUV/dostawcze, TPMS,
