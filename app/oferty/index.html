@@ -280,10 +280,10 @@ let OODD='';
 function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';
  $('#ul').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">jeden model opony · każda usługa osobno · dane Twojego oddziału</span>'+
  (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="OODD=this.value" style="width:auto">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
- '<br>'+ULS.map(u=>`<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></button>`).join('')+
+ '<br>'+(ULS.length>1?`<button class="ulk" style="border-color:var(--red);font-weight:700" onclick="pdfOferta(this,1)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>`:'')+ULS.map(u=>`<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></button>`).join('')+
  (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')+
 ''}
-async function pdfOferta(b){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
+async function pdfOferta(b,wszystkie){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',wszystkie?{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length}:{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
  msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['www','Strona www'],['email','E-mail']];
 function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];

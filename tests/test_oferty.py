@@ -360,3 +360,15 @@ def test_etykieta_eprel_wstawiana_lub_zastepcza():
         import tempfile
         try: os.remove(os.path.join(tempfile.gettempdir(), "LatexOferty_eprel", "99999999999.png"))
         except OSError: pass
+
+
+def test_pdf_wszystkie_w_jednym():
+    _setup()
+    S.KONTO.update(oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    assert S.handle("/api/offer", {"oid": "20261106_120000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}],
+                                   "wybor": {"205/55 R16": {"wszystkie": [1, 2]}}})[0] == 200
+    c, r = S.handle("/api/pdf", {"ids": [1, 2]})
+    h = r["html"]
+    assert c == 200 and r["stron"] == 2 and h.count('<div class="page">') == 2 and h.count("<body>") == 1 and h.count("</html>") == 1
+    assert "break-after:page" in h and "BRIDGESTONE" in h and "BARUM" in h
+    assert S.handle("/api/pdf", {"id": 1})[1]["html"].count('<div class="page">') == 1    # pojedynczy bez zmian

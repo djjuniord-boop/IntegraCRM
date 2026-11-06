@@ -18,6 +18,7 @@ CHANGELOG = [
             "PDF oferty: szybsze tworzenie (stały profil Edge, etykieta UE pobierana raz i zapamiętywana)",
             "PDF oferty: jasny wygląd bez czarnych pól – mniej tuszu przy wydruku",
             "Usunięto odnośniki do ulotek xPartner – zastępuje je nasz PDF",
+            "PDF oferty: przycisk „Wszystkie w jednym PDF” – wszystkie opony z oferty w jednym pliku, strona na oponę",
         ],
     },
     {

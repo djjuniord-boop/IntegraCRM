@@ -48,6 +48,8 @@ for o in offers:
     py["offer"].append({"warianty": r["warianty"], "email": r["email"], "uwagi": r["uwagi"], "ulotki": [(u["id"], u["cena"]) for u in r["ulotki"]]})
     for u in r["ulotki"]:
         py["pdf"].append(S.handle("/api/pdf", {"id": u["id"], "logo": "logo.png"})[1].get("html"))
+    if len(r["ulotki"]) > 1:
+        py["pdf"].append(S.handle("/api/pdf", {"ids": [u["id"] for u in r["ulotki"]], "logo": "logo.png"})[1].get("html"))
 # wyszukiwanie z kopii pliku + PDF z etykietą EPREL
 S.CECHY.clear()
 S.KONTO["katalog"] = lambda sz: [copy.deepcopy(PLIK)] if sz == "205/55 R16" else None
