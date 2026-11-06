@@ -135,8 +135,28 @@ def api_call(cfg, **params):
     except ET.ParseError:
         raise ApiError("Nieprawidłowa odpowiedź API (nie XML) – sprawdź login/hasło.")
 
+CECHY = {}   # indeks -> cechy tylko z pliku ofertowego (EPREL, śnieg, lód) – API ich nie podaje, a oferta odświeża produkt z API
+CECHY_PLIKU = ("Kod EPREL", "Przyczepność na śniegu", "Przyczepność na lodzie", "Hałas")
+
+def zapamietaj_cechy(it):
+    a = it.get("attrs") or {}
+    c = {k: a[k] for k in CECHY_PLIKU if a.get(k)}
+    if c:
+        CECHY[it["id"]] = c
+
 def search_size(cfg, size_txt):
-    """Pobiera wszystkie produkty o danym rozmiarze (wszystkie strony)."""
+    """Wszystkie produkty o danym rozmiarze: z kopii pliku ofertowego xPartner (zalecane przez xPartner),
+    a gdy kopii brak / jest nieaktualna – z API (wszystkie strony)."""
+    kat = KONTO.get("katalog")
+    if kat:
+        try:
+            items = kat(size_txt)
+            if items is not None:
+                for it in items:
+                    zapamietaj_cechy(it)
+                return items
+        except Exception:
+            pass
     allp, page = [], 0
     while page < 30:
         count, items = api_call(cfg, productName=size_txt, resultsPerPage=100, page=page)
@@ -503,7 +523,8 @@ def do_search(cfg, req):
             lst.sort(key=lambda p: (not p["ok_stan"], p["netto"]))
             grp = " · ".join(x for x in (sez, KLASY.get(klasa, klasa)) if x) or "wszystkie"
             res[s][grp] = lst
-    return {"wyniki": res, "potrzeba": need}
+    info = KONTO.get("katalog_info")
+    return {"wyniki": res, "potrzeba": need, "zrodlo": (info() if info else "") or "xPartner na żywo (API)"}
 
 # ---------------------------------------------------------------- oferta
 TYPY = {"osobowy": "osobowy", "suv": "SUV/4x4", "dostawczy": "dostawczy"}
@@ -891,6 +912,7 @@ PDF_WZOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_wzor.ht
 OSTATNIA = {}   # ostatnio wyliczona oferta (dla /api/pdf): req, wiersze
 EU_KOLORY = [("A", "#00A651", "#fff"), ("B", "#4CB848", "#fff"), ("C", "#BFD730", "#111"), ("D", "#FFF200", "#111"), ("E", "#F7941D", "#fff")]
 KLASA_PDF = {"PREMIUM": "PREMIUM", "MIDDLE": "ŚREDNIA", "BUDGET": "BUDŻET"}
+EPREL_IMG = "https://eprel.ec.europa.eu/api/products/tyres/%s/labels?format=PNG"   # oficjalna etykieta UE z kodem QR
 ODDZIAL_POLA = ("nazwa", "adres", "tel", "www", "email")
 
 def _esc(v):
@@ -940,10 +962,14 @@ def wypelnij(tpl, ctx, stos=None):
     return "".join(out)
 
 def wzor_pdf():
+    """Wzór + fragmenty z dołu pliku (<!--nazwa-->…) wstawione w miejsca {{>nazwa}}."""
     with open(PDF_WZOR, encoding="utf-8") as f:
-        t = f.read()
-    glowny, _, etykieta = t.partition("<!--etykieta-->")
-    return glowny.replace("{{>etykieta}}", etykieta.strip())
+        czesci = re.split(r"<!--(\w+)-->", f.read())
+    t, frag = czesci[0], {czesci[i]: czesci[i + 1].strip() for i in range(1, len(czesci) - 1, 2)}
+    for _ in range(3):
+        for k, v in frag.items():
+            t = t.replace("{{>%s}}" % k, v)
+    return t
 
 def _skala(lit):
     return [{"l": l, "kolor": k, "tekst": t, "szer": 34 + 9 * i, "on": l == lit} for i, (l, k, t) in enumerate(EU_KOLORY)]
@@ -1002,8 +1028,9 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         if t and t not in poj:
             poj.append(t)
     sez = (p.get("sezon") or "").upper()
-    lab = p.get("etykieta") or {}
-    hk = (lab.get("Hałas") or "").strip()[:1].upper()
+    cechy = dict(CECHY.get(pid) or {}, **{k: v for k, v in (p.get("attrs") or {}).items() if v})
+    hk = (cechy.get("Hałas") or "").strip()[:1].upper()
+    eprel = re.sub(r"\D", "", cechy.get("Kod EPREL") or "")[:12]
     eu = bool(p.get("mokra") or p.get("opory") or p.get("halas"))
     vp = ("%g" % vat).replace(".", ",")
     return {
@@ -1015,9 +1042,11 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         "tag": "OPONA " + sez + (" · " + KLASA_PDF[p["klasa"]] if p.get("klasa") in KLASA_PDF else "") + (" · DEMO" if p.get("demo") else ""),
         "tytul": p["nazwa"], "producent": p.get("producent", ""), "model": p.get("model", ""), "rozmiar": R[0].get("rozmiar", ""),
         "indeks": p.get("indeks", ""), "dot": p.get("dot", ""), "foto": p.get("foto", ""), "ean": p.get("ean", ""),
-        "eu": eu, "ma_opory": bool(p.get("opory")), "ma_mokra": bool(p.get("mokra")),
+        "eu": eu or bool(eprel), "ma_opory": bool(p.get("opory")), "ma_mokra": bool(p.get("mokra")),
         "skala_opory": _skala(p.get("opory")), "skala_mokra": _skala(p.get("mokra")),
         "halas": p.get("halas") or "", "halas_klasa": hk if hk in ("A", "B", "C") else "",
+        "snieg": bool((cechy.get("Przyczepność na śniegu") or "").strip()), "lod": bool((cechy.get("Przyczepność na lodzie") or "").strip()),
+        "eprel": eprel, "eprel_img": EPREL_IMG % eprel if eprel else "",
         "cena_szt": pl(p["cena_brutto"]), "cena_szt_netto": pl(round(p["cena_brutto"] / (1 + vat / 100), 2)),
         "pozycje": [{"nazwa": x["nazwa"], "ilosc": "%d %s" % (x["q"], x["j"]), "cena": pl(x["c"]), "wartosc": pl(round(x["q"] * x["c"], 2))} for x in poz],
         "rabat": (("%g" % rab).replace(".", ",") + "%") if rabat_kw > 0 else "", "przed": pl(przed), "rabat_kw": pl(rabat_kw),
@@ -1093,6 +1122,12 @@ def handle(path, body=None, open_path=None):
         if route == "/api/pdf":
             if not OSTATNIA.get("rows"):
                 return 400, {"error": "Najpierw wygeneruj ofertę."}
+            pid = int(body.get("id") or 0)
+            if pid not in CECHY and KONTO.get("katalog_cechy"):
+                try:
+                    zapamietaj_cechy({"id": pid, "attrs": KONTO["katalog_cechy"](pid) or {}})
+                except Exception:
+                    pass
             o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
             html = pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], int(body.get("id") or 0), dane, KONTO.get("kto") or "", body.get("logo") or "")
             return 200, {"html": html, "oddzial": o}

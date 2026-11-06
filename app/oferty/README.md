@@ -14,6 +14,17 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 | `okno.py` | proces okna (`start.py --oferty`): pywebview/Edge WebView2, `Api.call` → `silnik.handle`, konto i historia z bazy |
 | `zakladka.py` | `OfertyMixin` – osadzenie okna w zakładce (jak SERWIS QR; używa `serwis/embed_win.py`) |
 
+## Wyszukiwanie z pliku ofertowego xPartner
+
+- xPartner zaleca: oferta z **pliku** (co 30–60 min), API tylko do sprawdzenia wybranych produktów. Automat
+  `.github/workflows/xp_oferta.yml` → `tools/xp_oferta_sync.py` (sekrety `XPARTNER_OFERTA_URL`, `SUPABASE_SERVICE_ROLE_KEY`)
+  ładuje CSV (CSV, UTF-8, OPONY, wszystkie kolumny) do tabeli `xp_oferta` (`supabase/xp_oferta_2026-11-06.sql`): tylko zmiany,
+  plik < 50% tabeli = stop, w logach tylko liczby; stan w `app_config` `xp_oferta_stan`.
+- `search_size` pyta najpierw `KONTO["katalog"]` (Panel: `okno.Katalog`, aplikacja: `app.js`); kopia starsza niż 3 h / brak → API.
+  Ceny w kopii są z konta, które wygenerowało link; oferta (`build_offer`) i tak odświeża produkty przez API z konta pracownika.
+- Cechy tylko z pliku (EPREL, śnieg, lód) trzyma `CECHY` (API ich nie ma); PDF: oficjalna etykieta EPREL (obrazek z rejestru UE,
+  gdy się nie wczyta – rysowana), znaczki 3PMSF/lód.
+
 ## PDF oferty (jeden model opony)
 
 - Przycisk przy każdej oponie w sekcji 4 → `/api/pdf` → `pdf_dane` + `wypelnij(pdf_wzor.html)` → HTML → **Edge headless**

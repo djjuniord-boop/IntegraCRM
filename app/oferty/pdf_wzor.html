@@ -1,6 +1,6 @@
 <!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{{nr}}</title>
 <!-- Wzór PDF oferty (jeden model opony). Wspólny dla Panelu (silnik.py) i aplikacji (silnik.js – kopia w pdf_wzor.js).
-     {{x}} – tekst (zabezpieczony), {{{x}}} – bez zmian, {{#x}}…{{/x}} – gdy jest / dla każdego elementu listy, {{^x}}…{{/x}} – gdy brak. -->
+     {{>nazwa}} – fragment z dołu pliku (po znaczniku komentarza z tą nazwą), {{x}} – tekst (zabezpieczony), {{{x}}} – bez zmian, {{#x}}…{{/x}} – gdy jest / dla każdego elementu listy, {{^x}}…{{/x}} – gdy brak. -->
 <style>
 @page{size:A4;margin:0}*{box-sizing:border-box}
 body{margin:0;font:10pt/1.4 "Segoe UI",Roboto,Arial,sans-serif;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
@@ -23,6 +23,7 @@ h1{font-size:17pt;line-height:1.15;margin:4px 0 10px;color:#141414}
 .er{display:flex;align-items:center;gap:4px;height:13px;margin:1px 0}
 .er span{display:inline-block;height:11px;font-size:7pt;font-weight:800;padding-left:3px;line-height:11px;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,0 100%)}
 .er b{background:#111;color:#fff;font-size:8pt;padding:0 5px;border-radius:2px;line-height:12px}.euf{margin-top:5px;border-top:1px solid #ddd;padding-top:4px}
+.eprel{display:block;width:100%;height:auto;margin-top:8px}.top .k1 .eprel{margin-top:0}.eprel-t{font-size:7pt;color:#888;margin-top:2px}
 h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;padding-left:8px}
 .kal{width:100%;border-collapse:collapse;font-size:9.3pt}.kal th{background:#141414;color:#fff;text-align:left;padding:6px;font-size:8.5pt}.kal td{padding:6px;border-bottom:1px solid #e6e6e6}
 .kal tr.p:nth-child(even) td{background:#FAFAFA}.kal tr.s td{border:none;padding:2px 6px;color:#666}.kal tr.rab td{border:none;padding:2px 6px;color:#141414}.kal tr.rab b{color:#E30613}
@@ -51,8 +52,9 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 <div class="cta"><div><b>Zarezerwuj termin montażu</b><br><span>Zadzwoń – dobierzemy dogodną godzinę</span></div><div class="tel">☎ {{o_tel}}</div></div>
 <div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}}</span></div>
 </div></body></html>
-<!--etykieta--><div class="eul"><div class="euh"><i>★</i><b>ETYKIETA UE</b>{{#ean}}<span class="ean">EAN {{ean}}</span>{{/ean}}</div>
+<!--etykieta-->{{#eprel}}<object class="eprel" data="{{eprel_img}}" type="image/png">{{>rysowana}}</object><div class="eprel-t">Etykieta UE – rejestr EPREL nr {{eprel}} (eprel.ec.europa.eu)</div>{{/eprel}}{{^eprel}}{{>rysowana}}{{/eprel}}
+<!--rysowana--><div class="eul"><div class="euh"><i>★</i><b>ETYKIETA UE</b>{{#ean}}<span class="ean">EAN {{ean}}</span>{{/ean}}</div>
 <div class="eus">{{producent}} · {{rozmiar}} {{indeks}}</div><div class="eug">
 {{#ma_opory}}<div><div class="ec">opory toczenia</div>{{#skala_opory}}<div class="er"><span style="width:{{szer}}px;background:{{kolor}};color:{{tekst}}">{{l}}</span>{{#on}}<b>{{l}}</b>{{/on}}</div>{{/skala_opory}}</div>{{/ma_opory}}
 {{#ma_mokra}}<div><div class="ec">hamowanie na mokrym</div>{{#skala_mokra}}<div class="er"><span style="width:{{szer}}px;background:{{kolor}};color:{{tekst}}">{{l}}</span>{{#on}}<b>{{l}}</b>{{/on}}</div>{{/skala_mokra}}</div>{{/ma_mokra}}
-</div>{{#halas}}<div class="euf">hałas zewnętrzny: <b>{{halas}} dB</b>{{#halas_klasa}} · klasa {{halas_klasa}}{{/halas_klasa}}</div>{{/halas}}</div>
+</div>{{#halas}}<div class="euf">hałas zewnętrzny: <b>{{halas}} dB</b>{{#halas_klasa}} · klasa {{halas_klasa}}{{/halas_klasa}}</div>{{/halas}}{{#snieg}}<div class="euf"><b>❄ 3PMSF</b> – opona na trudne warunki zimowe{{#lod}} · <b>lód</b>{{/lod}}</div>{{/snieg}}{{^snieg}}{{#lod}}<div class="euf"><b>lód</b> – przyczepność na lodzie</div>{{/lod}}{{/snieg}}</div>

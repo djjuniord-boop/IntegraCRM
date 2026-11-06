@@ -103,7 +103,17 @@
     return parse_products(r.text);
   };
 
+  // cechy tylko z pliku ofertowego (EPREL, śnieg, lód) – jak CECHY w silnik.py
+  const CECHY = {}, CECHY_PLIKU = ["Kod EPREL", "Przyczepność na śniegu", "Przyczepność na lodzie", "Hałas"];
+  function zapamietaj_cechy(it) {
+    const a = it.attrs || {}, c = {};
+    for (const k of CECHY_PLIKU) if (a[k]) c[k] = a[k];
+    if (Object.keys(c).length) CECHY[it.id] = c;
+  }
+  S.CECHY = CECHY;
   async function search_size(cfg, size) {
+    // jak w silnik.py: najpierw kopia pliku ofertowego xPartner, gdy brak / nieaktualna – API
+    if (S.KONTO.katalog) { try { const items = await S.KONTO.katalog(size); if (items) { items.forEach(zapamietaj_cechy); return items; } } catch (e) { /* API */ } }
     let all = [], page = 0;
     while (page < 30) {
       const [count, items] = await S.api_call(cfg, { productName: size, resultsPerPage: 100, page });
@@ -425,7 +435,7 @@
         res[s][grp] = lst;
       }
     });
-    return { wyniki: res, potrzeba: need };
+    return { wyniki: res, potrzeba: need, zrodlo: (S.KONTO.katalog_info && S.KONTO.katalog_info()) || "xPartner na żywo (API)" };
   };
 
   // ------------------------------------------------------------ oferta
@@ -613,7 +623,13 @@
     return out.join("");
   }
   S.wypelnij = wypelnij;
-  S.wzor_pdf = function () { const t = root.PDF_WZOR || ""; const i = t.indexOf("<!--etykieta-->"); return i < 0 ? t : t.slice(0, i).replace("{{>etykieta}}", t.slice(i + 15).trim()); };
+  S.wzor_pdf = function () {   // wzór + fragmenty z dołu pliku wstawione w {{>nazwa}} (jak w silnik.py)
+    const cz = (root.PDF_WZOR || "").split(/<!--(\w+)-->/);
+    let t = cz[0]; const frag = {};
+    for (let i = 1; i < cz.length - 1; i += 2) frag[cz[i]] = cz[i + 1].trim();
+    for (let n = 0; n < 3; n++) for (const [k, v] of Object.entries(frag)) t = t.split("{{>" + k + "}}").join(v);
+    return t;
+  };
   const skala = (lit) => EU_KOLORY.map(([l, k, t], i) => ({ l, kolor: k, tekst: t, szer: 34 + 9 * i, on: l === lit }));
   const p2 = (n) => String(n).padStart(2, "0");
   function data_oid(oid, dni) {
@@ -647,7 +663,9 @@
     const brutto = r2(przed - rabat_kw), netto = r2(brutto / (1 + vat / 100)), oid = String(req.oid || "");
     const poj = [];
     for (const r of R) { const t = [(r.pojazd || "").trim(), (r.rej || "").trim().toUpperCase()].filter(Boolean).join(" · "); if (t && !poj.includes(t)) poj.push(t); }
-    const hk = ((p.etykieta || {})["Hałas"] || "").trim().slice(0, 1).toUpperCase();
+    const cechy = Object.assign({}, CECHY[pid] || {}, Object.fromEntries(Object.entries(p.attrs || {}).filter(([, v]) => v)));
+    const hk = (cechy["Hałas"] || "").trim().slice(0, 1).toUpperCase();
+    const eprel = (cechy["Kod EPREL"] || "").replace(/\D/g, "").slice(0, 12);
     return {
       logo: logo || "", nr: oid.length >= 13 ? `OF/${oid.slice(0, 4)}/${oid.slice(4, 6)}/${oid.slice(6, 8)}-${oid.slice(9, 13)}` : "OF/" + oid,
       data: data_oid(oid, 0), wazna: data_oid(oid, parseInt(cfg.waznosc_dni || 7, 10)),
@@ -655,8 +673,10 @@
       klient: (req.klient || "").trim(), pojazd: poj.join(", "), kto: kto || "",
       tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : ""),
       tytul: p.nazwa, producent: p.producent || "", model: p.model || "", rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
-      foto: p.foto || "", ean: p.ean || "", eu: !!(p.mokra || p.opory || p.halas), ma_opory: !!p.opory, ma_mokra: !!p.mokra,
+      foto: p.foto || "", ean: p.ean || "", eu: !!(p.mokra || p.opory || p.halas) || !!eprel, ma_opory: !!p.opory, ma_mokra: !!p.mokra,
       skala_opory: skala(p.opory), skala_mokra: skala(p.mokra), halas: p.halas || "", halas_klasa: ["A", "B", "C"].includes(hk) ? hk : "",
+      snieg: !!(cechy["Przyczepność na śniegu"] || "").trim(), lod: !!(cechy["Przyczepność na lodzie"] || "").trim(),
+      eprel, eprel_img: eprel ? `https://eprel.ec.europa.eu/api/products/tyres/${eprel}/labels?format=PNG` : "",
       cena_szt: pl(p.cena_brutto), cena_szt_netto: pl(r2(p.cena_brutto / (1 + vat / 100))),
       pozycje: poz.map((x) => ({ nazwa: x.nazwa, ilosc: x.q + " " + x.j, cena: pl(x.c), wartosc: pl(r2(x.q * x.c)) })),
       rabat: rabat_kw > 0 ? g(rab) + "%" : "", przed: pl(przed), rabat_kw: pl(rabat_kw),
@@ -694,6 +714,8 @@
       if (route === "/api/test") { const [count, items] = await S.api_call(cfg, { productName: "205/55 R16", resultsPerPage: 1 }); return [200, { ok: true, msg: `Połączono z xPartner. Przykładowe zapytanie zwróciło ${count} produktów.` + S.opis_pol(items) }]; }
       if (route === "/api/pdf") {
         if (!OSTATNIA.rows) return [400, { error: "Najpierw wygeneruj ofertę." }];
+        const pid = +body.id || 0;
+        if (!CECHY[pid] && S.KONTO.katalog_cechy) { try { zapamietaj_cechy({ id: pid, attrs: (await S.KONTO.katalog_cechy(pid)) || {} }); } catch (e) { /* bez cech z pliku */ } }
         const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
         return [200, { html: S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, +body.id || 0, dane, S.KONTO.kto || "", body.logo || ""), oddzial: o }];
       }

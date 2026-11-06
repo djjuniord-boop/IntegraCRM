@@ -80,6 +80,28 @@
     try { haslo = (await A.db("POST", "/rest/v1/rpc/oferty_moje_haslo", {})) || ""; } catch (e) { haslo = r.xp_haslo || ""; }
     Object.assign(S.KONTO, { login: r.xp_login || "", password: typeof haslo === "string" ? haslo : "", ustawienia: r.ustawienia || {},
       zapisz: (dane) => A.db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", { p: dane }) });
+    // wyszukiwanie w kopii pliku ofertowego xPartner (tabela xp_oferta) – jak Katalog w okno.py
+    const K = { stan: null, t: 0, uzyty: false };
+    const swiezy = async () => {
+      if (Date.now() - K.t > 120000) {
+        try { const c = (await A.db("GET", "/rest/v1/app_config?key=eq.xp_oferta_stan&select=value")) || []; K.stan = (c[0] && c[0].value) || null; } catch (e) { K.stan = null; }
+        K.t = Date.now();
+      }
+      const t = K.stan && Date.parse(K.stan.czas);
+      return !!t && Date.now() - t < 3 * 3600 * 1000 && (K.stan.ile || 0) > 0;
+    };
+    S.KONTO.katalog = async (size) => {
+      const m = /^(\d{3})\/(\d{2}) R(\d{2})/.exec(size || "");
+      if (!m || !(await swiezy())) { K.uzyty = false; return null; }
+      const rows = (await A.db("GET", `/rest/v1/xp_oferta?select=dane&szer=eq.${m[1]}&profil=eq.${m[2]}&sred=eq.${m[3]}&limit=5000`)) || [];
+      K.uzyty = true;
+      return rows.map((x) => x.dane).filter((d) => d && typeof d === "object");
+    };
+    S.KONTO.katalog_cechy = async (pid) => {
+      const rows = (await A.db("GET", "/rest/v1/xp_oferta?select=dane&id=eq." + (+pid || 0))) || [];
+      return (rows[0] && rows[0].dane && rows[0].dane.attrs) || {};
+    };
+    S.KONTO.katalog_info = () => K.uzyty ? "Oferta xPartner z godz. " + new Date(K.stan.czas).toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }) + " (kopia co 30 min; ceny w ofercie – na żywo)" : "";
     let names = {};
     S.HIST = {
       admin,

@@ -250,3 +250,88 @@ def test_foto_z_api():
     assert it[0]["foto"] == "https://img.example.com/opona.jpg" and "imageUrl" in it[0]["pola"]
     _, it = S.parse_products(xml.replace(b"https://img.example.com/opona.jpg", b"http://zly/x.jpg"))
     assert it[0]["foto"] == ""   # tylko https
+
+
+CSV_TEST = ("﻿LP;Indeks;\"Kod produktu\";Nazwa;Ilość;\"Ilość Opole\";\"Cena katalogowa netto[pln]\";\"Cena zakupu netto[pln]\";"
+            "\"Cena zakupu brutto[pln]\";EAN1;Asortyment;Producent;\"Kod EPREL\";Klasa;Sezon;Średnica;Szerokość;Profil;"
+            "\"Opory toczenia\";\"Przyczepność na mokrej nawierzchni\";Hałas;\"Poziom hałasu\";\"Przyczepność na śniegu\";Struktura\r\n"
+            "1;270722;15310;\"BRIDGESTONE Z205/55 R16 BLIZZAK LM005 91H DOT2026\";50;50;666.00;312.10;383.88;3286341531015;OPONY;"
+            "BRIDGESTONE;381909;PREMIUM;ZIMOWA;R16;205;55;C;A;B;\"71 dB\";X;STANDARD\r\n"
+            "2;1;;\"CENA ZERO 205/55 R16\";5;5;0;0;0;;OPONY;X;;BUDGET;LETNIA;R16;205;55;;;;;;STANDARD\r\n").encode("utf-8")
+
+
+def _sync():
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
+    import xp_oferta_sync
+    return xp_oferta_sync
+
+
+def test_plik_ofertowy_jak_api():
+    X = _sync()
+    rows = X.czytaj_csv(CSV_TEST)
+    assert len(rows) == 1                      # cena 0 pominięta jak w API
+    r = rows[0]
+    assert (r["id"], r["szer"], r["profil"], r["sred"], r["ilosc"]) == (270722, 205, 55, 16, 50)
+    d = r["dane"]
+    assert d["netto"] == 312.10 and d["magazyny"] == {"Opole": 50} and d["ean"] == "3286341531015"
+    e = S.enrich(dict(S.DEFAULT_CFG), d)      # silnik czyta produkt z pliku tak samo jak z API
+    assert (e["sezon"], e["klasa"], e["producent"], e["mokra"], e["opory"], e["halas"], e["dot"]) == ("Zimowa", "PREMIUM", "BRIDGESTONE", "A", "C", 71, "2026")
+    try:
+        X.czytaj_csv(b"LP;Nazwa\r\n1;x\r\n")
+        assert False, "zły format powinien zatrzymać synchronizację"
+    except X.Blad:
+        pass
+
+
+def test_sync_chroni_przed_uciętym_plikiem_i_wysyla_tylko_zmiany():
+    X = _sync()
+    rows = X.czytaj_csv(CSV_TEST)
+    wyw = []
+    def http(method, path, key, body=None, prefer=None, timeout=120):
+        wyw.append((method, path.split("?")[0], len(body) if isinstance(body, list) else body))
+        if method == "GET":
+            return [{"id": i, "h": "x"} for i in range(1, 11)] if "offset=0" in path else []
+        return None
+    X._http = http
+    try:
+        X.synchronizuj(rows, "k")
+        assert False, "1 opona przy 10 w tabeli = plik podejrzany"
+    except X.Blad:
+        pass
+    assert not [w for w in wyw if w[0] in ("POST", "DELETE")]   # nic nie zmieniono
+    wyw.clear()
+    X._http = lambda method, path, key, body=None, prefer=None, timeout=120: (wyw.append((method, path, body)) or
+              ([{"id": 270722, "h": rows[0]["h"]}] if method == "GET" else None))
+    s = X.synchronizuj(rows, "k")
+    assert s["zmienione"] == 0 and s["usuniete"] == 0 and s["ile"] == 1
+    assert not [w for w in wyw if w[0] == "POST" and "xp_oferta" in w[1]]   # bez zmian = bez wysyłania
+
+
+def test_wyszukiwanie_z_pliku_i_etykieta_eprel():
+    _setup()
+    X = _sync()
+    dane = X.czytaj_csv(CSV_TEST)[0]["dane"]
+    S.CECHY.clear()
+    S.KONTO.update(katalog=lambda s: [dane] if s == "205/55 R16" else [], katalog_info=lambda: "z pliku",
+                   oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    c, r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}]})
+    assert c == 200 and r["zrodlo"] == "z pliku" and [p["id"] for g in r["wyniki"]["205/55 R16"].values() for p in g] == [270722]
+    # oferta odświeża produkt z API (bez EPREL/śniegu) – cechy z pliku zostają zapamiętane
+    api = dict(dane, attrs={k: v for k, v in dane["attrs"].items() if k not in ("Kod EPREL", "Przyczepność na śniegu")})
+    stary = S.get_product
+    S.get_product = lambda cfg, pid: dict(api)
+    try:
+        _test_pdf_z_pliku(api)
+    finally:
+        S.get_product = stary
+        S.KONTO.pop("katalog", None); S.KONTO.pop("katalog_info", None)
+
+
+def _test_pdf_z_pliku(api):
+    assert S.handle("/api/offer", {"oid": "20261106_090000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}],
+                                   "wybor": {"205/55 R16": {"x": [270722]}}})[0] == 200
+    h = S.handle("/api/pdf", {"id": 270722})[1]["html"]
+    assert "tyres/381909/labels" in h and "3PMSF" in h and "{{" not in h
+    # bez kopii pliku -> API (katalog zwraca None)
+    S.KONTO.update(katalog=lambda s: None, katalog_info=lambda: "")
+    assert S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}]})[1]["zrodlo"].startswith("xPartner na żywo")

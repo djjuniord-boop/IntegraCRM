@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.23.9"
+VERSION = "0.24.0"
 RELEASED = "2026-11-05"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.0",
+        "date": "2026-11-06",
+        "changes": [
+            "OFERTY OPON: wyszukiwanie w ofercie xPartner pobieranej co 30 min (tak zaleca xPartner) – szybciej i bez "
+            "obciążania ich API; ceny i stany w ofercie dla klienta nadal sprawdzane na żywo z Twojego konta",
+            "PDF oferty: oficjalna etykieta UE z rejestru EPREL (z kodem QR) oraz znaczki 3PMSF (śnieg) i lód",
+            "Pod wyszukiwaniem widać, skąd są wyniki i z której godziny jest oferta",
+        ],
+    },
     {
         "version": "0.23.9",
         "date": "2026-11-06",

@@ -64,8 +64,9 @@ with sync_playwright() as p:
         shot("4_oferta"); wide()
         assert "RAZEM" in pg.inner_text("#sum"); assert len(pg.input_value("#email")) > 50
         # PDF oferty: admin ma oba oddziały -> wybór; PDF z danymi wybranego oddziału
-        pg.evaluate("window.__pdf=null;Aplikacja.pdf=async(h,n)=>{window.__pdf={h,n};return{ok:true}}")
-        pg.select_option("#ul select", "Latex Opole"); pg.locator("#ul .ulk").first.click(); pg.wait_for_function("window.__pdf")
+        # „;0” na końcu: Playwright wywołałby funkcję, gdyby była ostatnim wyrażeniem (wtedy __pdf powstaje bez kliknięcia)
+        pg.evaluate("window.__pdf=null;Aplikacja.pdf=async(h,n)=>{window.__pdf={h,n};return{ok:true}};0")
+        pg.select_option("#ul select", "Latex Opole"); pg.locator("#ul .ulk").first.click(); pg.wait_for_function("window.__pdf && window.__pdf.h")
         h = pg.evaluate("window.__pdf.h")
         assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h and "DO ZAPŁATY BRUTTO" in h and "Wymiana opon" in h, h[:300]
         assert pg.evaluate("window.__pdf.n").startswith("Oferta ")
