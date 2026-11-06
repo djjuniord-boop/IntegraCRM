@@ -245,6 +245,9 @@
     const nz = /(\d{2})/.exec(p.attrs["Poziom hałasu"] || "");
     Object.assign(p, { mokra: (p.attrs["Przyczepność na mokrej nawierzchni"] || "").trim().slice(0, 1).toUpperCase(),
       opory: (p.attrs["Opory toczenia"] || "").trim().slice(0, 1).toUpperCase(), halas: nz ? +nz[1] : 0, homol: homol_of(p), demo: is_demo(p) });
+    const mi = /^(\d{2,3})(?:\/\d{2,3})?([A-Z]{1,2}\d?)/.exec(p.indeks || "");
+    Object.assign(p, { nosnosc: mi ? +mi[1] : 0, predkosc: mi ? mi[2] : "",
+      rant: !!(p.attrs["Rant ochronny"] || "").trim() || /\b(FR|MFS|FSL|RPB|MFS)\b/.test(p.nazwa.toUpperCase()) });
     p.model_oferta = p.model + (p.demo ? " – DEMO (opona z demontażu)" : "");
     return p;
   }

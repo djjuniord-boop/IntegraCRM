@@ -284,6 +284,9 @@ def enrich(cfg, p):
     p.update(mokra=(p["attrs"].get("Przyczepność na mokrej nawierzchni") or "").strip()[:1].upper(),
              opory=(p["attrs"].get("Opory toczenia") or "").strip()[:1].upper(),
              halas=int(nz.group(1)) if nz else 0, homol=homol_of(p), demo=is_demo(p))
+    mi = re.match(r"(\d{2,3})(?:/\d{2,3})?([A-Z]{1,2}\d?)", p["indeks"] or "")
+    p.update(nosnosc=int(mi.group(1)) if mi else 0, predkosc=mi.group(2) if mi else "",
+             rant=bool((p["attrs"].get("Rant ochronny") or "").strip()) or bool(re.search(r"\b(FR|MFS|FSL|RPB|MFS)\b", p["nazwa"].upper())))
     p["model_oferta"] = p["model"] + (" – DEMO (opona z demontażu)" if p["demo"] else "")
     return p
 
