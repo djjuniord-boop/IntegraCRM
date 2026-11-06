@@ -33,7 +33,11 @@
   };
   const adres = (el) => { const o = {}; if (el) for (const k of ["name", "street", "zipCode", "city", "receivingPerson"]) if (t(el, k)) o[k] = t(el, k); return o; };
   Z.czytaj_zamowienia = function (r) {
-    const out = wszystkie(dz(r, "orders"), "order").map((o) => {
+    const out = wszystkie(dz(r, "orders"), "order").map(zamowienie);
+    return out.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+  };
+  const zamowienie = (o) => {
+    {
       const st = i0(t(o, "status"));
       const poz = wszystkie(dz(o, "products"), "product").map((p) => ({ lp: i0(t(p, "lineNumber")), id: i0(t(p, "productId")), nazwa: t(p, "productName"),
         jedn: t(p, "unit") || "szt", ilosc: i0(t(p, "quantity")), zostalo: i0(t(p, "quantityRemaining")), dostepne: i0(t(p, "quantityAvailable")), cena: f2(t(p, "unitNetPrice")) }));
@@ -42,9 +46,37 @@
         status_txt: STATUSY[st] || String(st || "?"), magazyn: t(o, "warehouseName"), komentarz: t(o, "comment"),
         odbiorca: adres(dz(o, "recipient")), dostawa: adres(dz(o, "deliveryPlace")), pozycje: poz,
         szt: poz.reduce((a, x) => a + x.ilosc, 0), do_wydania: poz.reduce((a, x) => a + x.zostalo, 0) };
-    });
-    return out.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+    }
   };
+  const ZAM_XP = /^\d{11}$/, ZAM_ERP = /^\d{9}\/\d{2}$/, PAMIEC = new Map();
+  Z.numery_zamowien = function (r) {
+    const out = [];
+    for (const c of r.getElementsByTagName("*")) if (lok(c) === "NrZamowienia") { const n = (c.textContent || "").trim(); if ((ZAM_XP.test(n) || ZAM_ERP.test(n)) && !out.includes(n)) out.push(n); }
+    return out;
+  };
+  Z.czytaj_zamowienie = function (r) { const o = dz(r, "order"); if (!o) throw new Blad("Brak zamówienia w odpowiedzi xPartner."); return zamowienie(o); };
+  const pula = async (lista, fn, n) => { const wyn = new Array(lista.length); let i = 0;
+    await Promise.all(Array.from({ length: Math.min(n, lista.length) }, async () => { while (i < lista.length) { const j = i++; try { wyn[j] = { ok: await fn(lista[j]) }; } catch (e) { if (!(e instanceof Blad)) throw e; wyn[j] = { blad: e }; } } }));
+    return wyn; };
+  Z.zamkniete = async function (cfg, od, dO) {
+    const login = cfg.login || "";
+    const fak = Z.czytaj_faktury(await Z.api_xml(cfg, "getInvoices", { documentDateFrom: od, documentDateTo: dO }));
+    let bledy = 0; const fz = new Map();
+    const r1 = await pula(fak, async (f) => { const k = login + "|F|" + f.nr;
+      if (!PAMIEC.has(k)) PAMIEC.set(k, FAKTURA_NR.test(f.nr) ? Z.numery_zamowien(await Z.api_xml(cfg, "getInvoice", { invoiceNumber: f.nr })) : []);
+      return PAMIEC.get(k); }, 6);
+    r1.forEach((x, i) => { if (x.blad) { bledy++; return; } for (const n of x.ok) { if (!fz.has(n)) fz.set(n, []); fz.get(n).push(fak[i].nr); } });
+    const nry = [...fz.keys()];
+    const r2 = await pula(nry, async (n) => { const k = login + "|Z|" + n; if (PAMIEC.has(k)) return PAMIEC.get(k);
+      const z = Z.czytaj_zamowienie(await Z.api_xml(cfg, "getOrder", ZAM_XP.test(n) ? { orderXp: n } : { orderErp: n })); if (z.status === 6) PAMIEC.set(k, z); return z; }, 6);
+    const out = [], byly = new Set();
+    r2.forEach((x, i) => { if (x.blad) { bledy++; return; } const z = x.ok; if (byly.has(z.nr)) return; byly.add(z.nr);
+      const f = new Set(); for (const m of [z.nr, z.nr_erp, nry[i]]) for (const y of fz.get(m) || []) f.add(y);
+      out.push(Object.assign({}, z, { faktury: [...f].sort() })); });
+    out.sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0));
+    return { zamowienia: out, faktur: fak.length, bledy };
+  };
+  Z._pamiec = PAMIEC;
   Z.czytaj_faktury = function (r) {
     const out = wszystkie(dz(r, "invoices"), "invoice").map((x) => ({ nr: t(x, "documentNumber"), data: t(x, "documentDate"), platnosc: t(x, "paymentMethod"), magazyn: t(x, "warehouse") }));
     const k = (x) => [x.data, x.nr];
@@ -83,6 +115,11 @@
       if (route === "/api/faktury") {
         const [od, dO] = Z.okres(q.od || "", q.do || "");
         return [200, { faktury: Z.czytaj_faktury(await Z.api_xml(cfg, "getInvoices", { documentDateFrom: od, documentDateTo: dO })), od, do: dO }];
+      }
+      if (route === "/api/zamkniete") {
+        const [od, dO] = Z.okres(q.od || "", q.do || "");
+        const w = await Z.zamkniete(cfg, od, dO);
+        return [200, Object.assign(w, { od, do: dO, czas: new Date().toLocaleTimeString("pl-PL", { hour: "2-digit", minute: "2-digit" }) })];
       }
       if (route === "/api/faktura") {
         const nr = (q.nr || "").trim().toUpperCase();

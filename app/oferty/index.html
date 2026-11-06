@@ -101,10 +101,11 @@ DX3985C octavia 205/60 16 tylko wymiana
 </dialog>
 <dialog id="zdlg" style="max-width:1150px;padding:0">
 <div style="display:flex;align-items:center;gap:8px;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px;flex:1">Zamówienia xPartner</b>
-<button class="sec zt on" data-t="z" onclick="zTab(this)">📦 Zamówione opony</button><button class="sec zt" data-t="f" id="bFak" onclick="zTab(this)">🧾 Faktury</button>
+<button class="sec zt on" data-t="z" onclick="zTab(this)">📦 Otwarte</button><button class="sec zt" data-t="h" onclick="zTab(this)">✅ Zrealizowane</button><button class="sec zt" data-t="f" id="bFak" onclick="zTab(this)">🧾 Faktury</button>
 <button class="sec" onclick="zOdswiez()" title="Pobierz ponownie z xPartner">↻</button><button class="sec" onclick="zdlg.close()" style="padding:2px 10px">✕</button></div>
 <div style="padding:14px 18px;max-height:72vh;overflow:auto">
-<div id="zZ"><div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap"><input id="zq" placeholder="Szukaj: numer, opona, osoba, odbiorca…" oninput="zDraw()" style="flex:1;min-width:220px;padding:8px 10px">
+<div id="zZ"><div id="zDaty" class="row" style="display:none;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">od <input type="date" id="hod" style="width:auto"> do <input type="date" id="hdo" style="width:auto"><button onclick="loadZamk()">Pokaż</button>
+<span class="muted" style="font-size:12px">xPartner nie ma listy zamówień zamkniętych – szukamy ich po fakturach z wybranego okresu (od 1.02.2026)</span></div><div class="row" style="gap:8px;margin-bottom:8px;flex-wrap:wrap"><input id="zq" placeholder="Szukaj: numer, opona, osoba, odbiorca…" oninput="zDraw()" style="flex:1;min-width:220px;padding:8px 10px">
 <select id="zkto" onchange="zDraw()" style="width:auto"></select><select id="zst" onchange="zDraw()" style="width:auto"><option value="">wszystkie statusy</option><option value="otw">bez „Zrealizowane”</option><option value="5">tylko z błędem</option></select></div>
 <div id="zSum"></div><div id="zL"><p class="muted">Wczytuję…</p></div></div>
 <div id="zF" style="display:none"><div class="row" style="gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">od <input type="date" id="fod" style="width:auto"> do <input type="date" id="fdo" style="width:auto"><button onclick="loadFak()">Pokaż</button>
@@ -206,24 +207,31 @@ function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (
 let OID=null;
 const newOid=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
 // ------------------------------------------------ ZAMÓWIENIA xPartner (podgląd)
-let ZAM=null,FAK=null;
+let ZAM=null,FAK=null,ZAMK=null,ZT='z';
+const ZKTO_KEY='zam_kto';
 function openZam(){$('#bFak').style.display=CFG.admin?'':'none';zdlg.showModal();if(!ZAM)loadZam();else zDraw()}
-function zTab(b){document.querySelectorAll('.zt').forEach(x=>x.classList.toggle('on',x===b));$('#zZ').style.display=b.dataset.t==='z'?'':'none';$('#zF').style.display=b.dataset.t==='f'?'':'none';
+function zTab(b){ZT=b.dataset.t;document.querySelectorAll('.zt').forEach(x=>x.classList.toggle('on',x===b));$('#zZ').style.display=ZT!=='f'?'':'none';$('#zDaty').style.display=ZT==='h'?'':'none';
+ if(ZT==='h'&&!ZAMK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#hdo').value=iso(d);d.setDate(d.getDate()-30);$('#hod').value=iso(d);loadZamk()}else if(ZT!=='f'){zKto();zDraw()}$('#zF').style.display=b.dataset.t==='f'?'':'none';
  if(b.dataset.t==='f'&&!FAK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#fdo').value=iso(d);d.setDate(d.getDate()-30);$('#fod').value=iso(d);loadFak()}}
-function zOdswiez(){if($('#zF').style.display==='none'){ZAM=null;loadZam()}else loadFak()}
-async function loadZam(){$('#zL').innerHTML='<p class="muted">Pobieram zamówienia z xPartner…</p>';$('#zSum').innerHTML='';
- try{ZAM=await api('/api/zamowienia');const k=[...new Set(ZAM.zamowienia.map(z=>z.kto).filter(Boolean))].sort();
-  $('#zkto').innerHTML='<option value="">wszyscy ('+ZAM.zamowienia.length+')</option>'+k.map(x=>`<option>${esc(x)}</option>`).join('');zDraw()}
+function zOdswiez(){if(ZT==='f')loadFak();else if(ZT==='h')loadZamk();else{ZAM=null;loadZam()}}
+function zDane(){return ZT==='h'?ZAMK:ZAM}
+function zKto(){const D=zDane();if(!D)return;const k=[...new Set(D.zamowienia.map(z=>z.kto).filter(Boolean))].sort();let zap='';try{zap=localStorage.getItem(ZKTO_KEY)||''}catch(e){}
+ $('#zkto').innerHTML='<option value="">wszyscy ('+D.zamowienia.length+')</option>'+k.map(x=>`<option>${esc(x)}</option>`).join('');if(k.includes(zap))$('#zkto').value=zap}
+async function loadZamk(){$('#zL').innerHTML='<p class="muted">Szukam zamówień po fakturach z xPartner… (pierwszy raz może to potrwać kilkanaście sekund)</p>';$('#zSum').innerHTML='';
+ try{ZAMK=await api('/api/zamkniete?od='+$('#hod').value+'&do='+$('#hdo').value);$('#hod').value=ZAMK.od;$('#hdo').value=ZAMK.do;if(ZT==='h'){zKto();zDraw()}}
  catch(e){$('#zL').innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
-function zDraw(){if(!ZAM)return;const q=$('#zq').value.trim().toUpperCase(),kto=$('#zkto').value,st=$('#zst').value;
+async function loadZam(){$('#zL').innerHTML='<p class="muted">Pobieram zamówienia z xPartner…</p>';$('#zSum').innerHTML='';
+ try{ZAM=await api('/api/zamowienia');if(ZT==='z'){zKto();zDraw()}}
+ catch(e){$('#zL').innerHTML=`<div class="msg e">${esc(e.message)}</div>`}}
+function zDraw(){const ZAM=zDane();if(!ZAM)return;try{localStorage.setItem(ZKTO_KEY,$('#zkto').value)}catch(e){}const q=$('#zq').value.trim().toUpperCase(),kto=$('#zkto').value,st=ZT==='h'&&$('#zst').value==='otw'?'':$('#zst').value;
  const L=ZAM.zamowienia.filter(z=>(!kto||z.kto===kto)&&(!st||(st==='otw'?z.status!==6:String(z.status)===st))&&(!q||JSON.stringify([z.nr,z.nr_erp,z.kto,z.odbiorca,z.dostawa,z.komentarz,z.pozycje.map(p=>p.nazwa+' '+p.id)]).toUpperCase().includes(q)));
  const bl=L.filter(z=>z.status===5).length;
- $('#zSum').innerHTML=`<div class="row" style="gap:16px;margin-bottom:10px;font-size:14px"><span>Zamówień: <b>${L.length}</b></span><span>Opon zamówionych: <b>${L.reduce((a,z)=>a+z.szt,0)}</b></span><span>Do wydania: <b>${L.reduce((a,z)=>a+z.do_wydania,0)}</b></span><span>Wartość netto: <b>${zl(L.reduce((a,z)=>a+z.netto,0))}</b></span>${bl?`<span style="color:var(--red)">⚠ z błędem: <b>${bl}</b></span>`:''}<span class="muted">stan z godz. ${esc(ZAM.czas)}</span></div>`;
+ $('#zSum').innerHTML=`<div class="row" style="gap:16px;margin-bottom:10px;font-size:14px"><span>Zamówień: <b>${L.length}</b></span><span>Opon zamówionych: <b>${L.reduce((a,z)=>a+z.szt,0)}</b></span><span>Do wydania: <b>${L.reduce((a,z)=>a+z.do_wydania,0)}</b></span><span>Wartość netto: <b>${zl(L.reduce((a,z)=>a+z.netto,0))}</b></span>${bl?`<span style="color:var(--red)">⚠ z błędem: <b>${bl}</b></span>`:''}<span class="muted">stan z godz. ${esc(ZAM.czas)}${ZT==='h'?` · faktur w okresie: ${ZAM.faktur}${ZAM.bledy?` · <span style="color:var(--red)">nie udało się pobrać: ${ZAM.bledy}</span>`:''}`:''}</span></div>`;
  $('#zL').innerHTML=L.length?L.map(z=>`<div class="zk ${z.status===5?'err':''}"><div class="h"><b>Nr ${esc(z.nr)}</b>${z.nr_erp?`<span class="muted">ERP ${esc(z.nr_erp)}</span>`:''}<span class="st s${z.status}">${esc(z.status_txt)}</span>
   <span>${esc(z.data)}</span>${z.kto?`<span>👤 ${esc(z.kto)}</span>`:''}${z.magazyn?`<span>🏭 ${esc(z.magazyn)}</span>`:''}<span style="margin-left:auto"><b>${zl(z.netto)}</b> netto</span></div>
-  <div class="muted" style="font-size:12px">${[z.dostawa.name,z.dostawa.street,[z.dostawa.zipCode,z.dostawa.city].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(', ')}${z.wazne_do?' · ważne do '+esc(z.wazne_do):''}${z.komentarz?' · „'+esc(z.komentarz)+'”':''}</div>
+  <div class="muted" style="font-size:12px">${[z.dostawa.name,z.dostawa.street,[z.dostawa.zipCode,z.dostawa.city].filter(Boolean).join(' ')].filter(Boolean).map(esc).join(', ')}${z.wazne_do?' · ważne do '+esc(z.wazne_do):''}${z.komentarz?' · „'+esc(z.komentarz)+'”':''}${z.faktury&&z.faktury.length?' · faktury: <b>'+z.faktury.map(esc).join(', ')+'</b>':''}</div>
   ${z.pozycje.length?`<table><tr><th>Opona</th><th class="n">Zamówiono</th><th class="n">Do wydania</th><th class="n">Dostępne</th><th class="n">Cena netto</th></tr>${z.pozycje.map(p=>`<tr><td>${esc(p.nazwa)} <span class="muted">ind. ${p.id}</span></td><td class="n">${p.ilosc} ${esc(p.jedn.toLowerCase())}</td><td class="n">${p.zostalo?'<b>'+p.zostalo+'</b>':'✓ 0'}</td><td class="n"${p.zostalo>p.dostepne?' style="color:var(--red);font-weight:700"':''}>${p.dostepne}</td><td class="n">${zl(p.cena)}</td></tr>`).join('')}</table>`:'<div class="muted" style="font-size:12px">brak pozycji w zamówieniu</div>'}</div>`).join('')
-  :'<p class="muted">Brak otwartych zamówień'+(q||kto||st?' dla tych filtrów':'')+'.</p>'}
+  :'<p class="muted">Brak '+(ZT==='h'?'zamówień na fakturach z tego okresu':'otwartych zamówień')+(q||kto||st?' dla tych filtrów':'')+'.</p>'}
 async function loadFak(){$('#fL').innerHTML='<p class="muted">Pobieram faktury…</p>';
  try{FAK=await api('/api/faktury?od='+$('#fod').value+'&do='+$('#fdo').value);$('#fod').value=FAK.od;$('#fdo').value=FAK.do;
   $('#fL').innerHTML=FAK.faktury.length?'<table class="zk" style="display:table;width:100%;border-collapse:collapse"><tr><th>Numer</th><th>Data</th><th>Płatność</th><th>Magazyn</th><th></th></tr>'+FAK.faktury.map(f=>`<tr class="fr" data-nr="${esc(f.nr)}" onclick="fakSzcz(this)"><td><b>${esc(f.nr)}</b></td><td>${esc(f.data)}</td><td>${esc(f.platnosc)}</td><td>${esc(f.magazyn)}</td><td class="n">▸ szczegóły</td></tr><tr style="display:none"><td colspan="5"></td></tr>`).join('')+'</table>':'<p class="muted">Brak faktur w tym okresie.</p>'}

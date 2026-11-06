@@ -1102,7 +1102,7 @@ def handle(path, body=None, open_path=None):
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 return 200, c
-            if route in ("/api/zamowienia", "/api/faktury", "/api/faktura"):
+            if route in ("/api/zamowienia", "/api/zamkniete", "/api/faktury", "/api/faktura"):
                 if not (KONTO.get("admin") or KONTO.get("zamowienia")):
                     return 403, {"error": "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)."}
                 from oferty import zamowienia

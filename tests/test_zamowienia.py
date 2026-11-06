@@ -74,3 +74,32 @@ def test_uprawnienia_i_bez_loginu():
     assert Z.handle("/api/faktura", {"nr": "x"}, {}, admin=True)[0] == 400
     k, j = Z.handle("/api/zamowienia", {}, {}, admin=False)   # brak loginu xPartner -> czytelny komunikat, bez sieci
     assert k == 502 and "loginu API" in j["error"]
+
+
+def test_zamkniete_z_faktur():
+    """Historia: faktury -> numery zamówień -> getOrder; duplikaty łączone, błędy liczone, zrealizowane zapamiętane."""
+    zam_xml = lambda nr, st: ("<response><success>true</success><order><orderXp>%s</orderXp><orderErp>000000001/26</orderErp>"
+                              "<createdAt>2026-10-0%s</createdAt><status>%d</status><products/></order></response>" % (nr, nr[-1], st)).encode()
+    fa = lambda nr, zam: ("<response><success>true</success><invoice><Faktura><Fa><P_2>%s</P_2>%s</Fa></Faktura></invoice></response>"
+                          % (nr, "".join("<WarunkiTransakcji><Zamowienia><NrZamowienia>%s</NrZamowienia></Zamowienia></WarunkiTransakcji>" % z for z in zam))).encode()
+    odp = {("getInvoices", ""): XML_FAKTURY, ("getInvoice", "FV0000001/26"): fa("FV0000001/26", ["11111111111"]),
+           ("getInvoice", "FV0000002/26"): fa("FV0000002/26", ["11111111111", "22222222222", "zly"]),
+           ("getOrder", "11111111111"): zam_xml("11111111111", 6), ("getOrder", "22222222222"): XML_BLAD}
+    wywolania = []
+
+    def api(cfg, m, **p):
+        k = (m, p.get("invoiceNumber") or p.get("orderXp") or "")
+        wywolania.append(k)
+        return Z.parsuj(odp[k])
+    stare = Z.api_xml
+    Z.api_xml = api
+    Z._PAMIEC.clear()
+    try:
+        w = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
+        assert [z["nr"] for z in w["zamowienia"]] == ["11111111111"] and w["bledy"] == 1 and w["faktur"] == 2
+        assert w["zamowienia"][0]["faktury"] == ["FV0000001/26", "FV0000002/26"]
+        n = len(wywolania)
+        Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
+        assert ("getOrder", "11111111111") not in wywolania[n:]          # zrealizowane – z pamięci
+    finally:
+        Z.api_xml = stare

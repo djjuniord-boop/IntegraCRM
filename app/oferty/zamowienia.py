@@ -94,22 +94,24 @@ def _adres(el):
 
 
 def czytaj_zamowienia(root):
-    out = []
-    for o in _wszystkie(_dz(root, "orders"), "order"):
-        st = _i(_t(o, "status"))
-        poz = []
-        for p in _wszystkie(_dz(o, "products"), "product"):
-            poz.append({"lp": _i(_t(p, "lineNumber")), "id": _i(_t(p, "productId")), "nazwa": _t(p, "productName"),
-                        "jedn": _t(p, "unit") or "szt", "ilosc": _i(_t(p, "quantity")), "zostalo": _i(_t(p, "quantityRemaining")),
-                        "dostepne": _i(_t(p, "quantityAvailable")), "cena": _f(_t(p, "unitNetPrice"))})
-        out.append({"nr": _t(o, "orderXp"), "nr_erp": _t(o, "orderErp"), "nr_zew": _t(o, "extOrderNumber"),
-                    "waluta": (_t(o, "currency") or "pln").upper(), "netto": _f(_t(o, "totalNetPrice")),
-                    "data": _t(o, "createdAt"), "kto": _t(o, "createdBy"), "wazne_do": _t(o, "expirationDate"),
-                    "status": st, "status_txt": STATUSY.get(st, str(st or "?")), "magazyn": _t(o, "warehouseName"),
-                    "komentarz": _t(o, "comment"), "odbiorca": _adres(_dz(o, "recipient")), "dostawa": _adres(_dz(o, "deliveryPlace")),
-                    "pozycje": poz, "szt": sum(x["ilosc"] for x in poz), "do_wydania": sum(x["zostalo"] for x in poz)})
+    out = [_zamowienie(o) for o in _wszystkie(_dz(root, "orders"), "order")]
     out.sort(key=lambda z: z["data"], reverse=True)
     return out
+
+
+def _zamowienie(o):
+    st = _i(_t(o, "status"))
+    poz = []
+    for p in _wszystkie(_dz(o, "products"), "product"):
+        poz.append({"lp": _i(_t(p, "lineNumber")), "id": _i(_t(p, "productId")), "nazwa": _t(p, "productName"),
+            "jedn": _t(p, "unit") or "szt", "ilosc": _i(_t(p, "quantity")), "zostalo": _i(_t(p, "quantityRemaining")),
+            "dostepne": _i(_t(p, "quantityAvailable")), "cena": _f(_t(p, "unitNetPrice"))})
+    return {"nr": _t(o, "orderXp"), "nr_erp": _t(o, "orderErp"), "nr_zew": _t(o, "extOrderNumber"),
+                "waluta": (_t(o, "currency") or "pln").upper(), "netto": _f(_t(o, "totalNetPrice")),
+                "data": _t(o, "createdAt"), "kto": _t(o, "createdBy"), "wazne_do": _t(o, "expirationDate"),
+                "status": st, "status_txt": STATUSY.get(st, str(st or "?")), "magazyn": _t(o, "warehouseName"),
+                "komentarz": _t(o, "comment"), "odbiorca": _adres(_dz(o, "recipient")), "dostawa": _adres(_dz(o, "deliveryPlace")),
+                "pozycje": poz, "szt": sum(x["ilosc"] for x in poz), "do_wydania": sum(x["zostalo"] for x in poz)}
 
 
 def czytaj_faktury(root):
@@ -141,6 +143,76 @@ def czytaj_fakture(root):
             "zamowienie": (zam.text or "").strip() if zam is not None and zam.text else "", "pozycje": poz}
 
 
+ZAM_XP = re.compile(r"^\d{11}$")
+ZAM_ERP = re.compile(r"^\d{9}/\d{2}$")
+_PAMIEC = {}   # (login, faktura) -> numery zamówień; (login, zamówienie) -> zamówienie zrealizowane (już się nie zmienia)
+
+
+def numery_zamowien(root):
+    """Numery zamówień z faktury KSeF (bywa kilka; tylko poprawne numery xPartner/ERP)."""
+    out = []
+    for c in root.iter():
+        if _lok(c.tag) == "NrZamowienia" and c.text:
+            n = c.text.strip()
+            if (ZAM_XP.match(n) or ZAM_ERP.match(n)) and n not in out:
+                out.append(n)
+    return out
+
+
+def czytaj_zamowienie(root):
+    o = _dz(root, "order")
+    if o is None:
+        raise Blad("Brak zamówienia w odpowiedzi xPartner.")
+    return _zamowienie(o)
+
+
+def zamkniete(cfg, od, do, rownolegle=6):
+    """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder."""
+    import concurrent.futures as cf
+    login = cfg.get("login", "")
+    fak = czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do))
+
+    def nr_z_faktury(f):
+        k = (login, "F", f["nr"])
+        if k not in _PAMIEC:
+            _PAMIEC[k] = numery_zamowien(api_xml(cfg, "getInvoice", invoiceNumber=f["nr"])) if FAKTURA_NR.match(f["nr"]) else []
+        return f, _PAMIEC[k]
+
+    def zam(n):
+        k = (login, "Z", n)
+        if k in _PAMIEC:
+            return _PAMIEC[k]
+        z = czytaj_zamowienie(api_xml(cfg, "getOrder", **({"orderXp": n} if ZAM_XP.match(n) else {"orderErp": n})))
+        if z["status"] == 6:
+            _PAMIEC[k] = z
+        return z
+
+    faktury_zam, bledy = {}, 0
+    with cf.ThreadPoolExecutor(rownolegle) as ex:
+        for fu in [ex.submit(nr_z_faktury, f) for f in fak]:
+            try:
+                f, nry = fu.result()
+            except Blad:
+                bledy += 1
+                continue
+            for n in nry:
+                faktury_zam.setdefault(n, []).append(f["nr"])
+        wyn = {}
+        for n, fu in [(n, ex.submit(zam, n)) for n in faktury_zam]:
+            try:
+                wyn[n] = fu.result()
+            except Blad:
+                bledy += 1
+    out, byly = [], set()
+    for n, z in wyn.items():
+        if z["nr"] in byly:
+            continue
+        byly.add(z["nr"])
+        out.append(dict(z, faktury=sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})))
+    out.sort(key=lambda z: z["data"], reverse=True)
+    return {"zamowienia": out, "faktur": len(fak), "bledy": bledy}
+
+
 def okres(od, do, dzis=None):
     """Zakres dat faktur: domyślnie ostatnie 30 dni, nie wcześniej niż FAKTURY_OD, maks. 1 rok."""
     dzis = dzis or datetime.date.today()
@@ -169,6 +241,11 @@ def handle(route, q, cfg, admin=False):
         if route == "/api/faktury":
             od, do = okres(q.get("od", ""), q.get("do", ""))
             return 200, {"faktury": czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do)), "od": od, "do": do}
+        if route == "/api/zamkniete":
+            od, do = okres(q.get("od", ""), q.get("do", ""))
+            w = zamkniete(cfg, od, do)
+            w.update(od=od, do=do, czas=datetime.datetime.now().strftime("%H:%M"))
+            return 200, w
         if route == "/api/faktura":
             nr = (q.get("nr") or "").strip().upper()
             if not FAKTURA_NR.match(nr):

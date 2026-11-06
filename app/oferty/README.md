@@ -43,6 +43,8 @@ z konta xPartner pracownika: `getOpenOrders` (zamówione opony), `getInvoices`/`
 Dostęp: moduł `zamowienia` (UŻYTKOWNICY) albo administrator; faktury – tylko administrator (to porządek, nie
 zabezpieczenie – pracownik widzi faktury na stronie xPartner). „Wysłane opony” (listy przewozowe) wymagają tokenu
 głównego konta xPartner – na razie brak.
+Zamówienia zrealizowane (`/api/zamkniete`): xPartner nie ma ich listy – `getInvoices` z okresu → `getInvoice` (NrZamowienia)
+→ `getOrder`; zrealizowane i numery z faktur są zapamiętywane w pamięci programu. Zamówienie bez faktury tu nie trafi.
 
 ## Dane w bazie
 

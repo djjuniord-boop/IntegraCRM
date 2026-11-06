@@ -421,29 +421,35 @@ drawChips();
 startApp();
 
 // ------------------------------------------------ zamówienia xPartner (tylko podgląd; faktury – administrator)
-let ZD = null;
+let ZD = null, ZH = null, ZT = "z";
+const zIso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+function zKto() { const D = ZT === "h" ? ZH : ZD; if (!D) return; const k = [...new Set(D.zamowienia.map((z) => z.kto).filter(Boolean))].sort(); let zap = ""; try { zap = localStorage.getItem("zam_kto") || ""; } catch (e) {}
+  $("#zkto").innerHTML = '<option value="">wszyscy</option>' + k.map((x) => `<option>${esc(x)}</option>`).join(""); if (k.includes(zap)) $("#zkto").value = zap; }
 const zzl = (v) => Number(v || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
-function zTab(b) { document.querySelectorAll("#zTabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#zZ").hidden = b.dataset.z !== "z"; $("#zF").hidden = b.dataset.z !== "f"; if (b.dataset.z === "f" && !$("#fL").innerHTML) zFak(); }
+function zTab(b) { ZT = b.dataset.z; document.querySelectorAll("#zTabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#zZ").hidden = ZT === "f"; $("#zF").hidden = ZT !== "f"; $("#zDaty").hidden = ZT !== "h";
+  if (ZT === "f" && !$("#fL").innerHTML) zFak();
+  else if (ZT === "h" && !ZH) { const d = new Date(); $("#hdo").value = zIso(d); d.setDate(d.getDate() - 30); $("#hod").value = zIso(d); zLoad(); }
+  else if (ZT !== "f") { zKto(); zDraw(); } }
 async function zLoad(force) {
-  if (!$("#zF").hidden) return zFak();
-  $("#zL").innerHTML = '<p class="muted">Wczytuję zamówienia…</p>';
-  const [k, j] = await Silnik.handle("/api/zamowienia", null);
-  if (k !== 200) { ZD = null; $("#zL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
-  ZD = j; const kto = [...new Set(j.zamowienia.map((z) => z.kto).filter(Boolean))].sort();
-  $("#zkto").innerHTML = '<option value="">wszyscy</option>' + kto.map((x) => `<option>${esc(x)}</option>`).join("");
-  zDraw(); if (force) toast("Odświeżono (" + j.czas + ").");
+  if (ZT === "f") return zFak();
+  const h = ZT === "h";
+  $("#zL").innerHTML = h ? '<p class="muted">Szukam zamówień po fakturach… (pierwszy raz może potrwać kilkanaście sekund)</p>' : '<p class="muted">Wczytuję zamówienia…</p>'; $("#zSum").innerHTML = "";
+  const [k, j] = await Silnik.handle(h ? "/api/zamkniete?od=" + encodeURIComponent($("#hod").value) + "&do=" + encodeURIComponent($("#hdo").value) : "/api/zamowienia", null);
+  if (k !== 200) { if (h) ZH = null; else ZD = null; $("#zL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
+  if (h) { ZH = j; $("#hod").value = j.od; $("#hdo").value = j.do; } else ZD = j;
+  zKto(); zDraw(); if (force) toast("Odświeżono (" + j.czas + ").");
 }
 function zDraw() {
-  if (!ZD) return;
-  const q = $("#zq").value.trim().toLowerCase(), kto = $("#zkto").value, st = $("#zst").value;
-  const l = ZD.zamowienia.filter((z) => (!kto || z.kto === kto) && (!st || (st === "otw" ? z.status !== 6 : String(z.status) === st)) &&
+  const D = ZT === "h" ? ZH : ZD; if (!D) return; try { localStorage.setItem("zam_kto", $("#zkto").value); } catch (e) {}
+  const q = $("#zq").value.trim().toLowerCase(), kto = $("#zkto").value, st = ZT === "h" && $("#zst").value === "otw" ? "" : $("#zst").value;
+  const l = D.zamowienia.filter((z) => (!kto || z.kto === kto) && (!st || (st === "otw" ? z.status !== 6 : String(z.status) === st)) &&
     (!q || [z.nr, z.nr_erp, z.kto, z.komentarz, ...z.pozycje.map((p) => p.nazwa)].join(" ").toLowerCase().includes(q)));
   const bl = l.filter((z) => z.status === 5).length;
-  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "");
+  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "") + (ZT === "h" ? ` · faktur: ${D.faktur}` + (D.bledy ? ` · <b class="err">nie pobrano: ${D.bledy}</b>` : "") : "");
   $("#zL").innerHTML = l.length ? l.map((z) => `<div class="card zk${z.status === 5 ? " zerr" : ""}"><div class="row"><b class="grow">${esc(z.nr)}${z.nr_erp ? " · " + esc(z.nr_erp) : ""}</b><span class="st s${z.status}">${esc(z.status_txt)}</span></div>
     <div class="small muted">${esc(z.data)}${z.kto ? " · " + esc(z.kto) : ""}${z.magazyn ? " · " + esc(z.magazyn) : ""} · <b>${zzl(z.netto)}</b> netto</div>
     ${z.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} szt.${p.zostalo ? ` · do wydania ${p.zostalo}` : ""}${p.zostalo && p.dostepne < p.zostalo ? ` · <b class="err">dostępne ${p.dostepne}</b>` : ""}</span></div>`).join("")}
-    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień dla tych filtrów.</p>';
+    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}${z.faktury && z.faktury.length ? `<div class="small muted">🧾 ${z.faktury.map(esc).join(", ")}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień' + (ZT === "h" ? " na fakturach z tego okresu" : "") + ".</p>";
 }
 async function zFak() {
   $("#fL").innerHTML = '<p class="muted">Wczytuję faktury…</p>';

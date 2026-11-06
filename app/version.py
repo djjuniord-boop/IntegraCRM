@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.2"
+VERSION = "0.24.3"
 RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.3",
+        "date": "2026-11-06",
+        "changes": [
+            "BETA – Zamówienia: nowa karta „✅ Zrealizowane” – zamówienia zamknięte z wybranego okresu (xPartner nie ma ich listy, więc program znajduje je po fakturach), z numerami faktur",
+            "Zamówienia: program pamięta wybraną osobę/oddział w filtrze",
+        ],
+    },
     {
         "version": "0.24.2",
         "date": "2026-11-06",

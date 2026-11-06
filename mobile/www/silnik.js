@@ -711,7 +711,7 @@
     try {
       if (body === null || body === undefined) {
         if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; c.oddzialy = S.KONTO.oddzialy || []; c.oddzialy_dane = S.KONTO.oddzialy_dane || {}; return [200, c]; }
-        if (route === "/api/zamowienia" || route === "/api/faktury" || route === "/api/faktura") {
+        if (route === "/api/zamowienia" || route === "/api/zamkniete" || route === "/api/faktury" || route === "/api/faktura") {
           if (!S.KONTO.zamowienia) return [403, { error: "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)." }];
           return await root_Z().handle(route, Object.fromEntries(qs.entries()), cfg, !!S.KONTO.admin);
         }
