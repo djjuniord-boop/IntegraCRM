@@ -110,8 +110,8 @@
     return [iso(d1), iso(d2)];
   };
   const norm = (s) => { s = (s || "").toLowerCase(); const a = "ąćęłńóśźż", b = "acelnoszz"; for (let i = 0; i < a.length; i++) s = s.split(a[i]).join(b[i]); return s.split(/\s+/).filter(Boolean).join(" "); };
-  Z.tylko_oddzialy = (lista, oddzialy) => { const n = (oddzialy || []).map(norm).filter(Boolean);
-    return lista.filter((z) => { const k = norm(z.kto); return n.some((x) => k.split(" ").includes(x) || k.endsWith(x)); }); };
+  Z.tylko_oddzialy = (lista, oddzialy) => { const n = new Set((oddzialy || []).map(norm).filter(Boolean).map((x) => (x.startsWith("latex ") ? "detal " + x.slice(6) : x)));
+    return lista.filter((z) => n.has(norm(z.kto))); };
   Z.handle = async function (route, q, cfg, admin, oddzialy) {
     const [k, w] = await handle_(route, q, cfg, admin);
     if (k === 200 && !admin && w && w.zamowienia) return [k, Object.assign({}, w, { zamowienia: Z.tylko_oddzialy(w.zamowienia, oddzialy) })];

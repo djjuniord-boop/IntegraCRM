@@ -260,8 +260,14 @@ def _norm(s):
 
 def tylko_oddzialy(lista, oddzialy):
     """Pracownik widzi tylko zamówienia swoich oddziałów: „Detal Wrocław” (xPartner) = oddział „Wrocław”."""
-    nazwy = [_norm(o) for o in oddzialy or [] if _norm(o)]
-    return [z for z in lista if any(n in _norm(z.get("kto")).split() or _norm(z.get("kto")).endswith(n) for n in nazwy)]
+    nazwy = set()
+    for o in oddzialy or []:
+        n = _norm(o)
+        if n.startswith("latex "):      # oddział „Latex Wrocław” = „Detal Wrocław” w xPartner
+            nazwy.add("detal " + n[6:])
+        elif n:
+            nazwy.add(n)
+    return [z for z in lista if _norm(z.get("kto")) in nazwy]
 
 
 def handle(route, q, cfg, admin=False, oddzialy=None):

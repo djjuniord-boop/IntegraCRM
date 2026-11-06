@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.5"
+VERSION = "0.24.6"
 RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.6",
+        "date": "2026-11-06",
+        "changes": [
+            "PDF oferty: kwota netto także przy „Komplet z usługami”, indeks opony z xPartner, numery komórkowe oddziału w „Zarezerwuj termin”",
+            "Ustawienia → dane oddziałów: nowe pole „Komórki (po przecinku)”",
+            "Zamówienia xPartner: poprawione dopasowanie oddziału („Latex Wrocław” = „Detal Wrocław” w xPartner)",
+        ],
+    },
     {
         "version": "0.24.5",
         "date": "2026-11-06",

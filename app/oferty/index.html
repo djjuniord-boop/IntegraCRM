@@ -338,7 +338,7 @@ function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||''
 ''}
 async function pdfOferta(b,wszystkie){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',wszystkie?{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length}:{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
  msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
-const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['www','Strona www'],['email','E-mail']];
+const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['kom','Komórki (po przecinku)'],['www','Strona www'],['email','E-mail']];
 function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
  $('#oddzBox').innerHTML='<h3 style="margin:14px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
  L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>`).join('')+

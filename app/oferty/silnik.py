@@ -1038,6 +1038,8 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         "data": _data_oid(oid), "wazna": _data_oid(oid, int(cfg.get("waznosc_dni") or 7)),
         "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
         "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
+        "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
+        "xp_id": str(p.get("id") or ""),
         "klient": (req.get("klient") or "").strip(), "pojazd": ", ".join(poj), "kto": kto,
         "tag": "OPONA " + sez + (" · " + KLASA_PDF[p["klasa"]] if p.get("klasa") in KLASA_PDF else "") + (" · DEMO" if p.get("demo") else ""),
         "tytul": p["nazwa"], "producent": p.get("producent", ""), "model": p.get("model", ""), "rozmiar": R[0].get("rozmiar", ""),

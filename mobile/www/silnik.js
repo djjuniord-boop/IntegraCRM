@@ -670,6 +670,7 @@
       logo: logo || "", nr: oid.length >= 13 ? `OF/${oid.slice(0, 4)}/${oid.slice(4, 6)}/${oid.slice(6, 8)}-${oid.slice(9, 13)}` : "OF/" + oid,
       data: data_oid(oid, 0), wazna: data_oid(oid, parseInt(cfg.waznosc_dni || 7, 10)),
       o_nazwa: oddzial.nazwa || "", o_adres: oddzial.adres || "", o_tel: oddzial.tel || "", o_www: oddzial.www || "", o_email: oddzial.email || "",
+      o_kom: (oddzial.kom || "").split(/[,;]/).map((t) => t.trim()).filter(Boolean).map((t) => ({ t })), xp_id: String(p.id || ""),
       klient: (req.klient || "").trim(), pojazd: poj.join(", "), kto: kto || "",
       tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : ""),
       tytul: p.nazwa, producent: p.producent || "", model: p.model || "", rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
