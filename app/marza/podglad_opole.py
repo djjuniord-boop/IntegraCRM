@@ -234,11 +234,14 @@ def generate(src_path, out_path, only_year=None):
         # Dzien sprzedazowy = poniedzialek-sobota (WEEKDAY(...,2)<>7) i nie swieto
         cal_ws.cell(row=r, column=3,
                     value=f'=IF(B{r}="",0,IF(AND(WEEKDAY(B{r},2)<>7,E{r}=0),1,0))')
-        # Pozostaly = dzien sprzedazowy, ktory jeszcze nie minal (dzis wlicza sie)
+        # Pozostały = dzień sprzedażowy, który jeszcze nie minął. Dzień aktualizacji ($G$1 – data wgrania raportu)
+        # liczy się jako miniony, bo raport zawiera już jego sprzedaż (jak zakładka WYNIKI w programie).
         cal_ws.cell(row=r, column=4,
-                    value=f'=IF(B{r}="",0,IF(AND(WEEKDAY(B{r},2)<>7,E{r}=0,B{r}>=TODAY()),1,0))')
+                    value=f'=IF(B{r}="",0,IF(AND(WEEKDAY(B{r},2)<>7,E{r}=0,B{r}>=TODAY(),B{r}>$G$1),1,0))')
         cal_ws.cell(row=r, column=5,
                     value=f'=IF(B{r}="",0,IF(COUNTIF({HOL_RANGE},B{r})>0,1,0))')
+    cal_ws["G1"] = datetime.date.today()   # data aktualizacji (wgrania raportu)
+    cal_ws["G1"].number_format = "yyyy-mm-dd"
     cal_ws.sheet_state = "hidden"
 
     CAL = "'Kalendarz (ukryte)'"
