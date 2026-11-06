@@ -1106,7 +1106,7 @@ def handle(path, body=None, open_path=None):
                 if not (KONTO.get("admin") or KONTO.get("zamowienia")):
                     return 403, {"error": "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)."}
                 from oferty import zamowienia
-                return zamowienia.handle(route, {k: v[0] for k, v in qs.items()}, cfg, bool(KONTO.get("admin")))
+                return zamowienia.handle(route, {k: v[0] for k, v in qs.items()}, cfg, bool(KONTO.get("admin")), KONTO.get("oddzialy") or [])
             if route == "/api/history":
                 if qs.get("id"):
                     r = HIST.get_id(qs["id"][0]) if HIST else None

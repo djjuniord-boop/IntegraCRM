@@ -44,7 +44,9 @@ Dostęp: moduł `zamowienia` (UŻYTKOWNICY) albo administrator; faktury – tylk
 zabezpieczenie – pracownik widzi faktury na stronie xPartner). „Wysłane opony” (listy przewozowe) wymagają tokenu
 głównego konta xPartner – na razie brak.
 Zamówienia zrealizowane (`/api/zamkniete`): xPartner nie ma ich listy – `getInvoices` z okresu → `getInvoice` (NrZamowienia)
-→ `getOrder`; zrealizowane i numery z faktur są zapamiętywane w pamięci programu. Zamówienie bez faktury tu nie trafi.
+→ `getOrder`; zrealizowane i numery z faktur są zapamiętywane w pamięci programu. Zamówienie bez faktury tu nie trafi. Pozycje zamówień zamkniętych – z faktury (getOrder ich nie podaje).
+Pracownik widzi tylko zamówienia swoich oddziałów: `createdBy` „Detal Wrocław” = oddział „Wrocław” (`tylko_oddzialy`);
+to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi wszystko na stronie xPartner.
 
 ## Dane w bazie
 

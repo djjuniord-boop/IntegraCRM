@@ -251,7 +251,28 @@ def okres(od, do, dzis=None):
     return d1.isoformat(), d2.isoformat()
 
 
-def handle(route, q, cfg, admin=False):
+def _norm(s):
+    s = (s or "").lower()
+    for a, b in zip("ąćęłńóśźż", "acelnoszz"):
+        s = s.replace(a, b)
+    return " ".join(s.split())
+
+
+def tylko_oddzialy(lista, oddzialy):
+    """Pracownik widzi tylko zamówienia swoich oddziałów: „Detal Wrocław” (xPartner) = oddział „Wrocław”."""
+    nazwy = [_norm(o) for o in oddzialy or [] if _norm(o)]
+    return [z for z in lista if any(n in _norm(z.get("kto")).split() or _norm(z.get("kto")).endswith(n) for n in nazwy)]
+
+
+def handle(route, q, cfg, admin=False, oddzialy=None):
+    """Administrator widzi wszystko; pracownik – zamówienia swoich oddziałów (oddzialy z konta)."""
+    k, w = _handle(route, q, cfg, admin)
+    if k == 200 and not admin and isinstance(w, dict) and "zamowienia" in w:
+        w = dict(w, zamowienia=tylko_oddzialy(w["zamowienia"], oddzialy))
+    return k, w
+
+
+def _handle(route, q, cfg, admin=False):
     """/api/zamowienia, /api/faktury?od=&do=, /api/faktura?nr= -> (kod, odpowiedź)."""
     try:
         if route == "/api/zamowienia":

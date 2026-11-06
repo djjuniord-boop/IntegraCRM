@@ -121,3 +121,17 @@ def test_zamkniete_pozycje_z_faktury():
         assert z["poz_z_faktury"] == "tak" and z["szt"] == 4 and z["pozycje"][0]["nazwa"] == "Opona A" and z["pozycje"][0]["id"] == 111
     finally:
         Z.api_xml = stare
+
+
+def test_pracownik_widzi_swoj_oddzial():
+    lista = [{"kto": "Detal Wrocław"}, {"kto": "Detal Opole"}, {"kto": ""}, {"kto": "Detal Wrocław Hurt"}]
+    assert Z.tylko_oddzialy(lista, ["Wrocław"]) == [{"kto": "Detal Wrocław"}, {"kto": "Detal Wrocław Hurt"}]
+    assert Z.tylko_oddzialy(lista, ["opole"]) == [{"kto": "Detal Opole"}]
+    assert Z.tylko_oddzialy(lista, []) == []
+    stare = Z._handle
+    Z._handle = lambda *a: (200, {"zamowienia": lista, "czas": "x"})
+    try:
+        assert len(Z.handle("/api/zamowienia", {}, {}, admin=True, oddzialy=[])[1]["zamowienia"]) == 4
+        assert Z.handle("/api/zamowienia", {}, {}, admin=False, oddzialy=["Opole"])[1]["zamowienia"] == [{"kto": "Detal Opole"}]
+    finally:
+        Z._handle = stare

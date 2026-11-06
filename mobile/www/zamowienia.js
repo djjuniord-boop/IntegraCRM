@@ -109,7 +109,15 @@
     if (d1 > d2) throw new Blad("Data „od” jest późniejsza niż „do”.");
     return [iso(d1), iso(d2)];
   };
-  Z.handle = async function (route, q, cfg, admin) {
+  const norm = (s) => { s = (s || "").toLowerCase(); const a = "ąćęłńóśźż", b = "acelnoszz"; for (let i = 0; i < a.length; i++) s = s.split(a[i]).join(b[i]); return s.split(/\s+/).filter(Boolean).join(" "); };
+  Z.tylko_oddzialy = (lista, oddzialy) => { const n = (oddzialy || []).map(norm).filter(Boolean);
+    return lista.filter((z) => { const k = norm(z.kto); return n.some((x) => k.split(" ").includes(x) || k.endsWith(x)); }); };
+  Z.handle = async function (route, q, cfg, admin, oddzialy) {
+    const [k, w] = await handle_(route, q, cfg, admin);
+    if (k === 200 && !admin && w && w.zamowienia) return [k, Object.assign({}, w, { zamowienia: Z.tylko_oddzialy(w.zamowienia, oddzialy) })];
+    return [k, w];
+  };
+  const handle_ = async function (route, q, cfg, admin) {
     try {
       if (route === "/api/zamowienia") {
         const z = Z.czytaj_zamowienia(await Z.api_xml(cfg, "getOpenOrders"));
