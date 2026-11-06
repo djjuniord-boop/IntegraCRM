@@ -83,9 +83,14 @@ def wczytaj_konto():
     """Login API i ustawienia zalogowanego użytkownika -> silnik.KONTO."""
     from oferty import silnik
     e = _email(_token())
-    rows = _db("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo,ustawienia&email=eq." + urllib.parse.quote(e)) or [] if e else []
+    rows = _db("GET", "/rest/v1/oferty_konta?select=*&email=eq." + urllib.parse.quote(e)) or [] if e else []
     r = rows[0] if rows else {}
-    silnik.KONTO.update(login=r.get("xp_login") or "", password=r.get("xp_haslo") or "",
+    # hasło xPartner: z zaszyfrowanego sejfu przez funkcję bazy (tylko własne); przed etapem 2 – jawna kolumna
+    try:
+        haslo = _db("POST", "/rest/v1/rpc/oferty_moje_haslo", {}) or ""
+    except Exception:
+        haslo = r.get("xp_haslo") or ""
+    silnik.KONTO.update(login=r.get("xp_login") or "", password=haslo if isinstance(haslo, str) else "",
                         ustawienia=r.get("ustawienia") or {},
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
     h = Historia()

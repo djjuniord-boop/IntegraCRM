@@ -73,9 +73,12 @@
     let odd = {};
     try { const c = (await A.db("GET", "/rest/v1/app_config?key=eq.oddzialy&select=value")) || []; odd = (c[0] && c[0].value) || {}; } catch (e) {}
     Object.assign(S.KONTO, { oddzialy: admin ? Object.keys(odd) : (p.branches || []), oddzialy_dane: odd, kto: p.name || p.email });
-    const rows = (await A.db("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo,ustawienia&email=eq." + encodeURIComponent(p.email.toLowerCase()))) || [];
+    const rows = (await A.db("GET", "/rest/v1/oferty_konta?select=*&email=eq." + encodeURIComponent(p.email.toLowerCase()))) || [];
     const r = rows[0] || {};
-    Object.assign(S.KONTO, { login: r.xp_login || "", password: r.xp_haslo || "", ustawienia: r.ustawienia || {},
+    // hasło xPartner: z zaszyfrowanego sejfu przez funkcję bazy (tylko własne); przed etapem 2 – jawna kolumna
+    let haslo = "";
+    try { haslo = (await A.db("POST", "/rest/v1/rpc/oferty_moje_haslo", {})) || ""; } catch (e) { haslo = r.xp_haslo || ""; }
+    Object.assign(S.KONTO, { login: r.xp_login || "", password: typeof haslo === "string" ? haslo : "", ustawienia: r.ustawienia || {},
       zapisz: (dane) => A.db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", { p: dane }) });
     let names = {};
     S.HIST = {
