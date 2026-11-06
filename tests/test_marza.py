@@ -833,3 +833,18 @@ def test_cel_stara_funkcja_trzy_argumenty():
     assert _rpc(calls) == [{"p_branch": "wroclaw", "p_year": 2026, "p_month": 10, "p_target": 333000.0},
                            {"p_branch": "wroclaw", "p_year": 2026, "p_month": 10}]
     assert "Uwaga: nie udało się" not in log and "zmieniono w trakcie" not in log
+
+
+def test_wykres_maila_liczy_dzisiaj_jako_miniony():
+    """E-mail z wykresem powstaje z raportu wgranego dziś – tak jak zakładka WYNIKI (6.11.2026: 5 dni minęło)."""
+    import datetime
+    from unittest import mock
+    from marza import silnik_opole, silnik_wroclaw
+
+    class D(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls(2026, 11, 6)
+    for s in (silnik_wroclaw, silnik_opole):
+        with mock.patch.object(s.datetime, "date", D):
+            assert s._sales_days_dla_wykresu(2026, 11, {datetime.date(2026, 11, 11)}) == (24, 19)
