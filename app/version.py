@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.8"
+VERSION = "0.24.9"
 RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.9",
+        "date": "2026-11-06",
+        "changes": [
+            "MARŻA (Wrocław i Opole): wykres w e-mailu i podgląd dla handlowców liczą dzień wgrania raportu jako miniony – "
+            "tempo, prognoza i średnia dzienna do celu są takie same jak w zakładce WYNIKI",
+        ],
+    },
     {
         "version": "0.24.8",
         "date": "2026-11-06",
