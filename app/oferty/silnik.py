@@ -1100,7 +1100,13 @@ def handle(path, body=None, open_path=None):
                 c["marki_xp"] = MARKI_STALE
                 c["password"] = ""
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
+                c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 return 200, c
+            if route in ("/api/zamowienia", "/api/faktury", "/api/faktura"):
+                if not (KONTO.get("admin") or KONTO.get("zamowienia")):
+                    return 403, {"error": "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)."}
+                from oferty import zamowienia
+                return zamowienia.handle(route, {k: v[0] for k, v in qs.items()}, cfg, bool(KONTO.get("admin")))
             if route == "/api/history":
                 if qs.get("id"):
                     r = HIST.get_id(qs["id"][0]) if HIST else None

@@ -65,10 +65,11 @@
     if (!p || !p.email) throw new Error("To konto jest nieaktywne albo nie ma dostępu do programu.");
     const admin = p.role === "admin", mod = p.modules || [];
     // zakładki jak w Panelu: OFERTY OPON – moduł „oferty”; WYNIKI – moduł „wyniki” albo „marza” (dane i tak pilnuje baza)
-    A.moze = { oferty: admin || mod.includes("oferty"), wyniki: admin || mod.includes("wyniki") || mod.includes("marza") };
-    if (!A.moze.oferty && !A.moze.wyniki) throw new Error("Twoje konto nie ma dostępu do Ofert opon ani do Wyników – poproś administratora.");
+    A.moze = { oferty: admin || mod.includes("oferty"), wyniki: admin || mod.includes("wyniki") || mod.includes("marza"), zamowienia: admin || mod.includes("zamowienia") };
+    if (!A.moze.oferty && !A.moze.wyniki && !A.moze.zamowienia) throw new Error("Twoje konto nie ma dostępu do Ofert opon ani do Wyników – poproś administratora.");
     A.profil = p;
-    if (!A.moze.oferty) return p;
+    S.KONTO.admin = admin; S.KONTO.zamowienia = A.moze.zamowienia;
+    if (!A.moze.oferty && !A.moze.zamowienia) return p;
     // oddział na PDF: z konta (nie do zmiany przez pracownika); dane oddziałów wpisuje administrator w Panelu
     let odd = {};
     try { const c = (await A.db("GET", "/rest/v1/app_config?key=eq.oddzialy&select=value")) || []; odd = (c[0] && c[0].value) || {}; } catch (e) {}

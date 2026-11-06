@@ -14,7 +14,7 @@ const LSx = { get(k) { try { return localStorage.getItem(k); } catch (e) { retur
 function pokaz(zalogowany) {
   $("#vLogin").hidden = zalogowany;
   for (const id of ["#top", "#tabs"]) $(id).hidden = !zalogowany;
-  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vWyn", "#vUst"]) $(v).hidden = true; $("#selBar").hidden = true; }
+  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vWyn", "#vZam", "#vUst"]) $(v).hidden = true; $("#selBar").hidden = true; }
 }
 async function startApp() {
   $("#lVer").textContent = "Wersja aplikacji: " + Aplikacja.wersja();
@@ -26,6 +26,7 @@ async function startApp() {
     const M = Aplikacja.moze;   // zakładki wg uprawnień (jak w Panelu)
     for (const v of ["vOferta", "vHist"]) document.querySelector(`#tabs button[data-v="${v}"]`).hidden = !M.oferty;
     document.querySelector('#tabs button[data-v="vWyn"]').hidden = !M.wyniki;
+    document.querySelector('#tabs button[data-v="vZam"]').hidden = !M.zamowienia; $("#zbF").hidden = p.role !== "admin";
     $("#ustOferty").hidden = !M.oferty; $("#top .icon").hidden = !M.oferty;
     $("#tTitle").textContent = M.oferty ? "Oferty opon" : "Wyniki marży";
     const on = document.querySelector("#tabs button.on");
@@ -43,10 +44,11 @@ async function zaloguj() {
 async function wyloguj() { if (!confirm("Wylogować z aplikacji?")) return; await Aplikacja.logout(); location.reload(); }
 function go(b) {
   document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
-  for (const v of ["vOferta", "vHist", "vWyn", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
+  for (const v of ["vOferta", "vHist", "vWyn", "vZam", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
   updCnt();
   if (b.dataset.v === "vHist") loadHist();
   if (b.dataset.v === "vWyn") loadWyn();
+  if (b.dataset.v === "vZam" && !ZD) zLoad();
   if (b.dataset.v === "vUst" && Aplikacja.moze.oferty) openCfg();
   window.scrollTo(0, 0);
 }
@@ -417,3 +419,44 @@ window.onBack = function () {
 
 drawChips();
 startApp();
+
+// ------------------------------------------------ zamówienia xPartner (tylko podgląd; faktury – administrator)
+let ZD = null;
+const zzl = (v) => Number(v || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
+function zTab(b) { document.querySelectorAll("#zTabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#zZ").hidden = b.dataset.z !== "z"; $("#zF").hidden = b.dataset.z !== "f"; if (b.dataset.z === "f" && !$("#fL").innerHTML) zFak(); }
+async function zLoad(force) {
+  if (!$("#zF").hidden) return zFak();
+  $("#zL").innerHTML = '<p class="muted">Wczytuję zamówienia…</p>';
+  const [k, j] = await Silnik.handle("/api/zamowienia", null);
+  if (k !== 200) { ZD = null; $("#zL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
+  ZD = j; const kto = [...new Set(j.zamowienia.map((z) => z.kto).filter(Boolean))].sort();
+  $("#zkto").innerHTML = '<option value="">wszyscy</option>' + kto.map((x) => `<option>${esc(x)}</option>`).join("");
+  zDraw(); if (force) toast("Odświeżono (" + j.czas + ").");
+}
+function zDraw() {
+  if (!ZD) return;
+  const q = $("#zq").value.trim().toLowerCase(), kto = $("#zkto").value, st = $("#zst").value;
+  const l = ZD.zamowienia.filter((z) => (!kto || z.kto === kto) && (!st || (st === "otw" ? z.status !== 6 : String(z.status) === st)) &&
+    (!q || [z.nr, z.nr_erp, z.kto, z.komentarz, ...z.pozycje.map((p) => p.nazwa)].join(" ").toLowerCase().includes(q)));
+  const bl = l.filter((z) => z.status === 5).length;
+  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "");
+  $("#zL").innerHTML = l.length ? l.map((z) => `<div class="card zk${z.status === 5 ? " zerr" : ""}"><div class="row"><b class="grow">${esc(z.nr)}${z.nr_erp ? " · " + esc(z.nr_erp) : ""}</b><span class="st s${z.status}">${esc(z.status_txt)}</span></div>
+    <div class="small muted">${esc(z.data)}${z.kto ? " · " + esc(z.kto) : ""}${z.magazyn ? " · " + esc(z.magazyn) : ""} · <b>${zzl(z.netto)}</b> netto</div>
+    ${z.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} szt.${p.zostalo ? ` · do wydania ${p.zostalo}` : ""}${p.zostalo && p.dostepne < p.zostalo ? ` · <b class="err">dostępne ${p.dostepne}</b>` : ""}</span></div>`).join("")}
+    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień dla tych filtrów.</p>';
+}
+async function zFak() {
+  $("#fL").innerHTML = '<p class="muted">Wczytuję faktury…</p>';
+  const [k, j] = await Silnik.handle("/api/faktury?od=" + encodeURIComponent($("#fod").value) + "&do=" + encodeURIComponent($("#fdo").value), null);
+  if (k !== 200) { $("#fL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
+  $("#fod").value = j.od; $("#fdo").value = j.do;
+  $("#fL").innerHTML = j.faktury.length ? j.faktury.map((f) => `<div class="card zk" onclick="zFakSz(this,'${esc(f.nr)}')"><div class="row"><b class="grow">${esc(f.nr)}</b><span class="small">${esc(f.data)}</span></div><div class="small muted">${esc(f.platnosc)}${f.magazyn ? " · " + esc(f.magazyn) : ""}</div><div class="fs"></div></div>`).join("") : '<p class="muted">Brak faktur w tym okresie.</p>';
+}
+async function zFakSz(el, nr) {
+  const d = el.querySelector(".fs"); if (d.innerHTML) { d.innerHTML = ""; return; }
+  d.innerHTML = '<p class="muted small">Wczytuję…</p>';
+  const [k, f] = await Silnik.handle("/api/faktura?nr=" + encodeURIComponent(nr), null);
+  if (k !== 200) { d.innerHTML = `<p class="err small">${esc(f.error || "Błąd")}</p>`; return; }
+  d.innerHTML = f.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} × ${zzl(p.cena)}</span></div>`).join("") +
+    `<div class="small" style="margin-top:6px">Netto ${zzl(f.netto)} · VAT ${zzl(f.vat)} · <b>brutto ${zzl(f.brutto)}</b>${f.termin ? " · termin " + esc(f.termin) : ""}${f.zamowienie ? " · zam. " + esc(f.zamowienie) : ""}</div>`;
+}

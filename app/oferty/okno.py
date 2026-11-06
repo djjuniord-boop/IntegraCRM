@@ -169,7 +169,8 @@ def wczytaj_oddzialy(admin=False):
     except Exception:
         dane = {}
     moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
-    silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin)
+    silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
+                        zamowienia="zamowienia" in (me.get("modules") or []))
 
 
 def zapisz_oddzialy(dane: dict):

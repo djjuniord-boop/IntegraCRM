@@ -113,3 +113,6 @@ table.sum .num{text-align:right}
 .chart svg{width:100%;height:auto;display:block}
 table.hist{width:100%;border-collapse:collapse;font-size:14px}table.hist td,table.hist th{padding:7px 4px;border-bottom:1px solid var(--line);text-align:right}
 table.hist td:first-child,table.hist th:first-child{text-align:left}table.hist .ok{color:var(--ok)}table.hist .bad{color:#b00012;font-weight:700}
+
+.zk.zerr{border-left:4px solid #c00}.st{font-size:12px;padding:2px 8px;border-radius:9px;background:#eee}.st.s5{background:#fde2e2;color:#b00012}.st.s6{background:#e1f4e4;color:#1b6b2a}
+.zp{display:flex;gap:8px;font-size:13.5px;padding:5px 0;border-top:1px solid #eee}.err{color:#b00012}
