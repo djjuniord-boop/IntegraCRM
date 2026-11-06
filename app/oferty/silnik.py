@@ -1056,6 +1056,15 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
 def pdf_html(cfg, req, rows, pid, oddzial, kto="", logo=""):
     return wypelnij(wzor_pdf(), pdf_dane(cfg, req, rows, pid, oddzial, kto, logo))
 
+def polacz_strony(strony):
+    """Kilka PDF-ów (pełne strony HTML z tego samego wzoru) -> jeden dokument, każda opona na osobnej stronie A4."""
+    if len(strony) == 1:
+        return strony[0]
+    glowa = strony[0].split("<body>", 1)[0]
+    srodki = [h.split("<body>", 1)[1].rsplit("</body>", 1)[0] for h in strony]
+    styl = "<style>.page{break-after:page}.page:last-of-type{break-after:auto}</style>"
+    return glowa.replace("</head>", styl + "</head>", 1) + "<body>" + "".join(srodki) + "</body></html>"
+
 def oddzial_oferty(req):
     """Oddział do PDF: tylko z przypisanych do konta (KONTO['oddzialy']); przy kilku – wybrany w ofercie."""
     moje = KONTO.get("oddzialy") or []
@@ -1122,15 +1131,17 @@ def handle(path, body=None, open_path=None):
         if route == "/api/pdf":
             if not OSTATNIA.get("rows"):
                 return 400, {"error": "Najpierw wygeneruj ofertę."}
-            pid = int(body.get("id") or 0)
-            if pid not in CECHY and KONTO.get("katalog_cechy"):
-                try:
-                    zapamietaj_cechy({"id": pid, "attrs": KONTO["katalog_cechy"](pid) or {}})
-                except Exception:
-                    pass
+            # id – jedna opona; ids – kilka opon w jednym pliku (strona na oponę)
+            ids = [int(x) for x in (body.get("ids") or [body.get("id") or 0])][:30]
+            for pid in ids:
+                if pid not in CECHY and KONTO.get("katalog_cechy"):
+                    try:
+                        zapamietaj_cechy({"id": pid, "attrs": KONTO["katalog_cechy"](pid) or {}})
+                    except Exception:
+                        pass
             o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
-            html = pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], int(body.get("id") or 0), dane, KONTO.get("kto") or "", body.get("logo") or "")
-            return 200, {"html": html, "oddzial": o}
+            strony = [pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], pid, dane, KONTO.get("kto") or "", body.get("logo") or "") for pid in ids]
+            return 200, {"html": polacz_strony(strony), "oddzial": o, "stron": len(strony)}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
         if route == "/api/szablon":

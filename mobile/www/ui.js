@@ -240,15 +240,15 @@ function drawUl() {
   $("#ul").innerHTML = '<div class="lbl">PDF oferty dla klienta – jeden model opony, każda usługa osobno</div>' +
     (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="OODD=this.value">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
     (od.length ? "" : '<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora.</div>') +
-    ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
-    '<details class="sub"><summary class="small">Ulotki xPartner (wymagają logowania do xPartner)</summary>' +
-    ULS.map((u) => `<button class="btn sec sm" style="margin:4px 4px 0 0" data-u="${esc(u.url)}" onclick="Aplikacja.openUrl(this.dataset.u)">${esc(u.nazwa.split(" ").slice(0, 3).join(" "))}</button>`).join("") + "</details>";
+    (ULS.length > 1 ? `<button class="btn wide" style="margin-top:6px" onclick="pdfOferta(this, true)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>` : "") +
+    ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("");
 }
-async function pdfOferta(b) {
+async function pdfOferta(b, wszystkie) {
   b.disabled = true; toast("Tworzę PDF…");
   try {
-    const j = await api("/api/pdf", { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });   // logo z plików aplikacji (PDF ładuje się z android_asset/www)
-    const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + b.dataset.n);
+    // logo z plików aplikacji (PDF ładuje się z android_asset/www); „wszystkie” – jeden plik, strona na oponę
+    const j = await api("/api/pdf", wszystkie ? { ids: ULS.map((u) => u.id), oddzial: OODD, logo: "logo.png" } : { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });
+    const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + (wszystkie ? "wszystkie " + ULS.length : b.dataset.n));
     if (!r.ok) msg("#oMsg", r.msg, 1);
   } catch (e) { msg("#oMsg", e.message, 1); }
   b.disabled = false;

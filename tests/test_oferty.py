@@ -335,3 +335,40 @@ def _test_pdf_z_pliku(api):
     # bez kopii pliku -> API (katalog zwraca None)
     S.KONTO.update(katalog=lambda s: None, katalog_info=lambda: "")
     assert S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}]})[1]["zrodlo"].startswith("xPartner na żywo")
+
+
+def test_etykieta_eprel_wstawiana_lub_zastepcza():
+    from oferty import okno
+    html = ('<p><object class="eprel" data="https://eprel.ec.europa.eu/api/products/tyres/99999999999/labels?format=PNG" '
+            'type="image/png"><div class="eul">RYSOWANA</div></object></p>')
+    stary = okno.urllib.request.urlopen
+    try:
+        def brak(*a, **k):
+            raise OSError("offline")
+        okno.urllib.request.urlopen = brak
+        h = okno.wstaw_etykiete_eprel(html)        # rejestr UE nie odpowiada -> od razu rysowana, bez <object>
+        assert h == '<p><div class="eul">RYSOWANA</div></p>', h
+        class R:
+            def __enter__(self): return self
+            def __exit__(self, *a): pass
+            def read(self, n=0): return b"\x89PNG\r\n\x1a\n" + b"0" * 50
+        okno.urllib.request.urlopen = lambda *a, **k: R()
+        h = okno.wstaw_etykiete_eprel(html)        # pobrana -> wstawiona do strony (Edge nie pobiera z sieci)
+        assert '<img class="eprel" src="data:image/png;base64,' in h and "eprel.ec.europa.eu" not in h and "RYSOWANA" not in h
+    finally:
+        okno.urllib.request.urlopen = stary
+        import tempfile
+        try: os.remove(os.path.join(tempfile.gettempdir(), "LatexOferty_eprel", "99999999999.png"))
+        except OSError: pass
+
+
+def test_pdf_wszystkie_w_jednym():
+    _setup()
+    S.KONTO.update(oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    assert S.handle("/api/offer", {"oid": "20261106_120000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}],
+                                   "wybor": {"205/55 R16": {"wszystkie": [1, 2]}}})[0] == 200
+    c, r = S.handle("/api/pdf", {"ids": [1, 2]})
+    h = r["html"]
+    assert c == 200 and r["stron"] == 2 and h.count('<div class="page">') == 2 and h.count("<body>") == 1 and h.count("</html>") == 1
+    assert "break-after:page" in h and "BRIDGESTONE" in h and "BARUM" in h
+    assert S.handle("/api/pdf", {"id": 1})[1]["html"].count('<div class="page">') == 1    # pojedynczy bez zmian

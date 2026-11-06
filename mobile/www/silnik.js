@@ -684,6 +684,12 @@
     };
   };
   S.pdf_html = (cfg, req, rows, pid, oddzial, kto, logo) => wypelnij(S.wzor_pdf(), S.pdf_dane(cfg, req, rows, pid, oddzial, kto, logo));
+  S.polacz_strony = function (strony) {   // jak polacz_strony w silnik.py
+    if (strony.length === 1) return strony[0];
+    const glowa = strony[0].split("<body>")[0];
+    const srodki = strony.map((h) => { const b = h.slice(h.indexOf("<body>") + 6); return b.slice(0, b.lastIndexOf("</body>")); });
+    return glowa.replace("</head>", "<style>.page{break-after:page}.page:last-of-type{break-after:auto}</style></head>") + "<body>" + srodki.join("") + "</body></html>";
+  };
   S.oddzial_oferty = function (req) {
     const moje = S.KONTO.oddzialy || [], dane = S.KONTO.oddzialy_dane || {};
     if (!moje.length) throw new Error("Twoje konto nie ma przypisanego oddziału – poproś administratora (Panel → UŻYTKOWNICY → konto → oddziały).");
@@ -714,10 +720,11 @@
       if (route === "/api/test") { const [count, items] = await S.api_call(cfg, { productName: "205/55 R16", resultsPerPage: 1 }); return [200, { ok: true, msg: `Połączono z xPartner. Przykładowe zapytanie zwróciło ${count} produktów.` + S.opis_pol(items) }]; }
       if (route === "/api/pdf") {
         if (!OSTATNIA.rows) return [400, { error: "Najpierw wygeneruj ofertę." }];
-        const pid = +body.id || 0;
-        if (!CECHY[pid] && S.KONTO.katalog_cechy) { try { zapamietaj_cechy({ id: pid, attrs: (await S.KONTO.katalog_cechy(pid)) || {} }); } catch (e) { /* bez cech z pliku */ } }
+        const ids = (body.ids || [body.id || 0]).map((x) => +x || 0).slice(0, 30);   // jak w silnik.py
+        for (const pid of ids) if (!CECHY[pid] && S.KONTO.katalog_cechy) { try { zapamietaj_cechy({ id: pid, attrs: (await S.KONTO.katalog_cechy(pid)) || {} }); } catch (e) { /* bez cech z pliku */ } }
         const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
-        return [200, { html: S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, +body.id || 0, dane, S.KONTO.kto || "", body.logo || ""), oddzial: o }];
+        const strony = ids.map((pid) => S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, pid, dane, S.KONTO.kto || "", body.logo || ""));
+        return [200, { html: S.polacz_strony(strony), oddzial: o, stron: strony.length }];
       }
       if (route === "/api/quick") return [200, S.parse_quick(body.text || "")];
       if (route === "/api/parse") { const t = body.text || "", q = S.parse_quick(t); return [200, { pojazdy: S.parse_request_text(t), kryteria: { sezony: q.sezony, klasy: q.klasy, producenci: q.producenci, runflat: q.runflat } }]; }

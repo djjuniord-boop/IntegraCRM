@@ -26,7 +26,8 @@ S.HIST = { save: async () => {}, list: async () => [], get_id: async () => null 
   out.offer = []; out.pdf = [];
   for (const o of inp.offers) { const [c, r] = await S.handle("/api/offer", JSON.parse(JSON.stringify(o))); if (c !== 200) { out.offer.push({ err: r }); continue; }
     out.offer.push({ warianty: r.warianty, email: r.email, uwagi: r.uwagi, ulotki: r.ulotki.map((u) => [u.id, u.cena]) });
-    for (const u of r.ulotki) { const [c2, r2] = await S.handle("/api/pdf", { id: u.id, logo: "logo.png" }); out.pdf.push(r2.html || null); } }
+    for (const u of r.ulotki) { const [c2, r2] = await S.handle("/api/pdf", { id: u.id, logo: "logo.png" }); out.pdf.push(r2.html || null); }
+    if (r.ulotki.length > 1) out.pdf.push((await S.handle("/api/pdf", { ids: r.ulotki.map((u) => u.id), logo: "logo.png" }))[1].html || null); }
   for (const k of Object.keys(S.CECHY)) delete S.CECHY[k];
   S.KONTO.katalog = async (sz) => (sz === "205/55 R16" ? [JSON.parse(JSON.stringify(inp.PLIK))] : null);
   S.KONTO.katalog_info = () => "z pliku";

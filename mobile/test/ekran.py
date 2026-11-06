@@ -72,6 +72,8 @@ with sync_playwright() as p:
         assert pg.evaluate("window.__pdf.n").startswith("Oferta ")
         assert 'src="logo.png"' in h, "PDF bez logo"
         (OUT / f"{name}_pdf.html").write_text(h, encoding="utf-8")
+        pg.evaluate("window.__pdf=null;0"); pg.click("text=w jednym PDF"); pg.wait_for_function("window.__pdf && window.__pdf.h")
+        hw = pg.evaluate("window.__pdf.h"); assert hw.count('<div class="page">') == 2 and "wszystkie 2" in pg.evaluate("window.__pdf.n"), "wszystkie w jednym"
         pg.click("#edit summary"); pg.locator("#edit input[type=number]").nth(0).fill("10"); pg.locator("#edit input[type=number]").nth(0).dispatch_event("change")
         pg.wait_for_timeout(900); shot("5_edycja"); wide()
         pg.click("#prodBtn" ) if False else None
