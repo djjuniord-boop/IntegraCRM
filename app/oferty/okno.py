@@ -11,7 +11,9 @@ import os
 import re
 import shutil
 import sys
+import threading
 import time
+import urllib.request
 import urllib.parse
 from pathlib import Path
 
@@ -190,10 +192,48 @@ def _przegladarka():
     return next((k for k in kand if k and os.path.isfile(k)), "")
 
 
+_PDF_LOCK = threading.Lock()
+_EPREL_RE = re.compile(r'<object class="eprel" data="(https://eprel\.ec\.europa\.eu/api/products/tyres/(\d{1,12})/labels\?format=PNG)" type="image/png">(.*?)</object>', re.S)
+
+
+def wstaw_etykiete_eprel(html: str) -> str:
+    """Etykieta UE pobrana przez program (limit 5 s, pamięć na dysku 30 dni) i wstawiona do strony –
+    Edge nie musi niczego pobierać z sieci. Gdy rejestr UE nie odpowie: od razu etykieta rysowana."""
+    import tempfile
+    m = _EPREL_RE.search(html)
+    if not m:
+        return html
+    url, nr, zastepcza = m.groups()
+    kat = os.path.join(tempfile.gettempdir(), "LatexOferty_eprel")
+    plik = os.path.join(kat, nr + ".png")
+    dane = b""
+    try:
+        if os.path.isfile(plik) and time.time() - os.path.getmtime(plik) < 30 * 86400:
+            with open(plik, "rb") as f:
+                dane = f.read()
+        else:
+            req = urllib.request.Request(url, headers={"User-Agent": "PanelLatexSerwis-Oferty"})
+            with urllib.request.urlopen(req, timeout=5) as r:
+                dane = r.read(2_000_000)
+            if dane[:8] == b"\x89PNG\r\n\x1a\n":
+                os.makedirs(kat, exist_ok=True)
+                with open(plik + ".tmp", "wb") as f:
+                    f.write(dane)
+                os.replace(plik + ".tmp", plik)
+    except Exception:
+        dane = b""
+    if dane[:8] != b"\x89PNG\r\n\x1a\n":
+        return html[:m.start()] + zastepcza + html[m.end():]
+    img = '<img class="eprel" src="data:image/png;base64,%s" alt="Etykieta UE">' % base64.b64encode(dane).decode()
+    return html[:m.start()] + img + html[m.end():]
+
+
 def zrob_pdf(html: str, nazwa: str) -> str:
-    """HTML oferty -> plik PDF w folderze ofert. Zwraca ścieżkę PDF (albo HTML, gdy brak Edge/Chrome)."""
+    """HTML oferty -> plik PDF w folderze ofert. Zwraca ścieżkę PDF (albo HTML, gdy brak Edge/Chrome).
+    Jeden stały profil Edge (szybszy start niż nowy profil za każdym razem) – dlatego PDF-y po kolei (blokada)."""
     import subprocess, tempfile
     from oferty import silnik
+    html = wstaw_etykiete_eprel(html)
     os.makedirs(silnik.OUT_DIR, exist_ok=True)
     nazwa = re.sub(r"[^0-9A-Za-z._-]+", "_", nazwa).strip("_")[:90] or "oferta"
     pdf = os.path.join(silnik.OUT_DIR, nazwa + ".pdf")
@@ -203,16 +243,18 @@ def zrob_pdf(html: str, nazwa: str) -> str:
     exe = _przegladarka()
     try:
         if exe:
-            prof = tempfile.mkdtemp(prefix="oferty_pdf_")
-            args = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--disable-extensions", "--user-data-dir=" + prof,
-                    "--no-pdf-header-footer", "--print-to-pdf-no-header", "--print-to-pdf=" + pdf, Path(tmp.name).as_uri()]
+            prof = os.path.join(tempfile.gettempdir(), "LatexOferty_pdf_profil")
+            args = [exe, "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check", "--disable-extensions",
+                    "--disable-sync", "--disable-background-networking", "--disable-component-update", "--disable-default-apps",
+                    "--user-data-dir=" + prof, "--no-pdf-header-footer", "--print-to-pdf-no-header", "--print-to-pdf=" + pdf,
+                    Path(tmp.name).as_uri()]
             kw = {"creationflags": 0x08000000} if os.name == "nt" else {}   # bez okna konsoli
             if os.name != "nt":   # tylko testy na Linuksie (root)
                 args.insert(1, "--no-sandbox")
-            if os.path.exists(pdf):
-                os.remove(pdf)
-            subprocess.run(args, timeout=90, capture_output=True, **kw)
-            shutil.rmtree(prof, ignore_errors=True)
+            with _PDF_LOCK:
+                if os.path.exists(pdf):
+                    os.remove(pdf)
+                subprocess.run(args, timeout=90, capture_output=True, **kw)
             if os.path.isfile(pdf) and os.path.getsize(pdf) > 1000:
                 return pdf
         dst = os.path.join(silnik.OUT_DIR, nazwa + ".html")   # awaryjnie: strona do wydruku „Zapisz jako PDF”
