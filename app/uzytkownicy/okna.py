@@ -65,18 +65,22 @@ class UserDialog(tk.Toplevel):
         if u:
             def load_xp():
                 try:
-                    rows = app.session.call("GET", "/rest/v1/oferty_konta?select=xp_login,xp_haslo&email=eq."
+                    rows = app.session.call("GET", "/rest/v1/oferty_konta?select=*&email=eq."
                                             + __import__("urllib.parse").parse.quote(u["email"])) or []
                 except Exception:
                     rows = []
                 r = rows[0] if rows else {}
+                try:   # hasło jest w zaszyfrowanym sejfie – baza mówi tylko, czy jest zapisane
+                    jest = app.session.call("POST", "/rest/v1/rpc/oferty_ma_haslo", {"p_email": u["email"]}) is True
+                except Exception:
+                    jest = bool(r.get("xp_haslo"))
 
                 def show():
                     if not self.winfo_exists():
                         return
                     self._xp_old_login = r.get("xp_login") or ""
                     self.v_xp_login.set(self._xp_old_login)
-                    self.xp_info.config(text="Hasło zapisane – puste pole = bez zmiany." if r.get("xp_haslo")
+                    self.xp_info.config(text="Hasło zapisane – puste pole = bez zmiany." if jest
                                         else "Brak hasła – wpisz, żeby moduł Oferty opon działał.")
                 app.after(0, show)
             threading.Thread(target=load_xp, daemon=True).start()

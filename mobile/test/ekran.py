@@ -30,6 +30,7 @@ def route(r):
     if "/rest/v1/oferty" in u and m == "POST": saved.append(r.request.post_data); return r.fulfill(status=201, body="")
     if "/rest/v1/oferty" in u: return r.fulfill(json=[{"id": 7, "owner": "test@firma.pl", "dane": json.loads(saved[-1])["dane"]}] if saved else [])
     if "app_users" in u: return r.fulfill(json=[{"email": "test@firma.pl", "name": "Jan Testowy"}])
+    if "rpc/oferty_moje_haslo" in u: return r.fulfill(json="y")
     if "rpc/oferty_zapisz" in u: return r.fulfill(json=None)
     return r.fulfill(status=404, body="")
 errs = []
