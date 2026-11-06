@@ -6,6 +6,7 @@ Logowanie: token programu głównego (serwis_qr.read_token) – baza: oferty_kon
 """
 import base64
 import json
+import datetime
 import os
 import re
 import shutil
@@ -101,6 +102,55 @@ def wczytaj_konto():
         h.admin = False
     silnik.HIST = h
     wczytaj_oddzialy(h.admin)
+    k = Katalog()
+    silnik.KONTO.update(katalog=k, katalog_info=k.info, katalog_cechy=k.cechy)
+
+
+class Katalog:
+    """Wyszukiwanie w kopii pliku ofertowego xPartner (tabela xp_oferta). None = użyj API (kopia pusta/nieaktualna/błąd)."""
+    MAKS_WIEK = 3 * 3600
+
+    def __init__(self):
+        self.stan, self.stan_t, self.uzyty = None, 0.0, None
+
+    def _stan(self):
+        if time.time() - self.stan_t > 120:
+            try:
+                rows = _db("GET", "/rest/v1/app_config?key=eq.xp_oferta_stan&select=value") or []
+                self.stan = rows[0]["value"] if rows else None
+            except Exception:
+                self.stan = None
+            self.stan_t = time.time()
+        return self.stan
+
+    def swiezy(self):
+        s = self._stan()
+        try:
+            t = datetime.datetime.fromisoformat(str(s["czas"]).replace("Z", "+00:00"))
+            return (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() < self.MAKS_WIEK and int(s.get("ile") or 0) > 0
+        except Exception:
+            return False
+
+    def __call__(self, size_txt):
+        m = re.match(r"(\d{3})/(\d{2}) R(\d{2})", size_txt or "")
+        if not m or not self.swiezy():
+            self.uzyty = False
+            return None
+        w, p, r = m.groups()
+        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&szer=eq.%s&profil=eq.%s&sred=eq.%s&limit=5000" % (w, p, r)) or []
+        self.uzyty = True
+        return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
+
+    def cechy(self, pid):
+        """Cechy z pliku (EPREL, śnieg, lód) dla oferty otwartej bez wyszukiwania (np. z historii)."""
+        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&id=eq.%d" % int(pid)) or []
+        return ((rows[0].get("dane") or {}).get("attrs") or {}) if rows else {}
+
+    def info(self):
+        if not self.uzyty:
+            return ""
+        t = datetime.datetime.fromisoformat(str(self.stan["czas"]).replace("Z", "+00:00")).astimezone()
+        return "Oferta xPartner z godz. %s (kopia odświeżana co 30 min; ceny i stany w ofercie – na żywo)" % t.strftime("%H:%M")
 
 
 def wczytaj_oddzialy(admin=False):

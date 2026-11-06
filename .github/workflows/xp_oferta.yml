@@ -1,0 +1,31 @@
+name: Oferta xPartner -> baza (co 30 min)
+
+# Kopia pliku ofertowego xPartner do tabeli xp_oferta (wyszukiwanie w OFERTY OPON bez obciążania API xPartner).
+# xPartner zaleca pobieranie pliku co 30–60 min w godzinach 7–20 i nie częściej niż co 2 min.
+# Sekrety: XPARTNER_OFERTA_URL (link z xPartner), SUPABASE_SERVICE_ROLE_KEY. Logi są publiczne – skrypt wypisuje tylko liczby.
+on:
+  schedule:
+    - cron: "7,37 5-19 * * 1-6"     # UTC: pn–sob ok. 6:00–21:00 czasu polskiego
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: xp-oferta
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { sparse-checkout: tools, sparse-checkout-cone-mode: true }
+      - name: Synchronizacja
+        env:
+          XPARTNER_OFERTA_URL: ${{ secrets.XPARTNER_OFERTA_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$XPARTNER_OFERTA_URL" ]; then echo "::error::Brak sekretu XPARTNER_OFERTA_URL"; exit 1; fi
+          python3 tools/xp_oferta_sync.py

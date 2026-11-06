@@ -10,6 +10,11 @@ import asyncio
 
 T._setup()
 DB = T.DB
+# opona z pliku ofertowego (EPREL, śnieg) – w „API” bez tych cech, jak w prawdziwym xPartner
+sys.path.insert(0, str(ROOT / "tools"))
+import xp_oferta_sync as XS
+PLIK = XS.czytaj_csv(T.CSV_TEST)[0]["dane"]
+DB.append(dict(copy.deepcopy(PLIK), attrs={k: v for k, v in PLIK["attrs"].items() if k not in ("Kod EPREL", "Przyczepność na śniegu")}))
 TEKSTY = ["2055516 zimowe premium", "205/55 16 sailun", "silun 2055516 x2", "rodx 1956515 bez demo", "2155517 conti runflat",
           "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia", "bmw x5 suv 275/40 20 dw12345 wymiana przechowalnia opon",
           "transit dostawczy 2156516 tylko wymiana", "vw passat 2055516 dw5444lw silun", "2055516 ling long 8 szt", "2254517 premium budzet całoroczne demo",
@@ -43,11 +48,20 @@ for o in offers:
     py["offer"].append({"warianty": r["warianty"], "email": r["email"], "uwagi": r["uwagi"], "ulotki": [(u["id"], u["cena"]) for u in r["ulotki"]]})
     for u in r["ulotki"]:
         py["pdf"].append(S.handle("/api/pdf", {"id": u["id"], "logo": "logo.png"})[1].get("html"))
+# wyszukiwanie z kopii pliku + PDF z etykietą EPREL
+S.CECHY.clear()
+S.KONTO["katalog"] = lambda sz: [copy.deepcopy(PLIK)] if sz == "205/55 R16" else None
+S.KONTO["katalog_info"] = lambda: "z pliku"
+r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": ["Zimowa"]})[1]
+py["plik_search"] = [r["zrodlo"], {g: [p["id"] for p in l] for g, l in r["wyniki"]["205/55 R16"].items()}]
+S.handle("/api/offer", {"oid": "20261106_090000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True, "wymiana": True}], "wybor": {"205/55 R16": {"x": [PLIK["id"]]}}})
+py["plik_pdf"] = [S.handle("/api/pdf", {"id": PLIK["id"], "logo": "logo.png"})[1].get("html")]
+assert py["plik_search"][0] == "z pliku" and "tyres/381909/labels" in (py["plik_pdf"][0] or "") and "3PMSF" in py["plik_pdf"][0], "PDF z pliku bez EPREL"
 import importlib.util as _iu
 _spec = _iu.spec_from_file_location("zw", ROOT / "mobile/zrob_wzor.py"); _zw = _iu.module_from_spec(_spec); _spec.loader.exec_module(_zw)
 if (ROOT / "mobile/www/pdf_wzor.js").read_text(encoding="utf-8") != _zw.tresc():
     print("RÓŻNICA: mobile/www/pdf_wzor.js nieaktualny – uruchom python3 mobile/zrob_wzor.py"); sys.exit(1)
-inp = {"ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
+inp = {"PLIK": PLIK, "ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
 js = subprocess.run(["node", str(Path(__file__).with_name("zgodnosc_js.cjs"))], input=json.dumps(inp), capture_output=True, text=True)
 if js.returncode:
     print(js.stderr); sys.exit(2)

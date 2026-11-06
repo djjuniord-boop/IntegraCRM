@@ -124,7 +124,7 @@ async function search() {
     RES = await api("/api/search", req); SEL = new Set(); PAGE = {}; OID = newOid(); ORABAT = ""; CENY = {}; OSOBNO = null;
     if (req.sezony.length || req.klasy.length || req.producenci.trim())
       for (const [s, g] of Object.entries(RES.wyniki)) for (const [z, l] of Object.entries(g)) l.filter((p) => p.ok_stan).slice(0, 1).forEach((p) => SEL.add(s + "|" + z + "|" + p.id));
-    $("#outCard").hidden = true; render(); msg("#sMsg", ""); $("#resCard").hidden = false; $("#resCard").scrollIntoView({ behavior: "smooth" });
+    $("#outCard").hidden = true; render(); msg("#sMsg", RES.zrodlo || ""); $("#resCard").hidden = false; $("#resCard").scrollIntoView({ behavior: "smooth" });
   } catch (e) { msg("#sMsg", e.message, 1); }
   b.disabled = false;
 }
