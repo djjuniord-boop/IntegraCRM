@@ -425,7 +425,7 @@ def _sales_days_dla_wykresu(year, month, holidays):
         is_sales_day = d.weekday() != 6 and d not in holidays
         if is_sales_day:
             all_days += 1
-            if d >= today:
+            if d > today:   # wykres powstaje z raportu wgranego dziś – dzisiejszy dzień już się liczy jako miniony
                 remaining_days += 1
     return all_days, remaining_days
 
