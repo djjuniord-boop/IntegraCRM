@@ -17,7 +17,7 @@ S.HIST = { save: async () => {}, list: async () => [], get_id: async () => null 
     quick: inp.TEKSTY.map(S.parse_quick), parse: inp.TEKSTY.map(S.parse_request_text),
     marki: inp.SLOWA.map(S.brand_of_word), sizes: inp.TEKSTY.map(S.find_sizes),
   };
-  const keep = ["sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta"];
+  const keep = ["sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta", "nosnosc", "predkosc", "rant"];
   out.enrich = DB.map((p) => { const e = S.enrich(cfg, p); const o = {}; for (const k of keep) o[k] = e[k]; return o; });
   const cfg2 = Object.assign({}, cfg, { narzut_tryb: "kwota" });
   out.ceny = [100, 236.44, 300, 325.2, 344.10, 500, 731.0, 800].map((n) => [S.sell_price(cfg, n), S.sell_price(cfg2, n)]);

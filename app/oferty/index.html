@@ -68,13 +68,15 @@ DX3985C octavia 205/60 16 tylko wymiana
 <div class="row" style="margin:8px 0"><button onclick="parsePaste()">Wczytaj pojazdy</button><button class="sec" onclick="api('/api/szablon',{}).catch(e=>alert(e.message))" title="Pobiera pusty arkusz Excel do wypełnienia (rejestracja, marka, model, rozmiar…)">📥 Szablon Excel</button><label class="sec xbtn" title="Wczytuje wypełniony szablon Excel">📤 Wczytaj z Excela<input type="file" accept=".xlsx,.xlsm" style="display:none" onchange="loadXlsx(this.files[0]);this.value=''"></label><button class="sec" onclick="clearAll()">🧹 Wyczyść wszystko</button><span style="font-size:12px;color:var(--muted);align-self:center">Ctrl+Enter</span><button class="sec" onclick="addRow()">+ Dodaj pojazd</button></div>
 <table id="veh"><thead><tr><th>Rejestracja</th><th>Pojazd</th><th>Typ</th><th>Rozmiar</th><th>Ilość opon</th><th>Wymiana</th><th>Czujniki TPMS</th><th>Przechowalnia</th><th></th></tr></thead><tbody></tbody></table>
 </div>
-<div class="card"><h2><span class="n">2</span>Kryteria</h2>
+<div class="card" id="krytCard"><h2><span class="n">2</span>Kryteria</h2>
 <div class="row">
 <label>Sezon (puste = wszystkie)<span class="row chips"><label><input type="checkbox" class="sez" value="Zimowa">zimowe</label><label><input type="checkbox" class="sez" value="Całoroczna">wielosezonowe</label><label><input type="checkbox" class="sez" value="Letnia">letnie</label></span></label>
 <label>Klasa (puste = wszystkie)<span class="row chips"><label><input type="checkbox" class="kl" value="PREMIUM">premium</label><label><input type="checkbox" class="kl" value="MIDDLE">średnia</label><label><input type="checkbox" class="kl" value="BUDGET">budżet</label></span></label>
 <label>Producenci<input type="hidden" id="prod"><button type="button" class="sec" id="prodBtn" onclick="openProd()" style="min-width:260px;text-align:left">Wszyscy producenci ▾</button></label>
 <label>Min. stan (szt.)<input id="minstan" type="number" style="width:90px"></label>
 <label class="chips"><span>&nbsp;</span><label><input type="checkbox" id="std">tylko run-flat</label></label>
+<script>document.addEventListener('change',e=>{if(e.target.closest&&e.target.closest('#krytCard'))autoSzukaj()});
+function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.display!=='none'){clearTimeout(window._ks);window._ks=setTimeout(()=>search(),600)}}</script>
 <button onclick="search()" id="bS">🔎 Szukaj w xPartner</button>
 </div><div id="sMsg"></div></div>
 <div class="card res" id="resCard" style="display:none"><h2><span class="n">3</span>Wybór opon <span class="tag" id="wzor">cena oferty = zakup netto + marża + VAT</span> <button class="sec" style="padding:2px 10px;font-size:12px" onclick="hideBuy()">👁 ceny zakupu</button></h2>
@@ -83,6 +85,9 @@ DX3985C octavia 205/60 16 tylko wymiana
 <label>Opory toczenia<select id="f_rr" onchange="PAGE={};render()"><option value="">dowolne</option><option value="A">A</option><option value="B">A–B</option><option value="C">A–C</option></select></label>
 <label>Hałas max (dB)<input id="f_noise" type="number" min="60" max="80" placeholder="—" style="width:80px" oninput="PAGE={};render()"></label>
 <label>Homologacja<select id="f_hom" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
+<label>Prędkość min.<select id="f_spd" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
+<label>Nośność min.<select id="f_li" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
+<label class="chips" style="align-self:flex-end"><label><input type="checkbox" id="f_rant" onchange="PAGE={};render()">rant ochronny</label></label>
 <label>Demo<select id="f_demo" onchange="PAGE={};render()"><option value="">wszystkie</option><option value="bez">bez demo</option><option value="tylko">tylko demo</option></select></label>
 <label>Szukaj w wynikach<input id="f_txt" placeholder="model, indeks xPartner…" oninput="PAGE={};render()" style="width:160px"></label>
 <button class="sec" onclick="resetF()" style="align-self:flex-end">Wyczyść filtry</button>
@@ -175,7 +180,7 @@ async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/
  $('#veh tbody').innerHTML='';j.pojazdy.forEach(addRow);
  document.querySelectorAll('.sez').forEach(c=>c.checked=j.sezony.includes(c.value));
  document.querySelectorAll('.kl').forEach(c=>c.checked=j.klasy.includes(c.value));
- $('#std').checked=j.runflat;setProd(j.producenci);$('#f_demo').value=j.demo||'';msg('#qMsg','');await search();
+ $('#std').checked=j.runflat;setProd(j.producenci,false);$('#f_demo').value=j.demo||'';msg('#qMsg','');await search();
 }catch(e){msg('#qMsg',e.message,1)}b.disabled=false}
 function addRow(v={}){v=Object.assign({rej:'',pojazd:'',rozmiar:'',ilosc:4,wymiana:false,typ:'osobowy',tpms:0,przech:''},v);const tr=document.createElement('tr');const o=(a,b,c)=>`<option value="${a}" ${c===a?'selected':''}>${b}</option>`;tr.innerHTML=`<td><input class="rej" value="${esc(v.rej)}"></td><td><input class="poj" value="${esc(v.pojazd)}"></td><td><select class="typ">${o('osobowy','osobowy',v.typ)}${o('suv','SUV / 4x4',v.typ)}${o('dostawczy','dostawczy',v.typ)}</select></td><td><input class="roz" value="${esc(v.rozmiar)}" placeholder="205/60 R16"></td><td><input class="il" type="number" value="${v.ilosc??4}" min="0" style="width:64px" title="0 = bez nowych opon"></td><td><input type="checkbox" class="wym" ${v.wymiana?'checked':''} style="width:auto"></td><td><input class="tp" type="number" min="0" max="8" value="${v.tpms||0}" style="width:60px"></td><td><select class="pr">${o('','—',v.przech)}${o('opony','opony',v.przech)}${o('kola','koła (z felgami)',v.przech)}</select></td><td><button class="sec" onclick="this.closest('tr').remove()">✕</button></td>`;$('#veh tbody').append(tr)}
 function vehicles(){return[...document.querySelectorAll('#veh tbody tr')].map(t=>({rej:t.querySelector('.rej').value.trim(),pojazd:t.querySelector('.poj').value.trim(),rozmiar:t.querySelector('.roz').value.trim(),ilosc:+t.querySelector('.il').value||0,nowe:(+t.querySelector('.il').value||0)>0,wymiana:t.querySelector('.wym').checked,typ:t.querySelector('.typ').value,tpms:+t.querySelector('.tp').value||0,przech:t.querySelector('.pr').value})).filter(v=>v.rozmiar)}
@@ -188,7 +193,7 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
  const rows=[...document.querySelectorAll('#veh tbody tr')];if(rows.length==1&&!vehicles().length)rows[0].remove();j.pojazdy.forEach(addRow);$('#paste').value='';
  const k=j.kryteria;if(k.sezony.length)document.querySelectorAll('.sez').forEach(c=>c.checked=k.sezony.includes(c.value));
  if(k.klasy.length)document.querySelectorAll('.kl').forEach(c=>c.checked=k.klasy.includes(c.value));
- if(k.producenci)setProd(k.producenci);if(k.runflat)$('#std').checked=true;
+ if(k.producenci)setProd(k.producenci,false);if(k.runflat)$('#std').checked=true;
  if(k.sezony.length||k.klasy.length||k.producenci||k.runflat)search()}
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
@@ -200,7 +205,7 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
- document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('');$('#minstan').value=CFG.min_stan;
+ document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
  RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};OSOBNO=null;$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
@@ -274,7 +279,7 @@ function drawProd(){const q=$('#pSearch').value.trim().toUpperCase(),g=brandGrou
  $('#pBody').innerHTML=h||'<p>Brak producentów.</p>';drawTitle()}
 function grpProd(k,on){const q=$('#pSearch').value.trim().toUpperCase();[...brandGroups()[k]].filter(b=>!q||b.includes(q)).forEach(b=>on?PSEL.add(b):PSEL.delete(b));drawProd()}
 function drawTitle(){$('#pTitle').textContent='Wybierz producentów ('+(PSEL.size?'wybrano '+PSEL.size:'wybrano wszystkich')+')'}
-function setProd(v){$('#prod').value=v;const n=v?v.split(',').filter(x=>x.trim()).length:0;$('#prodBtn').textContent=n?(n<=3?v:n+' producentów')+' ▾':'Wszyscy producenci ▾'}
+function setProd(v,auto){$('#prod').value=v;if(auto!==false)setTimeout(autoSzukaj,0);const n=v?v.split(',').filter(x=>x.trim()).length:0;$('#prodBtn').textContent=n?(n<=3?v:n+' producentów')+' ▾':'Wszyscy producenci ▾'}
 function applyProd(){setProd([...PSEL].join(', '));pdlg.close()}
 let SEL=new Set(),PAGE={};
 function hideBuy(v){const on=v===undefined?!document.body.classList.contains('hidebuy'):!!v;document.body.classList.toggle('hidebuy',on);try{localStorage.setItem('hidebuy',on?'1':'')}catch(e){}}
@@ -285,15 +290,19 @@ function go(g,d){PAGE[g]=(PAGE[g]||0)+d;render();document.getElementById('g_'+g)
 let SORT={k:'',d:1};
 const HOM={MO:'Mercedes (MO)',AO:'Audi (AO/RO)','*':'BMW (*)',N:'Porsche (N0–N9)',VOL:'Volvo (VOL)',T0:'Tesla (T0)',J:'Jaguar (J)',LR:'Land Rover (LR)',VW:'VW',FR:'rant ochronny felgi'};
 const lab=x=>x?x.charCodeAt(0):99;
-function resetF(){['#f_wet','#f_rr','#f_hom','#f_demo'].forEach(x=>$(x).value='');$('#f_noise').value='';$('#f_txt').value='';PAGE={};render()}
+function resetF(){['#f_wet','#f_rr','#f_hom','#f_demo','#f_spd','#f_li'].forEach(x=>$(x).value='');$('#f_rant').checked=false;$('#f_noise').value='';$('#f_txt').value='';PAGE={};render()}
 function srt(k){SORT=SORT.k===k?{k,d:-SORT.d}:{k,d:1};render()}
-function filt(l){const w=$('#f_wet').value,r=$('#f_rr').value,n=+$('#f_noise').value||0,hm=$('#f_hom').value,dm=$('#f_demo').value,t=$('#f_txt').value.trim().toUpperCase();
- return l.filter(p=>(!w||(p.mokra&&p.mokra<=w))&&(!r||(p.opory&&p.opory<=r))&&(!n||(p.halas&&p.halas<=n))&&(!hm||p.homol.includes(hm))&&(!dm||(dm==='tylko')===!!p.demo)&&(!t||(p.nazwa+' '+p.model+' '+p.indeks+' '+p.id).toUpperCase().includes(t)))}
+const SPD='LMNPQRSTUHVWYZ';const spdI=s=>{const i=SPD.indexOf((s||'').replace(/R$/,'').slice(-1));return i<0?-1:i};
+function filt(l){const sp=$('#f_spd').value,li=+$('#f_li').value||0,rt=$('#f_rant').checked,w=$('#f_wet').value,r=$('#f_rr').value,n=+$('#f_noise').value||0,hm=$('#f_hom').value,dm=$('#f_demo').value,t=$('#f_txt').value.trim().toUpperCase();
+ return l.filter(p=>(!w||(p.mokra&&p.mokra<=w))&&(!r||(p.opory&&p.opory<=r))&&(!n||(p.halas&&p.halas<=n))&&(!hm||p.homol.includes(hm))&&(!dm||(dm==='tylko')===!!p.demo)&&(!sp||spdI(p.predkosc)>=spdI(sp))&&(!li||p.nosnosc>=li)&&(!rt||p.rant)&&(!t||(p.nazwa+' '+p.model+' '+p.indeks+' '+p.id).toUpperCase().includes(t)))}
 const SK={id:p=>p.id,producent:p=>p.producent,model:p=>p.model,sezon:p=>p.sezon,indeks:p=>p.indeks,klasa:p=>({PREMIUM:0,MIDDLE:1,BUDGET:2}[p.klasa]??3),dot:p=>-(+p.dot||0),
  mokra:p=>lab(p.mokra),opory:p=>lab(p.opory),halas:p=>p.halas||99,stan:p=>-p.ilosc,zakup:p=>p.brutto_zak,cena:p=>p.cena_brutto};
 function sorted(l){if(!SORT.k)return l;const f=SK[SORT.k];return[...l].sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*SORT.d})}
 function th(k,t,c=''){return `<th class="s ${c} ${SORT.k===k?'on':''}" onclick="srt('${k}')">${t}${SORT.k===k?(SORT.d>0?' ▲':' ▼'):''}</th>`}
-function fillHom(){const have=new Set();for(const g of Object.values(RES.wyniki))for(const l of Object.values(g))for(const p of l)p.homol.forEach(h=>have.add(h));
+function fillHom(){const have=new Set(),sps=new Set(),lis=new Set();for(const g of Object.values(RES.wyniki))for(const l of Object.values(g))for(const p of l){p.homol.forEach(h=>have.add(h));if(p.predkosc&&spdI(p.predkosc)>=0)sps.add(p.predkosc.slice(-1));if(p.nosnosc)lis.add(p.nosnosc)}
+ const cs=$('#f_spd').value,cl=$('#f_li').value;
+ $('#f_spd').innerHTML='<option value="">dowolna</option>'+[...sps].sort((a,b)=>spdI(a)-spdI(b)).map(x=>`<option value="${esc(x)}" ${cs===x?'selected':''}>${esc(x)} i wyżej</option>`).join('');
+ $('#f_li').innerHTML='<option value="">dowolna</option>'+[...lis].sort((a,b)=>a-b).map(x=>`<option value="${x}" ${cl==String(x)?'selected':''}>${x} i wyżej</option>`).join('');
  const cur=$('#f_hom').value;$('#f_hom').innerHTML='<option value="">dowolna</option>'+[...have].map(h=>`<option value="${esc(h)}" ${cur===h?'selected':''}>${esc(HOM[h]||h)}</option>`).join('')}
 function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;const l=sorted(filt(all));
  const pages=Math.max(1,Math.ceil(l.length/PER));let pg=Math.min(PAGE[g]||0,pages-1);PAGE[g]=pg;

@@ -25,7 +25,7 @@ S.ucz_marki(S.load_cfg())
 py = {"quick": [S.parse_quick(t) for t in TEKSTY], "parse": [S.parse_request_text(t) for t in TEKSTY],
       "marki": [S.brand_of_word(w) for w in SLOWA], "sizes": [S.find_sizes(t) for t in TEKSTY]}
 cfg = S.load_cfg()
-py["enrich"] = [{k: v for k, v in S.enrich(cfg, p).items() if k in ("sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta")} for p in DB]
+py["enrich"] = [{k: v for k, v in S.enrich(cfg, p).items() if k in ("sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta", "nosnosc", "predkosc", "rant")} for p in DB]
 cfg2 = dict(cfg, narzut_tryb="kwota")
 py["ceny"] = [[S.sell_price(cfg, n), S.sell_price(cfg2, n)] for n in (100, 236.44, 300, 325.2, 344.10, 500, 731.0, 800)]
 reqs = [{"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": [], "klasy": []},

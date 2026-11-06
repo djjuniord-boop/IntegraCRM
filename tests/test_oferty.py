@@ -372,3 +372,13 @@ def test_pdf_wszystkie_w_jednym():
     assert c == 200 and r["stron"] == 2 and h.count('<div class="page">') == 2 and h.count("<body>") == 1 and h.count("</html>") == 1
     assert "break-after:page" in h and "BRIDGESTONE" in h and "BARUM" in h
     assert S.handle("/api/pdf", {"id": 1})[1]["html"].count('<div class="page">') == 1    # pojedynczy bez zmian
+
+
+def test_nosnosc_predkosc_rant():
+    cfg = S.load_cfg()
+    p = {"id": 1, "nazwa": "MICHELIN 225/45 R17 PILOT SPORT 5 94Y XL FR", "netto": 400, "ilosc": 8,
+         "attrs": {"Indeks nośności": "94", "Indeks prędkości": "Y-300KMH", "Rant ochronny": "X", "Sezon": "Letnia"}}
+    e = S.enrich(cfg, p)
+    assert (e["nosnosc"], e["predkosc"], e["rant"]) == (94, "Y", True)
+    e = S.enrich(cfg, dict(p, nazwa="X 205/55 R16 91H", attrs={"Sezon": "Letnia"}))
+    assert (e["nosnosc"], e["predkosc"], e["rant"]) == (91, "H", False)

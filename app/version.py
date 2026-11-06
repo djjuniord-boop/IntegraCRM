@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.7"
+VERSION = "0.24.8"
 RELEASED = "2026-11-06"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.8",
+        "date": "2026-11-06",
+        "changes": [
+            "Oferty opon – Wybór opon: nowe filtry „Prędkość min.”, „Nośność min.” i „rant ochronny”",
+            "Oferty opon – Kryteria: po pierwszym wyszukaniu zmiana sezonu, klasy, producentów, stanu czy run-flat od razu wyszukuje ponownie (bez klikania „Szukaj”)",
+        ],
+    },
     {
         "version": "0.24.7",
         "date": "2026-11-06",
