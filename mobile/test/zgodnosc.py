@@ -31,11 +31,11 @@ py["ceny"] = [[S.sell_price(cfg, n), S.sell_price(cfg2, n)] for n in (100, 236.4
 reqs = [{"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": [], "klasy": []},
         {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": ["Zimowa"], "klasy": ["PREMIUM", "BUDGET"], "producenci": ""}]
 py["search"] = [{s: {g: [p["id"] for p in l] for g, l in d.items()} for s, d in S.do_search(cfg, r)["wyniki"].items()} for r in reqs]
-offers = [{"oid": "1", "klient": "Firma", "rabat": "10", "pojazdy": [{"rej": "DW1", "pojazd": "Skoda", "rozmiar": "205/55 R16", "ilosc": 2, "nowe": True, "wymiana": True, "tpms": 4, "przech": "opony", "typ": "osobowy"},
+offers = [{"oid": "1", "klient": "Firma", "rabat": "10", "rabat_wym": "15", "pojazdy": [{"rej": "DW1", "pojazd": "Skoda", "rozmiar": "205/55 R16", "ilosc": 2, "nowe": True, "wymiana": True, "tpms": 4, "przech": "opony", "typ": "osobowy"},
             {"rej": "DX9", "pojazd": "", "rozmiar": "205/55 R16", "ilosc": 0, "nowe": False, "wymiana": True, "tpms": 0, "przech": "kola", "typ": "suv"}], "wybor": {"205/55 R16": {"wszystkie": [1, 2]}}},
           {"oid": "2", "osobno": True, "ceny": {"1": 500}, "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}, {"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}],
            "wybor": {"205/55 R16": {"wszystkie": [1]}, "235/55 R18": {"wszystkie": [5]}}},
-          {"oid": "20261105_221500", "klient": "Jan <Kowalski> & syn", "rabat": "7.5", "osobno": True, "pojazdy": [
+          {"oid": "20261105_221500", "klient": "Jan <Kowalski> & syn", "rabat": "7.5", "rabat_wym": "100", "ceny_wym": {"R16|suv": "50"}, "osobno": True, "pojazdy": [
               {"rej": "dw1234a", "pojazd": "Octavia", "rozmiar": "205/55 R16", "ilosc": 4, "nowe": True, "wymiana": True, "tpms": 4, "przech": "kola", "typ": "osobowy"},
               {"rej": "", "pojazd": "Tiguan", "rozmiar": "205/55 R16", "ilosc": 2, "nowe": True, "wymiana": True, "tpms": 0, "przech": "opony", "typ": "suv"},
               {"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}], "wybor": {"205/55 R16": {"wszystkie": [1, 2]}, "235/55 R18": {"wszystkie": [5]}}}]
