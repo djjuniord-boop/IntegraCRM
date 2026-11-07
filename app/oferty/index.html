@@ -198,7 +198,7 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};OSOBNO=null;
+ RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;
  const filt=req.sezony.length||req.klasy.length||req.producenci.trim();
  if(filt){const n=1;for(const[s,g]of Object.entries(RES.wyniki))for(const[z,l]of Object.entries(g))l.filter(p=>p.ok_stan).slice(0,n).forEach(p=>SEL.add(s+'|'+z+'|'+p.id))}
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
@@ -206,7 +206,7 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};OSOBNO=null;$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null;
@@ -260,7 +260,7 @@ async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.clo
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
- OMARZA=r.marza??'';ORABAT=r.rabat??'';if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;OID=newOid();$('#outCard').style.display='none';await offer()}
+ OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;OID=newOid();$('#outCard').style.display='none';await offer()}
 let PSEL=new Set(),PMORE={};
 const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGET','budzet','#111']];
 const bk=x=>String(x||'').toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g,'');
@@ -312,15 +312,18 @@ function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RE
  h+='<table><tr><th></th>'+th('id','Indeks')+th('producent','Producent')+th('model','Model')+th('sezon','Sezon')+th('indeks','Nośn./prędk.')+th('klasa','Klasa')+th('dot','DOT')+th('mokra','Mokra')+th('opory','Opory')+th('halas','Hałas')+'<th>Homol.</th>'+th('stan','Stan','num')+th('zakup','Zakup brutto','num buy')+th('cena','Oferta brutto/szt.','num')+'</tr>';
  for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id;h+=`<tr class="${p.ok_stan?'':'bad'}"><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.ok_stan?'ok':''}">${p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td></tr>`}
  h+='</table>';if(pages>1)h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">${nav}</div>`}}$('#res').innerHTML=h;updCnt()}
-let OMARZA='',ORABAT='',CENY={},ULS=[],OSOBNO=null;
-function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;reoffer()}
+let OMARZA='',ORABAT='',CENY={},ULS=[],OSOBNO=null,ORABW='',CENYW={},WYMS=[];
+function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;else if(k==='w')ORABW=v;reoffer()}
+function setW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete CENYW[k];else CENYW[k]=Math.ceil(+v);reoffer()}
 function setC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0)delete CENY[id];else CENY[id]=Math.ceil(+v);reoffer()}
 function drawEdit(){const rows=[...document.querySelectorAll('#veh tbody tr')].filter(t=>t.querySelector('.roz').value.trim());
- const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label><input type="checkbox" ${OSOBNO?'checked':''} onchange="OSOBNO=this.checked;reoffer()">Osobna oferta dla każdego pojazdu / rozmiaru</label><label>Rabat dla klienta % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(ORABAT)}" onchange="setO('r',this.value)"></label></div>
+ const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label><input type="checkbox" ${OSOBNO?'checked':''} onchange="OSOBNO=this.checked;reoffer()">Osobna oferta dla każdego pojazdu / rozmiaru</label><label>Rabat na opony % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(ORABAT)}" onchange="setO('r',this.value)"></label><label>Rabat na wymianę % <input type="number" step="1" min="0" max="100" placeholder="0" value="${esc(ORABW)}" onchange="setO('w',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny opon w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
  ULS.map(u=>`<div class="r"><b style="min-width:380px">${esc(u.nazwa)}</b><span class="tag buy">zakup ${zl(u.zakup)}</span><span class="tag">wyliczona ${zl(u.auto)}</span>
  <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="setC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="setC(${u.id},'')">↺ przywróć</button>`:''}${u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
- $('#edit').innerHTML=top+'<div class="t" style="margin-top:8px">Ilość i usługi – zmiana od razu przelicza ofertę</div>'+rows.map((t,i)=>{const q=c=>t.querySelector(c);const nm=[q('.poj').value,q('.rej').value].filter(Boolean).join(' ')||('Pojazd '+(i+1));const pr=q('.pr').value;
+ const wy=WYMS.length?'<div class="t" style="margin-top:8px">Ceny wymiany (brutto za 1 koło) – wpisz własną, aby nadpisać; puste = z cennika'+(+ORABW?' minus rabat':'')+'</div>'+WYMS.map(w=>`<div class="r"><b style="min-width:380px">${esc(w.opis)}</b><span class="tag">cennik ${zl(w.cennik)}</span>${+ORABW?`<span class="tag">po rabacie ${zl(w.auto)}</span>`:''}
+ <label>Cena <input class="pr-in ${w.recznie?'man':''}" type="number" min="0" step="1" placeholder="${w.auto}" value="${w.recznie?w.cena:''}" data-k="${esc(w.klucz)}" onchange="setW(this.dataset.k,this.value)"> zł</label>${w.recznie?`<button class="sec" style="padding:2px 10px" data-k="${esc(w.klucz)}" onclick="setW(this.dataset.k,'')">↺ przywróć</button>`:''}</div>`).join(''):'';
+ $('#edit').innerHTML=top+wy+'<div class="t" style="margin-top:8px">Ilość i usługi – zmiana od razu przelicza ofertę</div>'+rows.map((t,i)=>{const q=c=>t.querySelector(c);const nm=[q('.poj').value,q('.rej').value].filter(Boolean).join(' ')||('Pojazd '+(i+1));const pr=q('.pr').value;
   return `<div class="r"><b>${esc(nm)} <span class="tag">${esc(q('.roz').value)}</span></b>
   <label>Ilość opon <input type="number" min="0" max="20" value="${+q('.il').value||0}" onchange="setV(${i},'.il',this.value)"></label>
   <label><input type="checkbox" ${q('.wym').checked?'checked':''} onchange="setV(${i},'.wym',this.checked)">Wymiana</label>
@@ -332,10 +335,10 @@ function reoffer(){if($('#outCard').style.display==='none'||!SEL.size)return;cle
 document.addEventListener('change',e=>{if(e.target.closest('#veh')||e.target.id==='klient')reoffer()});
 async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświeżam ceny i stany w xPartner, generuję ofertę…');try{
  const wybor={};SEL.forEach(k=>{const[s,z,id]=k.split('|');((wybor[s]??={})[z]??=[]).push(+id)});
- if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY});ULS=j.ulotki;
+ if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY,rabat_wym:ORABW,ceny_wym:CENYW});ULS=j.ulotki;
  msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+'Zapisano: '+j.plik,j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
- ULS=j.ulotki;drawUl();
+ ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();
  $('#email').value=j.email;drawEdit();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 let OODD='';

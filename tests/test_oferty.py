@@ -382,3 +382,19 @@ def test_nosnosc_predkosc_rant():
     assert (e["nosnosc"], e["predkosc"], e["rant"]) == (94, "Y", True)
     e = S.enrich(cfg, dict(p, nazwa="X 205/55 R16 91H", attrs={"Sezon": "Letnia"}))
     assert (e["nosnosc"], e["predkosc"], e["rant"]) == (91, "H", False)
+
+
+def test_rabat_na_wymiane_i_reczna_cena():
+    # cennik R16 osobowy = 44 zł/koło; rabat 10% -> 39,60 -> 40 zł (w górę do pełnych zł, jak opony)
+    code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10"})
+    h = r["html"]
+    assert code == 200 and "Rabat 10% na wymianę" in h and "− 16,00 zł" in h and "Rabat 10% na opony" not in h, h[-3000:]
+    assert "44,00 zł" in h                                     # na PDF pozycja w cenie z cennika, rabat osobną linią
+    w = S.handle("/api/offer", dict(S.OSTATNIA["req"]))[1]["wymiany"]
+    assert w == [{"klucz": "R16|osobowy", "opis": "Wymiana R16", "cennik": 44.0, "auto": 40.0, "cena": 40.0, "recznie": False}]
+    # ręczna cena wymiany: bez rabatu, bez linii rabatu
+    code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10", "ceny_wym": {"R16|osobowy": 30}})
+    assert "na wymianę" not in r["html"] and "30,00 zł" in r["html"]
+    # 100% = wymiana gratis
+    code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "100"})
+    assert "Rabat 100% na wymianę" in r["html"] and "− 176,00 zł" in r["html"]

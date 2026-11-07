@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.9"
-RELEASED = "2026-11-06"
+VERSION = "0.24.10"
+RELEASED = "2026-11-07"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.24.10",
+        "date": "2026-11-07",
+        "changes": [
+            "Oferty opon: nowe pole „Rabat na wymianę %” (0–100%, 100% = wymiana gratis) obok rabatu na opony",
+            "Oferty opon: cenę wymiany za koło można wpisać ręcznie (jak cenę opony) – wpisana cena jest ostateczna, bez rabatu",
+            "PDF oferty: osobna linia „Rabat X% na wymianę”; wymiana w kalkulacji w cenie z cennika",
+        ],
+    },
     {
         "version": "0.24.9",
         "date": "2026-11-06",

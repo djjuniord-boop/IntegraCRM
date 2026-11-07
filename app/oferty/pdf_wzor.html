@@ -41,12 +41,12 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 <div class="top">
 {{#foto}}<div class="k1"><img class="foto" src="{{foto}}" alt=""></div>{{/foto}}{{^foto}}{{#eu}}<div class="k1">{{>etykieta}}</div>{{/eu}}{{/foto}}
 <div class="k2"><div class="par"><div><span>Producent</span><b>{{producent}}</b></div>{{#model}}<div><span>Bieżnik</span><b>{{model}}</b></div>{{/model}}<div><span>Rozmiar</span><b>{{rozmiar}}</b></div>{{#indeks}}<div><span>Nośność / prędkość</span><b>{{indeks}}</b></div>{{/indeks}}{{#xp_id}}<div><span>Indeks xPartner</span><b>{{xp_id}}</b></div>{{/xp_id}}{{#dot}}<div><span>Rok produkcji</span><b>DOT {{dot}}</b></div>{{/dot}}</div></div>
-<div class="k3"><div class="pr"><small>Cena za 1 szt. brutto</small><div class="b">{{cena_szt}}</div><div class="n">netto {{cena_szt_netto}}</div><div class="t"><small>Komplet z usługami{{#rabat}} (z rabatem {{rabat}}){{/rabat}}</small><div class="b">{{brutto}}</div><div class="n" style="margin:2px 0 0">netto {{netto}}</div></div></div>{{#foto}}{{#eu}}{{>etykieta}}{{/eu}}{{/foto}}</div>
+<div class="k3"><div class="pr"><small>Cena za 1 szt. brutto</small><div class="b">{{cena_szt}}</div><div class="n">netto {{cena_szt_netto}}</div><div class="t"><small>Komplet z usługami{{#rabaty}} (z rabatem){{/rabaty}}</small><div class="b">{{brutto}}</div><div class="n" style="margin:2px 0 0">netto {{netto}}</div></div></div>{{#foto}}{{#eu}}{{>etykieta}}{{/eu}}{{/foto}}</div>
 </div>
 <h2>Kalkulacja</h2>
 <table class="kal"><tr><th>Pozycja</th><th class="c">Ilość</th><th class="r">Cena brutto</th><th class="r">Wartość brutto</th></tr>
 {{#pozycje}}<tr class="p"><td>{{nazwa}}</td><td class="c">{{ilosc}}</td><td class="r">{{cena}}</td><td class="r">{{wartosc}}</td></tr>{{/pozycje}}
-{{#rabat}}<tr class="rab"><td colspan="3">Razem przed rabatem</td><td class="r">{{przed}}</td></tr><tr class="rab"><td colspan="3"><b>Rabat {{rabat}} na opony</b></td><td class="r"><b>− {{rabat_kw}}</b></td></tr>{{/rabat}}
+{{#rabaty}}<tr class="rab"><td colspan="3">Razem przed rabatem</td><td class="r">{{przed}}</td></tr>{{/rabaty}}{{#rabat}}<tr class="rab"><td colspan="3"><b>Rabat {{rabat}} na opony</b></td><td class="r"><b>− {{rabat_kw}}</b></td></tr>{{/rabat}}{{#rabat_wym}}<tr class="rab"><td colspan="3"><b>Rabat {{rabat_wym}} na wymianę</b></td><td class="r"><b>− {{rabat_wym_kw}}</b></td></tr>{{/rabat_wym}}
 <tr class="s"><td colspan="3">Razem netto</td><td class="r">{{netto}}</td></tr><tr class="s"><td colspan="3">VAT {{vat_proc}}%</td><td class="r">{{vat}}</td></tr>
 <tr class="sum"><td colspan="3">DO ZAPŁATY BRUTTO</td><td class="r">{{brutto}}</td></tr></table>
 <div class="war">Oferta ważna do {{wazna}} lub do wyczerpania zapasów. Ceny zawierają VAT {{vat_proc}}%. Termin montażu do uzgodnienia telefonicznie.</div>

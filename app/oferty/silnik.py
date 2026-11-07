@@ -254,6 +254,26 @@ def vlabel(variants, key):
     multi = sum(1 for k in variants if k[0] == key[0]) > 1
     return key[0] + (" – propozycja %d" % (key[1] + 1) if multi else "")
 
+def rabat_wymiany(req):
+    """Rabat % na wymianę (0–100) i ręczne ceny wymiany za 1 koło {"R16|osobowy": 40}."""
+    try: rw = max(0.0, min(100.0, float(str(req.get("rabat_wym") or 0).replace(",", "."))))
+    except ValueError: rw = 0.0
+    over = {}
+    for k, v in (req.get("ceny_wym") or {}).items():
+        try:
+            if str(v).strip() not in ("",):
+                over[str(k)] = max(0.0, float(str(v).replace(",", ".")))
+        except ValueError:
+            pass
+    return rw, over
+
+
+def cena_po_rabacie(c, rab):
+    """Jak dla opon: po rabacie w górę do pełnych zł."""
+    import math
+    return float(math.ceil(round(c * (1 - rab / 100), 2) - 1e-9)) if rab else c
+
+
 def doplata_progowa(cfg, zakup_brutto):
     """Kwota doliczana do ceny zakupu brutto wg progów (pierwszy próg, którego „do” obejmuje cenę; puste „do” = powyżej)."""
     progi = sorted((p for p in cfg.get("progi") or [] if p.get("do") not in (None, "")), key=lambda p: float(p["do"]))
@@ -556,6 +576,7 @@ def build_offer(cfg, req):
         p["cena_brutto"] = over.get(pid, auto)
         p["recznie"] = pid in over
     warnings = []
+    rw, over_w = rabat_wymiany(req)
     kola = int(cfg["kola_na_auto"])
     rows, variants = [], {}
     sep = bool(req.get("osobno"))
@@ -566,7 +587,12 @@ def build_offer(cfg, req):
         typ = v.get("typ") or "osobowy"
         cen = cfg["wymiana_suv"] if typ == "suv" else cfg["wymiana_dost"] if typ == "dostawczy" else cfg["wymiana_kolo"]
         n_kol = int(v.get("ilosc") or 0) or kola   # wymiana tylu kół, ile opon; przy samej wymianie – komplet
-        wym = float(cen.get(dia, 0)) * n_kol if v.get("wymiana") else 0.0
+        c0 = float(cen.get(dia, 0))
+        kw = "R%s|%s" % (dia, typ)
+        auto_w = cena_po_rabacie(c0, rw)
+        c_w = over_w.get(kw, auto_w)
+        v = dict(v, wym_tak=bool(v.get("wymiana")), wym_klucz=kw, wym_cennik=c0, wym_auto=auto_w, wym_szt=c_w, wym_recznie=kw in over_w)
+        wym = c_w * n_kol if v.get("wymiana") else 0.0
         if v.get("wymiana") and not cen.get(dia):
             warnings.append("Brak ceny wymiany dla %s R%s (%s) – uzupełnij Ustawienia" % (v.get("rej") or s, dia, TYPY[typ]))
         n_tp = int(v.get("tpms") or 0)
@@ -704,6 +730,7 @@ def save_hist(req, summ, path):
         return
     oid = safe_oid(req.get("oid"))
     rec = {"osobno": req.get("osobno"), "marza": req.get("marza"), "rabat": req.get("rabat"), "ceny": req.get("ceny") or {},
+           "rabat_wym": req.get("rabat_wym"), "ceny_wym": req.get("ceny_wym") or {},
            "oid": oid, "data": datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "klient": req.get("klient", ""),
            "pojazdy": req.get("pojazdy", []), "wybor": req.get("wybor", {}), "sel": req.get("sel", []),
            "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or ""}
@@ -999,13 +1026,17 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
     il = sum(int(r.get("ilosc") or 0) for r in R)
     poz = [{"nazwa": "Opona " + p["nazwa"], "q": il, "j": "szt.", "c": przed_szt}]
     kola = int(cfg["kola_na_auto"])
-    wym = {}
+    rw, _ = rabat_wymiany(req)
+    wym, rabat_wym_kw = {}, 0.0
     for r in R:
-        if r.get("wymiana"):
+        if r.get("wym_tak", r.get("wymiana")):
             n = int(r.get("ilosc") or 0) or kola
             dia = (re.search(r"R(\d{2})", r.get("rozmiar") or "") or [None, ""])[1]
             typ = r.get("typ") or "osobowy"
-            key = (dia, typ, round(r["wymiana"] / n, 2))
+            szt = r.get("wym_szt", round(r["wymiana"] / n, 2))
+            c = r.get("wym_cennik", szt) if (rw and not r.get("wym_recznie")) else szt
+            rabat_wym_kw += (c - szt) * n
+            key = (dia, typ, round(c, 2))
             wym[key] = wym.get(key, 0) + n
     for (dia, typ, c), n in wym.items():
         poz.append({"nazwa": "Wymiana opon – demontaż, montaż, wyważenie (R%s%s)" % (dia, "" if typ == "osobowy" else ", " + TYPY.get(typ, typ)),
@@ -1022,7 +1053,8 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         poz.append({"nazwa": "Depozyt – " + op[:1].lower() + op[1:] + ", 1 sezon", "q": n, "j": "kpl.", "c": float(c)})
     przed = round(sum(x["q"] * x["c"] for x in poz), 2)
     rabat_kw = round((przed_szt - p["cena_brutto"]) * il, 2)
-    brutto = round(przed - rabat_kw, 2)
+    rabat_wym_kw = round(rabat_wym_kw, 2)
+    brutto = round(przed - rabat_kw - rabat_wym_kw, 2)
     netto = round(brutto / (1 + vat / 100), 2)
     oid = str(req.get("oid") or "")
     poj = []
@@ -1055,6 +1087,8 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         "cena_szt": pl(p["cena_brutto"]), "cena_szt_netto": pl(round(p["cena_brutto"] / (1 + vat / 100), 2)),
         "pozycje": [{"nazwa": x["nazwa"], "ilosc": "%d %s" % (x["q"], x["j"]), "cena": pl(x["c"]), "wartosc": pl(round(x["q"] * x["c"], 2))} for x in poz],
         "rabat": (("%g" % rab).replace(".", ",") + "%") if rabat_kw > 0 else "", "przed": pl(przed), "rabat_kw": pl(rabat_kw),
+        "rabat_wym": (("%g" % rw).replace(".", ",") + "%") if rabat_wym_kw > 0 else "", "rabat_wym_kw": pl(rabat_wym_kw),
+        "rabaty": rabat_kw > 0 or rabat_wym_kw > 0,
         "netto": pl(netto), "vat": pl(round(brutto - netto, 2)), "vat_proc": vp, "brutto": pl(brutto),
     }
 
@@ -1195,7 +1229,13 @@ def handle(path, body=None, open_path=None):
                 save_hist(body, summ, path_x)
             except Exception as e:
                 warns.append("Nie zapisano oferty w historii: %s" % e)
-            return 200, {"ulotki": ul, "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
+            wc = {}
+            for r in rows:
+                if r.get("wym_tak") and r.get("wym_klucz") and r["wym_klucz"] not in wc:
+                    d, t = r["wym_klucz"].split("|")
+                    wc[r["wym_klucz"]] = {"klucz": r["wym_klucz"], "opis": "Wymiana %s%s" % (d, "" if t == "osobowy" else " " + TYPY.get(t, t)),
+                                          "cennik": r["wym_cennik"], "auto": r["wym_auto"], "cena": r["wym_szt"], "recznie": r["wym_recznie"]}
+            return 200, {"ulotki": ul, "wymiany": list(wc.values()), "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
     except ApiError as e:
         return 502, {"error": str(e)}
     except Exception as e:

@@ -447,7 +447,12 @@
   S.pl = pl;
   const total = (v) => v.opony + v.wymiana + (v.uslugi || 0);
 
+  const rabat_wymiany = (req) => { let rw = parseFloat(String(req.rabat_wym || 0).replace(",", ".")); rw = isNaN(rw) ? 0 : Math.max(0, Math.min(100, rw));
+    const over = {}; for (const [k, v] of Object.entries(req.ceny_wym || {})) { const x = parseFloat(String(v).replace(",", ".")); if (String(v).trim() !== "" && !isNaN(x)) over[k] = Math.max(0, x); }
+    return [rw, over]; };
+  const cena_po_rabacie = (c, rab) => (rab ? Math.ceil(Math.round(c * (1 - rab / 100) * 100) / 100 - 1e-9) : c);
   S.build_offer = async function (cfg, req) {
+    const [rw, over_w] = rabat_wymiany(req);
     const ids = [...new Set(Object.values(req.wybor).flatMap((g) => Object.values(g).flat()))].sort((a, b) => a - b);
     const got = await pool(ids, 4, (i) => get_product(cfg, i));
     const fresh = {};
@@ -472,7 +477,9 @@
       const typ = v.typ || "osobowy";
       const cen = typ === "suv" ? cfg.wymiana_suv : typ === "dostawczy" ? cfg.wymiana_dost : cfg.wymiana_kolo;
       const n_kol = (parseInt(v.ilosc, 10) || 0) || kola;
-      const wym = v.wymiana ? +(cen[dia] || 0) * n_kol : 0;
+      const c0 = +(cen[dia] || 0), kw = "R" + dia + "|" + typ, auto_w = cena_po_rabacie(c0, rw), c_w = kw in over_w ? over_w[kw] : auto_w;
+      v = Object.assign({}, v, { wym_tak: !!v.wymiana, wym_klucz: kw, wym_cennik: c0, wym_auto: auto_w, wym_szt: c_w, wym_recznie: kw in over_w });
+      const wym = v.wymiana ? c_w * n_kol : 0;
       if (v.wymiana && !cen[dia]) warnings.push(`Brak ceny wymiany dla ${v.rej || s} R${dia} (${TYPY[typ]}) – uzupełnij Ustawienia`);
       const n_tp = parseInt(v.tpms, 10) || 0;
       const tp_kw = r2(n_tp * +cfg.tpms_cena);
@@ -577,7 +584,7 @@
   async function save_hist(req, summ) {
     if (!S.HIST) return;
     const oid = String(req.oid || S.nowy_oid()).replace(/[^0-9_]/g, "") || S.nowy_oid();
-    const rec = { osobno: req.osobno, marza: req.marza, rabat: req.rabat, ceny: req.ceny || {}, oid, data: data_txt(), klient: req.klient || "",
+    const rec = { osobno: req.osobno, marza: req.marza, rabat: req.rabat, ceny: req.ceny || {}, rabat_wym: req.rabat_wym, ceny_wym: req.ceny_wym || {}, oid, data: data_txt(), klient: req.klient || "",
       pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon", oddzial: req.oddzial || "" };
     const hay = (rec.klient + " " + rec.pojazdy.map((v) => (v.rej || "") + " " + (v.pojazd || "") + " " + (v.rozmiar || "")).join(" ") + " " + summ.flatMap((w) => w.modele).join(" ")).toLowerCase();
     await S.HIST.save(oid, rec.klient, rec, hay);
@@ -651,11 +658,15 @@
     const przed_szt = p.recznie || !rab ? p.cena_brutto : sell_price(cfg, p.netto);
     const il = R.reduce((a, r) => a + (parseInt(r.ilosc, 10) || 0), 0);
     const poz = [{ nazwa: "Opona " + p.nazwa, q: il, j: "szt.", c: przed_szt }];
-    const kola = parseInt(cfg.kola_na_auto, 10), wym = new Map();
-    for (const r of R) if (r.wymiana) {
+    const kola = parseInt(cfg.kola_na_auto, 10), wym = new Map(), [rw] = rabat_wymiany(req);
+    let rabat_wym_kw = 0;
+    for (const r of R) if (r.wym_tak !== undefined ? r.wym_tak : r.wymiana) {
       const n = (parseInt(r.ilosc, 10) || 0) || kola, dia = (/R(\d{2})/.exec(r.rozmiar || "") || [null, ""])[1], typ = r.typ || "osobowy";
-      const key = [dia, typ, r2(r.wymiana / n)].join("\u0001"); wym.set(key, (wym.get(key) || 0) + n);
+      const szt = r.wym_szt !== undefined ? r.wym_szt : r2(r.wymiana / n), c = rw && !r.wym_recznie ? (r.wym_cennik !== undefined ? r.wym_cennik : szt) : szt;
+      rabat_wym_kw += (c - szt) * n;
+      const key = [dia, typ, r2(c)].join("\u0001"); wym.set(key, (wym.get(key) || 0) + n);
     }
+    rabat_wym_kw = r2(rabat_wym_kw);
     for (const [key, n] of wym) { const [dia, typ, c] = key.split("\u0001"); poz.push({ nazwa: `Wymiana opon – demontaż, montaż, wyważenie (R${dia}${typ === "osobowy" ? "" : ", " + (TYPY[typ] || typ)})`, q: n, j: "szt.", c: +c }); }
     const n_tp = R.reduce((a, r) => a + (parseInt(r.tpms, 10) || 0), 0);
     if (n_tp) poz.push({ nazwa: "Czujnik ciśnienia TPMS (z montażem)", q: n_tp, j: "szt.", c: parseFloat(cfg.tpms_cena) });
@@ -663,7 +674,7 @@
     for (const r of R) if (r.przech_kw) { const key = r.przech_op + "\u0001" + r.przech_kw; dep.set(key, (dep.get(key) || 0) + 1); }
     for (const [key, n] of dep) { const [op, c] = key.split("\u0001"); poz.push({ nazwa: "Depozyt – " + op.slice(0, 1).toLowerCase() + op.slice(1) + ", 1 sezon", q: n, j: "kpl.", c: +c }); }
     const przed = r2(poz.reduce((a, x) => a + x.q * x.c, 0)), rabat_kw = r2((przed_szt - p.cena_brutto) * il);
-    const brutto = r2(przed - rabat_kw), netto = r2(brutto / (1 + vat / 100)), oid = String(req.oid || "");
+    const brutto = r2(przed - rabat_kw - rabat_wym_kw), netto = r2(brutto / (1 + vat / 100)), oid = String(req.oid || "");
     const poj = [];
     for (const r of R) { const t = [(r.pojazd || "").trim(), (r.rej || "").trim().toUpperCase()].filter(Boolean).join(" · "); if (t && !poj.includes(t)) poj.push(t); }
     const cechy = Object.assign({}, CECHY[pid] || {}, Object.fromEntries(Object.entries(p.attrs || {}).filter(([, v]) => v)));
@@ -684,6 +695,7 @@
       cena_szt: pl(p.cena_brutto), cena_szt_netto: pl(r2(p.cena_brutto / (1 + vat / 100))),
       pozycje: poz.map((x) => ({ nazwa: x.nazwa, ilosc: x.q + " " + x.j, cena: pl(x.c), wartosc: pl(r2(x.q * x.c)) })),
       rabat: rabat_kw > 0 ? g(rab) + "%" : "", przed: pl(przed), rabat_kw: pl(rabat_kw),
+      rabat_wym: rabat_wym_kw > 0 ? g(rw) + "%" : "", rabat_wym_kw: pl(rabat_wym_kw), rabaty: rabat_kw > 0 || rabat_wym_kw > 0,
       netto: pl(netto), vat: pl(r2(brutto - netto)), vat_proc: g(vat), brutto: pl(brutto),
     };
   };
@@ -748,7 +760,10 @@
         const ul = [], seen = new Set();
         for (const r of rows) if (r.p && !seen.has(r.p.id)) { seen.add(r.p.id); ul.push({ id: r.p.id, nazwa: r.p.nazwa, cena: r.p.cena_brutto, auto: r.p.cena_auto, recznie: r.p.recznie, zakup: r.p.brutto_zak, url: S.leaflet_url(r.p.id, r.p.cena_brutto) }); }
         try { await save_hist(body, summ); } catch (e) { warnings.push("Nie zapisano oferty w historii: " + (e.message || e)); }
-        return [200, { ulotki: ul, plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
+        const wc = new Map();
+        for (const r of rows) if (r.wym_tak && r.wym_klucz && !wc.has(r.wym_klucz)) { const [d, t] = r.wym_klucz.split("|");
+          wc.set(r.wym_klucz, { klucz: r.wym_klucz, opis: "Wymiana " + d + (t === "osobowy" ? "" : " " + (TYPY[t] || t)), cennik: r.wym_cennik, auto: r.wym_auto, cena: r.wym_szt, recznie: r.wym_recznie }); }
+        return [200, { ulotki: ul, wymiany: [...wc.values()], plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
       }
     } catch (e) {
       if (e instanceof ApiError) return [502, { error: e.message }];

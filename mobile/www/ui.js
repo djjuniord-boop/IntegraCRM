@@ -1,6 +1,6 @@
 // Oferty opon – ekran telefonu. Logika jak w Panelu (app/oferty/index.html), silnik w silnik.js (Silnik.handle).
 const $ = (s) => document.querySelector(s);
-let CFG = {}, RES = null, VEH = [], SEL = new Set(), PAGE = {}, SORT = "", OID = null, ORABAT = "", CENY = {}, ULS = [], OSOBNO = null;
+let CFG = {}, RES = null, VEH = [], SEL = new Set(), PAGE = {}, SORT = "", OID = null, ORABAT = "", CENY = {}, ULS = [], OSOBNO = null, ORABW = "", CENYW = {}, WYMS = [];
 const F = { wet: "", rr: "", noise: "", hom: "", demo: "", txt: "" };
 const PER = 20;
 const zl = (x) => (+x || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
@@ -123,7 +123,7 @@ async function search() {
   try {
     const req = { pojazdy: vehicles(), sezony: chipVals("sez"), klasy: chipVals("kl"), producenci: PROD, min_stan: +$("#minstan").value, tylko_runflat: $("#rf").checked };
     if (!req.pojazdy.some((v) => v.nowe)) throw new Error("Wpisz rozmiar opony i ilość większą od 0.");
-    RES = await api("/api/search", req); SEL = new Set(); PAGE = {}; OID = newOid(); ORABAT = ""; CENY = {}; OSOBNO = null;
+    RES = await api("/api/search", req); SEL = new Set(); PAGE = {}; OID = newOid(); ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null;
     if (req.sezony.length || req.klasy.length || req.producenci.trim())
       for (const [s, g] of Object.entries(RES.wyniki)) for (const [z, l] of Object.entries(g)) l.filter((p) => p.ok_stan).slice(0, 1).forEach((p) => SEL.add(s + "|" + z + "|" + p.id));
     $("#outCard").hidden = true; render(); msg("#sMsg", RES.zrodlo || ""); $("#resCard").hidden = false; $("#resCard").scrollIntoView({ behavior: "smooth" });
@@ -216,6 +216,7 @@ function applyFil() { for (const k of Object.keys(F)) F[k] = $("#f_" + k).value;
 // ------------------------------------------------ oferta
 let RT = null;
 function reoffer() { if ($("#outCard").hidden || !SEL.size) return; clearTimeout(RT); RT = setTimeout(() => offer(true), 400); }
+function setW(k, v) { v = String(v).replace(",", ".").trim(); if (v === "" || isNaN(+v) || +v < 0) delete CENYW[k]; else CENYW[k] = Math.ceil(+v); reoffer(); }
 function setC(id, v) { v = String(v).replace(",", ".").trim(); if (v === "" || +v <= 0) delete CENY[id]; else CENY[id] = Math.ceil(+v); reoffer(); }
 async function offer(quiet) {
   const b = $("#bO"); b.disabled = true; if (!quiet) msg("#oMsg", "Odświeżam ceny i stany w xPartner…");
@@ -223,8 +224,8 @@ async function offer(quiet) {
     const wybor = {}; SEL.forEach((k) => { const [s, z, id] = k.split("|"); ((wybor[s] ??= {})[z] ??= []).push(+id); });
     if (!OID) OID = newOid();
     if (OSOBNO === null) { const V = vehicles().filter((v) => v.nowe); OSOBNO = V.length > 1 && !V.some((v) => v.rej || v.pojazd); }
-    const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY });
-    ULS = j.ulotki;
+    const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY, rabat_wym: ORABW, ceny_wym: CENYW });
+    ULS = j.ulotki; WYMS = j.wymiany || [];
     msg("#oMsg", j.uwagi.length ? "⚠ " + j.uwagi.join("\n⚠ ") : quiet ? "" : "Zapisano w historii.", j.uwagi.length > 0);
     $("#sum").innerHTML = j.warianty.map((v) => `<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(", "))}</div>
       <div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana ? `<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>` : ""}
@@ -260,7 +261,10 @@ function drawEdit() {
   const V = VEH.map((v, i) => [v, i]).filter(([v]) => v.rozmiar.trim());
   $("#edit").innerHTML = `<details class="edit"><summary class="lbl" style="margin:0;min-height:40px;display:flex;align-items:center">✏️ Zmień warunki, ceny, ilości</summary>
     <div class="r"><label class="tgl"><input type="checkbox" ${OSOBNO ? "checked" : ""} onchange="OSOBNO=this.checked;reoffer()"><span>Osobna oferta dla każdego pojazdu / rozmiaru</span></label>
-    <label class="fld">Rabat dla klienta %<input type="number" inputmode="decimal" step="0.5" min="0" max="90" placeholder="0" value="${esc(ORABAT)}" onchange="ORABAT=this.value;reoffer()"></label></div>` +
+    <label class="fld">Rabat na opony %<input type="number" inputmode="decimal" step="0.5" min="0" max="90" placeholder="0" value="${esc(ORABAT)}" onchange="ORABAT=this.value;reoffer()"></label>
+    <label class="fld">Rabat na wymianę %<input type="number" inputmode="decimal" step="1" min="0" max="100" placeholder="0" value="${esc(ORABW)}" onchange="ORABW=this.value;reoffer()"></label></div>` +
+    WYMS.map((w) => `<div class="r"><div class="nm">${esc(w.opis)} <span class="small">(za 1 koło)</span></div><div class="small">cennik ${zl(w.cennik)}${+ORABW ? " · po rabacie " + zl(w.auto) : ""}</div>
+      <div class="row"><input class="pr-in grow ${w.recznie ? "man" : ""}" type="number" inputmode="numeric" min="0" step="1" placeholder="własna cena wymiany (zł/koło)" value="${w.recznie ? w.cena : ""}" data-k="${esc(w.klucz)}" onchange="setW(this.dataset.k,this.value)">${w.recznie ? `<button class="btn sec" data-k="${esc(w.klucz)}" onclick="setW(this.dataset.k,'')">↺</button>` : ""}</div></div>`).join("") +
     ULS.map((u) => `<div class="r"><div class="nm">${esc(u.nazwa)}</div><div class="small"><span class="buy">zakup ${zl(u.zakup)} · </span>wyliczona ${zl(u.auto)}${u.cena < u.zakup ? ' · <b style="color:#b00012">⚠ poniżej zakupu</b>' : ""}</div>
       <div class="row"><input class="pr-in grow ${u.recznie ? "man" : ""}" type="number" inputmode="numeric" min="1" step="1" placeholder="własna cena (zł/szt.)" value="${u.recznie ? u.cena : ""}" onchange="setC(${u.id},this.value)">${u.recznie ? `<button class="btn sec" onclick="setC(${u.id},'')">↺</button>` : ""}</div></div>`).join("") +
     V.map(([v, i]) => `<div class="r"><div class="nm">${esc([v.pojazd, v.rej].filter(Boolean).join(" ") || "Pojazd " + (i + 1))} <span class="tag">${esc(v.rozmiar)}</span></div>
@@ -276,7 +280,7 @@ function nowaOferta() {
   for (const id of ["#klient", "#paste", "#quick"]) $(id).value = "";
   VEH = []; addVeh({}); drawVeh(); setChips("sez", []); setChips("kl", []); $("#rf").checked = false; setProd(""); $("#minstan").value = CFG.min_stan;
   for (const k in F) F[k] = "";
-  RES = null; SEL = new Set(); PAGE = {}; OID = null; ORABAT = ""; CENY = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
+  RES = null; SEL = new Set(); PAGE = {}; OID = null; ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
   ["#sMsg", "#oMsg", "#qMsg"].forEach((x) => msg(x, "")); updCnt(); go(document.querySelector('#tabs button[data-v="vOferta"]'));
 }
 
@@ -311,7 +315,7 @@ async function restoreHist(id) {
     $("#klient").value = r.klient || ""; VEH = []; (r.pojazdy || []).forEach(addVeh); if (!VEH.length) addVeh({}); drawVeh();
     SEL = new Set(r.sel && r.sel.length ? r.sel : Object.entries(r.wybor || {}).flatMap(([s, g]) => Object.entries(g).flatMap(([z, l]) => l.map((i) => s + "|" + z + "|" + i))));
     RES = null; $("#res").innerHTML = '<p class="muted">Oferta z historii (' + esc(r.data) + '). Aby wybrać inne opony, użyj „Szukaj w xPartner”.</p>'; $("#resCard").hidden = false;
-    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; if (r.oddzial) OODD = r.oddzial; OSOBNO = r.osobno ?? null; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
+    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; ORABW = r.rabat_wym ?? ""; CENYW = r.ceny_wym || {}; if (r.oddzial) OODD = r.oddzial; OSOBNO = r.osobno ?? null; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
   } catch (e) { toast(e.message); }
 }
 
