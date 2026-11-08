@@ -1147,7 +1147,8 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
     except ValueError: rab = 0.0
     przed_szt = p["cena_brutto"] if (p.get("recznie") or not rab) else sell_price(cfg, p["netto"])
     il = sum(int(r.get("ilosc") or 0) for r in R)
-    poz = [{"nazwa": "Opona " + p["nazwa"], "q": il, "j": "szt.", "c": przed_szt}]
+    poz = [{"nazwa": "Opona " + p["nazwa"], "q": il, "j": "szt.", "c": przed_szt, "po": p["cena_brutto"],
+            "r": rab if przed_szt > p["cena_brutto"] else 0}]
     kola = int(cfg["kola_na_auto"])
     rw, _ = rabat_wymiany(req)
     wym, rabat_wym_kw = {}, 0.0
@@ -1159,11 +1160,11 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
             szt = r.get("wym_szt", round(r["wymiana"] / n, 2))
             c = r.get("wym_cennik", szt) if (rw and not r.get("wym_recznie")) else szt
             rabat_wym_kw += (c - szt) * n
-            key = (dia, typ, round(c, 2))
+            key = (dia, typ, round(c, 2), round(szt, 2))
             wym[key] = wym.get(key, 0) + n
-    for (dia, typ, c), n in wym.items():
+    for (dia, typ, c, szt), n in wym.items():
         poz.append({"nazwa": "Wymiana opon – demontaż, montaż, wyważenie (R%s%s)" % (dia, "" if typ == "osobowy" else ", " + TYPY.get(typ, typ)),
-                    "q": n, "j": "szt.", "c": c})
+                    "q": n, "j": "szt.", "c": c, "po": szt, "r": rw if c > szt else 0})
     n_tp = sum(int(r.get("tpms") or 0) for r in R)
     if n_tp:
         poz.append({"nazwa": "Czujnik ciśnienia TPMS (z montażem)", "q": n_tp, "j": "szt.", "c": float(cfg["tpms_cena"])})
@@ -1208,7 +1209,10 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         "snieg": bool((cechy.get("Przyczepność na śniegu") or "").strip()), "lod": bool((cechy.get("Przyczepność na lodzie") or "").strip()),
         "eprel": eprel, "eprel_img": EPREL_IMG % eprel if eprel else "",
         "cena_szt": pl(p["cena_brutto"]), "cena_szt_netto": pl(round(p["cena_brutto"] / (1 + vat / 100), 2)),
-        "pozycje": [{"nazwa": x["nazwa"], "ilosc": "%d %s" % (x["q"], x["j"]), "cena": pl(x["c"]), "wartosc": pl(round(x["q"] * x["c"], 2))} for x in poz],
+        "pozycje": [{"nazwa": x["nazwa"], "ilosc": "%d %s" % (x["q"], x["j"]), "cena": pl(x["c"]),
+                     "rab": ("−" + ("%g" % x["r"]).replace(".", ",") + "%") if x.get("r") else "",
+                     "cena_po": pl(x.get("po", x["c"])), "wartosc": pl(round(x["q"] * x.get("po", x["c"]), 2))} for x in poz],
+        "oszczednosc": pl(round(rabat_kw + rabat_wym_kw, 2)), "cena_szt_przed": pl(przed_szt) if przed_szt > p["cena_brutto"] else "",
         "rabat": (("%g" % rab).replace(".", ",") + "%") if rabat_kw > 0 else "", "przed": pl(przed), "rabat_kw": pl(rabat_kw),
         "rabat_wym": (("%g" % rw).replace(".", ",") + "%") if rabat_wym_kw > 0 else "", "rabat_wym_kw": pl(rabat_wym_kw),
         "rabaty": rabat_kw > 0 or rabat_wym_kw > 0,
