@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.10"
-RELEASED = "2026-11-07"
+VERSION = "0.25.0"
+RELEASED = "2026-11-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.25.0",
+        "date": "2026-11-08",
+        "changes": [
+            "BETA – Oferty opon: link dla klienta (SMS/e-mail) – klient ogląda ofertę na telefonie, wybiera model i klika „Akceptuję”; odpowiedź widać w Historii",
+            "BETA – Historia ofert: statusy (nowa / wysłana / przyjęta / odrzucona / zamówiona), „📞 oddzwoń” po 2 dniach bez odpowiedzi, licznik przy przycisku Historia, % przyjętych ofert",
+            "BETA – Oferta otwarta z historii pokazuje, co się zmieniło w xPartner od jej zapisania (cena, stan, brak opony)",
+            "BETA – PDF „Porównanie” 2–3 opon na jednej stronie (ekonomiczna / polecana / premium) z tym, co daje lepsza etykieta UE (droga hamowania, paliwo, hałas)",
+        ],
+    },
     {
         "version": "0.24.10",
         "date": "2026-11-07",

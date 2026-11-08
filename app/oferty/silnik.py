@@ -725,7 +725,41 @@ def load_hist(oid):
     except Exception:
         return None
 
-def save_hist(req, summ, path):
+def snap_ofert(rows):
+    """Ceny i stany wybranych opon w chwili zapisu – do porównania przy ponownym otwarciu z historii."""
+    out, byly = [], set()
+    for r in rows:
+        p = r.get("p")
+        if p and p["id"] not in byly:
+            byly.add(p["id"])
+            out.append({"id": p["id"], "nazwa": p.get("nazwa", ""), "cena": p.get("cena_brutto", 0), "ilosc": int(p.get("ilosc") or 0)})
+    return out
+
+
+def zmiany_ofert(snap, rows):
+    """Co się zmieniło od zapisu oferty: cena, stan, brak opony (lista dla żółtej ramki w Panelu)."""
+    teraz, potrzeba = {}, {}
+    for r in rows:
+        p = r.get("p")
+        if p:
+            teraz[p["id"]] = p
+            potrzeba[p["id"]] = potrzeba.get(p["id"], 0) + int(r.get("ilosc") or 0)
+    out = []
+    for s in snap or []:
+        p = teraz.get(s.get("id"))
+        if not p:
+            out.append({"nazwa": s.get("nazwa", ""), "co": "niedostępna w xPartner lub nie w wynikach"})
+            continue
+        if abs(float(p.get("cena_brutto") or 0) - float(s.get("cena") or 0)) >= 0.5:
+            out.append({"nazwa": s.get("nazwa", ""), "co": "cena %s → %s" % (pl(float(s.get("cena") or 0)), pl(float(p.get("cena_brutto") or 0))),
+                        "w_gore": float(p.get("cena_brutto") or 0) > float(s.get("cena") or 0)})
+        il = int(p.get("ilosc") or 0)
+        if il < potrzeba.get(p["id"], 0):
+            out.append({"nazwa": s.get("nazwa", ""), "co": "stan %d szt. (było %d) – za mało do oferty" % (il, int(s.get("ilosc") or 0)), "w_gore": True})
+    return out
+
+
+def save_hist(req, summ, path, rows=None):
     if not HIST:
         return
     oid = safe_oid(req.get("oid"))
@@ -733,7 +767,7 @@ def save_hist(req, summ, path):
            "rabat_wym": req.get("rabat_wym"), "ceny_wym": req.get("ceny_wym") or {},
            "oid": oid, "data": datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "klient": req.get("klient", ""),
            "pojazdy": req.get("pojazdy", []), "wybor": req.get("wybor", {}), "sel": req.get("sel", []),
-           "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or ""}
+           "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or "", "snap": snap_ofert(rows or [])}
     hay = (rec["klient"] + " " + " ".join(v.get("rej", "") + " " + v.get("pojazd", "") + " " + v.get("rozmiar", "") for v in rec["pojazdy"])
            + " " + " ".join(m for w in summ for m in w.get("modele", []))).lower()
     HIST.save(oid, rec["klient"], rec, hay)
@@ -753,8 +787,47 @@ def list_hist(q=""):
                     "pojazdy": ", ".join(" ".join(x for x in (v.get("rej"), v.get("pojazd")) if x) or v.get("rozmiar", "") for v in r.get("pojazdy", [])),
                     "warianty": [{"wariant": w["wariant"], "modele": ", ".join(w["modele"]), "razem": w["razem"]} for w in r.get("warianty", [])],
                     "razem": max([w.get("razem", 0) for w in r.get("warianty", [])] or [0]),
-                    "plik_ok": os.path.exists(r.get("plik") or "")})
+                    "plik_ok": os.path.exists(r.get("plik") or ""),
+                    "status": row.get("status") or "nowa", "status_at": row.get("status_at") or "", "link": bool(row.get("link_at")),
+                    "otwarta": row.get("link_otwarta") or "", "odp": row.get("klient_odp") or None,
+                    "oddzwon": do_oddzwonienia(row.get("status"), row.get("status_at"))})
     return out
+
+
+STATUSY_OFERT = {"nowa": "Nowa", "wyslana": "Wysłana", "przyjeta": "Przyjęta", "odrzucona": "Odrzucona", "zamowiona": "Zamówiona"}
+ODDZWON_DNI = 2
+STRONA_KLIENTA = "https://djjuniord-boop.github.io/IntegraCRM/"   # strona z ofertą dla klienta (GitHub Pages, jak SERWIS QR)
+
+
+def do_oddzwonienia(status, status_at, teraz=None):
+    """Wysłana, a klient nie odpowiedział od 2 dni -> przypomnij, żeby zadzwonić."""
+    if status != "wyslana" or not status_at:
+        return False
+    try:
+        t = datetime.datetime.fromisoformat(str(status_at).replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    teraz = teraz or datetime.datetime.now(datetime.timezone.utc)
+    return (teraz - t).total_seconds() >= ODDZWON_DNI * 86400
+
+
+def link_dane(cfg, req, rows, oddzial, kto=""):
+    """Migawka dla strony klienta: gotowe strony PDF każdego modelu (bez cen zakupu) + skrót do kart wyboru."""
+    modele, byly = [], set()
+    for r in rows:
+        p = r.get("p")
+        if not p or p["id"] in byly:
+            continue
+        byly.add(p["id"])
+        d = pdf_dane(cfg, req, rows, p["id"], oddzial, kto, STRONA_KLIENTA + "logo.png")
+        modele.append({"id": p["id"], "tytul": d["tytul"], "tag": d["tag"], "cena_szt": d["cena_szt"], "brutto": d["brutto"],
+                       "mokra": p.get("mokra") or "", "opory": p.get("opory") or "", "halas": p.get("halas") or "",
+                       "html": wypelnij(wzor_pdf(), d)})
+    if not modele:
+        raise ValueError("W ofercie nie ma opon – wybierz opony i przelicz ofertę.")
+    d0 = pdf_dane(cfg, req, rows, modele[0]["id"], oddzial, kto, "")
+    return {"nr": d0["nr"], "klient": d0["klient"], "wazna": d0["wazna"], "o_nazwa": d0["o_nazwa"], "o_tel": d0["o_tel"],
+            "o_kom": [x["t"] for x in d0["o_kom"]], "kto": kto, "modele": modele}
 
 def pl(x):
     s = "{:,.2f}".format(x).replace(",", " ").replace(".", ",")
@@ -1001,6 +1074,56 @@ def wzor_pdf():
             t = t.replace("{{>%s}}" % k, v)
     return t
 
+PDF_POROWNANIE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_porownanie.html")
+KLASY_EU = "ABCDE"
+
+
+def _liczba(s):
+    """'1 780,00 zł' -> 1780.0 (kwoty z pdf_dane)."""
+    try:
+        return float(re.sub(r"[^\d,]", "", str(s)).replace(",", "."))
+    except ValueError:
+        return 0.0
+
+
+def porownanie_dane(cfg, req, rows, pids, oddzial, kto="", logo=""):
+    """2–3 modele obok siebie: od najtańszego; plusy liczone względem najtańszego z etykiety UE (orientacyjnie)."""
+    pids = list(dict.fromkeys(int(x) for x in pids))
+    if not 2 <= len(pids) <= 3:
+        raise ValueError("Porównanie obejmuje 2 lub 3 modele opon – zmień wybór.")
+    D = sorted((pdf_dane(cfg, req, rows, pid, oddzial, kto, logo) for pid in pids), key=lambda d: _liczba(d["brutto"]))
+    P = {r["p"]["id"]: r["p"] for r in rows if r.get("p")}
+    poziomy = ["EKONOMICZNA", "POLECANA", "PREMIUM"] if len(D) == 3 else ["EKONOMICZNA", "PREMIUM"]
+    baza = P.get(int(D[0]["xp_id"]), {})
+    kol = []
+    for i, d in enumerate(D):
+        p = P.get(int(d["xp_id"]), {})
+        plusy = []
+        if i:
+            km = KLASY_EU.find(baza.get("mokra") or "?") - KLASY_EU.find(p.get("mokra") or "?")
+            if p.get("mokra") and baza.get("mokra") and km > 0:
+                plusy.append("hamowanie na mokrym o %d kl. lepsze – do ok. %s m krócej z 80 km/h" % (km, ("%g" % (4.5 * km)).replace(".", ",")))
+            ko = KLASY_EU.find(baza.get("opory") or "?") - KLASY_EU.find(p.get("opory") or "?")
+            if p.get("opory") and baza.get("opory") and ko > 0:
+                plusy.append("opory toczenia o %d kl. niższe – ok. %d l paliwa mniej na 40 000 km" % (ko, 37 * ko))
+            if p.get("halas") and baza.get("halas") and int(baza["halas"]) - int(p["halas"]) >= 2:
+                plusy.append("ciszej o %d dB" % (int(baza["halas"]) - int(p["halas"])))
+        kol.append({"poziom": poziomy[i], "best": (i == 1) if len(D) == 3 else (i == 1), "tytul": d["tytul"],
+                    "sezon": d["tag"].replace("OPONA ", "", 1), "indeks": d["indeks"], "dot": d["dot"], "snieg": d["snieg"],
+                    "mokra": p.get("mokra") or "", "opory": p.get("opory") or "", "halas": d["halas"],
+                    "plusy": [{"t": t} for t in plusy], "cena_szt": d["cena_szt"], "brutto": d["brutto"], "netto": d["netto"]})
+    d0 = D[0]
+    uslugi = [x["nazwa"] for x in d0["pozycje"] if not x["nazwa"].startswith("Opona")]
+    return dict({k: d0[k] for k in ("logo", "nr", "data", "wazna", "o_nazwa", "o_adres", "o_tel", "o_www", "o_kom", "klient", "pojazd",
+                                     "kto", "rozmiar", "vat_proc", "rabaty")},
+                kolumny=kol, uslugi=", ".join(uslugi) if uslugi else "same opony (bez usług)")
+
+
+def porownanie_html(cfg, req, rows, pids, oddzial, kto="", logo=""):
+    with open(PDF_POROWNANIE, encoding="utf-8") as f:
+        return wypelnij(f.read(), porownanie_dane(cfg, req, rows, pids, oddzial, kto, logo))
+
+
 def _skala(lit):
     return [{"l": l, "kolor": k, "tekst": t, "szer": 34 + 9 * i, "on": l == lit} for i, (l, k, t) in enumerate(EU_KOLORY)]
 
@@ -1150,7 +1273,8 @@ def handle(path, body=None, open_path=None):
                 if qs.get("id"):
                     r = HIST.get_id(qs["id"][0]) if HIST else None
                     return (200, r) if r else (404, {"error": "Brak oferty"})
-                return 200, {"lista": list_hist(qs.get("q", [""])[0]), "admin": bool(getattr(HIST, "admin", False))}
+                return 200, {"lista": list_hist(qs.get("q", [""])[0]), "admin": bool(getattr(HIST, "admin", False)),
+                             "me": (getattr(HIST, "me", "") or "").lower()}
             if route == "/api/openfile":
                 r = (HIST.get_id((qs.get("id") or [""])[0]) if HIST else None) or {}
                 p = r.get("plik") or ""
@@ -1185,8 +1309,39 @@ def handle(path, body=None, open_path=None):
                     except Exception:
                         pass
             o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
+            if body.get("porownanie"):
+                return 200, {"html": porownanie_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], ids, dane, KONTO.get("kto") or "", body.get("logo") or ""),
+                             "oddzial": o, "stron": 1}
             strony = [pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], pid, dane, KONTO.get("kto") or "", body.get("logo") or "") for pid in ids]
             return 200, {"html": polacz_strony(strony), "oddzial": o, "stron": len(strony)}
+        if route == "/api/link":
+            if not (HIST and hasattr(HIST, "link")):
+                return 500, {"error": "Link wymaga zapisu w historii (zaloguj się ponownie)."}
+            if not OSTATNIA.get("rows"):
+                return 400, {"error": "Najpierw przelicz ofertę."}
+            o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
+            oid = safe_oid(OSTATNIA["req"].get("oid"))
+            try:
+                tok = HIST.link(oid, link_dane(cfg, OSTATNIA["req"], OSTATNIA["rows"], dane, KONTO.get("kto") or ""))
+            except Exception as e:
+                msg = str(e)
+                if "oferty_link" in msg or "404" in msg or "PGRST202" in msg:
+                    msg = "Baza nie ma jeszcze funkcji linków – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."
+                return 500, {"error": msg}
+            url = STRONA_KLIENTA + "oferta.html#" + str(tok)
+            tel = o and (dane or {}).get("tel") or ""
+            sms = "Dzień dobry, oferta na opony od Latex Serwis: %s (ważna 30 dni). Wybierz model i kliknij „Akceptuję” – oddzwonimy.%s" % (
+                url, (" Tel. " + tel) if tel else "")
+            return 200, {"url": url, "sms": sms}
+        if route == "/api/status":
+            st = body.get("status")
+            if st not in STATUSY_OFERT or not HIST or not hasattr(HIST, "status"):
+                return 400, {"error": "Zły status"}
+            try:
+                HIST.status(safe_oid(body.get("oid")), st)
+            except Exception:
+                return 500, {"error": "Nie udało się zmienić statusu – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."}
+            return 200, {"ok": True}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
         if route == "/api/szablon":
@@ -1226,7 +1381,7 @@ def handle(path, body=None, open_path=None):
                     ul.append({"id": p["id"], "nazwa": p["nazwa"], "cena": p["cena_brutto"], "auto": p["cena_auto"],
                                "recznie": p["recznie"], "zakup": p["brutto_zak"], "url": leaflet_url(p["id"], p["cena_brutto"])})
             try:
-                save_hist(body, summ, path_x)
+                save_hist(body, summ, path_x, rows)
             except Exception as e:
                 warns.append("Nie zapisano oferty w historii: %s" % e)
             wc = {}
@@ -1235,7 +1390,8 @@ def handle(path, body=None, open_path=None):
                     d, t = r["wym_klucz"].split("|")
                     wc[r["wym_klucz"]] = {"klucz": r["wym_klucz"], "opis": "Wymiana %s%s" % (d, "" if t == "osobowy" else " " + TYPY.get(t, t)),
                                           "cennik": r["wym_cennik"], "auto": r["wym_auto"], "cena": r["wym_szt"], "recznie": r["wym_recznie"]}
-            return 200, {"ulotki": ul, "wymiany": list(wc.values()), "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
+            return 200, {"ulotki": ul, "wymiany": list(wc.values()), "zmiany": zmiany_ofert(body.get("porownaj"), rows) if body.get("porownaj") else [],
+                         "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
     except ApiError as e:
         return 502, {"error": str(e)}
     except Exception as e:

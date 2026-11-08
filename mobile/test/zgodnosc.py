@@ -50,6 +50,10 @@ for o in offers:
         py["pdf"].append(S.handle("/api/pdf", {"id": u["id"], "logo": "logo.png"})[1].get("html"))
     if len(r["ulotki"]) > 1:
         py["pdf"].append(S.handle("/api/pdf", {"ids": [u["id"] for u in r["ulotki"]], "logo": "logo.png"})[1].get("html"))
+    if 2 <= len(r["ulotki"]) <= 3:   # PDF „Porównanie”
+        py["pdf"].append(S.handle("/api/pdf", {"ids": [u["id"] for u in r["ulotki"]], "porownanie": 1, "logo": "logo.png"})[1].get("html"))
+    py["offer"][-1]["snap"] = S.snap_ofert(S.OSTATNIA["rows"])
+    py["offer"][-1]["zmiany"] = S.zmiany_ofert([{"id": 1, "nazwa": "A", "cena": 1, "ilosc": 99}, {"id": 999, "nazwa": "B", "cena": 5, "ilosc": 1}], S.OSTATNIA["rows"])
 # wyszukiwanie z kopii pliku + PDF z etykietą EPREL
 S.CECHY.clear()
 S.KONTO["katalog"] = lambda sz: [copy.deepcopy(PLIK)] if sz == "205/55 R16" else None
@@ -63,7 +67,7 @@ import importlib.util as _iu
 _spec = _iu.spec_from_file_location("zw", ROOT / "mobile/zrob_wzor.py"); _zw = _iu.module_from_spec(_spec); _spec.loader.exec_module(_zw)
 if (ROOT / "mobile/www/pdf_wzor.js").read_text(encoding="utf-8") != _zw.tresc():
     print("RÓŻNICA: mobile/www/pdf_wzor.js nieaktualny – uruchom python3 mobile/zrob_wzor.py"); sys.exit(1)
-inp = {"PLIK": PLIK, "ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
+inp = {"PLIK": PLIK, "ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "POROWNANIE": (ROOT / "app/oferty/pdf_porownanie.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
 js = subprocess.run(["node", str(Path(__file__).with_name("zgodnosc_js.cjs"))], input=json.dumps(inp), capture_output=True, text=True)
 if js.returncode:
     print(js.stderr); sys.exit(2)

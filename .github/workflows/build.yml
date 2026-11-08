@@ -196,6 +196,12 @@ jobs:
           if (Test-Path shots/dnd.txt) { Get-Content shots/dnd.txt }
           $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
+      - name: Zrzuty OFERTY OPON w Edge (zamówienia, historia, porównanie PDF, strona klienta)
+        continue-on-error: true
+        env:
+          PYTHONIOENCODING: utf-8
+        run: python tests/ui_oferty_win.py shots
+
       - name: Kontrola – panel SERWIS QR osadzony w zakładce programu
         shell: pwsh
         run: |
@@ -309,7 +315,7 @@ jobs:
           foreach ($need in @('rpc("get_car"', '<script src="config.js"></script>', 'content="noindex"')) {
             if (-not $html.Contains($need)) { throw "Zbudowana strona nie zawiera: $need" }
           }
-          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js) -or -not (Test-Path pages_out/supabase.min.js)) { throw "Brak plików strony" }
+          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js) -or -not (Test-Path pages_out/supabase.min.js) -or -not (Test-Path pages_out/oferta.html) -or -not (Test-Path pages_out/logo.png)) { throw "Brak plików strony" }
           Set-Location pages_out
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"

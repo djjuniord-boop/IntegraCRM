@@ -581,11 +581,49 @@
   S.nowy_oid = () => { const { d, p } = now(); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
   const data_txt = () => { const { d, p } = now(); return `${p(d.getDate())}.${p(d.getMonth() + 1)}.${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`; };
 
-  async function save_hist(req, summ) {
+  S.snap_ofert = function (rows) {
+    const out = [], byly = new Set();
+    for (const r of rows) { const p = r.p; if (p && !byly.has(p.id)) { byly.add(p.id); out.push({ id: p.id, nazwa: p.nazwa || "", cena: p.cena_brutto || 0, ilosc: parseInt(p.ilosc, 10) || 0 }); } }
+    return out;
+  };
+  S.zmiany_ofert = function (snap, rows) {
+    const teraz = {}, potrzeba = {};
+    for (const r of rows) if (r.p) { teraz[r.p.id] = r.p; potrzeba[r.p.id] = (potrzeba[r.p.id] || 0) + (parseInt(r.ilosc, 10) || 0); }
+    const out = [];
+    for (const s of snap || []) {
+      const p = teraz[s.id];
+      if (!p) { out.push({ nazwa: s.nazwa || "", co: "niedostępna w xPartner lub nie w wynikach" }); continue; }
+      const c1 = +p.cena_brutto || 0, c0 = +s.cena || 0;
+      if (Math.abs(c1 - c0) >= 0.5) out.push({ nazwa: s.nazwa || "", co: "cena " + pl(c0) + " → " + pl(c1), w_gore: c1 > c0 });
+      const il = parseInt(p.ilosc, 10) || 0;
+      if (il < (potrzeba[p.id] || 0)) out.push({ nazwa: s.nazwa || "", co: "stan " + il + " szt. (było " + (parseInt(s.ilosc, 10) || 0) + ") – za mało do oferty", w_gore: true });
+    }
+    return out;
+  };
+  S.STATUSY_OFERT = { nowa: "Nowa", wyslana: "Wysłana", przyjeta: "Przyjęta", odrzucona: "Odrzucona", zamowiona: "Zamówiona" };
+  S.STRONA_KLIENTA = "https://djjuniord-boop.github.io/IntegraCRM/";
+  S.do_oddzwonienia = function (status, status_at, teraz) {
+    if (status !== "wyslana" || !status_at) return false;
+    const t = Date.parse(status_at); if (isNaN(t)) return false;
+    return ((teraz ? Date.parse(teraz) : Date.now()) - t) >= 2 * 86400000;
+  };
+  S.link_dane = function (cfg, req, rows, oddzial, kto) {
+    const modele = [], byly = new Set();
+    for (const r of rows) {
+      const p = r.p; if (!p || byly.has(p.id)) continue; byly.add(p.id);
+      const d = S.pdf_dane(cfg, req, rows, p.id, oddzial, kto, S.STRONA_KLIENTA + "logo.png");
+      modele.push({ id: p.id, tytul: d.tytul, tag: d.tag, cena_szt: d.cena_szt, brutto: d.brutto, mokra: p.mokra || "", opory: p.opory || "", halas: p.halas || "",
+        html: wypelnij(S.wzor_pdf(), d) });
+    }
+    if (!modele.length) throw new Error("W ofercie nie ma opon – wybierz opony i przelicz ofertę.");
+    const d0 = S.pdf_dane(cfg, req, rows, modele[0].id, oddzial, kto, "");
+    return { nr: d0.nr, klient: d0.klient, wazna: d0.wazna, o_nazwa: d0.o_nazwa, o_tel: d0.o_tel, o_kom: d0.o_kom.map((x) => x.t), kto, modele };
+  };
+  async function save_hist(req, summ, rows) {
     if (!S.HIST) return;
     const oid = String(req.oid || S.nowy_oid()).replace(/[^0-9_]/g, "") || S.nowy_oid();
     const rec = { osobno: req.osobno, marza: req.marza, rabat: req.rabat, ceny: req.ceny || {}, rabat_wym: req.rabat_wym, ceny_wym: req.ceny_wym || {}, oid, data: data_txt(), klient: req.klient || "",
-      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon", oddzial: req.oddzial || "" };
+      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon", oddzial: req.oddzial || "", snap: S.snap_ofert(rows || []) };
     const hay = (rec.klient + " " + rec.pojazdy.map((v) => (v.rej || "") + " " + (v.pojazd || "") + " " + (v.rozmiar || "")).join(" ") + " " + summ.flatMap((w) => w.modele).join(" ")).toLowerCase();
     await S.HIST.save(oid, rec.klient, rec, hay);
   }
@@ -596,12 +634,15 @@
       return { id: row.id, kto: row.kto || row.owner || "", owner: row.owner || "", oid: r.oid, data: r.data, klient: r.klient || "",
         pojazdy: (r.pojazdy || []).map((v) => [v.rej, v.pojazd].filter(Boolean).join(" ") || v.rozmiar || "").join(", "),
         warianty: (r.warianty || []).map((w) => ({ wariant: w.wariant, modele: (w.modele || []).join(", "), razem: w.razem })),
-        razem: Math.max(0, ...(r.warianty || []).map((w) => w.razem || 0)), zrodlo: r.zrodlo || "Panel" };
+        razem: Math.max(0, ...(r.warianty || []).map((w) => w.razem || 0)), zrodlo: r.zrodlo || "Panel",
+        status: row.status || "nowa", status_at: row.status_at || "", link: !!row.link_at, otwarta: row.link_otwarta || "", odp: row.klient_odp || null,
+        oddzwon: S.do_oddzwonienia(row.status, row.status_at) };
     });
   };
 
   // ------------------------------------------------------------ PDF oferty (jak pdf_dane/wypelnij w silnik.py)
   const OSTATNIA = {};
+  S._ostatnia = () => OSTATNIA;   // testy zgodności
   const EU_KOLORY = [["A", "#00A651", "#fff"], ["B", "#4CB848", "#fff"], ["C", "#BFD730", "#111"], ["D", "#FFF200", "#111"], ["E", "#F7941D", "#fff"]];
   const KLASA_PDF = { PREMIUM: "PREMIUM", MIDDLE: "ŚREDNIA", BUDGET: "BUDŻET" };
   const esc = (v) => String(v).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#39;");
@@ -699,6 +740,31 @@
       netto: pl(netto), vat: pl(r2(brutto - netto)), vat_proc: g(vat), brutto: pl(brutto),
     };
   };
+  const liczba = (s) => { const x = parseFloat(String(s).replace(/[^\d,]/g, "").replace(",", ".")); return isNaN(x) ? 0 : x; };
+  const KLASY_EU = "ABCDE", gfmt = (x) => String(+x.toFixed(6)).replace(".", ",");
+  S.porownanie_dane = function (cfg, req, rows, pids, oddzial, kto, logo) {
+    pids = [...new Set(pids.map((x) => parseInt(x, 10)))];
+    if (pids.length < 2 || pids.length > 3) throw new Error("Porównanie obejmuje 2 lub 3 modele opon – zmień wybór.");
+    const D = pids.map((pid) => S.pdf_dane(cfg, req, rows, pid, oddzial, kto, logo)).sort((a, b) => liczba(a.brutto) - liczba(b.brutto));
+    const P = {}; for (const r of rows) if (r.p) P[r.p.id] = r.p;
+    const poziomy = D.length === 3 ? ["EKONOMICZNA", "POLECANA", "PREMIUM"] : ["EKONOMICZNA", "PREMIUM"], baza = P[parseInt(D[0].xp_id, 10)] || {};
+    const kol = D.map((d, i) => {
+      const p = P[parseInt(d.xp_id, 10)] || {}, plusy = [];
+      if (i) {
+        const km = KLASY_EU.indexOf(baza.mokra || "?") - KLASY_EU.indexOf(p.mokra || "?");
+        if (p.mokra && baza.mokra && km > 0) plusy.push("hamowanie na mokrym o " + km + " kl. lepsze – do ok. " + gfmt(4.5 * km) + " m krócej z 80 km/h");
+        const ko = KLASY_EU.indexOf(baza.opory || "?") - KLASY_EU.indexOf(p.opory || "?");
+        if (p.opory && baza.opory && ko > 0) plusy.push("opory toczenia o " + ko + " kl. niższe – ok. " + 37 * ko + " l paliwa mniej na 40 000 km");
+        if (p.halas && baza.halas && parseInt(baza.halas, 10) - parseInt(p.halas, 10) >= 2) plusy.push("ciszej o " + (parseInt(baza.halas, 10) - parseInt(p.halas, 10)) + " dB");
+      }
+      return { poziom: poziomy[i], best: i === 1, tytul: d.tytul, sezon: d.tag.replace("OPONA ", ""), indeks: d.indeks, dot: d.dot, snieg: d.snieg,
+        mokra: p.mokra || "", opory: p.opory || "", halas: d.halas, plusy: plusy.map((t) => ({ t })), cena_szt: d.cena_szt, brutto: d.brutto, netto: d.netto };
+    });
+    const d0 = D[0], uslugi = d0.pozycje.map((x) => x.nazwa).filter((n) => !n.startsWith("Opona")), out = {};
+    for (const k of ["logo", "nr", "data", "wazna", "o_nazwa", "o_adres", "o_tel", "o_www", "o_kom", "klient", "pojazd", "kto", "rozmiar", "vat_proc", "rabaty"]) out[k] = d0[k];
+    return Object.assign(out, { kolumny: kol, uslugi: uslugi.length ? uslugi.join(", ") : "same opony (bez usług)" });
+  };
+  S.porownanie_html = (cfg, req, rows, pids, oddzial, kto, logo) => wypelnij(root.PDF_POROWNANIE || "", S.porownanie_dane(cfg, req, rows, pids, oddzial, kto, logo));
   S.pdf_html = (cfg, req, rows, pid, oddzial, kto, logo) => wypelnij(S.wzor_pdf(), S.pdf_dane(cfg, req, rows, pid, oddzial, kto, logo));
   S.polacz_strony = function (strony) {   // jak polacz_strony w silnik.py
     if (strony.length === 1) return strony[0];
@@ -733,7 +799,7 @@
         }
         if (route === "/api/history") {
           if (qs.get("id")) { const r = S.HIST ? await S.HIST.get_id(qs.get("id")) : null; return r ? [200, r] : [404, { error: "Brak oferty" }]; }
-          return [200, { lista: await S.list_hist(qs.get("q") || ""), admin: !!(S.HIST && S.HIST.admin) }];
+          return [200, { lista: await S.list_hist(qs.get("q") || ""), admin: !!(S.HIST && S.HIST.admin), me: ((S.HIST && S.HIST.me) || "").toLowerCase() }];
         }
         return [404, { error: "404" }];
       }
@@ -744,8 +810,26 @@
         const ids = (body.ids || [body.id || 0]).map((x) => +x || 0).slice(0, 30);   // jak w silnik.py
         for (const pid of ids) if (!CECHY[pid] && S.KONTO.katalog_cechy) { try { zapamietaj_cechy({ id: pid, attrs: (await S.KONTO.katalog_cechy(pid)) || {} }); } catch (e) { /* bez cech z pliku */ } }
         const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
+        if (body.porownanie) return [200, { html: S.porownanie_html(cfg, OSTATNIA.req, OSTATNIA.rows, ids, dane, S.KONTO.kto || "", body.logo || ""), oddzial: o, stron: 1 }];
         const strony = ids.map((pid) => S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, pid, dane, S.KONTO.kto || "", body.logo || ""));
         return [200, { html: S.polacz_strony(strony), oddzial: o, stron: strony.length }];
+      }
+      if (route === "/api/link") {
+        if (!S.HIST || !S.HIST.link) return [500, { error: "Link wymaga zapisu w historii (zaloguj się ponownie)." }];
+        if (!OSTATNIA.rows) return [400, { error: "Najpierw przelicz ofertę." }];
+        const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
+        const oid = String(OSTATNIA.req.oid || "").replace(/[^0-9_]/g, "");
+        let tok;
+        try { tok = await S.HIST.link(oid, S.link_dane(cfg, OSTATNIA.req, OSTATNIA.rows, dane, S.KONTO.kto || "")); }
+        catch (e) { let m = String(e.message || e); if (/oferty_link|404|PGRST202/.test(m)) m = "Baza nie ma jeszcze funkcji linków – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."; return [500, { error: m }]; }
+        const url = S.STRONA_KLIENTA + "oferta.html#" + tok, tel = (o && dane && dane.tel) || "";
+        return [200, { url, sms: "Dzień dobry, oferta na opony od Latex Serwis: " + url + " (ważna 30 dni). Wybierz model i kliknij „Akceptuję” – oddzwonimy." + (tel ? " Tel. " + tel : "") }];
+      }
+      if (route === "/api/status") {
+        if (!(body.status in S.STATUSY_OFERT) || !S.HIST || !S.HIST.status) return [400, { error: "Zły status" }];
+        try { await S.HIST.status(String(body.oid || "").replace(/[^0-9_]/g, ""), body.status); }
+        catch (e) { return [500, { error: "Nie udało się zmienić statusu – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)." }]; }
+        return [200, { ok: true }];
       }
       if (route === "/api/quick") return [200, S.parse_quick(body.text || "")];
       if (route === "/api/parse") { const t = body.text || "", q = S.parse_quick(t); return [200, { pojazdy: S.parse_request_text(t), kryteria: { sezony: q.sezony, klasy: q.klasy, producenci: q.producenci, runflat: q.runflat } }]; }
@@ -759,11 +843,11 @@
           tpms: r2(v.tpms_kw), przech: r2(v.przech_kw), razem: r2(total(v)) }));
         const ul = [], seen = new Set();
         for (const r of rows) if (r.p && !seen.has(r.p.id)) { seen.add(r.p.id); ul.push({ id: r.p.id, nazwa: r.p.nazwa, cena: r.p.cena_brutto, auto: r.p.cena_auto, recznie: r.p.recznie, zakup: r.p.brutto_zak, url: S.leaflet_url(r.p.id, r.p.cena_brutto) }); }
-        try { await save_hist(body, summ); } catch (e) { warnings.push("Nie zapisano oferty w historii: " + (e.message || e)); }
+        try { await save_hist(body, summ, rows); } catch (e) { warnings.push("Nie zapisano oferty w historii: " + (e.message || e)); }
         const wc = new Map();
         for (const r of rows) if (r.wym_tak && r.wym_klucz && !wc.has(r.wym_klucz)) { const [d, t] = r.wym_klucz.split("|");
           wc.set(r.wym_klucz, { klucz: r.wym_klucz, opis: "Wymiana " + d + (t === "osobowy" ? "" : " " + (TYPY[t] || t)), cennik: r.wym_cennik, auto: r.wym_auto, cena: r.wym_szt, recznie: r.wym_recznie }); }
-        return [200, { ulotki: ul, wymiany: [...wc.values()], plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
+        return [200, { ulotki: ul, wymiany: [...wc.values()], zmiany: body.porownaj ? S.zmiany_ofert(body.porownaj, rows) : [], plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
       }
     } catch (e) {
       if (e instanceof ApiError) return [502, { error: e.message }];

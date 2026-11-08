@@ -106,15 +106,20 @@
     let names = {};
     S.HIST = {
       admin,
+      get me() { return A.email(); },
       async get_id(id) { const x = (await A.db("GET", "/rest/v1/oferty?select=dane&id=eq." + (+id))) || []; return x[0] ? x[0].dane : null; },
       async save(oid, klient, dane, szukaj) {
         await A.db("POST", "/rest/v1/oferty?on_conflict=owner,oid", { oid, klient: klient || "", dane, szukaj: szukaj.slice(0, 2000), updated_at: new Date().toISOString() },
           "resolution=merge-duplicates,return=minimal");
       },
+      async link(oid, dane) { return await A.db("POST", "/rest/v1/rpc/oferty_link", { p_oid: oid, p_dane: dane }); },
+      async status(oid, st) { await A.db("POST", "/rest/v1/rpc/oferty_status", { p_oid: oid, p_status: st }, "return=minimal"); },
       async list(q) {
         q = (q || "").trim().toLowerCase().replace(/[*,()]/g, " ");
         const f = q ? "&or=(szukaj.ilike.*" + encodeURIComponent(q) + "*,owner.ilike.*" + encodeURIComponent(q) + "*)" : "";
-        const rows = (await A.db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=500" + f)) || [];
+        let rows;
+        try { rows = (await A.db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp&order=updated_at.desc&limit=500" + f)) || []; }
+        catch (e) { rows = (await A.db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=500" + f)) || []; }
         if (admin && !Object.keys(names).length) { try { for (const u of (await A.db("GET", "/rest/v1/app_users?select=email,name")) || []) names[u.email.toLowerCase()] = u.name || ""; } catch (e) {} }
         for (const r of rows) r.kto = names[(r.owner || "").toLowerCase()] || r.owner || "";
         return rows;

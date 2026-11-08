@@ -1,6 +1,6 @@
 const fs = require("fs");
 const inp = JSON.parse(fs.readFileSync(0, "utf8"));
-globalThis.PDF_WZOR = inp.WZOR;
+globalThis.PDF_WZOR = inp.WZOR; globalThis.PDF_POROWNANIE = inp.POROWNANIE;
 const S = require("../www/silnik.js");
 const DB = inp.DB;
 S.api_call = async (cfg, q) => {
@@ -27,7 +27,10 @@ S.HIST = { save: async () => {}, list: async () => [], get_id: async () => null 
   for (const o of inp.offers) { const [c, r] = await S.handle("/api/offer", JSON.parse(JSON.stringify(o))); if (c !== 200) { out.offer.push({ err: r }); continue; }
     out.offer.push({ warianty: r.warianty, email: r.email, uwagi: r.uwagi, ulotki: r.ulotki.map((u) => [u.id, u.cena]) });
     for (const u of r.ulotki) { const [c2, r2] = await S.handle("/api/pdf", { id: u.id, logo: "logo.png" }); out.pdf.push(r2.html || null); }
-    if (r.ulotki.length > 1) out.pdf.push((await S.handle("/api/pdf", { ids: r.ulotki.map((u) => u.id), logo: "logo.png" }))[1].html || null); }
+    if (r.ulotki.length > 1) out.pdf.push((await S.handle("/api/pdf", { ids: r.ulotki.map((u) => u.id), logo: "logo.png" }))[1].html || null);
+    if (r.ulotki.length >= 2 && r.ulotki.length <= 3) out.pdf.push((await S.handle("/api/pdf", { ids: r.ulotki.map((u) => u.id), porownanie: 1, logo: "logo.png" }))[1].html || null);
+    out.offer[out.offer.length - 1].snap = S.snap_ofert(S._ostatnia().rows);
+    out.offer[out.offer.length - 1].zmiany = S.zmiany_ofert([{ id: 1, nazwa: "A", cena: 1, ilosc: 99 }, { id: 999, nazwa: "B", cena: 5, ilosc: 1 }], S._ostatnia().rows); }
   for (const k of Object.keys(S.CECHY)) delete S.CECHY[k];
   S.KONTO.katalog = async (sz) => (sz === "205/55 R16" ? [JSON.parse(JSON.stringify(inp.PLIK))] : null);
   S.KONTO.katalog_info = () => "z pliku";

@@ -61,3 +61,15 @@ to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi w
 - Ulotki PDF generuje strona xPartner (`m=getPDF`) – otwierają się w przeglądarce zalogowanej do xPartner.
 - Pozycje z ceną 0 w xPartner (niedostępne dla konta) są pomijane.
 - Testy: `tests/test_oferty.py` (bez sieci; API xPartner podstawiane).
+
+## Statusy, link dla klienta, porównanie (0.25 beta)
+
+- Tabela `oferty` ma kolumny `status`, `status_at`, `link_token`, `link_dane`, `link_at`, `link_otwarta`, `klient_odp`
+  (supabase/oferty_status_link_2026-11-08.sql). Bez nich program działa jak wcześniej (lista bez statusów).
+- Status zmienia właściciel (`oferty_status`); link (`oferty_link`) ustawia „wysłana”. „📞 oddzwoń” = wysłana ≥ 2 dni bez odpowiedzi.
+- Link dla klienta: `oferta.html#<uuid>` na GitHub Pages (z `app/oferty/klient.html`, tools/build_pages.py). Klient (anon) widzi tylko
+  migawkę stron PDF (`link_dane`, bez cen zakupu) przez `oferta_link_pobierz`, akceptuje przez `oferta_link_akceptuj`; ważność 30 dni.
+- Oferta z historii: `snap` (cena i stan opon przy zapisie) → `/api/offer` z `porownaj` zwraca `zmiany`.
+- PDF „Porównanie” (`pdf_porownanie.html`, `porownanie_dane`): 2–3 modele od najtańszego; plusy z etykiety UE orientacyjnie:
+  ok. 4,5 m krótsza droga hamowania z 80 km/h na klasę mokrej (A→E do 18 m, Hankook), ok. 37 l/40 000 km na klasę oporów (A→E ok. 150 l, Michelin).
+- Zrzuty w Edge na Windows: tests/ui_oferty_win.py (krok w build.yml, artefakt „zrzuty”).
