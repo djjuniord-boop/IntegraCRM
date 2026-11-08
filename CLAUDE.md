@@ -53,7 +53,10 @@ Metody mixinów korzystają z pól okna (`self.session`, `self.fonts`, `self.pag
 Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy każdej zmianie:
 
 1. **Ustal moduł** z mapy wyżej. Czytaj tylko `CLAUDE.md` + README tego modułu + jego pliki.
-   Zmiana w jednym module → agent tego modułu (`.claude/agents/agent-<moduł>.md`).
+   Zmiana w jednym module → agent tego modułu (`.claude/agents/agent-<moduł>.md`): `agent-kontrola`, `agent-marza`,
+   `agent-wyniki`, `agent-statystyki`, `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
+   (`mobile/`), `agent-uzytkownicy`, `agent-baza` (Supabase). Zmiana silnika ofert albo wzorów WYNIKÓW = także
+   ta sama zmiana w telefonie (agent Android).
    Zmiana w kilku modułach albo w rdzeniu → kontroler sam, po kolei, z agentami jako pomocą.
 2. **Agent modułu** zmienia tylko swoje pliki (lista w jego definicji), uruchamia testy i zwraca raport:
    co zmienił, czym sprawdził, czego nie mógł sprawdzić.

@@ -12,6 +12,9 @@ Jesteś agentem modułu **MARŻA** programu IntegraCRM. Najpierw przeczytaj `.cl
 o zmianę obliczeń** – to są wyniki finansowe. Każdą taką zmianę opisz w raporcie liczbowo (przed/po na tym samym raporcie).
 
 Szczególnie pilnuj:
+- tempo, prognoza i dni sprzedażowe w e-mailu (`_generuj_wykres_png`) i w podglądzie (`podglad_*.py`) muszą liczyć
+  tak samo jak zakładka WYNIKI (`app/wyniki/dane.py`) i telefon (`mobile/www/wyniki.js`) – dzień wgrania raportu
+  liczy się jako miniony,
 - podstawienie `sys.modules["smtplib"]` zawsze przywracane (także po błędzie silnika),
 - błąd chmury (kopia, wyniki) nie może przerwać aktualizacji kalkulatora,
 - odbiorcy maili tylko z `app_config['crm'].marza` (zaznaczeni); pusta lista = brak maila.
