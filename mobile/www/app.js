@@ -138,6 +138,8 @@
     if (window.Native && window.Native.pdf) { pdfOk = (o, m) => ok({ ok: o, msg: m }); window.Native.pdf(html, nazwa); }
     else { const w = window.open("", "_blank"); if (w) { w.document.write(html); w.document.close(); } ok({ ok: true, msg: "podgląd" }); }
   });
+  A.pdfOtworz = (n) => { if (window.Native && window.Native.pdfOtworz) window.Native.pdfOtworz(n); };
+  A.pdfWyslij = (n) => { if (window.Native && window.Native.pdfWyslij) window.Native.pdfWyslij(n); };
   A.wersja = () => (window.Native && window.Native.version ? window.Native.version() : "dev");
   A.sprawdzAktualizacje = async function () {
     try {

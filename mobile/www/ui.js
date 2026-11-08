@@ -266,8 +266,18 @@ async function pdfOferta(b, wszystkie) {
     const j = await api("/api/pdf", wszystkie ? { ids: ULS.map((u) => u.id), porownanie: wszystkie === 2 ? 1 : 0, oddzial: OODD, logo: "logo.png" } : { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });
     const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + (wszystkie === 2 ? "porownanie" : wszystkie ? "wszystkie " + ULS.length : b.dataset.n));
     if (!r.ok) msg("#oMsg", r.msg, 1);
+    else if (window.Native) pdfGotowy(r.msg);
   } catch (e) { msg("#oMsg", e.message, 1); }
   b.disabled = false;
+}
+function pdfGotowy(plik) {   // PDF gotowy w telefonie: najpierw podgląd albo od razu wysyłka
+  const d = document.createElement("div"); d.className = "pdfwyb";
+  d.innerHTML = `<div class="card"><b>PDF gotowy</b><div class="small muted" style="word-break:break-all;margin:4px 0 10px">${esc(plik)}</div>
+    <div class="row"><button class="btn grow" data-a="o">👁 Otwórz</button><button class="btn sec grow" data-a="w">📤 Wyślij</button></div>
+    <button class="btn sec wide" style="margin-top:8px" data-a="x">Zamknij</button></div>`;
+  d.onclick = (e) => { const a = e.target.dataset && e.target.dataset.a; if (!a && e.target !== d) return;
+    if (a === "o") Aplikacja.pdfOtworz(plik); if (a === "w") Aplikacja.pdfWyslij(plik); d.remove(); };
+  document.body.appendChild(d);
 }
 function drawEdit() {
   const o = (a, b, c) => `<option value="${a}" ${c === a ? "selected" : ""}>${b}</option>`;
