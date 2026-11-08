@@ -698,17 +698,17 @@
     let rab = parseFloat(req.rabat || 0); rab = isNaN(rab) ? 0 : Math.max(0, Math.min(90, rab));
     const przed_szt = p.recznie || !rab ? p.cena_brutto : sell_price(cfg, p.netto);
     const il = R.reduce((a, r) => a + (parseInt(r.ilosc, 10) || 0), 0);
-    const poz = [{ nazwa: "Opona " + p.nazwa, q: il, j: "szt.", c: przed_szt }];
+    const poz = [{ nazwa: "Opona " + p.nazwa, q: il, j: "szt.", c: przed_szt, po: p.cena_brutto, r: przed_szt > p.cena_brutto ? rab : 0 }];
     const kola = parseInt(cfg.kola_na_auto, 10), wym = new Map(), [rw] = rabat_wymiany(req);
     let rabat_wym_kw = 0;
     for (const r of R) if (r.wym_tak !== undefined ? r.wym_tak : r.wymiana) {
       const n = (parseInt(r.ilosc, 10) || 0) || kola, dia = (/R(\d{2})/.exec(r.rozmiar || "") || [null, ""])[1], typ = r.typ || "osobowy";
       const szt = r.wym_szt !== undefined ? r.wym_szt : r2(r.wymiana / n), c = rw && !r.wym_recznie ? (r.wym_cennik !== undefined ? r.wym_cennik : szt) : szt;
       rabat_wym_kw += (c - szt) * n;
-      const key = [dia, typ, r2(c)].join("\u0001"); wym.set(key, (wym.get(key) || 0) + n);
+      const key = [dia, typ, r2(c), r2(szt)].join("\u0001"); wym.set(key, (wym.get(key) || 0) + n);
     }
     rabat_wym_kw = r2(rabat_wym_kw);
-    for (const [key, n] of wym) { const [dia, typ, c] = key.split("\u0001"); poz.push({ nazwa: `Wymiana opon – demontaż, montaż, wyważenie (R${dia}${typ === "osobowy" ? "" : ", " + (TYPY[typ] || typ)})`, q: n, j: "szt.", c: +c }); }
+    for (const [key, n] of wym) { const [dia, typ, c, szt] = key.split("\u0001"); poz.push({ nazwa: `Wymiana opon – demontaż, montaż, wyważenie (R${dia}${typ === "osobowy" ? "" : ", " + (TYPY[typ] || typ)})`, q: n, j: "szt.", c: +c, po: +szt, r: +c > +szt ? rw : 0 }); }
     const n_tp = R.reduce((a, r) => a + (parseInt(r.tpms, 10) || 0), 0);
     if (n_tp) poz.push({ nazwa: "Czujnik ciśnienia TPMS (z montażem)", q: n_tp, j: "szt.", c: parseFloat(cfg.tpms_cena) });
     const dep = new Map();
@@ -734,7 +734,9 @@
       snieg: !!(cechy["Przyczepność na śniegu"] || "").trim(), lod: !!(cechy["Przyczepność na lodzie"] || "").trim(),
       eprel, eprel_img: eprel ? `https://eprel.ec.europa.eu/api/products/tyres/${eprel}/labels?format=PNG` : "",
       cena_szt: pl(p.cena_brutto), cena_szt_netto: pl(r2(p.cena_brutto / (1 + vat / 100))),
-      pozycje: poz.map((x) => ({ nazwa: x.nazwa, ilosc: x.q + " " + x.j, cena: pl(x.c), wartosc: pl(r2(x.q * x.c)) })),
+      pozycje: poz.map((x) => ({ nazwa: x.nazwa, ilosc: x.q + " " + x.j, cena: pl(x.c), rab: x.r ? "−" + g(x.r) + "%" : "",
+        cena_po: pl(x.po !== undefined ? x.po : x.c), wartosc: pl(r2(x.q * (x.po !== undefined ? x.po : x.c))) })),
+      oszczednosc: pl(r2(rabat_kw + rabat_wym_kw)), cena_szt_przed: przed_szt > p.cena_brutto ? pl(przed_szt) : "",
       rabat: rabat_kw > 0 ? g(rab) + "%" : "", przed: pl(przed), rabat_kw: pl(rabat_kw),
       rabat_wym: rabat_wym_kw > 0 ? g(rw) + "%" : "", rabat_wym_kw: pl(rabat_wym_kw), rabaty: rabat_kw > 0 || rabat_wym_kw > 0,
       netto: pl(netto), vat: pl(r2(brutto - netto)), vat_proc: g(vat), brutto: pl(brutto),

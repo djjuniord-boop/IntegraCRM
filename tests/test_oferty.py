@@ -219,8 +219,11 @@ def test_pdf_oferty_pozycje_rabat_i_oddzial():
     h = r["html"]
     assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h
     assert "Jan &lt;b&gt;Kowalski&lt;/b&gt;" in h and "<b>Kowalski" not in h          # tekst klienta nie staje się HTML
-    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "Rabat 10% na opony", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
+    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
         assert txt in h, txt
+    # rabat w wierszu: cena przed, −10%, cena po rabacie, wartość po rabacie; przekreślona cena w ramce; oszczędność
+    assert "Cena po rabacie" in h and '<b class="rb">−10%</b>' in h and "<s>445,00 zł</s>" in h and "W tym oszczędzasz" in h
+    assert "Razem przed rabatem" not in h
     assert "{{" not in h and "}}" not in h
 
 
@@ -388,16 +391,18 @@ def test_rabat_na_wymiane_i_reczna_cena():
     # cennik R16 osobowy = 44 zł/koło; rabat 10% -> 39,60 -> 40 zł (w górę do pełnych zł, jak opony)
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10"})
     h = r["html"]
-    assert code == 200 and "Rabat 10% na wymianę" in h and "− 16,00 zł" in h and "Rabat 10% na opony" not in h, h[-3000:]
+    assert code == 200 and h.count('<b class="rb">−10%</b>') == 1 and "<s>" not in h, h[-3000:]   # tylko wymiana z rabatem
+    assert "<td class=\"r\">44,00 zł</td><td class=\"c\"><b class=\"rb\">−10%</b></td><td class=\"r\"><b>40,00 zł</b></td><td class=\"r\">160,00 zł</td>" in h
+    assert "W tym oszczędzasz dzięki rabatowi</td><td class=\"r\">16,00 zł" in h
     assert "44,00 zł" in h                                     # na PDF pozycja w cenie z cennika, rabat osobną linią
     w = S.handle("/api/offer", dict(S.OSTATNIA["req"]))[1]["wymiany"]
     assert w == [{"klucz": "R16|osobowy", "opis": "Wymiana R16", "cennik": 44.0, "auto": 40.0, "cena": 40.0, "recznie": False}]
     # ręczna cena wymiany: bez rabatu, bez linii rabatu
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10", "ceny_wym": {"R16|osobowy": 30}})
-    assert "na wymianę" not in r["html"] and "30,00 zł" in r["html"]
+    assert "Cena po rabacie" not in r["html"] and "30,00 zł" in r["html"]          # ręczna cena = bez kolumny rabatu
     # 100% = wymiana gratis
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "100"})
-    assert "Rabat 100% na wymianę" in r["html"] and "− 176,00 zł" in r["html"]
+    assert '<b class="rb">−100%</b>' in r["html"] and "<b>0,00 zł</b>" in r["html"] and "oszczędzasz dzięki rabatowi</td><td class=\"r\">176,00 zł" in r["html"]
 
 
 def test_statusy_oddzwonienie_i_zmiany_cen():

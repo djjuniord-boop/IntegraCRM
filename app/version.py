@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.25.0"
+VERSION = "0.25.1"
 RELEASED = "2026-11-08"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.25.1",
+        "date": "2026-11-08",
+        "changes": [
+            "BETA – PDF oferty: rabat widoczny w każdym wierszu kalkulacji – cena za sztukę przed rabatem, % rabatu, cena za sztukę po rabacie i wartość (opony i wymiana)",
+            "BETA – PDF oferty: w ramce ceny przekreślona cena przed rabatem; pod sumą „W tym oszczędzasz dzięki rabatowi”",
+        ],
+    },
     {
         "version": "0.25.0",
         "date": "2026-11-08",
