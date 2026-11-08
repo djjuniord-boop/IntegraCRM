@@ -71,6 +71,24 @@ Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy k
 6. **Audyt końcowy**: doradcy Supabase (bezpieczeństwo, wydajność), stan bazy, porównanie zrzutów przed/po,
    krótkie podsumowanie dla właściciela: co działa, co sprawdzić u siebie, co zostało.
 
+## Kilka rozmów naraz (praca równoległa)
+
+Nad programem może pracować kilka rozmów z Claude jednocześnie. Żeby nie nadpisywać sobie zmian:
+
+1. **Zawsze od świeżego stanu:** przed każdą zmianą `git fetch` i `git pull --rebase` na `beta`; przed wydaniem
+   jeszcze raz – i sprawdź `VERSION` na `origin/beta` i ostatnie wydanie (`gh api …/releases/latest`).
+2. **`PRACA.md`** – zajmij moduł (wiersz: data, temat, gałąź, pliki), commit + push z `[skip ci]`; po skończeniu
+   usuń wiersz. Moduł zajęty przez inną rozmowę → nie ruszaj, powiedz właścicielowi.
+3. **Praca na własnej gałęzi** `praca/<temat>` (z niej nic się nie buduje); na `beta` trafia dopiero przy wydaniu,
+   po `rebase` na aktualną `origin/beta` i ponownych testach.
+4. **Nigdy** `git push --force`, `git reset --hard` na cudze commity ani nadpisywanie `beta`/`main` – odrzucony push
+   = `git pull --rebase`, rozwiązanie konfliktu, testy, push.
+5. **Wersja:** numer podnosi tylko rozmowa, która w tej chwili wydaje; zawsze od wersji z `origin/beta` (nie z pamięci).
+6. **Baza (SQL):** przed nową migracją przejrzyj `supabase/` (najnowsze pliki) i stan bazy – inna rozmowa mogła już
+   zmienić tę samą funkcję lub tabelę; `create or replace` nadpisuje cudzą wersję funkcji.
+7. **Wspólne pliki** (`app/gui.py`, `app/ui.py`, `app/cloud.py`, `launcher.py`, `tests/ui_smoke.py`, `version.py`,
+   `.github/workflows/`) – zmieniaj tylko małymi commitami, od razu push; to tu najczęściej są konflikty.
+
 ## Sprawdzanie (obowiązkowe przy każdej zmianie)
 
 Środowisko testowe (Linux): systemowy `python3.12` z `python3-tk` (Tk 8.6 jak w .exe; Tk 9 z `uv` nie obsługuje
