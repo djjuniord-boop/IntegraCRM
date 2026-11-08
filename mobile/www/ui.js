@@ -253,7 +253,7 @@ async function linkKlient(b) {
   b.disabled = true; $("#linkBox").innerHTML = '<p class="muted small">Tworzę link…</p>';
   try {
     const j = await api("/api/link", { oddzial: OODD });
-    $("#linkBox").innerHTML = `<div class="msg ok">Link ważny 30 dni (oferta: „Wysłana”).<div class="small" style="word-break:break-all;margin:6px 0">${esc(j.url)}</div>
+    $("#linkBox").innerHTML = `<div class="msg ok">Oferta ważna do ${esc(j.wazna)} (status „Wysłana”).<div class="small" style="word-break:break-all;margin:6px 0">${esc(j.url)}</div>
       <div class="row"><a class="btn grow" href="sms:?body=${encodeURIComponent(j.sms)}">✉ Wyślij SMS</a><button class="btn sec grow" data-t="${esc(j.sms)}" onclick="kopiuj(this)">📋 Kopiuj</button></div></div>`;
   } catch (e) { $("#linkBox").innerHTML = `<div class="msg e">${esc(e.message)}</div>`; }
   b.disabled = false;

@@ -1322,7 +1322,8 @@ def handle(path, body=None, open_path=None):
             o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
             oid = safe_oid(OSTATNIA["req"].get("oid"))
             try:
-                tok = HIST.link(oid, link_dane(cfg, OSTATNIA["req"], OSTATNIA["rows"], dane, KONTO.get("kto") or ""))
+                ld = link_dane(cfg, OSTATNIA["req"], OSTATNIA["rows"], dane, KONTO.get("kto") or "")
+                tok = HIST.link(oid, ld)
             except Exception as e:
                 msg = str(e)
                 if "oferty_link" in msg or "404" in msg or "PGRST202" in msg:
@@ -1330,9 +1331,9 @@ def handle(path, body=None, open_path=None):
                 return 500, {"error": msg}
             url = STRONA_KLIENTA + "oferta.html#" + str(tok)
             tel = o and (dane or {}).get("tel") or ""
-            sms = "Dzień dobry, oferta na opony od Latex Serwis: %s (ważna 30 dni). Wybierz model i kliknij „Akceptuję” – oddzwonimy.%s" % (
-                url, (" Tel. " + tel) if tel else "")
-            return 200, {"url": url, "sms": sms}
+            sms = "Dzień dobry, oferta na opony od Latex Serwis: %s (ważna do %s). Wybierz model i kliknij „Akceptuję” – oddzwonimy.%s" % (
+                url, ld["wazna"], (" Tel. " + tel) if tel else "")
+            return 200, {"url": url, "sms": sms, "wazna": ld["wazna"]}
         if route == "/api/status":
             st = body.get("status")
             if st not in STATUSY_OFERT or not HIST or not hasattr(HIST, "status"):

@@ -819,11 +819,11 @@
         if (!OSTATNIA.rows) return [400, { error: "Najpierw przelicz ofertę." }];
         const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
         const oid = String(OSTATNIA.req.oid || "").replace(/[^0-9_]/g, "");
-        let tok;
-        try { tok = await S.HIST.link(oid, S.link_dane(cfg, OSTATNIA.req, OSTATNIA.rows, dane, S.KONTO.kto || "")); }
+        let tok, ld;
+        try { ld = S.link_dane(cfg, OSTATNIA.req, OSTATNIA.rows, dane, S.KONTO.kto || ""); tok = await S.HIST.link(oid, ld); }
         catch (e) { let m = String(e.message || e); if (/oferty_link|404|PGRST202/.test(m)) m = "Baza nie ma jeszcze funkcji linków – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."; return [500, { error: m }]; }
         const url = S.STRONA_KLIENTA + "oferta.html#" + tok, tel = (o && dane && dane.tel) || "";
-        return [200, { url, sms: "Dzień dobry, oferta na opony od Latex Serwis: " + url + " (ważna 30 dni). Wybierz model i kliknij „Akceptuję” – oddzwonimy." + (tel ? " Tel. " + tel : "") }];
+        return [200, { url, wazna: ld.wazna, sms: "Dzień dobry, oferta na opony od Latex Serwis: " + url + " (ważna do " + ld.wazna + "). Wybierz model i kliknij „Akceptuję” – oddzwonimy." + (tel ? " Tel. " + tel : "") }];
       }
       if (route === "/api/status") {
         if (!(body.status in S.STATUSY_OFERT) || !S.HIST || !S.HIST.status) return [400, { error: "Zły status" }];

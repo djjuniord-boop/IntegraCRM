@@ -55,7 +55,13 @@ function pokazPdf(i, btn) {
   const f = document.createElement("iframe"); f.setAttribute("sandbox", ""); f.srcdoc = D.modele[i].html; f.title = "Szczegóły oferty";
   box.appendChild(f); skala(f);
 }
+function wygasla() {   // ważność oferty z PDF (dd.mm.rrrr) – po niej ceny mogą być nieaktualne
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(D.wazna || ""); if (!m) return false;
+  return new Date() > new Date(+m[3], +m[2] - 1, +m[1], 23, 59, 59);
+}
 function rysuj() {
+  if (wygasla()) { $("#hdr").innerHTML = `Oferta <b>${esc(D.nr)}</b>`;
+    $("#m").innerHTML = `<div class="msg">Ta oferta była ważna do ${esc(D.wazna)} – ceny i dostępność mogły się zmienić.<br>Zadzwoń, przygotujemy aktualną:</div><div class="card tel" style="text-align:center">${telefony()}</div>`; return; }
   $("#hdr").innerHTML = `Oferta <b>${esc(D.nr)}</b><br>ważna do ${esc(D.wazna)}`;
   const odp = ODP ? `<div class="card ok"><b>Dziękujemy – wybór zapisany.</b><br>Wybrano: <b>${esc(ODP.wybor)}</b>. Skontaktujemy się z Tobą, żeby umówić termin montażu.
       Możesz zmienić wybór poniżej.<div class="tel" style="margin-top:8px">${telefony()}</div></div>` : "";

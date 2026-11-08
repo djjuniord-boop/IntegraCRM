@@ -42,11 +42,13 @@ declare r public.oferty;
 begin
   select * into r from public.oferty where link_token = p_token and link_at > now() - interval '30 days';
   if r.id is null then return null; end if;
-  if r.link_otwarta is null then update public.oferty set link_otwarta = now() where id = r.id; end if;
+  -- „klient otworzył” tylko dla wejścia bez logowania (pracownik sprawdzający link go nie oznacza)
+  if r.link_otwarta is null and coalesce(auth.role(), 'anon') = 'anon' then update public.oferty set link_otwarta = now() where id = r.id; end if;
   return jsonb_build_object('dane', r.link_dane, 'odp', r.klient_odp, 'wazna_do', (r.link_at + interval '30 days'));
 end $$;
 
--- klient (anon): wybór modelu + telefon/uwagi -> status „przyjęta” (można zmienić zdanie, dopóki link ważny)
+-- klient (anon): wybór modelu + telefon/uwagi -> status „przyjęta” (można zmienić zdanie, dopóki link ważny;
+-- także po „odrzucona” – klient, który wraca, to dobra wiadomość; nie po „zamówiona”)
 create or replace function public.oferta_link_akceptuj(p_token uuid, p_wybor text, p_tel text, p_uwagi text)
 returns boolean language plpgsql security definer set search_path = '' as $$
 declare r public.oferty;
@@ -70,6 +72,7 @@ begin
   if e is null or not public.has_module('oferty') then raise exception 'Brak dostępu' using errcode = '42501'; end if;
   if p_status not in ('nowa', 'wyslana', 'przyjeta', 'odrzucona', 'zamowiona') then raise exception 'Zły status' using errcode = '22023'; end if;
   update public.oferty set status = p_status, status_at = now() where owner = e and oid = p_oid;
+  if not found then raise exception 'Nie znaleziono Twojej oferty' using errcode = 'P0002'; end if;
 end $$;
 
 revoke all on function public.oferty_link(text, jsonb) from public, anon;
