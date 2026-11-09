@@ -97,18 +97,20 @@ def test_adresy_z_getDeliveryData_tylko_wroclaw():
     xml = ("<response><success>true</success><recipients><recipient><recipientId>10</recipientId><name>LATEX</name><deliveryPlaces>"
            "<deliveryPlace><deliveryPlaceId>20</deliveryPlaceId><name>LATEX SERWIS WROCŁAW</name><street>Krakowska 1</street>"
            "<zipCode>50-001</zipCode><city>Wrocław</city></deliveryPlace><deliveryPlace><deliveryPlaceId>21</deliveryPlaceId>"
-           "<name>LATEX SERWIS WROCLAW SERWIS_500</name><street>X 1</street><zipCode>45-001</zipCode><city>Opole</city></deliveryPlace></deliveryPlaces>"
-           "</recipient></recipients></response>")
+           "<name>LATEX SERWIS WROCLAW SERWIS_500</name><street>X 1</street><zipCode>45-001</zipCode><city>Opole</city></deliveryPlace>"
+           "<deliveryPlace><deliveryPlaceId>22</deliveryPlaceId><name>LATEX OPOLE</name><street>KRAPKOWICKA 18A</street>"
+           "<zipCode>45-001</zipCode><city>Opole</city></deliveryPlace></deliveryPlaces></recipient></recipients></response>")
     stary = Z.api_xml
     Z.api_xml = lambda cfg, m, **kw: Z.parsuj(xml.encode())
     try:
-        a = K.adresy({})
+        a = K.adresy({}, ["Latex Wrocław"])
+        assert K.adresy({}, ["Latex Opole"])[0]["deliveryPlaceId"] == 22
     finally:
         Z.api_xml = stary
     assert len(a) == 1 and a[0]["recipientId"] == 10 and a[0]["deliveryPlaceId"] == 20
     Z.api_xml = lambda cfg, m, **kw: Z.parsuj(xml.replace("Wrocław", "Opole").replace("WROCŁAW", "X").encode())
     try:
-        K.adresy({})
+        K.adresy({}, ["Latex Wrocław"])
         assert False
     except K.Blad:
         pass

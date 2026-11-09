@@ -432,7 +432,7 @@ function kSave(){try{localStorage.setItem(KK,JSON.stringify(KOSZ))}catch(e){}kBa
 function kBadge(){KOSZ=kLs(KK,[]);const n=KOSZ.reduce((a,x)=>a+x.ilosc,0),b=$('#kBadge');if(b){b.textContent=n;b.style.display=n?'':'none'}}
 function kDodaj(id,il,nazwa){KOSZ=kLs(KK,[]);const x=KOSZ.find(k=>k.id===id);if(x)x.ilosc=il;else KOSZ.push({id,ilosc:il,nazwa});kSave();msg('#qMsg','Dodano do koszyka: '+nazwa+' – '+il+' szt.')}
 function kWyczysc(){if(!confirm('Usunąć wszystkie opony z koszyka?'))return;KOSZ=[];kSave();kDraw()}
-async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;kdlg.showModal();kDraw();kAdresy();kOdswiez()}
+async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.showModal();kDraw();kAdresy();kOdswiez()}
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
  catch(e){$('#kCzas').textContent='';msg('#kMsg',e.message,1)}kDraw()}
