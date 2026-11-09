@@ -515,7 +515,20 @@ def parse_quick(txt):
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
     pojazdy = [{"rej": "", "pojazd": "", "rozmiar": s, "ilosc": ilosc, "nowe": True, "wymiana": wymiana, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]} for s in sizes]
     demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
-    return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki))}
+    nosnosc, predkosc = indeks_z_tekstu(t)
+    return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki)),
+            "nosnosc": nosnosc, "predkosc": predkosc}
+
+
+INDEKS_Q = re.compile(r"(?<![\d/.,])(\d{2,3})(?:/\d{2,3})?\s?([lmnpqrstuhvwyz])(?![a-ząćęłńóśźż0-9])")
+
+
+def indeks_z_tekstu(t):
+    """'91w' / '94 v' -> (91, 'W') – nośność i prędkość z szybkiego polecenia (rozmiar wcześniej wycięty)."""
+    m = INDEKS_Q.search(SIZE_LOOSE.sub(" ", t.lower()))
+    if not m or not 50 <= int(m.group(1)) <= 130:
+        return 0, ""
+    return int(m.group(1)), m.group(2).upper()
 
 def do_search(cfg, req):
     sizes = sorted({norm_size(v["rozmiar"]) for v in req["pojazdy"] if v.get("nowe") and norm_size(v["rozmiar"])})
@@ -1375,7 +1388,7 @@ def handle(path, body=None, open_path=None):
             OSTATNIA.clear(); OSTATNIA.update(req=body, rows=rows)
             if not rows:
                 return 400, {"error": "Brak wybranych opon."}
-            path_x = write_xlsx(cfg, body, rows, variants)
+            path_x = ""   # arkusz Excel z ofertą – wyłączony (decyzja właściciela 2026-11-09); oferta = PDF + historia w bazie
             summ = [{"wariant": vlabel(variants, (s, k)), "modele": v["modele"], "opony": round(v["opony"], 2),
                      "wymiana": round(v["wymiana"], 2), "tpms": round(v["tpms_kw"], 2), "przech": round(v["przech_kw"], 2),
                      "razem": round(total(v), 2)} for (s, k), v in sorted(variants.items(), key=lambda kv: vkey(kv[0]))]

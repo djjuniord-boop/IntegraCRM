@@ -402,7 +402,13 @@
     const runflat = /run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b/.test(t);
     const pojazdy = sizes.map((s) => ({ rej: "", pojazd: "", rozmiar: s, ilosc, nowe: true, wymiana: ex.wymiana, typ: ex.typ, tpms: ex.tpms, przech: ex.przech }));
     const demo = /bez\s+demo/.test(t) ? "bez" : /\bdemo\b/.test(t) ? "tylko" : "";
-    return { demo, pojazdy, sezony, klasy, runflat, producenci: marki.join(", ") };
+    const [nosnosc, predkosc] = S.indeks_z_tekstu(t);
+    return { demo, pojazdy, sezony, klasy, runflat, producenci: marki.join(", "), nosnosc, predkosc };
+  };
+  S.indeks_z_tekstu = function (t) {   // '91w' / '94 v' -> [91, "W"] (jak indeks_z_tekstu w silnik.py)
+    const m = /(?<![\d/.,])(\d{2,3})(?:\/\d{2,3})?\s?([lmnpqrstuhvwyz])(?![a-ząćęłńóśźż0-9])/.exec(t.toLowerCase().replace(sizeLoose(), " "));
+    if (!m || +m[1] < 50 || +m[1] > 130) return [0, ""];
+    return [+m[1], m[2].toUpperCase()];
   };
 
   // ------------------------------------------------------------ wyszukiwanie

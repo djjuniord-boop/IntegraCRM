@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.25.4"
+VERSION = "0.25.5"
 RELEASED = "2026-11-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.25.5",
+        "date": "2026-11-09",
+        "changes": [
+            "Oferty opon – szybkie polecenie rozumie indeks nośności i prędkości (np. „91w”, „94 V”) i od razu ustawia filtry „Nośność min.” i „Prędkość min.”",
+            "Oferty opon: program nie tworzy już arkusza Excel z ofertą – oferta to PDF i wpis w historii",
+            "Aplikacja: filtry „Prędkość min.” i „Nośność min.”",
+        ],
+    },
     {
         "version": "0.25.4",
         "date": "2026-11-09",

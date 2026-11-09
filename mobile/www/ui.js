@@ -1,7 +1,8 @@
 // Oferty opon – ekran telefonu. Logika jak w Panelu (app/oferty/index.html), silnik w silnik.js (Silnik.handle).
 const $ = (s) => document.querySelector(s);
 let CFG = {}, RES = null, VEH = [], SEL = new Set(), PAGE = {}, SORT = "", OID = null, ORABAT = "", CENY = {}, ULS = [], OSOBNO = null, ORABW = "", CENYW = {}, WYMS = [];
-const F = { wet: "", rr: "", noise: "", hom: "", demo: "", txt: "" };
+const F = { wet: "", rr: "", noise: "", hom: "", demo: "", txt: "", spd: "", li: "" };
+const SPD = "LMNPQRSTUHVWYZ", spdI = (s) => SPD.indexOf(String(s || "").replace(/R$/, "").slice(-1));
 const PER = 20;
 const zl = (x) => (+x || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -98,7 +99,7 @@ async function quick() {
     const j = await api("/api/quick", { text: $("#quick").value });
     if (!j.pojazdy.length) throw new Error("Nie rozpoznałem rozmiaru opony (np. 205/55 R16).");
     VEH = []; j.pojazdy.forEach(addVeh); drawVeh();
-    setChips("sez", j.sezony); setChips("kl", j.klasy); $("#rf").checked = j.runflat; setProd(j.producenci); F.demo = j.demo || "";
+    setChips("sez", j.sezony); setChips("kl", j.klasy); $("#rf").checked = j.runflat; setProd(j.producenci); F.demo = j.demo || ""; F.li = j.nosnosc ? String(j.nosnosc) : ""; F.spd = j.predkosc || "";
     msg("#qMsg", ""); await search();
   } catch (e) { msg("#qMsg", e.message, 1); }
   b.disabled = false;
@@ -137,7 +138,7 @@ function sorted(l) { if (!SORT) return l; const d = SORT[0] === "-" ? -1 : 1, k 
 function filt(l) {
   const n = +F.noise || 0, t = F.txt.trim().toUpperCase();
   return l.filter((p) => (!F.wet || (p.mokra && p.mokra <= F.wet)) && (!F.rr || (p.opory && p.opory <= F.rr)) && (!n || (p.halas && p.halas <= n)) && (!F.hom || p.homol.includes(F.hom)) &&
-    (!F.demo || (F.demo === "tylko") === !!p.demo) && (!t || (p.nazwa + " " + p.model + " " + p.indeks + " " + p.id).toUpperCase().includes(t)));
+    (!F.demo || (F.demo === "tylko") === !!p.demo) && (!F.spd || spdI(p.predkosc) >= spdI(F.spd)) && (!F.li || p.nosnosc >= +F.li) && (!t || (p.nazwa + " " + p.model + " " + p.indeks + " " + p.id).toUpperCase().includes(t)));
 }
 function render() {
   if (!RES) return;
@@ -208,6 +209,8 @@ function openFil() {
     <label class="fld">Opory toczenia<select id="f_rr">${abc(F.rr)}</select></label>
     <label class="fld">Hałas maks. (dB)<input id="f_noise" type="number" inputmode="numeric" value="${esc(F.noise)}"></label>
     <label class="fld">Homologacja<select id="f_hom">${o("", "dowolna", F.hom)}${[...have].map((h) => o(h, HOM[h] || h, F.hom)).join("")}</select></label></div>
+    <div class="row2"><label class="fld">Prędkość min.<select id="f_spd">${o("", "dowolna", F.spd)}${[...SPD].map((x) => o(x, x + " i wyżej", F.spd)).join("")}</select></label>
+    <label class="fld">Nośność min.<input id="f_li" type="number" inputmode="numeric" placeholder="np. 91" value="${esc(F.li)}"></label></div>
     <label class="fld">Opony DEMO<select id="f_demo">${o("", "wszystkie", F.demo)}${o("bez", "bez DEMO", F.demo)}${o("tylko", "tylko DEMO", F.demo)}</select></label>
     <div class="row" style="margin-top:14px"><button class="btn sec grow" onclick="for(const k in F)F[k]='';PAGE={};render();closeSheet()">Wyczyść</button><button class="btn grow" onclick="applyFil()">Pokaż</button></div>`);
 }

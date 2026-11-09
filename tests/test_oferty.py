@@ -87,7 +87,7 @@ def test_oferta_ceny_wymiana_uslugi_historia():
     w = res["warianty"][0]
     # 344,10 × 1,05 × 1,23 = 444,41 → 445 zł; rabat 10% → 400,50 → 401 zł; 2 szt.; wymiana 2 × 44; TPMS 4 × 150; przechowalnia 120
     assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (802.0, 88.0, 600.0, 120.0)
-    assert os.path.exists(res["plik"]) and "Test" in res["email"]
+    assert res["plik"] == "" and "Test" in res["email"]          # bez arkusza Excel (decyzja właściciela 2026-11-09)
     assert S.HIST.get("20261105_120000")["klient"] == "Test"
     code, lst = S.handle("/api/history?q=")
     assert code == 200 and lst["lista"][0]["klient"] == "Test" and lst["lista"][0]["kto"] == "Jan"
@@ -144,7 +144,7 @@ def test_demo_i_indeks_xpartner():
     code, res = S.handle("/api/offer", req)
     assert code == 200 and "DEMO" in res["email"]
     from openpyxl import load_workbook
-    ws = load_workbook(res["plik"]).active
+    ws = load_workbook(S.write_xlsx(S.load_cfg(), req, *S.build_offer(S.load_cfg(), req)[:2])).active   # funkcja zostaje (wyłączona w ofercie)
     assert ws.cell(4, 7).value == "Indeks xPartner" and ws.cell(5, 7).value == 5 and ws.cell(5, 11).value == "=I5*J5"
 
 
@@ -191,10 +191,8 @@ def test_xlsx_bez_wstrzykiwania_formul():
     _setup()
     req = {"oid": "2", "klient": "=HYPERLINK(\"http://zly\")", "pojazdy": [{"rej": "=1+1", "pojazd": "@SUM(A1)", "rozmiar": "205/55 R16",
            "ilosc": 4, "nowe": True}], "wybor": {"205/55 R16": {"wszystkie": [1]}}}
-    code, res = S.handle("/api/offer", req)
-    assert code == 200
     from openpyxl import load_workbook
-    ws = load_workbook(res["plik"]).active
+    ws = load_workbook(S.write_xlsx(S.load_cfg(), req, *S.build_offer(S.load_cfg(), req)[:2])).active
     assert ws.cell(5, 1).value == " =1+1" and ws.cell(5, 2).value == " @SUM(A1)"
     assert str(ws.cell(5, 11).value).startswith("=I5*J5")
 
@@ -467,3 +465,12 @@ def test_szukaj_bez_opon_ze_zbyt_malym_stanem():
     lst = list(r["wyniki"]["225/45 R17"].values())[0]
     assert sorted(p["id"] for p in lst) == [2, 3]
     assert [p["ok_stan"] for p in sorted(lst, key=lambda p: p["id"])] == [False, False]   # poniżej min. stanu 50 – szare, ale widoczne
+
+
+
+def test_szybkie_polecenie_nosnosc_predkosc():
+    for txt, wynik in (("2254517 lato 91w 2szt", (91, "W")), ("205/55 R16 94 V zimowe", (94, "V")), ("225/45r17 91/88y", (91, "Y")),
+                       ("2254517 lato 2szt", (0, "")), ("205/55 r 16 4 szt", (0, "")), ("2055516 8 szt", (0, ""))):
+        q = S.parse_quick(txt)
+        assert (q["nosnosc"], q["predkosc"]) == wynik, (txt, q["nosnosc"], q["predkosc"])
+    assert S.parse_quick("2254517 lato 91w 2szt")["pojazdy"][0]["ilosc"] == 2
