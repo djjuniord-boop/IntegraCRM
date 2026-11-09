@@ -356,10 +356,11 @@ async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświ
  ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();
  $('#email').value=j.email;drawEdit();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
-let OODD='',HSNAP=null,HDATA='';
+let OODD=(()=>{try{return localStorage.getItem('oferty_oddzial')||''}catch(e){return ''}})(),HSNAP=null,HDATA='';
+function setOdd(v){OODD=v;try{localStorage.setItem('oferty_oddzial',v)}catch(e){}}
 function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';
  $('#ul').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">jeden model opony · każda usługa osobno · dane Twojego oddziału</span>'+
- (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="OODD=this.value" style="width:auto">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
+ (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="setOdd(this.value)" style="width:auto" title="Zapamiętany na tym komputerze – do kolejnej zmiany">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
  '<br>'+(ULS.length>1?`<button class="ulk" style="border-color:var(--red);font-weight:700" onclick="pdfOferta(this,1)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>`:'')+ULS.map(u=>`<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></button>`).join('')+
  (ULS.length>=2&&ULS.length<=3?`<button class="ulk" onclick="pdfOferta(this,2)" title="Wszystkie modele obok siebie na jednej stronie + co daje lepsza etykieta UE">⚖ Porównanie ${ULS.length} opon (1 strona)</button>`:'')+
  `<div style="margin-top:8px"><button onclick="linkKlient(this)" title="Strona z ofertą dla klienta – wybiera model i klika „Akceptuję”">🔗 Link dla klienta (SMS / e-mail)</button><span id="linkBox"></span></div>`+

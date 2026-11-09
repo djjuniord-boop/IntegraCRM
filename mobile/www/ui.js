@@ -238,11 +238,12 @@ async function offer(quiet) {
   } catch (e) { msg("#oMsg", e.message, 1); $("#outCard").hidden = false; }
   b.disabled = false;
 }
-let OODD = "", HSNAP = null, HDATA = "";
+let OODD = (() => { try { return localStorage.getItem("oferty_oddzial") || ""; } catch (e) { return ""; } })(), HSNAP = null, HDATA = "";
+function setOdd(v) { OODD = v; try { localStorage.setItem("oferty_oddzial", v); } catch (e) {} }
 function drawUl() {
   const od = CFG.oddzialy || []; if (!od.includes(OODD)) OODD = od[0] || "";
   $("#ul").innerHTML = '<div class="lbl">PDF oferty dla klienta – jeden model opony, każda usługa osobno</div>' +
-    (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="OODD=this.value">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
+    (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="setOdd(this.value)">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
     (od.length ? "" : '<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora.</div>') +
     (ULS.length > 1 ? `<button class="btn wide" style="margin-top:6px" onclick="pdfOferta(this, true)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>` : "") +
     ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
