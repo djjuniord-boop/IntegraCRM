@@ -363,7 +363,7 @@ function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||''
  (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="setOdd(this.value)" style="width:auto" title="Zapamiętany na tym komputerze – do kolejnej zmiany">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
  '<br>'+(ULS.length>1?`<button class="ulk" style="border-color:var(--red);font-weight:700" onclick="pdfOferta(this,1)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>`:'')+ULS.map(u=>`<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)">📄 ${esc(u.nazwa)} <span>${zl(u.cena)}</span></button>`).join('')+
  (ULS.length>=2&&ULS.length<=3?`<button class="ulk" onclick="pdfOferta(this,2)" title="Wszystkie modele obok siebie na jednej stronie + co daje lepsza etykieta UE">⚖ Porównanie ${ULS.length} opon (1 strona)</button>`:'')+
- `<div style="margin-top:8px"><button onclick="linkKlient(this)" title="Strona z ofertą dla klienta – wybiera model i klika „Akceptuję”">🔗 Link dla klienta (SMS / e-mail)</button><span id="linkBox"></span></div>`+
+
  (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')+
 ''}
 async function linkKlient(b){b.disabled=true;$('#linkBox').innerHTML=' <span class="muted">Tworzę link…</span>';try{const j=await api('/api/link',{oddzial:OODD});

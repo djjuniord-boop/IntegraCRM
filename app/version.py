@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.25.2"
-RELEASED = "2026-11-08"
+VERSION = "0.25.3"
+RELEASED = "2026-11-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -12,28 +12,14 @@ STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz3
 
 CHANGELOG = [
     {
-        "version": "0.25.2",
+        "version": "0.25.3",
         "date": "2026-11-09",
         "changes": [
-            "BETA – Oferty opon: wybrany „Oddział na PDF” zostaje zapamiętany na tym komputerze (i w telefonie) do kolejnej zmiany",
-        ],
-    },
-    {
-        "version": "0.25.1",
-        "date": "2026-11-08",
-        "changes": [
-            "BETA – PDF oferty: rabat widoczny w każdym wierszu kalkulacji – cena za sztukę przed rabatem, % rabatu, cena za sztukę po rabacie i wartość (opony i wymiana)",
-            "BETA – PDF oferty: w ramce ceny przekreślona cena przed rabatem; pod sumą „W tym oszczędzasz dzięki rabatowi”",
-        ],
-    },
-    {
-        "version": "0.25.0",
-        "date": "2026-11-08",
-        "changes": [
-            "BETA – Oferty opon: link dla klienta (SMS/e-mail) – klient ogląda ofertę na telefonie, wybiera model i klika „Akceptuję”; odpowiedź widać w Historii",
-            "BETA – Historia ofert: statusy (nowa / wysłana / przyjęta / odrzucona / zamówiona), „📞 oddzwoń” po 2 dniach bez odpowiedzi, licznik przy przycisku Historia, % przyjętych ofert",
-            "BETA – Oferta otwarta z historii pokazuje, co się zmieniło w xPartner od jej zapisania (cena, stan, brak opony)",
-            "BETA – PDF „Porównanie” 2–3 opon na jednej stronie (ekonomiczna / polecana / premium) z tym, co daje lepsza etykieta UE (droga hamowania, paliwo, hałas)",
+            "PDF oferty: rabat widoczny w każdym wierszu kalkulacji – cena za sztukę przed rabatem, % rabatu, cena po rabacie i wartość (opony i wymiana); w ramce przekreślona cena przed rabatem; „W tym oszczędzasz dzięki rabatowi”",
+            "PDF „⚖ Porównanie” 2–3 opon na jednej stronie (ekonomiczna / polecana / premium) z tym, co daje lepsza etykieta UE",
+            "Historia ofert: status oferty (nowa / wysłana / przyjęta / odrzucona / zamówiona), „📞 oddzwoń” 2 dni po wysłaniu, licznik przy przycisku Historia, % przyjętych ofert",
+            "Oferta otwarta z historii pokazuje, co się zmieniło w xPartner od jej zapisania (cena, stan, brak opony)",
+            "Wybrany „Oddział na PDF” zostaje zapamiętany do kolejnej zmiany",
         ],
     },
     {

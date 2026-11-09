@@ -247,8 +247,7 @@ function drawUl() {
     (od.length ? "" : '<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora.</div>') +
     (ULS.length > 1 ? `<button class="btn wide" style="margin-top:6px" onclick="pdfOferta(this, true)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>` : "") +
     ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
-    (ULS.length >= 2 && ULS.length <= 3 ? `<button class="btn sec wide" style="margin-top:6px" onclick="pdfOferta(this, 2)">⚖ Porównanie ${ULS.length} opon (1 strona)</button>` : "") +
-    `<button class="btn wide" style="margin-top:10px" onclick="linkKlient(this)">🔗 Link dla klienta (SMS)</button><div id="linkBox"></div>`;
+    (ULS.length >= 2 && ULS.length <= 3 ? `<button class="btn sec wide" style="margin-top:6px" onclick="pdfOferta(this, 2)">⚖ Porównanie ${ULS.length} opon (1 strona)</button>` : "");
 }
 async function linkKlient(b) {
   b.disabled = true; $("#linkBox").innerHTML = '<p class="muted small">Tworzę link…</p>';
