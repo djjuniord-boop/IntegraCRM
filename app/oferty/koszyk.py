@@ -57,7 +57,9 @@ def adresy(cfg, oddzialy=None):
     """Miejsca dostawy z konta; tylko Wrocław (decyzja właściciela) – gdy brak dopasowania, wszystkie."""
     lst = czytaj_adresy(Z.api_xml(cfg, "getDeliveryData"))
     wro = [a for a in lst if "WROC" in Z._norm(a["city"] + " " + a["name"]).upper()]
-    return wro or lst
+    if not wro:
+        raise Blad("Brak adresu LATEX SERWIS WROCŁAW na koncie xPartner – zamawianie wstrzymane, zgłoś administratorowi.")
+    return wro
 
 
 # ---------------------------------------------------------------- odświeżenie cen i stanów (getProduct)
@@ -76,7 +78,7 @@ def odswiez(cfg, pozycje, get_product):
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
                 "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,
-                "blad": "" if il <= stan else "W xPartner jest tylko %d szt." % stan}
+                "blad": "Maks. %d szt. jednej opony" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 
@@ -93,8 +95,10 @@ def sprawdz_adres(a):
         v = re.sub(r"\s+", " ", str(a.get(k) or "")).strip()
         if k == "country":
             v = (v or "PL").upper()
-        if k == "zipCode":
-            v = re.sub(r"[^0-9-]", "", v)
+        if k == "zipCode":   # format z przykładu dokumentacji: same cyfry (64100)
+            v = re.sub(r"\D", "", v)
+            if len(v) != 5:
+                raise Blad("Adres jednorazowy: kod pocztowy musi mieć 5 cyfr (np. 50-425).")
         if not mn <= len(v) <= mx:
             nazwy = {"name": "Nazwa", "street": "Ulica i numer", "zipCode": "Kod pocztowy", "city": "Miasto", "country": "Kraj",
                      "vatin": "NIP", "email": "E-mail", "phone": "Telefon", "receivingPerson": "Osoba odbierająca"}
@@ -134,9 +138,10 @@ def czytaj_wynik(dane):
     bledy = [(e.text or "").strip() for e in Z._wszystkie(Z._dz(root, "errors"), "error") if (e.text or "").strip()]
     zam = [{"nr": Z._t(o, "orderXP") or Z._t(o, "orderXp") or Z._t(o, "orderNo"), "magazyn": Z._t(o, "warehouseName"),
             "nr_zew": Z._t(o, "extOrderNumber")} for o in Z._wszystkie(Z._dz(root, "orders"), "order")]
-    if not ok or not zam:
-        raise Blad("xPartner nie przyjął zamówienia: " + ("; ".join(bledy) or "brak szczegółów"))
-    return zam
+    if zam:   # także częściowy sukces (podział na magazyny) – numery zawsze pokazujemy, błędy jako ostrzeżenie
+        return zam, ([] if ok else ["xPartner zgłosił problem – sprawdź zamówienia w xPartner."]) + bledy
+    raise Blad("xPartner nie przyjął zamówienia: " + ("; ".join(bledy) or "brak szczegółów")
+               + ". Zanim zamówisz ponownie, sprawdź w xPartner, czy zamówienie nie powstało.")
 
 
 def wyslij(cfg, xml_txt, timeout=60):
@@ -149,5 +154,5 @@ def wyslij(cfg, xml_txt, timeout=60):
         with urllib.request.urlopen(req, timeout=timeout) as r:
             return r.read()
     except Exception as e:   # bez treści błędu (adres z loginem)
-        raise Blad("Brak odpowiedzi xPartner (%s) – sprawdź w „Zamówieniach”, czy zamówienie powstało, zanim zamówisz ponownie."
+        raise Blad("Brak odpowiedzi xPartner (%s) – sprawdź w xPartner („📦 Zamówienia”), czy zamówienie powstało, zanim zamówisz ponownie."
                    % e.__class__.__name__)

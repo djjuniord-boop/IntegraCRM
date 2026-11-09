@@ -1291,14 +1291,14 @@ def koszyk_route(route, body, cfg):
                 spr = [p for p in K.odswiez(cfg, body.get("pozycje") or [], get_product) if not p["ok"]]
                 if spr:   # zalecenie xPartner: stany sprawdzone tuż przed zamówieniem
                     return 409, {"error": "Zmieniły się stany w xPartner – popraw koszyk.", "pozycje_zle": spr}
-                zam = K.czytaj_wynik(K.wyslij(cfg, xml_txt))
+                zam, uwagi = K.czytaj_wynik(K.wyslij(cfg, xml_txt))
             finally:
                 ZAMAWIAM.release()
             nr = ", ".join(z["nr"] for z in zam)
             if KONTO.get("dziennik"):
                 KONTO["dziennik"]("zamówienie", nr, {"numer": body.get("numer") or "", "pozycje": body.get("pozycje"),
                                                      "dostawa": body.get("adres_opis") or "", "kto": KONTO.get("kto") or ""})
-            return 200, {"zamowienia": zam}
+            return 200, {"zamowienia": zam, "uwagi": uwagi}
     except K.Blad as e:
         return 400, {"error": str(e)}
     except Exception as e:   # błąd xPartner (zamowienia.Blad) – bez treści innych błędów (adres z loginem)

@@ -426,7 +426,7 @@ async function saveCfg(){const c={};for(const k of['podpis'])c[k]=$('#c_'+k).val
 async function testApi(){await saveCfg();msg('#cMsg','Łączę…');try{const j=await api('/api/test',{});msg('#cMsg',j.msg)}catch(e){msg('#cMsg',e.message,1)}}
 
 // ---------------------------------------------------------------- KOSZYK xPartner (zamawianie; uprawnienie „Zamawianie w xPartner”)
-const KK='oferty_koszyk',KA='oferty_adresy_jedn';let KOSZ=[],KDANE={},KADR=null,KWYB='',KSENT=false;
+const KN='oferty_koszyk_niepewne',KK='oferty_koszyk',KA='oferty_adresy_jedn';let KOSZ=[],KDANE={},KADR=null,KWYB='',KSENT=false;
 function kLs(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
 function kSave(){try{localStorage.setItem(KK,JSON.stringify(KOSZ))}catch(e){}kBadge()}
 function kBadge(){KOSZ=kLs(KK,[]);const n=KOSZ.reduce((a,x)=>a+x.ilosc,0),b=$('#kBadge');if(b){b.textContent=n;b.style.display=n?'':'none'}}
@@ -465,9 +465,11 @@ function kDane(){if(!KADR||!KADR.length)throw new Error('Brak adresu z konta xPa
  if(KWYB==='nowy'){a={};for(const k of NA)a[k]=$('#na_'+k).value.trim();a.country='PL';if(!a.name||!a.street||!a.zipCode||!a.city)throw new Error('Uzupełnij nowy adres: nazwa, ulica, kod i miasto są wymagane.')}
  else if(KWYB[0]==='j')a=kLs(KA,[])[+KWYB.slice(1)];
  if(a){d.nowy_adres=Object.assign({},a,{country:'PL'});d.adres_opis=a.name+', '+a.street+', '+a.zipCode+' '+a.city+' (jednorazowy)'}else d.adres_opis=baza.name+', '+baza.street+', '+baza.city;return d}
-function kPotw(){msg('#kMsg','');try{if(!KOSZ.length)throw new Error('Koszyk jest pusty.');if(KOSZ.some(k=>!KDANE[k.id]))throw new Error('Poczekaj na sprawdzenie cen i stanów w xPartner (↻).');
+function kNiep(){try{const n=JSON.parse(localStorage.getItem(KN));return n}catch(e){return null}}
+function kNiepZdejmij(){if(!confirm('Na pewno sprawdziłeś w xPartner, że poprzednie zamówienie NIE powstało?'))return;try{localStorage.removeItem(KN)}catch(e){}msg('#kMsg','')}
+function kPotw(){msg('#kMsg','');const ni=kNiep();if(ni){$('#kMsg').innerHTML=`<div class="msg e">⚠ Poprzednie wysłanie (${esc(ni.czas)}, nr własny ${esc(ni.numer)}) zakończyło się niepewnym błędem – zamówienie mogło powstać. Sprawdź w xPartner („📦 Zamówienia”), zanim zamówisz ponownie. <button class="sec" onclick="kNiepZdejmij()">Sprawdziłem – nie powstało</button></div>`;return}try{if(!KOSZ.length)throw new Error('Koszyk jest pusty.');if(KOSZ.some(k=>!KDANE[k.id]))throw new Error('Poczekaj na sprawdzenie cen i stanów w xPartner (↻).');
  const zle=KOSZ.filter(k=>!KDANE[k.id].ok);if(zle.length)throw new Error('Popraw pozycje oznaczone na czerwono – w xPartner brakuje opon albo opona jest niedostępna.');
- const d=kDane(),s=kSumy();window._kD=d;
+ const d=kDane(),s=kSumy();if(!d.numer){const t=new Date(),p2=x=>String(x).padStart(2,'0');d.numer='PNL-'+String(t.getFullYear()).slice(2)+p2(t.getMonth()+1)+p2(t.getDate())+'-'+p2(t.getHours())+p2(t.getMinutes())+p2(t.getSeconds())}window._kD=d;
  $('#kpB').innerHTML=`<p style="margin:0 0 8px">Wysyłasz do xPartner <b>prawdziwe zamówienie</b>:</p><table>${KOSZ.map(k=>`<tr><td>${esc(KDANE[k.id].nazwa||k.nazwa)}</td><td class="num">${k.ilosc} szt.</td><td class="num">${zl(KDANE[k.id].brutto*k.ilosc)}</td></tr>`).join('')}</table>
  <div class="ksum"><div><small>Dostawa</small><b style="font-size:13px">${esc(d.adres_opis)}</b></div><div class="k"><small>Szacunkowo brutto*</small><b>${zl(s.br)}</b></div></div>
  <div class="muted" style="font-size:12px;margin-top:8px">Faktura VAT, przelew${d.numer?' · numer własny '+esc(d.numer):''}${d.opis?' · na fakturze: '+esc(d.opis):''}${d.uwagi?'<br>Uwagi dla operatora: '+esc(d.uwagi):''}<br>* ceny sprawdzone w xPartner przed chwilą; ostateczne ustala xPartner na fakturze.</div>`;
@@ -476,9 +478,9 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
  try{const r=await api('/api/koszyk/zamow',d);KSENT=true;
   if(KWYB==='nowy'&&$('#naZap').checked){const j=kLs(KA,[]);j.unshift(d.nowy_adres);try{localStorage.setItem(KA,JSON.stringify(j.slice(0,30)))}catch(e){}for(const k of NA)$('#na_'+k).value=''}
   KOSZ=[];KDANE={};kSave();kDraw();KWYB='';kAdresy();$('#kNr').value=$('#kOpis').value=$('#kUw').value='';
-  $('#kpB').innerHTML=`<div class="msg i" style="font-size:15px">✔ xPartner przyjął zamówienie.</div><table>${r.zamowienia.map(z=>`<tr><td>Numer <b>${esc(z.nr)}</b></td><td>${esc(z.magazyn)}</td></tr>`).join('')}</table><p class="muted" style="font-size:12px">${r.zamowienia.length>1?'xPartner podzielił zamówienie na kilka (różne magazyny). ':''}Zamówienia zobaczysz w „📦 Zamówienia”.</p>`;
+  $('#kpB').innerHTML=`<div class="msg i" style="font-size:15px">✔ xPartner przyjął zamówienie.</div><table>${r.zamowienia.map(z=>`<tr><td>Numer <b>${esc(z.nr)}</b></td><td>${esc(z.magazyn)}</td></tr>`).join('')}</table>${(r.uwagi||[]).map(u=>`<div class="msg e">${esc(u)}</div>`).join('')}<p class="muted" style="font-size:12px">${r.zamowienia.length>1?'xPartner podzielił zamówienie na kilka (różne magazyny). ':''}Zamówienia zobaczysz w „📦 Zamówienia”.</p>`;
   $('#kpF').innerHTML='<button style="margin-left:auto" onclick="kpdlg.close();kdlg.close()">Zamknij</button>'}
- catch(e){const nie=/sprawdź w|Nieprawidłowa odpowiedź/.test(e.message);b.disabled=nie;b.textContent=nie?'Najpierw sprawdź „📦 Zamówienia”':'✔ Spróbuj ponownie';$('#kpB').insertAdjacentHTML('afterbegin',`<div class="msg e">${esc(e.message)}</div>`);if(/stany/.test(e.message)){kpdlg.close();kOdswiez()}}}
+ catch(e){const nie=/sprawdź w|Nieprawidłowa odpowiedź/i.test(e.message);if(nie)try{localStorage.setItem(KN,JSON.stringify({czas:new Date().toLocaleString('pl-PL'),numer:d.numer}))}catch(x){}b.disabled=nie;b.textContent=nie?'Najpierw sprawdź „📦 Zamówienia”':'✔ Spróbuj ponownie';$('#kpB').insertAdjacentHTML('afterbegin',`<div class="msg e">${esc(e.message)}</div>`);if(/stany/.test(e.message)){kpdlg.close();kOdswiez()}}}
 
 loadCfg();addRow();
 </script></body></html>

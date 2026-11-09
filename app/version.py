@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.25.6"
+VERSION = "0.25.7"
 RELEASED = "2026-11-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.25.7",
+        "date": "2026-11-09",
+        "changes": [
+            "Oferty opon: koszyk xPartner – przycisk 🛒 przy oponie, ilości, ceny zakupu i stany sprawdzane na żywo, dostawa na LATEX SERWIS WROCŁAW albo adres jednorazowy (zapamiętywany), numer własny i opis na fakturę, potwierdzenie z kwotą; zawsze faktura VAT i przelew",
+            "Nowe uprawnienie „Zamawianie w xPartner (koszyk)” – nadaje administrator w UŻYTKOWNICY",
+        ],
+    },
     {
         "version": "0.25.6",
         "date": "2026-11-09",

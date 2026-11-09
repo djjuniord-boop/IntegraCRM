@@ -35,7 +35,7 @@ def test_order_nowy_adres_jednorazowy():
     r = ET.fromstring(x)
     n = r.find("newDeliveryPlace")
     assert [c.tag for c in n] == ["recipientId", "name", "street", "zipCode", "city", "country", "vatin", "email", "phone", "receivingPerson"]
-    assert n.findtext("recipientId") == "8588" and n.findtext("country") == "PL" and n.findtext("zipCode") == "64-100"
+    assert n.findtext("recipientId") == "8588" and n.findtext("country") == "PL" and n.findtext("zipCode") == "64100"
     assert r.findtext("deliveryPlaceId") == "9063"   # wymagane także przy adresie jednorazowym
     assert [c.tag for c in r][-2:] == ["newDeliveryPlace", "products"]
 
@@ -82,7 +82,8 @@ def test_wynik_kilka_zamowien_i_bledy():
     ok = (b"<response><success>true</success><orders><order><orderNo>1</orderNo><warehouseName>Ruda</warehouseName><orderXP>XP/1</orderXP>"
           b"<extOrderNumber>A</extOrderNumber></order><order><orderNo>2</orderNo><warehouseName>Opole</warehouseName><orderXP>XP/2</orderXP>"
           b"</order></orders><errors/></response>")
-    z = K.czytaj_wynik(ok)
+    z, uw = K.czytaj_wynik(ok)
+    assert uw == []
     assert [x["nr"] for x in z] == ["XP/1", "XP/2"] and z[1]["magazyn"] == "Opole"
     zle = ("<response><success>false</success><errors><error>Wybrano nieodpowiednie miejsce dostawy.</error></errors></response>").encode()
     try:
@@ -105,6 +106,20 @@ def test_adresy_z_getDeliveryData_tylko_wroclaw():
     finally:
         Z.api_xml = stary
     assert len(a) == 1 and a[0]["recipientId"] == 10 and a[0]["deliveryPlaceId"] == 20
+    Z.api_xml = lambda cfg, m, **kw: Z.parsuj(xml.replace("Wrocław", "Opole").replace("WROCŁAW", "X").encode())
+    try:
+        K.adresy({})
+        assert False
+    except K.Blad:
+        pass
+    finally:
+        Z.api_xml = stary
+
+
+def test_czesciowy_sukces_to_nie_blad():
+    z, uw = K.czytaj_wynik(b"<response><success>false</success><orders><order><orderXP>XP/1</orderXP></order></orders>"
+                           b"<errors><error>Brak w magazynie B</error></errors></response>")
+    assert z[0]["nr"] == "XP/1" and "Brak w magazynie B" in uw
 
 
 def test_odswiez_stan_za_maly():
