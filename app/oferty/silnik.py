@@ -541,6 +541,7 @@ def do_search(cfg, req):
             if prod_f: lst = [p for p in lst if any(bkey(p["producent"]).startswith(x) for x in prod_f)]
             if klasa:
                 lst = [p for p in lst if p["klasa"] == klasa]
+            lst = [p for p in lst if p["ilosc"] >= need[s]]   # za mało sztuk na całą potrzebę – nie pokazujemy wcale
             for p in lst:
                 p["ok_stan"] = p["ilosc"] >= max(min_stan, need[s])
             lst.sort(key=lambda p: (not p["ok_stan"], p["netto"]))
