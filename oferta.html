@@ -34,6 +34,7 @@ footer{color:#999;font-size:12px;text-align:center;padding:20px}
 <footer>Latex Serwis · oferta przygotowana indywidualnie · ceny brutto z VAT</footer>
 <script src="config.js"></script>
 <script>
+const AKCEPT = false;   // akceptacja oferty przez klienta – wyłączona (decyzja właściciela 2026-11-09); strona tylko do podglądu
 const C = window.SERWIS_CFG || {}, T = (location.hash || "").replace(/^#/, "").trim();
 const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const $ = (s) => document.querySelector(s);
@@ -66,13 +67,13 @@ function rysuj() {
   const odp = ODP ? `<div class="card ok"><b>Dziękujemy – wybór zapisany.</b><br>Wybrano: <b>${esc(ODP.wybor)}</b>. Skontaktujemy się z Tobą, żeby umówić termin montażu.
       Możesz zmienić wybór poniżej.<div class="tel" style="margin-top:8px">${telefony()}</div></div>` : "";
   $("#m").innerHTML = `<h1>${D.klient ? "Oferta dla: " + esc(D.klient) : "Oferta na opony"}</h1>
-    <div class="sub">${esc(D.o_nazwa)}${D.kto ? " · przygotował(a): " + esc(D.kto) : ""}. ${D.modele.length > 1 ? "Wybierz jeden z modeli i kliknij „Akceptuję”." : "Sprawdź ofertę i kliknij „Akceptuję”."}</div>${odp}
+    <div class="sub">${esc(D.o_nazwa)}${D.kto ? " · przygotował(a): " + esc(D.kto) : ""}. ${AKCEPT ? (D.modele.length > 1 ? "Wybierz jeden z modeli i kliknij „Akceptuję”." : "Sprawdź ofertę i kliknij „Akceptuję”.") : "Zadzwoń, żeby zamówić albo umówić montaż."}</div>${odp}
     ${D.modele.map((m, i) => `<div class="card${WYB === i ? " sel" : ""}"><span class="tag">${esc(m.tag)}</span><div class="row"><div class="nm">${esc(m.tytul)}</div>
       <div class="pr"><small>1 szt. ${esc(m.cena_szt)}</small><small>komplet z usługami</small><b>${esc(m.brutto)}</b></div></div>
       ${(m.mokra || m.opory || m.halas) ? `<div class="eu">${m.mokra ? `<span>hamowanie na mokrym <b>${esc(m.mokra)}</b></span>` : ""}${m.opory ? `<span>opory toczenia <b>${esc(m.opory)}</b></span>` : ""}${m.halas ? `<span>hałas <b>${esc(m.halas)} dB</b></span>` : ""}</div>` : ""}
-      <div class="row" style="margin-top:10px"><button onclick="wybierz(${i})">${WYB === i ? "✓ Wybrany" : "Wybieram ten model"}</button><button class="sec" onclick="pokazPdf(${i},this)">Szczegóły i etykieta UE</button></div>
+      <div class="row" style="margin-top:10px">${AKCEPT ? `<button onclick="wybierz(${i})">${WYB === i ? "✓ Wybrany" : "Wybieram ten model"}</button>` : ""}<button class="sec" onclick="pokazPdf(${i},this)">Szczegóły i etykieta UE</button></div>
       <div class="pdf" id="pdf${i}" hidden></div></div>`).join("")}
-    <div class="card" id="akc" ${WYB === null ? "hidden" : ""}><form onsubmit="return akceptuj(event)">
+    <div class="card" id="akc" ${WYB === null || !AKCEPT ? "hidden" : ""}><form onsubmit="return akceptuj(event)">
       <div><b>Wybrany model:</b> <span id="wn"></span></div>
       <label>Telefon do kontaktu (opcjonalnie)<input id="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="np. 600 100 200"></label>
       <label>Uwagi, np. dogodny termin (opcjonalnie)<textarea id="uw" rows="2" maxlength="500"></textarea></label>
