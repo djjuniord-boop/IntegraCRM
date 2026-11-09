@@ -17,7 +17,8 @@ SESSION_FILE = paths.DATA_DIR / "sesja.json"
 
 MODULES = [("crm", "Kontrola CRM"), ("historia", "Historia"), ("statystyki", "Statystyki"), ("marza", "MARŻA"),
            ("wyniki", "Wyniki"), ("serwis", "SERWIS QR"), ("oferty", "Oferty opon"),
-           ("zamowienia", "Zamówienia xPartner (z Ofertami opon)")]
+           ("zamowienia", "Zamówienia xPartner (z Ofertami opon)"),
+           ("zamawianie", "Zamawianie w xPartner (koszyk)")]
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
 
 

@@ -7,6 +7,8 @@ import datetime
 import json
 import os
 import re
+import threading
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -1265,6 +1267,45 @@ def opis_pol(items):
         "TAK" if p.get("foto") else "brak", "TAK" if p.get("ean") else "brak", ", ".join(et) or "brak",
         ", ".join(p.get("pola") or []), ", ".join(sorted(p["attrs"]))))
 
+def moze_zamawiac():
+    return bool(KONTO.get("admin") or KONTO.get("zamawianie"))
+
+
+ZAMAWIAM = threading.Lock()   # jedno zamówienie naraz – drugi klik nie wyśle drugiego zamówienia
+
+
+def koszyk_route(route, body, cfg):
+    from oferty import koszyk as K
+    if not moze_zamawiac():
+        return 403, {"error": "Brak uprawnienia „Zamawianie w xPartner” – poproś administratora (UŻYTKOWNICY → Moduły)."}
+    try:
+        if route == "/api/koszyk/adresy":
+            return 200, {"adresy": K.adresy(cfg)}
+        if route == "/api/koszyk/odswiez":
+            return 200, {"pozycje": K.odswiez(cfg, body.get("pozycje") or [], get_product), "czas": time.strftime("%H:%M")}
+        if route == "/api/koszyk/zamow":
+            if not ZAMAWIAM.acquire(blocking=False):
+                return 409, {"error": "Zamówienie jest właśnie wysyłane – poczekaj na wynik."}
+            try:
+                xml_txt = K.order_xml(body)
+                spr = [p for p in K.odswiez(cfg, body.get("pozycje") or [], get_product) if not p["ok"]]
+                if spr:   # zalecenie xPartner: stany sprawdzone tuż przed zamówieniem
+                    return 409, {"error": "Zmieniły się stany w xPartner – popraw koszyk.", "pozycje_zle": spr}
+                zam = K.czytaj_wynik(K.wyslij(cfg, xml_txt))
+            finally:
+                ZAMAWIAM.release()
+            nr = ", ".join(z["nr"] for z in zam)
+            if KONTO.get("dziennik"):
+                KONTO["dziennik"]("zamówienie", nr, {"numer": body.get("numer") or "", "pozycje": body.get("pozycje"),
+                                                     "dostawa": body.get("adres_opis") or "", "kto": KONTO.get("kto") or ""})
+            return 200, {"zamowienia": zam}
+    except K.Blad as e:
+        return 400, {"error": str(e)}
+    except Exception as e:   # błąd xPartner (zamowienia.Blad) – bez treści innych błędów (adres z loginem)
+        return 502, {"error": str(e) if e.__class__.__name__ == "Blad" else "Brak odpowiedzi xPartner (%s)" % e.__class__.__name__}
+    return 404, {"error": "Nieznane polecenie"}
+
+
 def handle(path, body=None, open_path=None):
     """Polecenie strony -> (kod, odpowiedź). open_path(ścieżka) otwiera plik/folder w Windows."""
     u = urllib.parse.urlparse(path)
@@ -1273,6 +1314,8 @@ def handle(path, body=None, open_path=None):
     cfg = load_cfg()
     ucz_marki(cfg)
     try:
+        if route.startswith("/api/koszyk/"):
+            return koszyk_route(route, body or {}, cfg)
         if body is None:
             if route == "/api/cfg":
                 c = dict(cfg)
@@ -1281,6 +1324,7 @@ def handle(path, body=None, open_path=None):
                 c["password"] = ""
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
+                c["zamawianie"] = moze_zamawiac()
                 return 200, c
             if route in ("/api/zamowienia", "/api/zamkniete", "/api/faktury", "/api/faktura"):
                 if not (KONTO.get("admin") or KONTO.get("zamowienia")):

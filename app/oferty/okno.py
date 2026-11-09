@@ -185,7 +185,17 @@ def wczytaj_oddzialy(admin=False):
         dane = {}
     moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
     silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
-                        zamowienia="zamowienia" in (me.get("modules") or []))
+                        zamowienia="zamowienia" in (me.get("modules") or []),
+                        zamawianie="zamawianie" in (me.get("modules") or []), dziennik=dziennik)
+
+
+def dziennik(akcja, etykieta, szczegoly):
+    """Wpis do Dziennika zmian (np. wysłane zamówienie xPartner); błąd zapisu nie zatrzymuje pracy."""
+    try:
+        _db("POST", "/rest/v1/rpc/log_event", {"p_action": akcja, "p_entity": "zamówienie xPartner",
+                                               "p_label": str(etykieta)[:120], "p_detail": szczegoly})
+    except Exception:
+        pass
 
 
 def zapisz_oddzialy(dane: dict):

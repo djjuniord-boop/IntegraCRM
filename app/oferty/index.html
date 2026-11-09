@@ -41,6 +41,12 @@ body.hidebuy .buy{display:none}
 .zk td,.zk th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.zk .n{text-align:right;white-space:nowrap}
 .st{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:9px;background:#EEF3FF;color:#1d4f9c}.st.s5{background:#fde8e8;color:#b00012}.st.s6{background:#e9f5ec;color:#145a26}
 button.zt.on{background:var(--navy);color:#fff;border-color:var(--navy)}.fr{cursor:pointer}.fr:hover td{background:#fafafa}
+.kcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.kbox{border:1px solid var(--line);border-radius:10px;padding:10px 14px}.kbox h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
+.kbox label{display:block;margin:6px 0;font-size:13px}.kbox input:not([type]),.kbox textarea{width:100%;box-sizing:border-box}.kadr{border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:4px 0;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
+.kadr.on{border-color:var(--navy);background:#f6f7fb}.kadr.nowy{display:block;border-style:dashed}.kform{display:none;grid-template-columns:2fr 1fr;gap:6px;margin-top:6px}.kadr.nowy.on .kform{display:grid}
+.ksum{display:flex;gap:10px;margin-top:10px}.ksum div{flex:1;border:1px solid var(--line);border-radius:8px;padding:6px 12px}.ksum small{display:block;color:var(--muted);font-size:11px}.ksum b{font-size:17px}.ksum .k b{color:var(--red);font-size:20px}
+.kq{display:inline-flex;border:1px solid #ccc;border-radius:7px;overflow:hidden}.kq button{border:0;background:#f3f3f3;color:#111;padding:2px 9px;border-radius:0}.kq input{width:44px;border:0;text-align:center}
+tr.kbad td{background:#fff4f4}
 dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dialog::backdrop{background:#0006}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.grid2 label{display:flex;flex-direction:column;font-size:12px;color:var(--muted);gap:3px}
 #email{min-height:420px;font-family:"Segoe UI",system-ui,sans-serif;font-size:15px;line-height:1.55;padding:12px}
@@ -56,7 +62,7 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 #outCard h2{font-size:20px}#outCard button{font-size:15px;padding:9px 16px}
 </style></head><body>
 <header><div><h1>Oferty opon</h1><span class="v">xPartner · wersja beta</span></div><span class="sp"></span>
-<button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
+<button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main>
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
 <div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button></div>
@@ -119,6 +125,22 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div id="zF" style="display:none"><div class="row" style="gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap">od <input type="date" id="fod" style="width:auto"> do <input type="date" id="fdo" style="width:auto"><button onclick="loadFak()">Pokaż</button>
 <span class="muted" style="font-size:12px">xPartner udostępnia faktury od 1.02.2026, maks. rok wstecz</span></div><div id="fL"></div></div>
 </div></dialog>
+<dialog id="kdlg" style="max-width:1150px;padding:0">
+<div style="display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">🛒 Koszyk xPartner</b><span id="kCzas" class="muted" style="font-size:12px;flex:1"></span><button class="sec" onclick="kOdswiez()" title="Sprawdź ponownie ceny i stany w xPartner">↻</button><button class="sec" onclick="kdlg.close()" style="padding:2px 10px">✕</button></div>
+<div style="padding:14px 18px;max-height:72vh;overflow:auto"><div id="kMsg"></div><div id="kL"></div><div id="kSum"></div>
+<div class="kcols"><div class="kbox"><h4>Dostawa</h4><div id="kAdr"><p class="muted">Wczytuję adresy z xPartner…</p></div>
+<div class="kadr nowy" onclick="kWyb('nowy')" id="kNowy"><label style="display:flex;gap:6px;align-items:center;font-weight:600"><input type="radio" name="kadr" value="nowy"> ＋ Nowy adres jednorazowy</label>
+<div class="kform"><input id="na_name" maxlength="76" placeholder="Nazwa firmy / imię i nazwisko *"><input id="na_vatin" maxlength="13" placeholder="NIP"><input id="na_street" maxlength="35" placeholder="Ulica i numer *"><input id="na_phone" maxlength="25" placeholder="Telefon (komórka)">
+<div style="display:grid;grid-template-columns:90px 1fr;gap:6px"><input id="na_zipCode" maxlength="6" placeholder="Kod *"><input id="na_city" maxlength="25" placeholder="Miasto *"></div><input id="na_receivingPerson" maxlength="76" placeholder="Osoba odbierająca"></div>
+<label style="font-size:12px"><input type="checkbox" id="naZap" checked> zapisz na liście adresów</label></div>
+<div class="muted" style="font-size:12px;margin-top:10px">Dokument: <b>Faktura VAT</b> · płatność: <b>przelew</b> (stałe)</div></div>
+<div class="kbox"><h4>Numery i uwagi</h4><label>Numer własny zamówienia <span class="muted">(na fakturze, maks. 35 znaków, bez polskich liter)</span><input id="kNr" maxlength="35"></label>
+<label>Na fakturze, WZ i liście przewozowym (np. nr rej., VIN) <span class="muted">– bez polskich liter, maks. 100</span><input id="kOpis" maxlength="100"></label>
+<label>Uwagi dla operatora xPartner <span class="muted">(maks. 255)</span><textarea id="kUw" rows="3" maxlength="255" placeholder="tylko gdy naprawdę potrzebne"></textarea></label>
+<div class="warn" style="font-size:12px;padding:6px 8px;border-radius:6px;background:#fff3cd;color:#7a5900">⚠ Uwagi sprawdza człowiek w xPartner – wydłużają realizację zamówienia. Wpisuj tylko w uzasadnionych przypadkach.</div></div></div></div>
+<div style="display:flex;gap:10px;align-items:center;padding:12px 18px;border-top:1px solid var(--line);background:#fafafa"><button class="sec" onclick="kWyczysc()">Opróżnij koszyk</button><span class="muted" style="font-size:12px">Przed wysłaniem pokażę podsumowanie z kwotą do potwierdzenia.</span><button id="kDalej" style="margin-left:auto" onclick="kPotw()">Dalej: potwierdź zamówienie →</button></div></dialog>
+<dialog id="kpdlg" style="max-width:640px;padding:0"><div style="padding:14px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Potwierdź zamówienie</b></div><div id="kpB" style="padding:14px 18px"></div>
+<div id="kpF" style="display:flex;gap:10px;padding:12px 18px;border-top:1px solid var(--line);background:#fafafa"><button class="sec" onclick="kpdlg.close()">← Popraw</button><button id="kZam" style="margin-left:auto" onclick="kZamow()"></button></div></dialog>
 <dialog id="pdlg" style="max-width:980px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b id="pTitle" style="font-size:16px">Wybierz producentów</b><button class="sec" onclick="pdlg.close()" style="padding:2px 10px">✕</button></div>
 <div style="padding:14px 18px;max-height:65vh;overflow:auto"><input id="pSearch" placeholder="Szukaj…" oninput="drawProd()" style="width:100%;font-size:15px;padding:9px 12px;margin-bottom:10px"><div id="pBody"></div></div>
@@ -324,8 +346,8 @@ function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RE
  const nav=pages>1?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="sec" ${pg?'':'disabled'} onclick="go(${g},-1)">◀</button><span style="font-size:12px">strona ${pg+1} / ${pages}</span><button class="sec" ${pg<pages-1?'':'disabled'} onclick="go(${g},1)">▶</button></span>`:'';
  h+=`<h3 id="g_${g}" style="display:flex;align-items:center;gap:6px">${esc(s)} · ${esc(sez)} <span class="tag">potrzeba ${RES.potrzeba[s]} szt.</span> <span class="tag">${l.length}${l.length!==all.length?' z '+all.length:''} pozycji</span>${nav}</h3>`;
  if(!l.length){h+='<p class="warn">Brak opon spełniających kryteria.</p>';continue}
- h+='<table><tr><th></th>'+th('id','Indeks')+th('producent','Producent')+th('model','Model')+th('sezon','Sezon')+th('indeks','Nośn./prędk.')+th('klasa','Klasa')+th('dot','DOT')+th('mokra','Mokra')+th('opory','Opory')+th('halas','Hałas')+'<th>Homol.</th>'+th('stan','Stan','num')+th('zakup','Zakup brutto','num buy')+th('cena','Oferta brutto/szt.','num')+'</tr>';
- for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id;h+=`<tr class="${p.ok_stan?'':'bad'}"><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.ok_stan?'ok':''}">${p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td></tr>`}
+ h+='<table><tr><th></th>'+th('id','Indeks')+th('producent','Producent')+th('model','Model')+th('sezon','Sezon')+th('indeks','Nośn./prędk.')+th('klasa','Klasa')+th('dot','DOT')+th('mokra','Mokra')+th('opory','Opory')+th('halas','Hałas')+'<th>Homol.</th>'+th('stan','Stan','num')+th('zakup','Zakup brutto','num buy')+th('cena','Oferta brutto/szt.','num')+(CFG.zamawianie?'<th></th>':'')+'</tr>';
+ for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id;h+=`<tr class="${p.ok_stan?'':'bad'}"><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.ok_stan?'ok':''}">${p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td>${CFG.zamawianie?`<td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner (${RES.potrzeba[s]} szt.)" onclick='kDodaj(${p.id},${RES.potrzeba[s]},${esc(JSON.stringify(p.nazwa||p.model))})'>🛒</button></td>`:''}</tr>`}
  h+='</table>';if(pages>1)h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">${nav}</div>`}}$('#res').innerHTML=h;updCnt()}
 let OMARZA='',ORABAT='',CENY={},ULS=[],OSOBNO=null,ORABW='',CENYW={},WYMS=[];
 function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;else if(k==='w')ORABW=v;reoffer()}
@@ -383,7 +405,7 @@ async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(
  for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
  try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
 function copyMail(){navigator.clipboard.writeText($('#email').value)}
-async function loadCfg(){CFG=await api('/api/cfg');$('#bZam').style.display=CFG.zamowienia?'':'none';try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
+async function loadCfg(){CFG=await api('/api/cfg');$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 setTimeout(badgeStart,1500);
 let WT={},WCUR='wymiana_kolo';
 function readW(){WT[WCUR]=Object.fromEntries([...document.querySelectorAll('#c_wym input')].filter(i=>i.value!=='').map(i=>[i.dataset.d,+i.value]))}
@@ -402,6 +424,61 @@ async function saveCfg(){const c={};for(const k of['podpis'])c[k]=$('#c_'+k).val
  c.premium=$('#c_premium').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
  try{await api('/api/cfg',c);await loadCfg();msg('#cMsg','Zapisano.')}catch(e){msg('#cMsg',e.message,1)}}
 async function testApi(){await saveCfg();msg('#cMsg','Łączę…');try{const j=await api('/api/test',{});msg('#cMsg',j.msg)}catch(e){msg('#cMsg',e.message,1)}}
+
+// ---------------------------------------------------------------- KOSZYK xPartner (zamawianie; uprawnienie „Zamawianie w xPartner”)
+const KK='oferty_koszyk',KA='oferty_adresy_jedn';let KOSZ=[],KDANE={},KADR=null,KWYB='',KSENT=false;
+function kLs(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
+function kSave(){try{localStorage.setItem(KK,JSON.stringify(KOSZ))}catch(e){}kBadge()}
+function kBadge(){KOSZ=kLs(KK,[]);const n=KOSZ.reduce((a,x)=>a+x.ilosc,0),b=$('#kBadge');if(b){b.textContent=n;b.style.display=n?'':'none'}}
+function kDodaj(id,il,nazwa){KOSZ=kLs(KK,[]);const x=KOSZ.find(k=>k.id===id);if(x)x.ilosc=il;else KOSZ.push({id,ilosc:il,nazwa});kSave();msg('#qMsg','Dodano do koszyka: '+nazwa+' – '+il+' szt.')}
+function kWyczysc(){if(!confirm('Usunąć wszystkie opony z koszyka?'))return;KOSZ=[];kSave();kDraw()}
+async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;kdlg.showModal();kDraw();kAdresy();kOdswiez()}
+async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
+ try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
+ catch(e){$('#kCzas').textContent='';msg('#kMsg',e.message,1)}kDraw()}
+function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
+function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
+function kSumy(){let n=0,net=0,br=0,kat=0;for(const k of KOSZ){const d=KDANE[k.id];n+=k.ilosc;if(d&&d.netto){net+=d.netto*k.ilosc;br+=d.brutto*k.ilosc;kat+=(d.netto_kat>d.netto?d.netto_kat:d.netto)*k.ilosc}}return{n,net,br,rab:kat-net}}
+function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';return}
+ let h='<table><tr><th>Opona</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
+ for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+v+' szt.').join(', '):'';
+  const rab=d.netto_kat>d.netto?`<div class="muted" style="font-size:11px"><s>${zl(d.netto_kat)}</s> −${((1-d.netto/d.netto_kat)*100).toFixed(2).replace('.',',')}%</div>`:'';
+  h+=`<tr class="${d.id&&!d.ok?'kbad':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}</td>
+  <td><span class="kq"><button onclick="kIl(${k.id},${k.ilosc-1})">−</button><input value="${k.ilosc}" onchange="kIl(${k.id},this.value)"><button onclick="kIl(${k.id},${k.ilosc+1})">+</button></span></td>
+  <td class="num">${d.netto?zl(d.netto)+rab:'–'}</td><td class="num">${d.brutto?zl(d.brutto):'–'}</td><td class="num"><b>${d.netto?zl(d.netto*k.ilosc):'–'}</b></td><td><button class="sec" style="padding:2px 8px" title="Usuń z koszyka" onclick="kUsun(${k.id})">🗑</button></td></tr>`}
+ const s=kSumy();$('#kL').innerHTML=h+'</table>';
+ $('#kSum').innerHTML=`<div class="ksum"><div><small>Opon</small><b>${s.n} szt.</b></div><div><small>Wartość netto</small><b>${zl(s.net)}</b></div><div><small>Rabat xPartner</small><b>${zl(s.rab)}</b></div><div class="k"><small>Do zapłaty brutto (szacunkowo)</small><b>${zl(s.br)}</b></div></div>`;
+ $('#kDalej').textContent='Dalej: potwierdź zamówienie ('+zl(s.br)+') →'}
+async function kAdresy(){const jedn=kLs(KA,[]);let h='';
+ try{if(!KADR)KADR=(await api('/api/koszyk/adresy')).adresy}catch(e){KADR=null;$('#kAdr').innerHTML=`<div class="msg e">${esc(e.message)}</div>`;return}
+ for(const[i,a]of KADR.entries())h+=`<div class="kadr" data-w="x${i}" onclick="kWyb('x${i}')"><input type="radio" name="kadr"><div><b>${esc(a.name)}</b><br><span class="muted" style="font-size:12px">${esc(a.street)}, ${esc(a.zipCode)} ${esc(a.city)} · adres z konta xPartner</span></div></div>`;
+ if(jedn.length)h+='<div class="muted" style="font-size:12px;margin:8px 0 2px">Zapisane adresy jednorazowe:</div>';
+ for(const[i,a]of jedn.entries())h+=`<div class="kadr" data-w="j${i}" onclick="kWyb('j${i}')"><input type="radio" name="kadr"><div style="flex:1"><b>${esc(a.name)}</b> <span class="tag">jednorazowy</span><br><span class="muted" style="font-size:12px">${esc(a.street)}, ${esc(a.zipCode)} ${esc(a.city)}${a.phone?' · tel. '+esc(a.phone):''}</span></div><button class="sec" style="padding:2px 8px" title="Usuń z listy" onclick="event.stopPropagation();kUsunAdr(${i})">🗑</button></div>`;
+ $('#kAdr').innerHTML=h;kWyb(KWYB||(KADR.length?'x0':'nowy'))}
+function kWyb(w){KWYB=w;document.querySelectorAll('#kdlg .kadr').forEach(e=>{const on=(e.dataset.w||'nowy')===w;e.classList.toggle('on',on);const r=e.querySelector('input[type=radio]');if(r)r.checked=on})}
+function kUsunAdr(i){const j=kLs(KA,[]);if(!confirm('Usunąć adres „'+j[i].name+'” z listy?'))return;j.splice(i,1);try{localStorage.setItem(KA,JSON.stringify(j))}catch(e){}if(KWYB[0]==='j')KWYB='';kAdresy()}
+const NA=['name','vatin','street','phone','zipCode','city','receivingPerson'];
+function kAscii(t){return String(t||'').replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g,c=>'acelnoszzACELNOSZZ'['ąćęłńóśźżĄĆĘŁŃÓŚŹŻ'.indexOf(c)]).replace(/[^a-zA-Z0-9 \-\/]+/g,' ').replace(/\s+/g,' ').trim()}
+function kDane(){if(!KADR||!KADR.length)throw new Error('Brak adresu z konta xPartner – nie można zamówić.');
+ const baza=KADR[KWYB[0]==='x'?+KWYB.slice(1):0],d={recipientId:baza.recipientId,deliveryPlaceId:baza.deliveryPlaceId,numer:kAscii($('#kNr').value).slice(0,35),opis:kAscii($('#kOpis').value).slice(0,100),uwagi:$('#kUw').value.trim(),
+  pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc})),adres_opis:''};let a=null;
+ if(KWYB==='nowy'){a={};for(const k of NA)a[k]=$('#na_'+k).value.trim();a.country='PL';if(!a.name||!a.street||!a.zipCode||!a.city)throw new Error('Uzupełnij nowy adres: nazwa, ulica, kod i miasto są wymagane.')}
+ else if(KWYB[0]==='j')a=kLs(KA,[])[+KWYB.slice(1)];
+ if(a){d.nowy_adres=Object.assign({},a,{country:'PL'});d.adres_opis=a.name+', '+a.street+', '+a.zipCode+' '+a.city+' (jednorazowy)'}else d.adres_opis=baza.name+', '+baza.street+', '+baza.city;return d}
+function kPotw(){msg('#kMsg','');try{if(!KOSZ.length)throw new Error('Koszyk jest pusty.');if(KOSZ.some(k=>!KDANE[k.id]))throw new Error('Poczekaj na sprawdzenie cen i stanów w xPartner (↻).');
+ const zle=KOSZ.filter(k=>!KDANE[k.id].ok);if(zle.length)throw new Error('Popraw pozycje oznaczone na czerwono – w xPartner brakuje opon albo opona jest niedostępna.');
+ const d=kDane(),s=kSumy();window._kD=d;
+ $('#kpB').innerHTML=`<p style="margin:0 0 8px">Wysyłasz do xPartner <b>prawdziwe zamówienie</b>:</p><table>${KOSZ.map(k=>`<tr><td>${esc(KDANE[k.id].nazwa||k.nazwa)}</td><td class="num">${k.ilosc} szt.</td><td class="num">${zl(KDANE[k.id].brutto*k.ilosc)}</td></tr>`).join('')}</table>
+ <div class="ksum"><div><small>Dostawa</small><b style="font-size:13px">${esc(d.adres_opis)}</b></div><div class="k"><small>Szacunkowo brutto*</small><b>${zl(s.br)}</b></div></div>
+ <div class="muted" style="font-size:12px;margin-top:8px">Faktura VAT, przelew${d.numer?' · numer własny '+esc(d.numer):''}${d.opis?' · na fakturze: '+esc(d.opis):''}${d.uwagi?'<br>Uwagi dla operatora: '+esc(d.uwagi):''}<br>* ceny sprawdzone w xPartner przed chwilą; ostateczne ustala xPartner na fakturze.</div>`;
+ $('#kpF').innerHTML='<button class="sec" onclick="kpdlg.close()">← Popraw</button><button id="kZam" style="margin-left:auto" onclick="kZamow()"></button>';const b=$('#kZam');b.disabled=false;b.textContent='✔ Zamawiam ('+zl(s.br)+')';kpdlg.showModal()}catch(e){msg('#kMsg',e.message,1)}}
+async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disabled=true;b.textContent='Wysyłam do xPartner…';const d=window._kD;
+ try{const r=await api('/api/koszyk/zamow',d);KSENT=true;
+  if(KWYB==='nowy'&&$('#naZap').checked){const j=kLs(KA,[]);j.unshift(d.nowy_adres);try{localStorage.setItem(KA,JSON.stringify(j.slice(0,30)))}catch(e){}for(const k of NA)$('#na_'+k).value=''}
+  KOSZ=[];KDANE={};kSave();kDraw();KWYB='';kAdresy();$('#kNr').value=$('#kOpis').value=$('#kUw').value='';
+  $('#kpB').innerHTML=`<div class="msg i" style="font-size:15px">✔ xPartner przyjął zamówienie.</div><table>${r.zamowienia.map(z=>`<tr><td>Numer <b>${esc(z.nr)}</b></td><td>${esc(z.magazyn)}</td></tr>`).join('')}</table><p class="muted" style="font-size:12px">${r.zamowienia.length>1?'xPartner podzielił zamówienie na kilka (różne magazyny). ':''}Zamówienia zobaczysz w „📦 Zamówienia”.</p>`;
+  $('#kpF').innerHTML='<button style="margin-left:auto" onclick="kpdlg.close();kdlg.close()">Zamknij</button>'}
+ catch(e){const nie=/sprawdź w|Nieprawidłowa odpowiedź/.test(e.message);b.disabled=nie;b.textContent=nie?'Najpierw sprawdź „📦 Zamówienia”':'✔ Spróbuj ponownie';$('#kpB').insertAdjacentHTML('afterbegin',`<div class="msg e">${esc(e.message)}</div>`);if(/stany/.test(e.message)){kpdlg.close();kOdswiez()}}}
 
 loadCfg();addRow();
 </script></body></html>
