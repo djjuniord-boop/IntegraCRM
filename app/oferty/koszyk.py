@@ -53,13 +53,24 @@ def czytaj_adresy(root):
     return [a for a in out if a["recipientId"] >= 1 and a["deliveryPlaceId"] >= 1]
 
 
+def _wroclaw(a):
+    return Z._norm(a["name"]) == "latex serwis wroclaw"
+
+
+def _opole(a):
+    return "krapkowicka 18" in Z._norm(a["street"])
+
+
 def adresy(cfg, oddzialy=None):
-    """Miejsca dostawy z konta; tylko Wrocław (decyzja właściciela) – gdy brak dopasowania, wszystkie."""
+    """Miejsca dostawy z konta xPartner zalogowanego; tylko adres oddziału (decyzja właściciela):
+    Wrocław = LATEX SERWIS WROCLAW, Opole = Krapkowicka 18a; inne adresy – jako jednorazowe."""
     lst = czytaj_adresy(Z.api_xml(cfg, "getDeliveryData"))
-    wro = [a for a in lst if Z._norm(a["name"]) == "latex serwis wroclaw"]   # tylko ten adres (decyzja właściciela)
-    if not wro:
-        raise Blad("Brak adresu LATEX SERWIS WROCŁAW na koncie xPartner – zamawianie wstrzymane, zgłoś administratorowi.")
-    return wro
+    od = " ".join(oddzialy or []).lower()
+    reguly = ([_wroclaw] if "wroc" in od or not od else []) + ([_opole] if "opole" in od or not od else [])
+    out = [a for a in lst if any(r(a) for r in reguly)]
+    if not out:
+        raise Blad("Brak adresu dostawy Twojego oddziału na koncie xPartner – zamawianie wstrzymane, zgłoś administratorowi.")
+    return out
 
 
 # ---------------------------------------------------------------- odświeżenie cen i stanów (getProduct)

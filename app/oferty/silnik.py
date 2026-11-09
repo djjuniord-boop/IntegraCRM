@@ -1280,7 +1280,7 @@ def koszyk_route(route, body, cfg):
         return 403, {"error": "Brak uprawnienia „Zamawianie w xPartner” – poproś administratora (UŻYTKOWNICY → Moduły)."}
     try:
         if route == "/api/koszyk/adresy":
-            return 200, {"adresy": K.adresy(cfg)}
+            return 200, {"adresy": K.adresy(cfg, KONTO.get("oddzialy") or [])}
         if route == "/api/koszyk/odswiez":
             return 200, {"pozycje": K.odswiez(cfg, body.get("pozycje") or [], get_product), "czas": time.strftime("%H:%M")}
         if route == "/api/koszyk/zamow":
