@@ -97,7 +97,7 @@ def test_adresy_z_getDeliveryData_tylko_wroclaw():
     xml = ("<response><success>true</success><recipients><recipient><recipientId>10</recipientId><name>LATEX</name><deliveryPlaces>"
            "<deliveryPlace><deliveryPlaceId>20</deliveryPlaceId><name>LATEX SERWIS WROCŁAW</name><street>Krakowska 1</street>"
            "<zipCode>50-001</zipCode><city>Wrocław</city></deliveryPlace><deliveryPlace><deliveryPlaceId>21</deliveryPlaceId>"
-           "<name>LATEX OPOLE</name><street>X 1</street><zipCode>45-001</zipCode><city>Opole</city></deliveryPlace></deliveryPlaces>"
+           "<name>LATEX SERWIS WROCLAW SERWIS_500</name><street>X 1</street><zipCode>45-001</zipCode><city>Opole</city></deliveryPlace></deliveryPlaces>"
            "</recipient></recipients></response>")
     stary = Z.api_xml
     Z.api_xml = lambda cfg, m, **kw: Z.parsuj(xml.encode())
