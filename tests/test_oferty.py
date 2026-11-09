@@ -451,3 +451,19 @@ def test_porownanie_2_3_modele():
     assert h.index("BARUM") < h.index("BRIDGESTONE")                                   # od najtańszej
     code, r = S.handle("/api/pdf", {"ids": [1], "porownanie": 1})
     assert code == 500 and "2 lub 3" in r["error"]
+
+
+def test_szukaj_bez_opon_ze_zbyt_malym_stanem():
+    """Potrzeba 2 szt. -> opony z 1 szt. na stanie w ogóle nie są pokazywane."""
+    cfg = S.load_cfg()
+    baza = [{"id": i, "nazwa": "MARKA%d 225/45 R17 MODEL 91W" % i, "netto": 300 + i, "ilosc": il, "attrs": {"Sezon": "Letnia"}}
+            for i, il in ((1, 1), (2, 2), (3, 30))]
+    stare = S.search_size
+    S.search_size = lambda cfg, s: [dict(p) for p in baza]
+    try:
+        r = S.do_search(cfg, {"pojazdy": [{"rozmiar": "225/45 R17", "ilosc": 2, "nowe": True}], "min_stan": 50})
+    finally:
+        S.search_size = stare
+    lst = list(r["wyniki"]["225/45 R17"].values())[0]
+    assert sorted(p["id"] for p in lst) == [2, 3]
+    assert [p["ok_stan"] for p in sorted(lst, key=lambda p: p["id"])] == [False, False]   # poniżej min. stanu 50 – szare, ale widoczne

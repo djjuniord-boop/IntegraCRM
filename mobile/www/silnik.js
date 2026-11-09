@@ -432,6 +432,7 @@
         if (req.tylko_runflat) lst = lst.filter((p) => !p.standard);
         if (prod_f.length) lst = lst.filter((p) => prod_f.some((x) => bkey(p.producent).startsWith(x)));
         if (klasa) lst = lst.filter((p) => p.klasa === klasa);
+        lst = lst.filter((p) => p.ilosc >= need[s]);   // za mało sztuk na całą potrzebę – nie pokazujemy wcale
         lst = lst.map((p) => Object.assign({}, p, { ok_stan: p.ilosc >= Math.max(min_stan, need[s]) }));
         lst.sort((a, b) => (a.ok_stan === b.ok_stan ? a.netto - b.netto : a.ok_stan ? -1 : 1));
         const grp = [sez, KLASY[klasa] || klasa].filter(Boolean).join(" · ") || "wszystkie";
