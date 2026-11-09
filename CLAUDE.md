@@ -47,6 +47,13 @@ Metody mixinów korzystają z pól okna (`self.session`, `self.fonts`, `self.pag
    Dlatego na main idzie tylko wersja sprawdzona na becie – przywrócenie poprzedniej wersji wymaga obniżenia
    `min_version` ręcznie (SQL).
 7. **Wydania tylko na wyraźne polecenie właściciela** – także na kanał beta (push na `beta` buduje i wydaje paczkę).
+   **Decyzja właściciela (2026-11-09): po skończonej zmianie wydawaj od razu oficjalnie**, chyba że właściciel zaznaczy
+   „najpierw beta”. Wydanie oficjalne = jeden krok: commit na `beta`, merge do `main` i push obu naraz (budują się
+   równolegle; `main` i tak przechodzi wszystkie testy na Windows przed wydaniem) – bez czekania na osobną budowę bety.
+   Recenzent tylko przy dużych zmianach (nowa funkcja, baza, bezpieczeństwo); przy drobnych poprawkach wystarczą testy.
+8. **Aplikacja Android – ZAWIESZONA (decyzja właściciela 2026-11-09).** Zmian z Panelu nie przenosimy do `mobile/`,
+   nie podnosimy `mobile/VERSION`, budowa aplikacji (`mobile.yml`) tylko ręcznie. Test zgodności Python/JS
+   (`mobile/test/zgodnosc.py`) może się rozjechać – nie blokuje wydań Panelu. Wznowienie tylko na polecenie właściciela.
 
 ## Jak pracujemy (kontroler + agenci)
 

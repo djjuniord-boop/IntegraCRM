@@ -1,9 +1,8 @@
 name: Aplikacja Android (Oferty opon)
 
+# ZAWIESZONE (decyzja właściciela 2026-11-09): aplikacja nie jest aktualizowana. Budowa tylko ręcznie
+# (Actions → Run workflow). Żeby wznowić: przywróć wyzwalacz push na main/beta (paths: mobile/**).
 on:
-  push:
-    branches: [main, beta]
-    paths: ["mobile/**", ".github/workflows/mobile.yml"]
   workflow_dispatch:
 
 permissions:
