@@ -116,3 +116,7 @@ table.hist td:first-child,table.hist th:first-child{text-align:left}table.hist .
 
 .zk.zerr{border-left:4px solid #c00}.st{font-size:12px;padding:2px 8px;border-radius:9px;background:#eee}.st.s5{background:#fde2e2;color:#b00012}.st.s6{background:#e1f4e4;color:#1b6b2a}
 .zp{display:flex;gap:8px;font-size:13.5px;padding:5px 0;border-top:1px solid #eee}.err{color:#b00012}
+
+.msg.w{background:#fff6dc;color:#5c4400;white-space:normal}.msg.ok{background:#e9f5ec;color:#145a26;white-space:normal}
+
+.pdfwyb{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;z-index:50;padding:12px}.pdfwyb .card{width:100%;margin:0}

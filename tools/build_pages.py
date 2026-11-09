@@ -1,7 +1,7 @@
 """Buduje stronę SERWIS QR dla GitHub Pages z panelu w programie (app/serwis/) – jedno źródło, bez ręcznych kopii.
 
 Użycie: python tools/build_pages.py <folder_wyjściowy>
-Wynik: index.html (konfiguracja z config.js zamiast pliku programu, bez indeksowania), qrcode.min.js, supabase.min.js, config.js, .nojekyll.
+Wynik: index.html, oferta.html (oferta dla klienta), logo.png (konfiguracja z config.js zamiast pliku programu, bez indeksowania), qrcode.min.js, supabase.min.js, config.js, .nojekyll.
 Adres i klucz bazy brane z app/cloud.py (klucz „anon” jest publiczny z założenia – dane chroni RLS w bazie).
 """
 import json
@@ -34,4 +34,7 @@ shutil.copy2(SRC / "supabase.min.js", OUT / "supabase.min.js")
 (OUT / "config.js").write_text("window.SERWIS_CFG = " + json.dumps({"url": url, "key": key, "base": BASE}, indent=2)
                                + ";\n", encoding="utf-8")
 (OUT / ".nojekyll").write_text("", encoding="utf-8")
+# OFERTY OPON: strona oferty dla klienta (link z Panelu/aplikacji: oferta.html#<token>) + logo do stron PDF
+shutil.copy2(ROOT / "app" / "oferty" / "klient.html", OUT / "oferta.html")
+shutil.copy2(ROOT / "app" / "assets" / "logo.png", OUT / "logo.png")
 print(f"Strona zbudowana w {OUT}")

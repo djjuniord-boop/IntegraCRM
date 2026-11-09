@@ -93,8 +93,7 @@ public class MainActivity extends Activity {
                     public void gotowe(boolean ok, String blad) {
                         pdfWeb = null;
                         if (!ok || !out.isFile()) { pdfWynik(false, "Nie udało się utworzyć PDF: " + blad); return; }
-                        pdfWynik(true, out.getName());
-                        udostepnij(out);
+                        pdfWynik(true, out.getName());   // aplikacja pyta: Otwórz / Wyślij
                     }
                 });
             }
@@ -112,6 +111,24 @@ public class MainActivity extends Activity {
         i.setClipData(ClipData.newRawUri("", u));
         i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
         startActivity(Intent.createChooser(i, "Wyślij PDF oferty"));
+    }
+
+    /** Plik PDF oferty z cache/pdf po nazwie (tylko .pdf, bez ścieżek). */
+    private File plikPdf(String nazwa) {
+        if (nazwa == null || nazwa.contains("/") || nazwa.contains("..") || !nazwa.endsWith(".pdf")) return null;
+        File f = new File(new File(getCacheDir(), "pdf"), nazwa);
+        return f.isFile() ? f : null;
+    }
+
+    /** Podgląd PDF w przeglądarce PDF telefonu (bez wysyłania) – tylko odczyt, jednorazowe pozwolenie. */
+    private void otworz(File f) {
+        Uri u = Pliki.uri(f);
+        Intent i = new Intent(Intent.ACTION_VIEW);
+        i.setDataAndType(u, "application/pdf");
+        i.setClipData(ClipData.newRawUri("", u));
+        i.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        try { startActivity(Intent.createChooser(i, "Otwórz PDF oferty")); }
+        catch (Exception e) { pdfWynik(false, "Brak aplikacji do otwierania PDF – zainstaluj np. Dysk Google albo Adobe Acrobat."); }
     }
 
     private void openExternal(String u) {
@@ -161,6 +178,16 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void pdf(final String html, final String nazwa) {
             runOnUiThread(new Runnable() { public void run() { zrobPdf(html, nazwa); } });
+        }
+
+        @JavascriptInterface
+        public void pdfOtworz(final String nazwa) {
+            runOnUiThread(new Runnable() { public void run() { File f = plikPdf(nazwa); if (f != null) otworz(f); } });
+        }
+
+        @JavascriptInterface
+        public void pdfWyslij(final String nazwa) {
+            runOnUiThread(new Runnable() { public void run() { File f = plikPdf(nazwa); if (f != null) udostepnij(f); } });
         }
 
         @JavascriptInterface

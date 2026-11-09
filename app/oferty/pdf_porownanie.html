@@ -1,0 +1,44 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{{nr}}</title>
+<!-- PDF „Porównanie” – 2–3 modele opon na jednej stronie (dobra / lepsza / najlepsza) + co daje lepsza etykieta UE.
+     Ten sam silnik szablonów co pdf_wzor.html (Panel: silnik.py, aplikacja: silnik.js – kopia w pdf_wzor.js). -->
+<style>
+@page{size:A4;margin:0}*{box-sizing:border-box}
+body{margin:0;font:9.5pt/1.4 "Segoe UI",Roboto,Arial,sans-serif;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:296mm;padding:12mm 13mm 11mm;position:relative;overflow:hidden}
+.band{margin:-12mm -13mm 0;padding:7mm 13mm 4mm;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #E30613}
+.band img{height:36px;display:block}.firma{text-align:right;font-size:8pt;color:#555;line-height:1.4}.firma b{color:#141414;font-size:9.5pt}
+.meta{display:flex;gap:8px;margin:9px 0 6px}.meta div{flex:1;border:1px solid #ddd;border-radius:6px;padding:5px 9px;font-size:8.5pt}.meta small{display:block;color:#888;font-size:7pt}
+h1{font-size:15pt;margin:6px 0 8px;color:#141414}
+.cols{display:flex;gap:4mm}.col{flex:1;border:1px solid #ddd;border-radius:10px;padding:9px 10px;display:flex;flex-direction:column;min-width:0}
+.col.best{border:2px solid #E30613}
+.lv{display:inline-block;font-size:7.5pt;font-weight:800;letter-spacing:.06em;color:#fff;background:#141414;border-radius:9px;padding:2px 8px;align-self:flex-start}
+.col.best .lv{background:#E30613}
+.nm{font-size:11pt;font-weight:800;color:#141414;margin:6px 0 2px;line-height:1.2;min-height:3.6em}
+.par{font-size:8.5pt}.par div{display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:3px 0}.par span{color:#888}
+.kl{display:inline-block;min-width:18px;text-align:center;font-weight:800;border-radius:3px;padding:0 4px;color:#fff}
+.kA{background:#00A651}.kB{background:#4CB848}.kC{background:#BFD730;color:#111}.kD{background:#FFF200;color:#111}.kE{background:#F7941D}
+.ce{margin-top:auto;padding-top:8px;text-align:right}.ce small{display:block;color:#777;font-size:7pt;text-transform:uppercase}
+.ce .s{font-size:16pt;font-weight:800;color:#141414}.ce .k{font-size:15pt;font-weight:800;color:#E30613}.ce .n{font-size:8pt;color:#666}
+.plus{margin-top:6px;font-size:8.3pt;background:#f3f8f3;border-radius:6px;padding:5px 7px;color:#1b5e20}
+h2{font-size:10.5pt;margin:12px 0 5px;color:#141414;border-left:4px solid #E30613;padding-left:7px}
+.uw{font-size:8.3pt;color:#555}.uw b{color:#141414}
+.cta{margin-top:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;border-radius:10px;padding:9px 15px;border-left:6px solid #E30613}
+.cta b{font-size:11pt}.cta span{color:#666;font-size:8.5pt}.tel{font-size:17pt;font-weight:800;color:#E30613;text-align:right}.kom{font-size:11pt;font-weight:700;color:#141414;text-align:right}
+.zr{font-size:7pt;color:#999;margin-top:6px}
+.foot{position:absolute;left:13mm;right:13mm;bottom:8mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+</style></head><body><div class="page">
+<div class="band"><img src="{{{logo}}}" alt="Latex"><div class="firma"><b>{{o_nazwa}}</b><br>{{o_adres}}<br>tel. {{o_tel}}<br>{{o_www}}</div></div>
+<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}{{#pojazd}}<div><small>Pojazd</small><b>{{pojazd}}</b></div>{{/pojazd}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
+<h1>Porównanie opon {{rozmiar}} – wybierz najlepszą dla siebie</h1>
+<div class="cols">{{#kolumny}}<div class="col{{#best}} best{{/best}}"><span class="lv">{{poziom}}</span><div class="nm">{{tytul}}</div>
+<div class="par"><div><span>Sezon / klasa</span><b>{{sezon}}</b></div>{{#indeks}}<div><span>Nośność / prędkość</span><b>{{indeks}}</b></div>{{/indeks}}
+<div><span>Hamowanie na mokrym</span>{{#mokra}}<b class="kl k{{mokra}}">{{mokra}}</b>{{/mokra}}{{^mokra}}<b>–</b>{{/mokra}}</div>
+<div><span>Opory toczenia</span>{{#opory}}<b class="kl k{{opory}}">{{opory}}</b>{{/opory}}{{^opory}}<b>–</b>{{/opory}}</div>
+<div><span>Hałas</span><b>{{#halas}}{{halas}} dB{{/halas}}{{^halas}}–{{/halas}}</b></div>{{#snieg}}<div><span>Zima</span><b>❄ 3PMSF</b></div>{{/snieg}}{{#dot}}<div><span>Rok produkcji</span><b>DOT {{dot}}</b></div>{{/dot}}</div>
+{{#plusy}}<div class="plus">✔ {{t}}</div>{{/plusy}}
+<div class="ce"><small>1 szt. brutto</small><div class="s">{{cena_szt}}</div><small style="margin-top:5px">komplet z usługami</small><div class="k">{{brutto}}</div><div class="n">netto {{netto}}</div></div></div>{{/kolumny}}</div>
+<h2>W cenie kompletu</h2><div class="uw">{{uslugi}}{{#rabaty}} · <b>z uwzględnieniem rabatu</b>{{/rabaty}}. Szczegółowa kalkulacja każdego modelu – osobny PDF albo link do oferty.</div>
+<div class="cta"><div><b>Zarezerwuj termin montażu</b><br><span>Zadzwoń – dobierzemy model i godzinę</span></div><div><div class="tel">☎ {{o_tel}}</div>{{#o_kom}}<div class="kom">📱 {{t}}</div>{{/o_kom}}</div></div>
+<div class="zr">Różnice z etykiety UE są orientacyjne (zależą od auta, nawierzchni i stylu jazdy): pełna różnica klas A→E w hamowaniu na mokrym to do ok. 18 m z 80 km/h (ok. 4,5 m na klasę), a w oporach toczenia A→E ok. 150 l paliwa na 40 000 km (ok. 37 l na klasę) – dane producentów opon (Hankook, Michelin) wg rozporządzenia UE 2020/740.</div>
+<div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}} lub do wyczerpania zapasów · ceny brutto z VAT {{vat_proc}}%</span></div>
+</div></body></html>

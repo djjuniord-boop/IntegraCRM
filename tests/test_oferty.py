@@ -219,8 +219,11 @@ def test_pdf_oferty_pozycje_rabat_i_oddzial():
     h = r["html"]
     assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h
     assert "Jan &lt;b&gt;Kowalski&lt;/b&gt;" in h and "<b>Kowalski" not in h          # tekst klienta nie staje się HTML
-    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "Rabat 10% na opony", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
+    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
         assert txt in h, txt
+    # rabat w wierszu: cena przed, −10%, cena po rabacie, wartość po rabacie; przekreślona cena w ramce; oszczędność
+    assert "Cena po rabacie" in h and '<b class="rb">−10%</b>' in h and "<s>445,00 zł</s>" in h and "W tym oszczędzasz" in h
+    assert "Razem przed rabatem" not in h
     assert "{{" not in h and "}}" not in h
 
 
@@ -388,13 +391,63 @@ def test_rabat_na_wymiane_i_reczna_cena():
     # cennik R16 osobowy = 44 zł/koło; rabat 10% -> 39,60 -> 40 zł (w górę do pełnych zł, jak opony)
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10"})
     h = r["html"]
-    assert code == 200 and "Rabat 10% na wymianę" in h and "− 16,00 zł" in h and "Rabat 10% na opony" not in h, h[-3000:]
+    assert code == 200 and h.count('<b class="rb">−10%</b>') == 1 and "<s>" not in h, h[-3000:]   # tylko wymiana z rabatem
+    assert "<td class=\"r\">44,00 zł</td><td class=\"c\"><b class=\"rb\">−10%</b></td><td class=\"r\"><b>40,00 zł</b></td><td class=\"r\">160,00 zł</td>" in h
+    assert "W tym oszczędzasz dzięki rabatowi</td><td class=\"r\">16,00 zł" in h
     assert "44,00 zł" in h                                     # na PDF pozycja w cenie z cennika, rabat osobną linią
     w = S.handle("/api/offer", dict(S.OSTATNIA["req"]))[1]["wymiany"]
     assert w == [{"klucz": "R16|osobowy", "opis": "Wymiana R16", "cennik": 44.0, "auto": 40.0, "cena": 40.0, "recznie": False}]
     # ręczna cena wymiany: bez rabatu, bez linii rabatu
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "10", "ceny_wym": {"R16|osobowy": 30}})
-    assert "na wymianę" not in r["html"] and "30,00 zł" in r["html"]
+    assert "Cena po rabacie" not in r["html"] and "30,00 zł" in r["html"]          # ręczna cena = bez kolumny rabatu
     # 100% = wymiana gratis
     code, r = _pdf(["Latex Wrocław"], {"id": 1}, {"rabat": "", "rabat_wym": "100"})
-    assert "Rabat 100% na wymianę" in r["html"] and "− 176,00 zł" in r["html"]
+    assert '<b class="rb">−100%</b>' in r["html"] and "<b>0,00 zł</b>" in r["html"] and "oszczędzasz dzięki rabatowi</td><td class=\"r\">176,00 zł" in r["html"]
+
+
+def test_statusy_oddzwonienie_i_zmiany_cen():
+    import datetime as dt
+    teraz = dt.datetime(2026, 11, 8, 12, tzinfo=dt.timezone.utc)
+    assert S.do_oddzwonienia("wyslana", "2026-11-06T11:00:00+00:00", teraz) is True
+    assert S.do_oddzwonienia("wyslana", "2026-11-07T11:00:00+00:00", teraz) is False
+    assert S.do_oddzwonienia("przyjeta", "2026-11-01T11:00:00Z", teraz) is False and S.do_oddzwonienia("wyslana", "", teraz) is False
+    _pdf(["Latex Wrocław"], {"id": 1})
+    rows = S.OSTATNIA["rows"]
+    snap = S.snap_ofert(rows)
+    assert snap and snap[0]["id"] == 1 and S.zmiany_ofert(snap, rows) == []       # bez zmian -> brak ostrzeżeń
+    z = S.zmiany_ofert([dict(snap[0], cena=snap[0]["cena"] - 20), {"id": 777, "nazwa": "Znikła", "cena": 1, "ilosc": 1}], rows)
+    assert z[0]["w_gore"] is True and "→" in z[0]["co"] and z[1]["nazwa"] == "Znikła"
+
+
+def test_link_dla_klienta_bez_cen_zakupu():
+    _pdf(["Latex Wrocław"], {"id": 1}, {"wybor": {"205/55 R16": {"wszystkie": [1, 2]}}})
+    zapis = {}
+
+    class H:
+        admin, me = False, "ania@x.pl"
+        def link(self, oid, dane):
+            zapis.update(oid=oid, dane=dane)
+            return "11111111-2222-3333-4444-555555555555"
+    stare = S.HIST
+    S.HIST = H()
+    try:
+        code, r = S.handle("/api/link", {"oddzial": "Latex Wrocław"})
+    finally:
+        S.HIST = stare
+    assert code == 200 and r["url"].endswith("oferta.html#11111111-2222-3333-4444-555555555555") and r["url"] in r["sms"]
+    d = zapis["dane"]
+    assert len(d["modele"]) == 2 and d["o_tel"] == "71 341 30 60"
+    zakupy = {S.pl(r["p"]["netto"]) for r in S.OSTATNIA["rows"] if r.get("p")}
+    txt = __import__("json").dumps(d, ensure_ascii=False)
+    assert not any(z in txt for z in zakupy) and "zakup" not in txt.lower()        # klient nie widzi cen zakupu
+    assert all("{{" not in m["html"] for m in d["modele"])
+
+
+def test_porownanie_2_3_modele():
+    _pdf(["Latex Wrocław"], {"id": 1}, {"wybor": {"205/55 R16": {"wszystkie": [1, 2]}}})
+    code, r = S.handle("/api/pdf", {"ids": [1, 2], "porownanie": 1})
+    h = r["html"]
+    assert code == 200 and "EKONOMICZNA" in h and "PREMIUM" in h and "{{" not in h
+    assert h.index("BARUM") < h.index("BRIDGESTONE")                                   # od najtańszej
+    code, r = S.handle("/api/pdf", {"ids": [1], "porownanie": 1})
+    assert code == 500 and "2 lub 3" in r["error"]

@@ -50,6 +50,10 @@ class Historia:
     """Historia ofert w bazie (tabela oferty): użytkownik – swoje, administrator – wszystkie (RLS)."""
     admin = False
 
+    @property
+    def me(self):
+        return _email(_token())
+
     def get(self, oid):   # własna oferta (nadpisywanie pliku przy kolejnym przeliczeniu)
         me = _email(_token())
         rows = _db("GET", "/rest/v1/oferty?select=dane&oid=eq." + urllib.parse.quote(oid)
@@ -66,13 +70,24 @@ class Historia:
              "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
             prefer="resolution=merge-duplicates,return=minimal")
 
+    def link(self, oid, dane):
+        """Link dla klienta: migawka stron PDF w bazie, zwraca token (uuid)."""
+        return _db("POST", "/rest/v1/rpc/oferty_link", {"p_oid": oid, "p_dane": dane})
+
+    def status(self, oid, status):
+        _db("POST", "/rest/v1/rpc/oferty_status", {"p_oid": oid, "p_status": status}, prefer="return=minimal")
+
     def list(self, q=""):
         flt = ""
         q = (q or "").strip().lower().replace("*", "").replace(",", " ").replace("(", " ").replace(")", " ")
         if q:
             w = urllib.parse.quote("*" + q + "*")
             flt = f"&or=(szukaj.ilike.{w},owner.ilike.{w})"
-        rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []
+        try:   # status i link (od 0.25); bez tych kolumn w bazie – stara lista
+            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp"
+                              "&order=updated_at.desc&limit=1000" + flt) or []
+        except Exception:
+            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []
         try:
             names = {u["email"].lower(): (u.get("name") or "") for u in _db("GET", "/rest/v1/app_users?select=email,name") or []}
         except Exception:

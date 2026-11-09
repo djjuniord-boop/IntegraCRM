@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="pl"><head><meta charset="utf-8">
+<meta name="robots" content="noindex">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Oferta na opony – Latex Serwis</title>
+<!-- Strona oferty dla klienta (link z Panelu/aplikacji). Publikowana na GitHub Pages jako oferta.html (tools/build_pages.py).
+     Dane: funkcje bazy oferta_link_pobierz / oferta_link_akceptuj po tokenie z adresu (#uuid) – klient widzi tylko swoją migawkę. -->
+<style>
+:root{--red:#E30613;--ink:#141414;--mut:#666;--line:#e3e3e3;--bg:#f4f4f4;--ok:#1b7a33}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Segoe UI",Roboto,Arial,sans-serif}
+header{background:#fff;border-bottom:4px solid var(--red);padding:12px 16px;display:flex;align-items:center;gap:12px}
+header img{height:34px}header .t{margin-left:auto;text-align:right;font-size:13px;color:var(--mut)}
+main{max-width:860px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:6px 0 4px}.sub{color:var(--mut);font-size:14px;margin-bottom:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.card.sel{border:2px solid var(--red)}
+.tag{display:inline-block;background:var(--red);color:#fff;font-size:11px;font-weight:800;padding:2px 8px;border-radius:9px;letter-spacing:.04em}
+.nm{font-size:18px;font-weight:700;margin:6px 0}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.pr{margin-left:auto;text-align:right}.pr small{display:block;color:var(--mut);font-size:12px}.pr b{font-size:24px;color:var(--red)}
+.eu{display:flex;gap:6px;font-size:13px;color:var(--mut)}.eu span{border:1px solid var(--line);border-radius:6px;padding:2px 7px}.eu b{color:var(--ink)}
+button,.btn{font:inherit;border:0;border-radius:9px;padding:11px 16px;cursor:pointer;background:var(--red);color:#fff;font-weight:700;text-decoration:none;display:inline-block}
+button.sec,.btn.sec{background:#fff;color:var(--ink);border:1px solid #ccc;font-weight:600}
+.pdf{margin-top:10px;overflow:hidden;border:1px solid var(--line);border-radius:8px;background:#fff}
+.pdf iframe{border:0;width:794px;height:1123px;transform-origin:0 0;display:block}
+form{display:grid;gap:10px}label{font-size:14px;color:var(--mut)}input,textarea{font:inherit;width:100%;padding:10px;border:1px solid #ccc;border-radius:8px}
+.ok{background:#e9f6ec;border-color:#bfe3c8}.ok b{color:var(--ok)}
+.msg{padding:30px 16px;text-align:center;color:var(--mut)}
+.tel a{color:var(--ink);font-weight:800;font-size:20px;text-decoration:none;margin-right:14px;white-space:nowrap}
+footer{color:#999;font-size:12px;text-align:center;padding:20px}
+</style></head><body>
+<header><img src="logo.png" alt="Latex Serwis"><div class="t" id="hdr"></div></header>
+<main id="m"><div class="msg">Wczytuję ofertę…</div></main>
+<footer>Latex Serwis · oferta przygotowana indywidualnie · ceny brutto z VAT</footer>
+<script src="config.js"></script>
+<script>
+const AKCEPT = false;   // akceptacja oferty przez klienta – wyłączona (decyzja właściciela 2026-11-09); strona tylko do podglądu
+const C = window.SERWIS_CFG || {}, T = (location.hash || "").replace(/^#/, "").trim();
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const $ = (s) => document.querySelector(s);
+let D = null, ODP = null, WYB = null;
+async function rpc(fn, body) {
+  const r = await fetch(C.url + "/rest/v1/rpc/" + fn, { method: "POST", headers: { apikey: C.key, Authorization: "Bearer " + C.key, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (!r.ok) throw new Error("HTTP " + r.status);
+  return r.json();
+}
+function telefony() {
+  const t = [D.o_tel, ...(D.o_kom || [])].filter(Boolean);
+  return t.map((x) => `<a href="tel:${esc(x.replace(/[^0-9+]/g, ""))}">☎ ${esc(x)}</a>`).join("");
+}
+function skala(el) { const w = el.parentElement.clientWidth, s = Math.min(1, w / 794); el.style.transform = `scale(${s})`; el.parentElement.style.height = (1123 * s) + "px"; }
+function pokazPdf(i, btn) {
+  const box = document.getElementById("pdf" + i);
+  if (box.innerHTML) { box.innerHTML = ""; box.hidden = true; btn.textContent = "Szczegóły i etykieta UE"; return; }
+  box.hidden = false; btn.textContent = "Ukryj szczegóły";
+  const f = document.createElement("iframe"); f.setAttribute("sandbox", ""); f.srcdoc = D.modele[i].html; f.title = "Szczegóły oferty";
+  box.appendChild(f); skala(f);
+}
+function wygasla() {   // ważność oferty z PDF (dd.mm.rrrr) – po niej ceny mogą być nieaktualne
+  const m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(D.wazna || ""); if (!m) return false;
+  return new Date() > new Date(+m[3], +m[2] - 1, +m[1], 23, 59, 59);
+}
+function rysuj() {
+  if (wygasla()) { $("#hdr").innerHTML = `Oferta <b>${esc(D.nr)}</b>`;
+    $("#m").innerHTML = `<div class="msg">Ta oferta była ważna do ${esc(D.wazna)} – ceny i dostępność mogły się zmienić.<br>Zadzwoń, przygotujemy aktualną:</div><div class="card tel" style="text-align:center">${telefony()}</div>`; return; }
+  $("#hdr").innerHTML = `Oferta <b>${esc(D.nr)}</b><br>ważna do ${esc(D.wazna)}`;
+  const odp = ODP ? `<div class="card ok"><b>Dziękujemy – wybór zapisany.</b><br>Wybrano: <b>${esc(ODP.wybor)}</b>. Skontaktujemy się z Tobą, żeby umówić termin montażu.
+      Możesz zmienić wybór poniżej.<div class="tel" style="margin-top:8px">${telefony()}</div></div>` : "";
+  $("#m").innerHTML = `<h1>${D.klient ? "Oferta dla: " + esc(D.klient) : "Oferta na opony"}</h1>
+    <div class="sub">${esc(D.o_nazwa)}${D.kto ? " · przygotował(a): " + esc(D.kto) : ""}. ${AKCEPT ? (D.modele.length > 1 ? "Wybierz jeden z modeli i kliknij „Akceptuję”." : "Sprawdź ofertę i kliknij „Akceptuję”.") : "Zadzwoń, żeby zamówić albo umówić montaż."}</div>${odp}
+    ${D.modele.map((m, i) => `<div class="card${WYB === i ? " sel" : ""}"><span class="tag">${esc(m.tag)}</span><div class="row"><div class="nm">${esc(m.tytul)}</div>
+      <div class="pr"><small>1 szt. ${esc(m.cena_szt)}</small><small>komplet z usługami</small><b>${esc(m.brutto)}</b></div></div>
+      ${(m.mokra || m.opory || m.halas) ? `<div class="eu">${m.mokra ? `<span>hamowanie na mokrym <b>${esc(m.mokra)}</b></span>` : ""}${m.opory ? `<span>opory toczenia <b>${esc(m.opory)}</b></span>` : ""}${m.halas ? `<span>hałas <b>${esc(m.halas)} dB</b></span>` : ""}</div>` : ""}
+      <div class="row" style="margin-top:10px">${AKCEPT ? `<button onclick="wybierz(${i})">${WYB === i ? "✓ Wybrany" : "Wybieram ten model"}</button>` : ""}<button class="sec" onclick="pokazPdf(${i},this)">Szczegóły i etykieta UE</button></div>
+      <div class="pdf" id="pdf${i}" hidden></div></div>`).join("")}
+    <div class="card" id="akc" ${WYB === null || !AKCEPT ? "hidden" : ""}><form onsubmit="return akceptuj(event)">
+      <div><b>Wybrany model:</b> <span id="wn"></span></div>
+      <label>Telefon do kontaktu (opcjonalnie)<input id="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="np. 600 100 200"></label>
+      <label>Uwagi, np. dogodny termin (opcjonalnie)<textarea id="uw" rows="2" maxlength="500"></textarea></label>
+      <button type="submit" id="bA">Akceptuję – proszę o kontakt</button>
+      <div style="font-size:12px;color:#888">Akceptacja nie jest zamówieniem ani płatnością. Oddzwonimy, potwierdzimy dostępność i termin montażu.</div></form></div>
+    <div class="card"><b>Wolisz zadzwonić?</b><div class="tel" style="margin-top:6px">${telefony()}</div></div>`;
+  if (WYB !== null) $("#wn").textContent = D.modele[WYB].tytul;
+}
+function wybierz(i) { WYB = i; rysuj(); $("#akc").scrollIntoView({ behavior: "smooth", block: "center" }); }
+async function akceptuj(e) {
+  e.preventDefault(); $("#bA").disabled = true; $("#bA").textContent = "Zapisuję…";
+  try {
+    const ok = await rpc("oferta_link_akceptuj", { p_token: T, p_wybor: D.modele[WYB].tytul, p_tel: $("#tel").value, p_uwagi: $("#uw").value });
+    if (!ok) throw new Error("x");
+    ODP = { wybor: D.modele[WYB].tytul }; WYB = null; rysuj(); scrollTo({ top: 0, behavior: "smooth" });
+  } catch (err) { $("#bA").disabled = false; $("#bA").textContent = "Akceptuję – proszę o kontakt"; alert("Nie udało się zapisać – spróbuj ponownie albo zadzwoń do nas."); }
+  return false;
+}
+window.addEventListener("resize", () => document.querySelectorAll(".pdf iframe").forEach(skala));
+(async () => {
+  if (!/^[0-9a-f-]{36}$/i.test(T)) { $("#m").innerHTML = '<div class="msg">Nieprawidłowy link do oferty. Skontaktuj się z serwisem.</div>'; return; }
+  try {
+    const r = await rpc("oferta_link_pobierz", { p_token: T });
+    if (!r || !r.dane) { $("#m").innerHTML = '<div class="msg">Ta oferta wygasła albo link jest nieaktualny.<br>Zadzwoń do nas – przygotujemy nową.</div>'; return; }
+    D = r.dane; ODP = r.odp || null; rysuj();
+  } catch (e) { $("#m").innerHTML = '<div class="msg">Nie udało się wczytać oferty. Spróbuj za chwilę.</div>'; }
+})();
+</script></body></html>

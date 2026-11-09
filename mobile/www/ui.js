@@ -224,8 +224,9 @@ async function offer(quiet) {
     const wybor = {}; SEL.forEach((k) => { const [s, z, id] = k.split("|"); ((wybor[s] ??= {})[z] ??= []).push(+id); });
     if (!OID) OID = newOid();
     if (OSOBNO === null) { const V = vehicles().filter((v) => v.nowe); OSOBNO = V.length > 1 && !V.some((v) => v.rej || v.pojazd); }
-    const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY, rabat_wym: ORABW, ceny_wym: CENYW });
+    const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY, rabat_wym: ORABW, ceny_wym: CENYW, porownaj: HSNAP || undefined });
     ULS = j.ulotki; WYMS = j.wymiany || [];
+    $("#zmBox").innerHTML = j.zmiany && j.zmiany.length ? `<div class="msg w"><b>⚠ Od zapisania (${esc(HDATA)}) zmieniło się w xPartner:</b>${j.zmiany.map((z) => `<div>• ${esc(z.nazwa)}: <b style="color:${z.w_gore ? "#b00012" : "#1b6b2a"}">${esc(z.co)}</b></div>`).join("")}<div class="small">Oferta ma już aktualne ceny i stany.</div></div>` : "";
     msg("#oMsg", j.uwagi.length ? "⚠ " + j.uwagi.join("\n⚠ ") : quiet ? "" : "Zapisano w historii.", j.uwagi.length > 0);
     $("#sum").innerHTML = j.warianty.map((v) => `<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(", "))}</div>
       <div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana ? `<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>` : ""}
@@ -237,24 +238,46 @@ async function offer(quiet) {
   } catch (e) { msg("#oMsg", e.message, 1); $("#outCard").hidden = false; }
   b.disabled = false;
 }
-let OODD = "";
+let OODD = (() => { try { return localStorage.getItem("oferty_oddzial") || ""; } catch (e) { return ""; } })(), HSNAP = null, HDATA = "";
+function setOdd(v) { OODD = v; try { localStorage.setItem("oferty_oddzial", v); } catch (e) {} }
 function drawUl() {
   const od = CFG.oddzialy || []; if (!od.includes(OODD)) OODD = od[0] || "";
   $("#ul").innerHTML = '<div class="lbl">PDF oferty dla klienta – jeden model opony, każda usługa osobno</div>' +
-    (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="OODD=this.value">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
+    (od.length > 1 ? `<label class="fld" style="margin-top:0">Oddział na PDF<select onchange="setOdd(this.value)">${od.map((o) => `<option ${o === OODD ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
     (od.length ? "" : '<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora.</div>') +
     (ULS.length > 1 ? `<button class="btn wide" style="margin-top:6px" onclick="pdfOferta(this, true)">📄 Wszystkie (${ULS.length}) w jednym PDF</button>` : "") +
-    ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("");
+    ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
+    (ULS.length >= 2 && ULS.length <= 3 ? `<button class="btn sec wide" style="margin-top:6px" onclick="pdfOferta(this, 2)">⚖ Porównanie ${ULS.length} opon (1 strona)</button>` : "");
 }
+async function linkKlient(b) {
+  b.disabled = true; $("#linkBox").innerHTML = '<p class="muted small">Tworzę link…</p>';
+  try {
+    const j = await api("/api/link", { oddzial: OODD });
+    $("#linkBox").innerHTML = `<div class="msg ok">Oferta ważna do ${esc(j.wazna)} (status „Wysłana”).<div class="small" style="word-break:break-all;margin:6px 0">${esc(j.url)}</div>
+      <div class="row"><a class="btn grow" href="sms:?body=${encodeURIComponent(j.sms)}">✉ Wyślij SMS</a><button class="btn sec grow" data-t="${esc(j.sms)}" onclick="kopiuj(this)">📋 Kopiuj</button></div></div>`;
+  } catch (e) { $("#linkBox").innerHTML = `<div class="msg e">${esc(e.message)}</div>`; }
+  b.disabled = false;
+}
+function kopiuj(b) { const t = b.dataset.t; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Skopiowano."), () => toast("Nie udało się skopiować.")); }
 async function pdfOferta(b, wszystkie) {
   b.disabled = true; toast("Tworzę PDF…");
   try {
     // logo z plików aplikacji (PDF ładuje się z android_asset/www); „wszystkie” – jeden plik, strona na oponę
-    const j = await api("/api/pdf", wszystkie ? { ids: ULS.map((u) => u.id), oddzial: OODD, logo: "logo.png" } : { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });
-    const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + (wszystkie ? "wszystkie " + ULS.length : b.dataset.n));
+    const j = await api("/api/pdf", wszystkie ? { ids: ULS.map((u) => u.id), porownanie: wszystkie === 2 ? 1 : 0, oddzial: OODD, logo: "logo.png" } : { id: +b.dataset.id, oddzial: OODD, logo: "logo.png" });
+    const r = await Aplikacja.pdf(j.html, "Oferta " + (OID || "") + " " + (wszystkie === 2 ? "porownanie" : wszystkie ? "wszystkie " + ULS.length : b.dataset.n));
     if (!r.ok) msg("#oMsg", r.msg, 1);
+    else if (window.Native) pdfGotowy(r.msg);
   } catch (e) { msg("#oMsg", e.message, 1); }
   b.disabled = false;
+}
+function pdfGotowy(plik) {   // PDF gotowy w telefonie: najpierw podgląd albo od razu wysyłka
+  const d = document.createElement("div"); d.className = "pdfwyb";
+  d.innerHTML = `<div class="card"><b>PDF gotowy</b><div class="small muted" style="word-break:break-all;margin:4px 0 10px">${esc(plik)}</div>
+    <div class="row"><button class="btn grow" data-a="o">👁 Otwórz</button><button class="btn sec grow" data-a="w">📤 Wyślij</button></div>
+    <button class="btn sec wide" style="margin-top:8px" data-a="x">Zamknij</button></div>`;
+  d.onclick = (e) => { const a = e.target.dataset && e.target.dataset.a; if (!a && e.target !== d) return;
+    if (a === "o") Aplikacja.pdfOtworz(plik); if (a === "w") Aplikacja.pdfWyslij(plik); d.remove(); };
+  document.body.appendChild(d);
 }
 function drawEdit() {
   const o = (a, b, c) => `<option value="${a}" ${c === a ? "selected" : ""}>${b}</option>`;
@@ -280,32 +303,40 @@ function nowaOferta() {
   for (const id of ["#klient", "#paste", "#quick"]) $(id).value = "";
   VEH = []; addVeh({}); drawVeh(); setChips("sez", []); setChips("kl", []); $("#rf").checked = false; setProd(""); $("#minstan").value = CFG.min_stan;
   for (const k in F) F[k] = "";
-  RES = null; SEL = new Set(); PAGE = {}; OID = null; ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
+  RES = null; SEL = new Set(); PAGE = {}; OID = null; HSNAP = null; $("#zmBox").innerHTML = ""; ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
   ["#sMsg", "#oMsg", "#qMsg"].forEach((x) => msg(x, "")); updCnt(); go(document.querySelector('#tabs button[data-v="vOferta"]'));
 }
 
 // ------------------------------------------------ historia
-let HL = [], HADM = false;
+let HL = [], HADM = false, ME = "";
+const STATUSY = { nowa: "Nowa", wyslana: "Wysłana", przyjeta: "Przyjęta", odrzucona: "Odrzucona", zamowiona: "Zamówiona" };
+async function setStatus(oid, st, sel) { sel.disabled = true; try { await api("/api/status", { oid, status: st }); toast("Zapisano status."); loadHist(); } catch (e) { toast(e.message); sel.disabled = false; } }
 async function loadHist() {
   $("#hl").innerHTML = '<p class="muted" style="padding:0 6px">Wczytuję…</p>';
-  try { const j = await api("/api/history?q=" + encodeURIComponent($("#hq").value)); HL = j.lista; HADM = j.admin; }
+  try { const j = await api("/api/history?q=" + encodeURIComponent($("#hq").value)); HL = j.lista; HADM = j.admin; ME = j.me || ""; }
   catch (e) { $("#hl").innerHTML = ""; return msg("#hfil", e.message, 1); }
   const osoby = [...new Set(HL.map((h) => h.kto))].sort(), cur = $("#hk") ? $("#hk").value : "";
-  $("#hfil").innerHTML = HADM ? `<label class="fld">Osoba<select id="hk" onchange="drawHist()"><option value="">wszyscy (${HL.length})</option>${osoby.map((o) => `<option ${o === cur ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "";
+  const cs = $("#hs") ? $("#hs").value : "", nOd = HL.filter((h) => h.oddzwon && h.owner === ME).length;
+  $("#hfil").innerHTML = (HADM ? `<label class="fld">Osoba<select id="hk" onchange="drawHist()"><option value="">wszyscy (${HL.length})</option>${osoby.map((o) => `<option ${o === cur ? "selected" : ""}>${esc(o)}</option>`).join("")}</select></label>` : "") +
+    `<label class="fld">Status<select id="hs" onchange="drawHist()"><option value="">wszystkie</option><option value="oddzwon" ${cs === "oddzwon" ? "selected" : ""}>📞 do oddzwonienia (${nOd})</option>${Object.entries(STATUSY).map(([k, v]) => `<option value="${k}" ${cs === k ? "selected" : ""}>${v}</option>`).join("")}</select></label>`;
   drawHist();
 }
 function drawHist() {
-  const k = HADM && $("#hk") ? $("#hk").value : "", L = HL.filter((h) => !k || h.kto === k);
+  const k = HADM && $("#hk") ? $("#hk").value : "", st = $("#hs") ? $("#hs").value : "";
+  const L = HL.filter((h) => (!k || h.kto === k) && (!st || (st === "oddzwon" ? h.oddzwon : h.status === st)));
   let sum = "";
-  if (HADM && L.length) {
+  if (L.length) {
     const by = {};
-    for (const h of L) { const o = (by[h.kto] ??= { n: 0, kl: new Set(), wart: 0 }); o.n++; if (h.klient) o.kl.add(h.klient); o.wart += h.razem || 0; }
-    sum = '<div class="card"><div class="lbl" style="margin-top:0">Podsumowanie</div><table class="sum"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Klientów</th><th class="num">Wartość</th></tr>' +
-      Object.entries(by).sort((a, b) => b[1].n - a[1].n).map(([o, v]) => `<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${v.kl.size}</td><td class="num">${zl(v.wart)}</td></tr>`).join("") + "</table></div>";
+    for (const h of L) { const o = (by[h.kto] ??= { n: 0, kl: new Set(), wart: 0, wys: 0, prz: 0 }); o.n++; if (h.klient) o.kl.add(h.klient); o.wart += h.razem || 0; if (h.status !== "nowa") o.wys++; if (h.status === "przyjeta" || h.status === "zamowiona") o.prz++; }
+    sum = '<div class="card"><div class="lbl" style="margin-top:0">Podsumowanie</div><table class="sum"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Wartość</th><th class="num">Przyjęte</th></tr>' +
+      Object.entries(by).sort((a, b) => b[1].n - a[1].n).map(([o, v]) => `<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${zl(v.wart)}</td><td class="num">${v.wys ? Math.round(100 * v.prz / v.wys) + "%" : "—"}</td></tr>`).join("") + "</table></div>";
   }
   $("#hl").innerHTML = sum + (L.length ? L.map((h) => `<div class="hrow"><div class="d">${esc(h.data)}${HADM ? " · " + esc(h.kto) : ""}${h.zrodlo === "telefon" ? " · 📱" : ""}</div>
     <div class="k">${esc(h.klient || "—")}</div><div class="small muted">${esc(h.pojazdy)}</div>
     <div class="w">${h.warianty.map((w) => `${esc(w.modele || w.wariant)} – <b>${zl(w.razem)}</b>`).join("<br>")}</div>
+    <div class="row" style="margin-top:6px">${h.owner === ME ? `<select class="sm" data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)">${Object.entries(STATUSY).map(([s, n]) => `<option value="${s}" ${h.status === s ? "selected" : ""}>${n}</option>`).join("")}</select>` : `<span class="st">${esc(STATUSY[h.status] || h.status)}</span>`}
+      ${h.oddzwon ? '<span class="st" style="background:#fff3cd;color:#7a5900">📞 oddzwoń</span>' : ""}${h.link ? `<span class="small muted">🔗${h.otwarta ? " 👁 otwarty" : " nieotwarty"}</span>` : ""}</div>
+    ${h.odp ? `<div class="msg ok small">✅ <b>${esc(h.odp.wybor)}</b>${h.odp.tel ? ` · <a href="tel:${esc(String(h.odp.tel).replace(/[^0-9+]/g, ""))}">☎ ${esc(h.odp.tel)}</a>` : ""}${h.odp.uwagi ? `<br>„${esc(h.odp.uwagi)}”` : ""}</div>` : ""}
     <div class="row"><button class="btn sec sm" onclick="restoreHist(${+h.id})">Otwórz i odśwież ceny</button></div></div>`).join("") : '<p class="muted" style="padding:0 6px">Brak zapisanych ofert.</p>');
 }
 async function restoreHist(id) {
@@ -315,7 +346,7 @@ async function restoreHist(id) {
     $("#klient").value = r.klient || ""; VEH = []; (r.pojazdy || []).forEach(addVeh); if (!VEH.length) addVeh({}); drawVeh();
     SEL = new Set(r.sel && r.sel.length ? r.sel : Object.entries(r.wybor || {}).flatMap(([s, g]) => Object.entries(g).flatMap(([z, l]) => l.map((i) => s + "|" + z + "|" + i))));
     RES = null; $("#res").innerHTML = '<p class="muted">Oferta z historii (' + esc(r.data) + '). Aby wybrać inne opony, użyj „Szukaj w xPartner”.</p>'; $("#resCard").hidden = false;
-    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; ORABW = r.rabat_wym ?? ""; CENYW = r.ceny_wym || {}; if (r.oddzial) OODD = r.oddzial; OSOBNO = r.osobno ?? null; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
+    ORABAT = r.rabat ?? ""; CENY = r.ceny || {}; ORABW = r.rabat_wym ?? ""; CENYW = r.ceny_wym || {}; if (r.oddzial) OODD = r.oddzial; OSOBNO = r.osobno ?? null; HSNAP = r.snap && r.snap.length ? r.snap : null; HDATA = r.data || ""; OID = newOid(); $("#outCard").hidden = true; updCnt(); await offer();
   } catch (e) { toast(e.message); }
 }
 

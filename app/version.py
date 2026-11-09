@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.24.10"
-RELEASED = "2026-11-07"
+VERSION = "0.25.3"
+RELEASED = "2026-11-09"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.25.3",
+        "date": "2026-11-09",
+        "changes": [
+            "PDF oferty: rabat widoczny w każdym wierszu kalkulacji – cena za sztukę przed rabatem, % rabatu, cena po rabacie i wartość (opony i wymiana); w ramce przekreślona cena przed rabatem; „W tym oszczędzasz dzięki rabatowi”",
+            "PDF „⚖ Porównanie” 2–3 opon na jednej stronie (ekonomiczna / polecana / premium) z tym, co daje lepsza etykieta UE",
+            "Historia ofert: status oferty (nowa / wysłana / przyjęta / odrzucona / zamówiona), „📞 oddzwoń” 2 dni po wysłaniu, licznik przy przycisku Historia, % przyjętych ofert",
+            "Oferta otwarta z historii pokazuje, co się zmieniło w xPartner od jej zapisania (cena, stan, brak opony)",
+            "Wybrany „Oddział na PDF” zostaje zapamiętany do kolejnej zmiany",
+        ],
+    },
     {
         "version": "0.24.10",
         "date": "2026-11-07",

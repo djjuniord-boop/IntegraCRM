@@ -15,6 +15,8 @@ Szczególnie pilnuj:
   właściciela, z porównaniem liczb przed/po,
 - puste `target`/`done` → „—”, bez wyjątków,
 - zakładka nie może blokować okna: zapytania w wątku, wynik przez `self.after`,
+- **aplikacja Android liczy to samo** (`mobile/www/wyniki.js` = port `dane.py`): zmiana wzoru w `dane.py` wymaga tej
+  samej zmiany w telefonie – napisz w raporcie „Potrzebne poza moim zakresem: agent Android”,
 - handlowiec widzi tylko swój oddział – ale zabezpieczeniem jest baza (`can_see_marza`), nie program.
 
 Na koniec zwróć raport w układzie z `.claude/zasady-agentow.md`.
