@@ -88,8 +88,8 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Opory toczenia<select id="f_rr" onchange="PAGE={};render()"><option value="">dowolne</option><option value="A">A</option><option value="B">A–B</option><option value="C">A–C</option></select></label>
 <label>Hałas max (dB)<input id="f_noise" type="number" min="60" max="80" placeholder="—" style="width:80px" oninput="PAGE={};render()"></label>
 <label>Homologacja<select id="f_hom" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
-<label>Prędkość min.<select id="f_spd" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
-<label>Nośność min.<select id="f_li" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
+<label>Prędkość<select id="f_spd" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
+<label>Nośność<select id="f_li" onchange="PAGE={};render()"><option value="">dowolna</option></select></label>
 <label class="chips" style="align-self:flex-end"><label><input type="checkbox" id="f_rant" onchange="PAGE={};render()">rant ochronny</label></label>
 <label>Demo<select id="f_demo" onchange="PAGE={};render()"><option value="">wszystkie</option><option value="bez">bez demo</option><option value="tylko">tylko demo</option></select></label>
 <label>Szukaj w wynikach<input id="f_txt" placeholder="model, indeks xPartner…" oninput="PAGE={};render()" style="width:160px"></label>
@@ -183,7 +183,7 @@ async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/
  $('#veh tbody').innerHTML='';j.pojazdy.forEach(addRow);
  document.querySelectorAll('.sez').forEach(c=>c.checked=j.sezony.includes(c.value));
  document.querySelectorAll('.kl').forEach(c=>c.checked=j.klasy.includes(c.value));
- $('#std').checked=j.runflat;setProd(j.producenci,false);$('#f_demo').value=j.demo||'';QIDX={li:j.nosnosc?String(j.nosnosc):'',sp:j.predkosc||''};msg('#qMsg','');await search();
+ $('#std').checked=j.runflat;setProd(j.producenci,false);$('#f_demo').value=j.demo||'';QIDX={li:j.nosnosc?'='+j.nosnosc:'',sp:j.predkosc?'='+j.predkosc:''};msg('#qMsg','');await search();
 }catch(e){msg('#qMsg',e.message,1)}b.disabled=false}
 function addRow(v={}){v=Object.assign({rej:'',pojazd:'',rozmiar:'',ilosc:4,wymiana:false,typ:'osobowy',tpms:0,przech:''},v);const tr=document.createElement('tr');const o=(a,b,c)=>`<option value="${a}" ${c===a?'selected':''}>${b}</option>`;tr.innerHTML=`<td><input class="rej" value="${esc(v.rej)}"></td><td><input class="poj" value="${esc(v.pojazd)}"></td><td><select class="typ">${o('osobowy','osobowy',v.typ)}${o('suv','SUV / 4x4',v.typ)}${o('dostawczy','dostawczy',v.typ)}</select></td><td><input class="roz" value="${esc(v.rozmiar)}" placeholder="205/60 R16"></td><td><input class="il" type="number" value="${v.ilosc??4}" min="0" style="width:64px" title="0 = bez nowych opon"></td><td><input type="checkbox" class="wym" ${v.wymiana?'checked':''} style="width:auto"></td><td><input class="tp" type="number" min="0" max="8" value="${v.tpms||0}" style="width:60px"></td><td><select class="pr">${o('','—',v.przech)}${o('opony','opony',v.przech)}${o('kola','koła (z felgami)',v.przech)}</select></td><td><button class="sec" onclick="this.closest('tr').remove()">✕</button></td>`;$('#veh tbody').append(tr)}
 function vehicles(){return[...document.querySelectorAll('#veh tbody tr')].map(t=>({rej:t.querySelector('.rej').value.trim(),pojazd:t.querySelector('.poj').value.trim(),rozmiar:t.querySelector('.roz').value.trim(),ilosc:+t.querySelector('.il').value||0,nowe:(+t.querySelector('.il').value||0)>0,wymiana:t.querySelector('.wym').checked,typ:t.querySelector('.typ').value,tpms:+t.querySelector('.tp').value||0,przech:t.querySelector('.pr').value})).filter(v=>v.rozmiar)}
@@ -307,17 +307,17 @@ const lab=x=>x?x.charCodeAt(0):99;
 function resetF(){['#f_wet','#f_rr','#f_hom','#f_demo','#f_spd','#f_li'].forEach(x=>$(x).value='');$('#f_rant').checked=false;$('#f_noise').value='';$('#f_txt').value='';PAGE={};render()}
 function srt(k){SORT=SORT.k===k?{k,d:-SORT.d}:{k,d:1};render()}
 const SPD='LMNPQRSTUHVWYZ';const spdI=s=>{const i=SPD.indexOf((s||'').replace(/R$/,'').slice(-1));return i<0?-1:i};
-function filt(l){const sp=$('#f_spd').value,li=+$('#f_li').value||0,rt=$('#f_rant').checked,w=$('#f_wet').value,r=$('#f_rr').value,n=+$('#f_noise').value||0,hm=$('#f_hom').value,dm=$('#f_demo').value,t=$('#f_txt').value.trim().toUpperCase();
- return l.filter(p=>(!w||(p.mokra&&p.mokra<=w))&&(!r||(p.opory&&p.opory<=r))&&(!n||(p.halas&&p.halas<=n))&&(!hm||p.homol.includes(hm))&&(!dm||(dm==='tylko')===!!p.demo)&&(!sp||spdI(p.predkosc)>=spdI(sp))&&(!li||p.nosnosc>=li)&&(!rt||p.rant)&&(!t||(p.nazwa+' '+p.model+' '+p.indeks+' '+p.id).toUpperCase().includes(t)))}
+function filt(l){const sp=$('#f_spd').value,lv=$('#f_li').value,li=+lv.replace('=','')||0,rt=$('#f_rant').checked,w=$('#f_wet').value,r=$('#f_rr').value,n=+$('#f_noise').value||0,hm=$('#f_hom').value,dm=$('#f_demo').value,t=$('#f_txt').value.trim().toUpperCase();
+ return l.filter(p=>(!w||(p.mokra&&p.mokra<=w))&&(!r||(p.opory&&p.opory<=r))&&(!n||(p.halas&&p.halas<=n))&&(!hm||p.homol.includes(hm))&&(!dm||(dm==='tylko')===!!p.demo)&&(!sp||(sp[0]==='='?spdI(p.predkosc)===spdI(sp.slice(1)):spdI(p.predkosc)>=spdI(sp)))&&(!li||(lv[0]==='='?p.nosnosc===li:p.nosnosc>=li))&&(!rt||p.rant)&&(!t||(p.nazwa+' '+p.model+' '+p.indeks+' '+p.id).toUpperCase().includes(t)))}
 const SK={id:p=>p.id,producent:p=>p.producent,model:p=>p.model,sezon:p=>p.sezon,indeks:p=>p.indeks,klasa:p=>({PREMIUM:0,MIDDLE:1,BUDGET:2}[p.klasa]??3),dot:p=>-(+p.dot||0),
  mokra:p=>lab(p.mokra),opory:p=>lab(p.opory),halas:p=>p.halas||99,stan:p=>-p.ilosc,zakup:p=>p.brutto_zak,cena:p=>p.cena_brutto};
 function sorted(l){if(!SORT.k)return l;const f=SK[SORT.k];return[...l].sort((a,b)=>{const x=f(a),y=f(b);return(x<y?-1:x>y?1:0)*SORT.d})}
 function th(k,t,c=''){return `<th class="s ${c} ${SORT.k===k?'on':''}" onclick="srt('${k}')">${t}${SORT.k===k?(SORT.d>0?' ▲':' ▼'):''}</th>`}
 let QIDX=null;   // nośność/prędkość z szybkiego polecenia – ustawiane po wczytaniu wyników
 function fillHom(){const have=new Set(),sps=new Set(),lis=new Set();for(const g of Object.values(RES.wyniki))for(const l of Object.values(g))for(const p of l){p.homol.forEach(h=>have.add(h));if(p.predkosc&&spdI(p.predkosc)>=0)sps.add(p.predkosc.slice(-1));if(p.nosnosc)lis.add(p.nosnosc)}
- let cs=$('#f_spd').value,cl=$('#f_li').value;if(QIDX){cs=QIDX.sp;cl=QIDX.li;QIDX=null}if(cs)sps.add(cs);if(cl)lis.add(+cl);
- $('#f_spd').innerHTML='<option value="">dowolna</option>'+[...sps].sort((a,b)=>spdI(a)-spdI(b)).map(x=>`<option value="${esc(x)}" ${cs===x?'selected':''}>${esc(x)} i wyżej</option>`).join('');
- $('#f_li').innerHTML='<option value="">dowolna</option>'+[...lis].sort((a,b)=>a-b).map(x=>`<option value="${x}" ${cl==String(x)?'selected':''}>${x} i wyżej</option>`).join('');
+ let cs=$('#f_spd').value,cl=$('#f_li').value;if(QIDX){cs=QIDX.sp;cl=QIDX.li;QIDX=null}if(cs)sps.add(cs.replace('=',''));if(cl)lis.add(+cl.replace('=',''));
+ $('#f_spd').innerHTML='<option value="">dowolna</option>'+[...sps].sort((a,b)=>spdI(a)-spdI(b)).map(x=>`<option value="=${esc(x)}" ${cs==='='+x?'selected':''}>${esc(x)}</option><option value="${esc(x)}" ${cs===x?'selected':''}>${esc(x)} i wyżej</option>`).join('');
+ $('#f_li').innerHTML='<option value="">dowolna</option>'+[...lis].sort((a,b)=>a-b).map(x=>`<option value="=${x}" ${cl==='='+x?'selected':''}>${x}</option><option value="${x}" ${cl==String(x)?'selected':''}>${x} i wyżej</option>`).join('');
  const cur=$('#f_hom').value;$('#f_hom').innerHTML='<option value="">dowolna</option>'+[...have].map(h=>`<option value="${esc(h)}" ${cur===h?'selected':''}>${esc(HOM[h]||h)}</option>`).join('')}
 function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;const l=sorted(filt(all));
  const pages=Math.max(1,Math.ceil(l.length/PER));let pg=Math.min(PAGE[g]||0,pages-1);PAGE[g]=pg;
