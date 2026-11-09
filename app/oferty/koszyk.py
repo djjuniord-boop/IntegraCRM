@@ -56,7 +56,7 @@ def czytaj_adresy(root):
 def adresy(cfg, oddzialy=None):
     """Miejsca dostawy z konta; tylko Wrocław (decyzja właściciela) – gdy brak dopasowania, wszystkie."""
     lst = czytaj_adresy(Z.api_xml(cfg, "getDeliveryData"))
-    wro = [a for a in lst if "WROC" in Z._norm(a["city"] + " " + a["name"]).upper()]
+    wro = [a for a in lst if Z._norm(a["name"]) == "latex serwis wroclaw"]   # tylko ten adres (decyzja właściciela)
     if not wro:
         raise Blad("Brak adresu LATEX SERWIS WROCŁAW na koncie xPartner – zamawianie wstrzymane, zgłoś administratorowi.")
     return wro
