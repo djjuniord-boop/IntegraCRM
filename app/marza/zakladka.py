@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from ui import (BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG,
-                WheelProgress, card)
+                WheelProgress, card, opis_bledu)
 from konfig import COMPANY, load_config, save_config
 from marza.okna import MarzaRecipientsDialog
 
@@ -394,7 +394,7 @@ class MarzaMixin:
             self.after(0, self._marza_schedule_hide)   # ✔ chwilę widoczny, potem miejsce dla kart
         except Exception as e:
             self._report(e, "kalkulator marży")
-            self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
+            self.after(0, self.marza_set_banner, "bad", f"✖  {opis_bledu(e)}")
             self.after(0, self.marza_wheel.done, "bad")
             self.after(0, self._marza_schedule_hide)
         finally:

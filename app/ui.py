@@ -101,6 +101,26 @@ def esc_zamyka(root):
     root.bind_all("<Escape>", esc, add="+")
 
 
+def opis_bledu(e) -> str:
+    """Błąd zrozumiały dla pracownika: co się stało i co zrobić (zamiast surowego tekstu wyjątku Pythona).
+    Komunikaty programu i serwera (po polsku) zostają bez zmian."""
+    import socket
+    import urllib.error
+    import zipfile
+    if isinstance(e, PermissionError):
+        return "Plik jest otwarty w innym programie (np. w Excelu) albo brak do niego dostępu – zamknij go i spróbuj ponownie."
+    if isinstance(e, FileNotFoundError):
+        return "Nie znaleziono pliku – mógł zostać przeniesiony albo usunięty."
+    if isinstance(e, zipfile.BadZipFile):
+        return "Plik jest uszkodzony albo to nie jest plik Excel (.xlsx) – zapisz go ponownie i spróbuj jeszcze raz."
+    if isinstance(e, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError)):
+        return "Brak połączenia z serwerem – sprawdź internet i spróbuj ponownie za chwilę."
+    t = str(e).strip()
+    if t and (any(c in t for c in "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ„") or type(e).__name__ in ("CloudError", "SessionEnded", "Blad", "ApiError")):
+        return t
+    return f"Nieoczekiwany błąd ({type(e).__name__}{': ' + t[:160] if t else ''}). Spróbuj ponownie; jeśli się powtarza – zgłoś administratorowi."
+
+
 def odmiana(n, jeden, kilka, wiele):
     """Polska odmiana po liczbie: odmiana(1,"numer","numery","numerów") → „numer”; 3 → „numery”; 5, 12, 22? → zgodnie z zasadami."""
     n = abs(int(n))

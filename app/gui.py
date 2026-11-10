@@ -14,7 +14,7 @@ import paths
 import czuwanie
 import updater
 from version import CHANGELOG, RELEASED, VERSION
-from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, esc_zamyka, set_icon, step_badge
+from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, esc_zamyka, set_icon, step_badge, opis_bledu
 from konfig import COMPANY, load_config, migrate_config, save_config, update_source
 from ustawienia import SettingsDialog
 from logowanie import login_flow
@@ -155,7 +155,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 pass
         self.fonts = Fonts(self)
         esc_zamyka(self)   # Esc zamyka okna dialogowe (jak „Anuluj”)
-        self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
+        self.title(f"Panel Latex Serwis  v{VERSION}")
         self.geometry("1000x820")
         try:
             self.state("zoomed")   # Windows: pełny ekran roboczy – więcej miejsca na wynik i mail
@@ -648,7 +648,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.updating = False
         self.btn_update.set_enabled(True)
         self.set_update_status(f"Aktualizacja nie powiodła się: {e}")
-        messagebox.showerror("Aktualizacja", f"Aktualizacja nie powiodła się:\n{e}\n\n"
+        messagebox.showerror("Aktualizacja", f"Aktualizacja nie powiodła się:\n{opis_bledu(e)}\n\n"
                              f"Program działa dalej w wersji {VERSION}.")
 
     def rollback(self):
@@ -662,7 +662,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             updater.rollback(pin=True)
         except Exception as e:
             self._report(e, "przywracanie wersji")
-            messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{e}")
+            messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{opis_bledu(e)}")
             return
         self._restart()
 

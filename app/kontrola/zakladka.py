@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import paths
 from kontrola import analyze, crm_report, mailer, postep
-from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, WheelProgress, card, odmiana, step_badge
+from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, WheelProgress, card, odmiana, step_badge, opis_bledu
 from konfig import COMPANY, load_config, recipients_for, save_config
 from kontrola.mailer import parse_recipients
 try:
@@ -374,7 +374,7 @@ class KontrolaMixin:
         try:
             rows = crm_report.load(p)
         except Exception as e:
-            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{e}")
+            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{opis_bledu(e)}")
             return
         self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
         self._build_branches(crm_report.branches(rows))
@@ -518,7 +518,7 @@ class KontrolaMixin:
             kind = "bad"
             self.say(f"Błąd: {e}")
             self._report(e, "sprawdzanie")
-            self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
+            self.ui(self.set_banner, "bad", f"✖  {opis_bledu(e)}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
             self.ui(self.check_wheel_done, kind)
@@ -580,7 +580,7 @@ class KontrolaMixin:
                 cfg["gmail_user"] = self.session.email
             except Exception as e:
                 self._report(e, "wysyłka e-maila")
-                self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
+                self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {opis_bledu(e)}")
                 self.ui(self.btn_send.set_enabled, True, "Wyślij e-mail")
                 return
             cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
