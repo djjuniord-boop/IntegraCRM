@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.26.1"
+VERSION = "0.27.0"
 RELEASED = "2026-11-10"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.0",
+        "date": "2026-11-10",
+        "changes": [
+            "Nowa zakładka DZIŚ (gdy masz kilka modułów): ostatnie sprawdzenie w Kontroli, wynik marży z planem na dziś, kiedy była ostatnia aktualizacja marży, szybkie przejście do Ofert i Serwisu QR",
+            "Kontrola CRM jako kreator: pasek kroków Pliki → Wynik → E-mail; po wczytaniu PDF z Integry i raportu z CRM sprawdzenie rusza samo",
+            "Wysyłka e-maili z serwera ma limit 60 wiadomości na konto w ciągu doby (ochrona firmowej skrzynki)",
+        ],
+    },
     {
         "version": "0.26.1",
         "date": "2026-11-10",
