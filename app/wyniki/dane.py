@@ -1,7 +1,8 @@
 """WYNIKI – obliczenia bez okna (te same wzory co wykres w e-mailu MARŻY, silnik_*._generuj_wykres_png).
 
 Dni sprzedażowe: wszystkie dni miesiąca poza niedzielami i świętami z kalkulatora (arkusz „Święta PL”).
-Dzień dzisiejszy liczy się jako jeszcze do zrobienia (jak w kalkulatorze i e-mailu).
+Dzień aktualizacji MARŻY liczy się jako miniony (raport z danego dnia), inne dni od dziś – jako do zrobienia;
+daty aktualizacji w czasie polskim (_data_lokalna).
 """
 import calendar
 import datetime
@@ -124,7 +125,7 @@ def punkty_wykresu(row: dict, runs: list, today: datetime.date | None = None) ->
     for r in sorted(runs, key=lambda r: str(r.get("run_at") or "")):
         if r.get("done") is None:
             continue
-        d = _data(r.get("run_at"))
+        d = _data_lokalna(r.get("run_at"))   # aktualizacja o 0:30 czasu polskiego to już nowy dzień
         if d is None or (d.year, d.month) != (year, month):
             continue
         per_day[idx(d)] = float(r["done"])
@@ -154,11 +155,12 @@ def parsuj_kwote(text) -> float:
         v = float(s)
     except ValueError:
         raise ValueError("To nie jest kwota – wpisz same cyfry, np. 300 000 albo 128 450,50.") from None
-    if v != v or v <= 0:
+    v = round(v, 2) if v == v else v
+    if v != v or v <= 0:   # po zaokrągleniu: „0,004” to 0 zł
         raise ValueError("Kwota musi być większa od zera.")
     if v > MAX_KWOTA:
         raise ValueError("Kwota jest za duża.")
-    return round(v, 2)
+    return v
 
 
 def kwota_do_pola(v) -> str:

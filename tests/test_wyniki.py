@@ -263,3 +263,30 @@ def test_srednia_i_prognoza_licza_dzisiejszy_dzien_po_dzisiejszej_aktualizacji()
     # dane z wczoraj (bez dzisiejszej aktualizacji) – dziś jeszcze trwa, nie liczy się
     s2 = dane.podsumowanie(dict(row, updated_at="2026-11-02T18:00:00+00:00"), datetime.date(2026, 11, 3))
     assert s2["dni_minelo"] == 1 and s2["dzien_dzis"] == 2
+
+
+def test_wykres_data_lokalna_i_kwota_po_zaokragleniu():
+    from wyniki import dane as D
+    row = {"year": 2026, "month": 11, "holidays": ["2026-11-01", "2026-11-11"], "done": None}
+    runs = [{"run_at": "2026-11-02T23:30:00+00:00", "done": 1000}]   # 3.11 0:30 czasu polskiego
+    import os, time
+    stara = os.environ.get("TZ")
+    os.environ["TZ"] = "Europe/Warsaw"
+    time.tzset()
+    try:
+        pkt = D.punkty_wykresu(row, runs, today=datetime.date(2026, 11, 20))
+    finally:
+        if stara is None:
+            os.environ.pop("TZ", None)
+        else:
+            os.environ["TZ"] = stara
+        time.tzset()
+    assert pkt == [(2, 1000.0)]          # 3.11 = drugi dzień sprzedażowy (1.11 święto), nie 2.11
+    for zle in ("0,004", "0"):
+        try:
+            D.parsuj_kwote(zle)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(zle)
+    assert D.parsuj_kwote("0,005") == 0.01 or D.parsuj_kwote("0,006") == 0.01

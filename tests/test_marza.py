@@ -931,3 +931,11 @@ def test_podglad_wspolny_kod_osobne_ustawienia_oddzialow():
     assert podglad_wroclaw.generate.__globals__ is vars(podglad_wroclaw)   # funkcje czytają ustawienia swojego oddziału
     importlib.reload(podglad_wroclaw)                                      # jak runner._load
     assert podglad_wroclaw.SCRIPT_DIR != "/x/wroclaw" and callable(podglad_wroclaw.generate)
+
+
+def test_marza_dzisiaj_czyta_pierwszy_zapis_i_ujemne():
+    from marza import silnik_opole, silnik_wroclaw
+    for s in (silnik_wroclaw, silnik_opole):
+        assert s._MD_CHANGE_RE.match("  Listopad 2026: None -> 200.00 zł  (z pliku a.pdf)").group(2) == "200.00"
+        assert s._MD_CHANGE_RE.match("  Listopad 2026: 100.0 -> -50.25 zł  (z pliku a.pdf)").group(2) == "-50.25"
+        assert s._MD_CHANGE_RE.match("  Listopad 2026: 120000.5 -> 154186.54 zł").group(1) == "Listopad 2026"

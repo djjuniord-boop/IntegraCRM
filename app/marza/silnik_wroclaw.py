@@ -607,7 +607,7 @@ def _refresh_podglad(xlsx_path, log_lines, updated=None):
 
 # --- Karta "MARZA DZISIAJ" (przyrost od ostatniego wgrania) ------------------
 _MD_HEADER_RE = re.compile(r"^=== Aktualizacja kalkulatora marż.*? — (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) ===")
-_MD_CHANGE_RE = re.compile(r"^  (.+?): [\d\s,.]+ -> ([\d\s,.]+) zł")
+_MD_CHANGE_RE = re.compile(r"^  (.+?): (?:None|-?[\d\s,.]+) -> (-?[\d\s,.]+) zł")   # także pierwszy zapis (None) i wartości ujemne
 
 
 def _wczorajsza_wartosc_z_logu(log_path, miesiac_etykieta):
