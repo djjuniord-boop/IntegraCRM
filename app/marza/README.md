@@ -41,7 +41,8 @@ Uprawnienie: moduł `marza`.
 | `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
 | `rozdziel.py` | rozdziela raporty na oddziały, **rozpoznaje przebieg z dziennika silnika** (stałe `T_*` – te same teksty co w silnikach; zmieniasz tekst w silniku → zmień stałą i test), dane kart, podsumowanie; `kwota()` = „154 186,54 zł” |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |
-| `podglad_wroclaw.py`, `podglad_opole.py` | podgląd dla handlowców (`PODGLAD_dla_handlowcow.xlsx`, kopia na Dysk Google) |
+| `_podglad_wspolny.py` | **jeden kod** podglądu dla handlowców (`PODGLAD_dla_handlowcow_<oddział>.xlsx` + CSV, kopia na Dysk Google) – od 0.26.1; zmiany podglądu tylko tutaj |
+| `podglad_wroclaw.py`, `podglad_opole.py` | ustawienia oddziału (nazwa kalkulatora, plików, 2 napisy) + wykonanie wspólnego kodu we własnej przestrzeni nazw (osobne `SCRIPT_DIR`/`BASE_DIR`). Nowy oddział = nowy taki plik (10 linii) |
 
 ## Zasady, których nie wolno złamać
 

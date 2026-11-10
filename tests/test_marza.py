@@ -915,3 +915,19 @@ def test_podglad_przechodzi_na_2027():
             # w trakcie roku bez zmian: bieżący miesiąc
             (rok, mies), log = wybor(k26, [], _dzien(2026, 11, 20))
             assert gen(k26, rok, mies, _dzien(2026, 11, 20)) == "Listopad 2026"
+
+
+def test_podglad_wspolny_kod_osobne_ustawienia_oddzialow():
+    """Oba oddziały korzystają z jednego kodu podglądu (_podglad_wspolny.py), ale mają własne nazwy plików
+    i własne SCRIPT_DIR/BASE_DIR (program podmienia je osobno)."""
+    import importlib
+    from marza import podglad_opole, podglad_wroclaw
+    assert podglad_wroclaw.OUT_NAME == "PODGLAD_dla_handlowcow_Wroclaw.xlsx"
+    assert podglad_opole.OUT_NAME == "PODGLAD_dla_handlowcow_Opole.xlsx"
+    assert podglad_wroclaw.CSV_NAME != podglad_opole.CSV_NAME
+    assert podglad_opole.PODGLAD_NAGLOWEK == "Serwis Opole"
+    podglad_wroclaw.SCRIPT_DIR = "/x/wroclaw"
+    assert podglad_opole.SCRIPT_DIR != "/x/wroclaw"
+    assert podglad_wroclaw.generate.__globals__ is vars(podglad_wroclaw)   # funkcje czytają ustawienia swojego oddziału
+    importlib.reload(podglad_wroclaw)                                      # jak runner._load
+    assert podglad_wroclaw.SCRIPT_DIR != "/x/wroclaw" and callable(podglad_wroclaw.generate)
