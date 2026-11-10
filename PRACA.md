@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| 2026-11-10 | Audyt – ETAP 2 (klawiatura i wygląd, MARŻA podgląd, WYNIKI, czuwanie, RODO, komunikaty, martwy kod) | praca/etap2 | app/ui.py, app/gui.py, app/czuwanie.py, app/marza/, app/wyniki/, app/kontrola/, app/uzytkownicy/, app/oferty/silnik.py, supabase/, tests/ |
+| 2026-11-10 | Audyt – ETAP 3 (KONTROLA kreator, ekran DZIŚ, limit maili, MFA) | praca/etap3 | app/kontrola/, app/gui.py, app/dzis/ (nowy), supabase/, tests/ |
