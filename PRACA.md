@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| 2026-11-10 | Audyt – ETAP 1 (rok 2027 MARŻA, pośrednik xPartner, wycofanie wersji, KONTROLA 1366, rozmiary opon, SQL uprawnień) | praca/etap1 | app/marza/silnik_*, podglad_*, app/oferty/ (okno, silnik, koszyk, zamowienia), app/updater.py, app/logowanie.py, app/kontrola/zakladka.py, tests/ui_smoke.py, supabase/, .github/workflows/xp_oferta.yml |
+| 2026-11-10 | Audyt – ETAP 2 (klawiatura i wygląd, MARŻA podgląd, WYNIKI, czuwanie, RODO, komunikaty, martwy kod) | praca/etap2 | app/ui.py, app/gui.py, app/czuwanie.py, app/marza/, app/wyniki/, app/kontrola/, app/uzytkownicy/, app/oferty/silnik.py, supabase/, tests/ |
