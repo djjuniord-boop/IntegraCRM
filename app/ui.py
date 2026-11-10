@@ -50,8 +50,9 @@ class FlatButton(tk.Label):
         bg, fg, hover = self.STYLES[kind]
         ramka = kind in ("ghost", "danger")
         gr = 1 if ramka else 2   # obwódka fokusu; przy pełnych przyciskach w kolorze tła (niewidoczna bez fokusu)
-        super().__init__(parent, text=text, bg=bg, fg=fg, font=font, padx=max(0, padx - (gr - 1)),
-                         pady=max(0, pady - (gr - 1)), cursor="hand2", takefocus=1, highlightthickness=gr,
+        kom = 0 if ramka else gr   # pełny przycisk: obwódka kosztem marginesu – rozmiar jak dawniej
+        super().__init__(parent, text=text, bg=bg, fg=fg, font=font, padx=max(0, padx - kom),
+                         pady=max(0, pady - kom), cursor="hand2", takefocus=1, highlightthickness=gr,
                          highlightbackground=(RED_DARK if kind == "danger" else LINE) if ramka else bg,
                          highlightcolor=RED if kind != "primary" else BLACK)
         self._c = (bg, fg, hover)
@@ -112,7 +113,9 @@ def opis_bledu(e) -> str:
     if isinstance(e, FileNotFoundError):
         return "Nie znaleziono pliku – mógł zostać przeniesiony albo usunięty."
     if isinstance(e, zipfile.BadZipFile):
-        return "Plik jest uszkodzony albo to nie jest plik Excel (.xlsx) – zapisz go ponownie i spróbuj jeszcze raz."
+        return "Plik jest uszkodzony albo ma zły format – pobierz albo zapisz go ponownie i spróbuj jeszcze raz."
+    if isinstance(e, urllib.error.HTTPError):
+        return f"Serwer odrzucił żądanie (kod {e.code}) – spróbuj ponownie później; jeśli się powtarza, zgłoś administratorowi."
     if isinstance(e, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError)):
         return "Brak połączenia z serwerem – sprawdź internet i spróbuj ponownie za chwilę."
     t = str(e).strip()

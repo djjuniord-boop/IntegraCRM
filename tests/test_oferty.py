@@ -497,3 +497,7 @@ def test_szybkie_polecenie_z_rejestracja_i_autem():
     assert [(x["rej"], x["pojazd"], x["rozmiar"]) for x in p] == [("DW5444LW", "Skoda Octavia", "205/55 R16")]
     p = S.parse_quick("205/55 r16 3 oferty premium zimowe 4 szt")["pojazdy"]
     assert (p[0]["rej"], p[0]["pojazd"]) == ("", "")    # same słowa polecenia to nie auto
+    for t, rej in (("2254517 91v xl zimowe", ""), ("225/45 r17 zimowe bez demo run flat", ""),
+                   ("golf 2055516 94v xl zima", ""), ("dw5444lw 2055516 91v", "DW5444LW")):
+        p = S.parse_quick(t)["pojazdy"][0]
+        assert (p["rej"], p["pojazd"]) == (rej, ""), (t, p)   # indeks, XL, „run flat” to nie model auta

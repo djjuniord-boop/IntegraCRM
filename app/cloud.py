@@ -234,7 +234,11 @@ def remember(s: Session):
     import vault
     t = vault.protect(s.refresh_token)
     if os.name == "nt" and t and not t.startswith(vault.PREFIX):
-        return   # szyfrowanie Windows nie zadziałało – nie zapisujemy tokenu jawnym tekstem (logowanie hasłem)
+        try:   # szyfrowanie Windows nie zadziałało – nie zapisujemy tokenu jawnym tekstem (logowanie hasłem)
+            SESSION_FILE.unlink()
+        except OSError:
+            pass
+        return
     try:
         paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
         SESSION_FILE.write_text(json.dumps({"email": s.email, "t": t}), encoding="utf-8")

@@ -59,7 +59,7 @@ class UserDialog(tk.Toplevel):
         tk.Entry(xr, textvariable=self.v_xp_login, width=20, font=f.body, relief="solid", bd=1).grid(row=1, column=0, ipady=3)
         tk.Entry(xr, textvariable=self.v_xp_pass, show="•", width=20, font=f.body, relief="solid", bd=1).grid(
             row=1, column=1, ipady=3, padx=(10, 0))
-        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany.", bg=SURFACE, fg=MUTED, font=f.small)
+        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty opon).", bg=SURFACE, fg=MUTED, font=f.small)
         self.xp_info.pack(anchor="w")
         self._xp_old_login = ""
         if u:

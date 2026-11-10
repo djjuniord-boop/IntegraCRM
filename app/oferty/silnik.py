@@ -524,8 +524,10 @@ def parse_quick(txt):
             fl = {}
         if fl.get("rej"):
             pojazdy[0]["rej"] = fl["rej"]
-        if fl.get("pojazd") and (fl.get("rej") or len(fl["pojazd"].split()) >= 2):
-            pojazdy[0]["pojazd"] = fl["pojazd"]
+        auto = [w for w in (fl.get("pojazd") or "").split()   # bez indeksów (91V), XL i „run flat”
+                if not re.match(r"^(\d{2,3}[a-z]|xl|run|flat|runflat|rft)$", w, re.I)]
+        if auto and any(re.match(r"^[a-ząćęłńóśźż-]{3,}$", w, re.I) for w in auto) and (fl.get("rej") or len(auto) >= 2):
+            pojazdy[0]["pojazd"] = " ".join(auto)
     demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
     nosnosc, predkosc = indeks_z_tekstu(t)
     return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki)),
