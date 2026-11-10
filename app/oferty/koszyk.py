@@ -13,8 +13,6 @@ Według dokumentacji xPartner (docs.xpartner.net.pl → XML API → Zamówienia;
 Decyzje właściciela: zawsze Faktura (Invoice) + przelew (Transfer), bez ceny w zamówieniu, adresy: z konta + jednorazowe.
 """
 import re
-import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
@@ -156,14 +154,10 @@ def czytaj_wynik(dane):
 
 
 def wyslij(cfg, xml_txt, timeout=60):
-    if not cfg.get("login") or not cfg.get("password"):
-        raise Blad("Twoje konto nie ma loginu API xPartner – poproś administratora.")
-    q = urllib.parse.urlencode({"a": "b2b_xmlApi", "login": cfg["login"], "pass": cfg["password"], "m": "order"})
-    req = urllib.request.Request(API_URL + "?" + q, data=xml_txt.encode("utf-8"), method="POST",
-                                 headers={"Content-Type": "application/xml", "User-Agent": "PanelLatexSerwis-Oferty"})
-    try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return r.read()
-    except Exception as e:   # bez treści błędu (adres z loginem)
-        raise Blad("Brak odpowiedzi xPartner (%s) – sprawdź w xPartner („📦 Zamówienia”), czy zamówienie powstało, zanim zamówisz ponownie."
-                   % e.__class__.__name__)
+    from oferty import xp
+    try:   # przez pośrednika na serwerze: sprawdza prawo do zamawiania i zapisuje zamówienie w dzienniku
+        return xp.zapytanie(cfg, "order", body=xml_txt, timeout=timeout)
+    except xp.BrakOdpowiedzi as e:
+        raise Blad("%s – sprawdź w xPartner („📦 Zamówienia”), czy zamówienie powstało, zanim zamówisz ponownie." % e)
+    except xp.Blad as e:   # odmowa przed wysłaniem do xPartner (uprawnienia, brak loginu) – zamówienie nie powstało
+        raise Blad(str(e))

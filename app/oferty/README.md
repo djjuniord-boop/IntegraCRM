@@ -9,6 +9,7 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 
 | Plik | Rola |
 |---|---|
+| `xp.py` | połączenie z API xPartner – przez pośrednika na serwerze (funkcja `xpartner`, ustawiana w `okno.posrednik_xpartner`); hasło B2B nie trafia do komputera (od 0.26.0) |
 | `silnik.py` | cała logika bez okna: rozpoznawanie zapytań (rozmiar w dowolnym zapisie – połówka średnicy `R17.5` i „C” `R16C` są częścią rozmiaru i filtrują wyniki, od 0.26.0; rejestracje, usługi), API xPartner, oferta, XLSX, e-mail; `handle(ścieżka, dane)` – polecenia strony |
 | `index.html` | interfejs (jeden plik HTML/JS); polecenia przez `window.pywebview.api.call(ścieżka, dane)` |
 | `okno.py` | proces okna (`start.py --oferty`): pywebview/Edge WebView2, `Api.call` → `silnik.handle`, konto i historia z bazy |

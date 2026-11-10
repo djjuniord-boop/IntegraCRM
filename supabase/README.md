@@ -45,6 +45,10 @@ Funkcje serwerowe (Edge Functions, kod w `supabase/functions/`):
 - `admin-users` – zakładanie kont, hasła, usuwanie (tylko admin; używa `service_role` po stronie serwera),
 - `send-mail` – mail z brakami (Kontrola) i mail z wykresem (MARŻA, akcja `raw`); sekrety `GMAIL_USER`,
   `GMAIL_APP_PASSWORD` ustawia właściciel w panelu Supabase. Najpierw sprawdza konto, potem konfigurację.
+- `xpartner` (od 0.26.0) – pośrednik API xPartner: login i hasło B2B czyta po stronie serwera (`xpartner_dane`,
+  tylko `service_role`), uprawnienia sprawdza tokenem użytkownika (katalog – `oferty`; zamówienia/faktury – `zamowienia`
+  lub `zamawianie`; adresy i `order` – `zamawianie`), zamówienie zapisuje w `audit_log` („xPartner (serwer)”).
+  Pliki: `xpartner_posrednik_2026-11-10.sql`, potem (gdy wszyscy mają 0.26.0) `xpartner_posrednik_etap2_2026-11-10.sql`.
 
 ## Zmiany w bazie
 

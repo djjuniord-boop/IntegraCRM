@@ -13,6 +13,7 @@ import shutil
 import sys
 import threading
 import time
+import urllib.error
 import urllib.request
 import urllib.parse
 from pathlib import Path
@@ -97,18 +98,45 @@ class Historia:
         return [r for r in rows if isinstance(r.get("dane"), dict)]
 
 
+def posrednik_xpartner(m, params, body=None, timeout=30):
+    """Zapytanie do xPartner przez funkcję serwera „xpartner” (login i hasło B2B dokłada serwer)."""
+    import cloud
+    from oferty import xp
+    req = urllib.request.Request(cloud.URL + "/functions/v1/xpartner",
+                                 data=json.dumps({"m": m, "params": params, "body": body}).encode("utf-8"),
+                                 method="POST",
+                                 headers={"Content-Type": "application/json", "apikey": cloud.ANON_KEY,
+                                          "Authorization": "Bearer " + _token(),
+                                          "User-Agent": "PanelLatexSerwis-Oferty"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout + 15) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error") or ""
+        except Exception:
+            msg = ""
+        if e.code == 404:
+            msg = "Pośrednik xPartner nie jest jeszcze uruchomiony na serwerze – zgłoś administratorowi."
+        elif e.code == 401 and not msg:
+            msg = "Sesja wygasła – zamknij okno ofert i otwórz je ponownie."
+        if e.code >= 500 or e.code == 408:
+            raise xp.BrakOdpowiedzi(msg or "Brak odpowiedzi xPartner (błąd serwera %d)" % e.code)
+        raise xp.Blad(msg or "xPartner: odmowa (%d)" % e.code)
+    except Exception as e:
+        raise xp.BrakOdpowiedzi("Brak połączenia z serwerem (%s)" % e.__class__.__name__)
+
+
 def wczytaj_konto():
     """Login API i ustawienia zalogowanego użytkownika -> silnik.KONTO."""
     from oferty import silnik
     e = _email(_token())
     rows = _db("GET", "/rest/v1/oferty_konta?select=*&email=eq." + urllib.parse.quote(e)) or [] if e else []
     r = rows[0] if rows else {}
-    # hasło xPartner: z zaszyfrowanego sejfu przez funkcję bazy (tylko własne); przed etapem 2 – jawna kolumna
-    try:
-        haslo = _db("POST", "/rest/v1/rpc/oferty_moje_haslo", {}) or ""
-    except Exception:
-        haslo = r.get("xp_haslo") or ""
-    silnik.KONTO.update(login=r.get("xp_login") or "", password=haslo if isinstance(haslo, str) else "",
+    # hasło xPartner nie trafia do komputera: zapytania idą przez pośrednika na serwerze (funkcja „xpartner”)
+    from oferty import xp
+    xp.POSREDNIK = posrednik_xpartner
+    silnik.KONTO.update(login=r.get("xp_login") or "", password="",
                         ustawienia=r.get("ustawienia") or {},
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
     h = Historia()

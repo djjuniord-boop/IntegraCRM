@@ -14,6 +14,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
+from oferty import xp
+
 VERSION = "panel"
 OUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Oferty opon")
 API_URL = "https://xpartner.net.pl/index.php"
@@ -120,18 +122,11 @@ def parse_products(xml_bytes):
     return count, out
 
 def api_call(cfg, **params):
-    if not cfg.get("login") or not cfg.get("password"):
-        raise ApiError("Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go "
-                       "(UŻYTKOWNICY → konto → xPartner).")
-    q = {"a": "b2b_xmlApi", "login": cfg["login"], "pass": cfg["password"], "m": "productsList"}
-    q.update({k: ("true" if v is True else "false" if v is False else v) for k, v in params.items()})
-    url = API_URL + "?" + urllib.parse.urlencode(q)
-    req = urllib.request.Request(url, headers={"User-Agent": "PanelLatexSerwis-Oferty"})
+    q = {k: ("true" if v is True else "false" if v is False else v) for k, v in params.items()}
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            data = r.read()
-    except Exception as e:
-        raise ApiError("Brak połączenia z xPartner: %s" % e.__class__.__name__)
+        data = xp.zapytanie(cfg, "productsList", q, timeout=30)   # przez pośrednika na serwerze (hasło tam)
+    except xp.Blad as e:
+        raise ApiError(str(e))
     try:
         return parse_products(data)
     except ET.ParseError:
