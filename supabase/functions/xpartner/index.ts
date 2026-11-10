@@ -4,6 +4,8 @@
 //   zamówienia i faktury (getOpenOrders, getOrder, getInvoices, getInvoice) – „zamowienia” albo „zamawianie”
 //   adresy dostawy i zamówienie (getDeliveryData, order)     – „zamawianie”
 // (has_module zwraca true dla administratora). Zamówienie zapisuje się w Dzienniku zmian po stronie serwera.
+// Znane ograniczenie: faktury i zamówienia innych oddziałów filtruje jeszcze program (zamowienia.py) – serwer
+// sprawdza tylko moduł; przeniesienie tego filtra na serwer – w kolejnym etapie.
 // Wejście: POST {m, params?: {klucz: wartość}, body?: "XML zamówienia"}. Wyjście: surowa odpowiedź XML xPartner
 // albo JSON {error} (4xx/5xx).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
@@ -38,8 +40,8 @@ Deno.serve(async (req) => {
   let b: Record<string, unknown>;
   try { b = await req.json(); } catch { return json({ error: "Nieprawidłowe dane" }, 400); }
   const m = String(b.m ?? "");
+  if (!Object.hasOwn(METODY, m)) return json({ error: "Niedozwolona operacja xPartner" }, 400);
   const grupy = METODY[m];
-  if (!grupy) return json({ error: "Niedozwolona operacja xPartner" }, 400);
   for (const grupa of grupy) {
     let ok = false;
     for (const mod of grupa) {
@@ -73,21 +75,22 @@ Deno.serve(async (req) => {
   const ctl = new AbortController();
   const stop = setTimeout(() => ctl.abort(), m === "order" ? 70_000 : 45_000);
   let odp: Response;
-  try {
+  let dane: Uint8Array;
+  try {   // limit czasu obejmuje też odczyt treści odpowiedzi
     odp = await fetch(url, m === "order"
       ? { method: "POST", body: xml, headers: { "Content-Type": "application/xml", "User-Agent": "PanelLatexSerwis-Oferty" }, signal: ctl.signal }
       : { headers: { "User-Agent": "PanelLatexSerwis-Oferty" }, signal: ctl.signal });
+    dane = new Uint8Array(await odp.arrayBuffer());
   } catch (e) {
-    if (m === "order") await dziennik(admin, email, "brak odpowiedzi", { blad: (e as Error).name });
+    if (m === "order") await dziennik(admin, email, "brak odpowiedzi – sprawdzić w xPartner", { blad: (e as Error).name });
     return json({ error: `Brak połączenia z xPartner (${(e as Error).name})` }, 502);
   } finally {
     clearTimeout(stop);
   }
-  const dane = new Uint8Array(await odp.arrayBuffer());
   if (m === "order") {
     const txt = new TextDecoder().decode(dane);
     const nr = [...txt.matchAll(/<order(?:XP|Xp|No)>([^<]{1,40})</g)].map((x) => x[1]);
-    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru", { http: odp.status, numery: nr, bajtow: xml.length });
+    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru", { http: odp.status, numery: nr, znakow: xml.length });
   }
   return new Response(dane, { status: 200, headers: { "Content-Type": "application/xml; charset=utf-8", "X-Xpartner-Status": String(odp.status) } });
 });

@@ -170,9 +170,9 @@ def get_product(cfg, pid):
 # ---------------------------------------------------------------- logika
 # Średnica z połówką (17.5, 19.5, 22.5 – ciężarowe) i „C” (opony dostawcze, inna nośność) są częścią rozmiaru:
 # „265/70 R17.5” ≠ „265/70 R17”, „205/65 R16C” ≠ „205/65 R16”.
-SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})([.,]5)?(C(?![A-Za-z]))?", re.I)
+SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})([.,]5(?![0-9A-Za-z]))?(C(?![A-Za-z]))?", re.I)
 
-SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})([.,]5)?(C(?![A-Za-z]))?(?!\d)", re.I)
+SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})([.,]5(?![0-9A-Za-z]))?(C(?![A-Za-z]))?(?!\d)", re.I)
 
 def _rozmiar(w, p, r, pol, c):
     return "%s/%s R%s%s%s" % (w, p, r, ".5" if pol else "", "C" if c else "")

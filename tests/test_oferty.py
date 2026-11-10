@@ -69,6 +69,8 @@ def test_rozmiar_ciezarowy_i_dostawczy_nie_gubi_oznaczenia():
     assert S.find_sizes("205/55R16C 4 szt") == ["205/55 R16C"]
     assert S.find_sizes("2156516c") == ["215/65 R16C"]
     assert S.find_sizes("205/55 R16 CrossClimate") == ["205/55 R16"]
+    assert S.find_sizes("205/55R16,5szt") == ["205/55 R16"]          # „,5szt” to ilość, nie połówka
+    assert S.find_sizes("265/70R17,5 4 szt") == ["265/70 R17.5"]
     assert S.norm_size("BARUM L185/75 R16C VANIS 3 104/102R") == "185/75 R16C"
     assert S.norm_size("YOKOHAMA 245/70 R17.5 704R 136/134M") == "245/70 R17.5"
     assert S.norm_size("MICHELIN 205/55 R16 PRIMACY 4") == "205/55 R16"
