@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.25.10"
-RELEASED = "2026-11-09"
+VERSION = "0.26.0"
+RELEASED = "2026-11-10"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.26.0",
+        "date": "2026-11-10",
+        "changes": [
+            "Bezpieczeństwo: Oferty opon, zamówienia i koszyk łączą się z xPartner przez serwer firmy – hasło B2B nie trafia już do komputerów; zamówienie wymaga uprawnienia „Zamawianie” i zapisuje się w Dzienniku zmian także po stronie serwera",
+            "MARŻA: rok nie jest już przypięty do 2026 – od stycznia 2027 podgląd i e-mail pokażą właściwy miesiąc (raport za grudzień wgrany w styczniu – grudzień); gdy w kalkulatorze brak miesięcy nowego roku, pojawi się uwaga „dopisz miesiące”",
+            "Kontrola CRM: na laptopie (ekran 1366×768) po sprawdzeniu karty plików zwijają się do jednej linii z przyciskiem „Zmień pliki”, żeby treść e-maila była widoczna",
+            "Oferty opon: rozmiary ciężarowe (np. 265/70 R17.5) i dostawcze „C” (np. 205/65 R16C) nie są już mylone z R17 i oponami osobowymi – dla busa wpisz rozmiar z literą C",
+            "Aktualizacje: po „Przywróć poprzednią wersję” program nie blokuje się, gdy wymagana jest nowsza wersja – zainstaluje ją",
+        ],
+    },
     {
         "version": "0.25.10",
         "date": "2026-11-09",
