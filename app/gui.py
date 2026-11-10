@@ -37,6 +37,7 @@ from serwis.zakladka import SerwisMixin
 from oferty.zakladka import OfertyMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
+from dzis.zakladka import DzisMixin, kafle_konta
 from statystyki.zakladka import StatystykiMixin
 
 
@@ -101,7 +102,7 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
+class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
           tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
@@ -231,6 +232,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.attributes("-topmost", True)
         with open(f"{out_dir}/dnd.txt", "w", encoding="utf-8") as fh:
             fh.write(f"enable={self.dnd_ok}\n")
+        if "main" in self.pages:
+            self.show_tab("main")
         if self.dnd_ok:
             self._simulate_drop(r"C:\Raporty\Integra zakończone 09.10.pdf")
             import time
@@ -333,6 +336,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         shot = bool(os.environ.get("INTEGRA_SHOT"))
         can = (lambda m: shot or self.session.can(m)) if self.session else (lambda m: True)
         tab_list = []
+        if self.session and len(kafle_konta(can)) >= 2:   # ekran startowy – gdy konto ma kilka modułów
+            tab_list.append(("dzis", "DZIŚ"))
         # każda zakładka to osobny moduł włączany w uprawnieniach konta (admin ma wszystkie)
         if can("crm"):
             tab_list.append(("main", "KONTROLA"))
@@ -367,6 +372,13 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         if "stat" in self.pages:
             self._build_statystyki(self.pages["stat"])
         self._build_help(self.pages["help"])
+        if "dzis" in self.pages:
+            try:   # błąd ekranu startowego nie może zablokować programu
+                self._build_dzis(self.pages["dzis"])
+            except Exception as e:
+                self._report(e, "zakładka DZIŚ")
+                tk.Label(self.pages["dzis"], text="Nie udało się przygotować ekranu startowego – wybierz zakładkę u góry.",
+                         bg=BG, fg=MUTED).pack(anchor="w")
         if "users" in self.pages:
             self._build_users(self.pages["users"])
         if "marza" in self.pages:
@@ -452,6 +464,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.tab_btns[key].config(fg="white", bg=RED)
         if hasattr(self, "head_sub"):
             self.head_sub.config(text=f"{self.tab_names.get(key, '')}   ·   wersja {VERSION}")
+        if key == "dzis" and hasattr(self, "dzis_kafle"):
+            self.dzis_odswiez()
         if "serwis" in self.pages and hasattr(self, "serwis_host"):
             try:
                 if key == "serwis":

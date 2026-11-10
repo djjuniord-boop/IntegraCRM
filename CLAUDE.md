@@ -14,6 +14,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | Ustawienia | `app/konfig.py`, `app/ustawienia.py` | lokalne `data/config.json` + firmowe z bazy (`COMPANY`) |
 | Logowanie | `app/logowanie.py`, `app/cloud.py` | Supabase Auth przez `urllib` (bez dodatkowych bibliotek), profil, uprawnienia |
 | Aktualizacje | `app/updater.py`, `app/version.py` | paczka `app/` z GitHub Releases (kanał `kanal-beta`) |
+| **DZIŚ** | `app/dzis/` | → [`app/dzis/README.md`](app/dzis/README.md) – ekran startowy z kaflami modułów |
 | **Kontrola CRM** | `app/kontrola/` | → [`app/kontrola/README.md`](app/kontrola/README.md) |
 | **MARŻA** | `app/marza/` | → [`app/marza/README.md`](app/marza/README.md) |
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
