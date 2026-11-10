@@ -234,6 +234,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.subject.set("Brak zleceń w CRM – prośba o eksport")
         self.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
         self.btn_send.set_enabled(True)
+        self._kontrola_zwin_jesli_nisko()
         grab(self, "2-wynik")
         mw = self.edit_mail_big()
         mw.attributes("-topmost", True)

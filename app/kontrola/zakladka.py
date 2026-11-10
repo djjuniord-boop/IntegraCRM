@@ -25,6 +25,14 @@ class KontrolaMixin:
         f = self.fonts
         steps = tk.Frame(page, bg=BG)
         steps.pack(fill="x")
+        self.kontrola_steps = steps
+        # na niskim ekranie (laptop 1366×768) po sprawdzeniu karty 1–2 zwijają się do jednej linii,
+        # żeby treść e-maila miała miejsce (kontrola_zwin)
+        self.kontrola_pliki = tk.Frame(page, bg=SURFACE, highlightthickness=1, highlightbackground=LINE)
+        self.kontrola_pliki_txt = tk.Label(self.kontrola_pliki, bg=SURFACE, fg=OK, font=f.body, anchor="w", padx=12, pady=6)
+        FlatButton(self.kontrola_pliki, "Zmień pliki", lambda: self.kontrola_zwin(False), "ghost", f.small, 10, 4
+                   ).pack(side="right", padx=8, pady=4)
+        self.kontrola_pliki_txt.pack(side="left", fill="x", expand=True)
         steps.columnconfigure(0, weight=1, uniform="s")
         steps.columnconfigure(1, weight=1, uniform="s")
 
@@ -295,7 +303,36 @@ class KontrolaMixin:
         if p:
             self.set_pdf(p)
 
+    KONTROLA_NISKI_EKRAN = 860   # px wysokości okna – poniżej karty plików zwijają się po sprawdzeniu
+
+    def kontrola_zwin(self, zwin=True):
+        """Zwija karty 1–2 (wybór plików) do jednej linii albo je przywraca."""
+        steps, bar = getattr(self, "kontrola_steps", None), getattr(self, "kontrola_pliki", None)
+        if steps is None or bar is None:
+            return
+        if zwin:
+            pdf = (self.pdf_path.get() or "").replace("\\", "/").split("/")[-1]
+            crm = getattr(self, "crm_file", "") or ""
+            self.kontrola_pliki_txt.config(text="   ·   ".join(x for x in (f"✔  PDF: {pdf}" if pdf else "",
+                                                                       f"✔  CRM: {crm}" if crm else "") if x))
+            steps.pack_forget()
+            if not bar.winfo_ismapped():
+                bar.pack(fill="x", before=self.btn_check)
+        else:
+            bar.pack_forget()
+            if not steps.winfo_ismapped():
+                steps.pack(fill="x", before=self.btn_check)
+
+    def _kontrola_zwin_jesli_nisko(self):
+        try:
+            h = self.winfo_height()
+        except Exception:
+            return
+        if 1 < h < self.KONTROLA_NISKI_EKRAN:
+            self.kontrola_zwin(True)
+
     def set_pdf(self, p):
+        self.kontrola_zwin(False)
         self.pdf_path.set(p)
         name = p.replace("\\", "/").split("/")[-1]
         self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
@@ -333,6 +370,7 @@ class KontrolaMixin:
             self.set_report(p)
 
     def set_report(self, p):
+        self.kontrola_zwin(False)
         try:
             rows = crm_report.load(p)
         except Exception as e:
@@ -467,6 +505,7 @@ class KontrolaMixin:
                 self.mail_body.delete("1.0", "end")
                 self.mail_body.insert("1.0", body)
                 self.btn_send.set_enabled(True, "Wyślij e-mail")
+                self._kontrola_zwin_jesli_nisko()
             self.ui(fill)
             parts = []
             if missing:

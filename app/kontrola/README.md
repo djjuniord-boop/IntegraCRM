@@ -39,6 +39,9 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 - Gdy dane z CRM prawie nie pokrywają się z Integrą (`no_overlap`) – ostrzeżenie i **brak gotowego maila**.
 - Do rejestru „zgłoszony już” trafiają tylko pewne braki, nie „do weryfikacji”.
 - `_check_work` działa w wątku – nie czyta pól okna (dostaje `pdf`, `src` jako argumenty).
+- Niski ekran (okno < 860 px, laptop 1366×768): po sprawdzeniu karty 1–2 zwijają się do jednej linii
+  (`kontrola_zwin`, przycisk „Zmień pliki”; wybór nowego pliku je przywraca), żeby treść e-maila była widoczna.
+  `tests/ui_smoke.py` sprawdza to w rozmiarze ekranu (`kontrola_tresc_maila_widoczna`, min. 80 px).
 
 ## Testy
 

@@ -179,7 +179,8 @@ def run_scenario(label, sess):
         return {}
     app.report_callback_exception = lambda *a: errors.append(
         f"[{label}] zdarzenie: {''.join(traceback.format_exception(*a))[-1500:]}")
-    app.geometry("1400x900+0+0")
+    # okno jak zmaksymalizowane na danym ekranie (laptop 1366×768: 1366×705 – pasek zadań), najwyżej 1400×900
+    app.geometry("%dx%d+0+0" % (min(1400, app.winfo_screenwidth()), min(900, app.winfo_screenheight() - 63)))
     info = {"tabs": list(app.pages)}
     steps = []
 
@@ -192,6 +193,25 @@ def run_scenario(label, sess):
 
     for key in list(app.pages):
         tab_step(key)
+    if "main" in app.pages and sess.is_admin:   # KONTROLA po sprawdzeniu – treść e-maila musi być widoczna
+        def kontrola_wynik():
+            app.show_tab("main")
+            app.pdf_path.set("Integra zakończone 09.11.pdf")
+            app.crm_file = "Lista kontrolna 09.11.xlsx"
+            app.set_chips(["DW12345", "WE7A071", "OP 1234X", "DX5521K"], [("DX7806F", "DX78O6F")])
+            app.set_banner("bad", "✖  W CRM brakuje 4 i 1 do weryfikacji z 37 zleceń. E-mail jest gotowy.")
+            app.subject.set("Brak zleceń w CRM – prośba o eksport")
+            app.mail_body.delete("1.0", "end")
+            app.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
+            app.btn_send.set_enabled(True, "Wyślij e-mail")
+            app._kontrola_zwin_jesli_nisko()
+
+        def kontrola_snap():
+            app.update_idletasks()
+            info["mail_tresc_px"] = app.mail_body.winfo_height()
+            info["okno_px"] = [app.winfo_width(), app.winfo_height()]
+            shot(app, f"{label}__main_po_sprawdzeniu")
+        steps.extend([(kontrola_wynik, 900), (kontrola_snap, 100)])
     dialogs = [("ustawienia", lambda: g.SettingsDialog(app))]
     if sess.is_admin:
         dialogs += [("uzytkownik", lambda: g.UserDialog(app, sess.list_users()[1])),
@@ -359,6 +379,7 @@ def main():
                                           and result.get("marza_serwis", {}).get("wyniki_przyciski_edycji") == 0),
         "wyniki_oznaczenia": (any(r[0].endswith("(ręcznie)") for r in result.get("admin", {}).get("wyniki_tabela", []))
                               and any(r[2].endswith("✎") for r in result.get("admin", {}).get("wyniki_tabela", []))),
+        "kontrola_tresc_maila_widoczna": result.get("admin", {}).get("mail_tresc_px", 0) >= 80,
         "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }
     report = {"ok": not all_err and all(checks.values()), "checks": checks, "scenarios": result,
