@@ -750,8 +750,8 @@ def main():
     App(sess).mainloop()
 
 # Nazwy używane przez testy i starsze odwołania (gui.SettingsDialog, gui.UserDialog …)
-from marza.okna import MarzaFilesWindow, MarzaRecipientsDialog, MarzaResultsWindow  # noqa: E402
+from marza.okna import MarzaRecipientsDialog  # noqa: E402
 from uzytkownicy.okna import AuditWindow, UserDialog  # noqa: E402
 
 __all__ = ["App", "main", "login_flow", "SettingsDialog", "UserDialog", "AuditWindow",
-           "MarzaRecipientsDialog", "MarzaResultsWindow", "MarzaFilesWindow"]
+           "MarzaRecipientsDialog"]

@@ -37,7 +37,7 @@ Uprawnienie: moduł `marza`.
 | Plik | Rola |
 |---|---|
 | `zakladka.py` | `MarzaMixin` – zakładka MARŻA: folder, kolejka raportów, „AKTUALIZUJ WSZYSTKO” (wątek), dziennik przebiegu |
-| `okna.py` | okna: Odbiorcy maili (zapis firmowy); Wyniki online i Kopie w chmurze – przyciski usunięte z zakładki; klasy zostają, bo importuje je `gui.py` i sprawdza `ui_smoke` |
+| `okna.py` | okno Odbiorcy maili (zapis firmowy); okna „Wyniki online” i „Kopie w chmurze” usunięte w 0.26.1 (wyniki są w zakładce WYNIKI) |
 | `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
 | `rozdziel.py` | rozdziela raporty na oddziały, **rozpoznaje przebieg z dziennika silnika** (stałe `T_*` – te same teksty co w silnikach; zmieniasz tekst w silniku → zmień stałą i test), dane kart, podsumowanie; `kwota()` = „154 186,54 zł” |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |

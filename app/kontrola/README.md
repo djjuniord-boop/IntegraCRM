@@ -16,8 +16,8 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | `analyze.py` | cała analiza: PDF → numery, raport CRM → numery, porównanie dokładne, ostrzeżenia (zły oddział/okres), `daily_stats` |
 | `plates.py` | wzorce numerów (Integra, w tym `extract_integra_visits` – wiersze z datą), normalizacja; funkcje OCR (`ocr_equal`, `compare`) zostały, ale analiza ich już nie używa |
 | `crm_report.py` | odczyt raportu CRM `.xlsx/.csv` (kolumny Data, Rejestracja, Oddział), wybór oddziałów |
-| `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu nieużywane od 0.21.0 |
-| `mailer.py` | treść maila, wysyłka przez serwer (`send_server`) albo awaryjnie Gmail z komputera |
+| `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu usunięte w 0.26.1 |
+| `mailer.py` | treść maila, wysyłka przez serwer (`send_server`; dawna wysyłka Gmailem z komputera usunięta w 0.26.1) |
 | `history.py` | historia sprawdzeń i rejestr „zgłoszony już” – w bazie po zalogowaniu, lokalnie bez sesji (testy); `save_visit_stats` |
 
 ## Dane w bazie

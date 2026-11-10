@@ -226,9 +226,7 @@ def run_scenario(label, sess):
                     ("wyniki_zmien_cel_reczny", _wyn_reczny),
                     ("wyniki_dodaj_miesiac", lambda: app.wyniki_dodaj_miesiac())]
     if sess.can("marza"):
-        dialogs += [("marza_odbiorcy", lambda: g.MarzaRecipientsDialog(app)),
-                    ("marza_wyniki", lambda: g.MarzaResultsWindow(app)),
-                    ("marza_kopie", lambda: g.MarzaFilesWindow(app))]
+        dialogs += [("marza_odbiorcy", lambda: g.MarzaRecipientsDialog(app))]
     holder = {}
 
     def dialog_step(name, make):

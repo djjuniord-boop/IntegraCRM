@@ -4,6 +4,7 @@ Tylko biblioteka standardowa (urllib) – działa na każdej paczce .exe.
 Klucz poniżej to publiczny klucz „anon”: bez zalogowania nie daje dostępu do żadnych danych (RLS).
 """
 import json
+import os
 import urllib.error
 import urllib.request
 
@@ -231,10 +232,12 @@ class Session:
 # --- „Zapamiętaj mnie”: token odświeżania zaszyfrowany DPAPI (tylko to konto Windows) ---
 def remember(s: Session):
     import vault
+    t = vault.protect(s.refresh_token)
+    if os.name == "nt" and t and not t.startswith(vault.PREFIX):
+        return   # szyfrowanie Windows nie zadziałało – nie zapisujemy tokenu jawnym tekstem (logowanie hasłem)
     try:
         paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
-        SESSION_FILE.write_text(json.dumps({"email": s.email, "t": vault.protect(s.refresh_token)}),
-                                encoding="utf-8")
+        SESSION_FILE.write_text(json.dumps({"email": s.email, "t": t}), encoding="utf-8")
     except OSError:
         pass
 
