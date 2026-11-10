@@ -237,3 +237,26 @@ def test_pracuje_teraz():
     assert not pracuje_teraz("2026-10-17T07:50:00+00:00", t)
     assert not pracuje_teraz(None, t) and not pracuje_teraz("zle", t)
     assert not pracuje_teraz("2026-10-17T09:00:00+00:00", t)   # czas z przyszłości – nie zgadujemy
+
+
+def test_wycofana_wersja_nie_blokuje_startu_przy_minimalnej():
+    """Po „Przywróć poprzednią” wersja jest przypięta (skip_version.txt). Gdy minimalna wersja w bazie to właśnie
+    wycofana wersja, wymuszona aktualizacja musi ją zainstalować – inaczej program się nie uruchomi."""
+    import json as _j
+    import paths
+    import updater
+    from version import VERSION
+    temp_data()
+    nowsza = "99.0.0"
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    paths.SKIP_FILE.write_text(nowsza, encoding="utf-8")
+    stary = updater._read_bytes
+    updater._read_bytes = lambda loc: _j.dumps({"version": nowsza, "package": "p.zip"}).encode()
+    try:
+        src = "https://github.com/x/y/releases/latest/download/version.json"
+        assert updater.check(src)[1] is False                       # zwykłe sprawdzenie: przypięcie działa
+        assert updater.check(src, wymagana=VERSION)[1] is False     # ta wersja wystarcza – przypięcie działa
+        assert updater.check(src, wymagana=nowsza)[1] is True       # minimalna wyższa – instaluj mimo przypięcia
+    finally:
+        updater._read_bytes = stary
+        paths.SKIP_FILE.unlink()

@@ -91,7 +91,7 @@ def sprawdz_wersje(app):
     def work():
         try:
             need = sess.min_version()
-            m, newer = updater.check(src)
+            m, newer = updater.check(src, wymagana=need or "")
         except Exception:
             return
         try:
