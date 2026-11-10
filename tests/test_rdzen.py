@@ -260,3 +260,47 @@ def test_wycofana_wersja_nie_blokuje_startu_przy_minimalnej():
     finally:
         updater._read_bytes = stary
         paths.SKIP_FILE.unlink()
+
+
+def test_przycisk_z_klawiatury_i_esc_w_oknie():
+    """Przyciski działają z klawiatury (Tab, Enter, Spacja); wyłączony nic nie robi; Esc zamyka okno dialogowe."""
+    import tkinter as tk
+    import ui
+    root = tk.Tk()
+    try:
+        ui.esc_zamyka(root)
+        klik = []
+        b = ui.FlatButton(root, "Zapisz", lambda: klik.append(1))
+        b.pack()
+        assert int(b.cget("takefocus")) == 1
+        root.update()
+        b.focus_force()
+        root.update()
+        b.event_generate("<Return>")
+        b.event_generate("<space>")
+        b.set_enabled(False)
+        b.event_generate("<Return>")
+        assert klik == [1, 1]
+        assert b.cget("bg") == ui.OFF_BG and b.cget("fg") == ui.OFF_FG
+        b.set_enabled(True)
+        assert b.cget("fg") == "white"
+        okno = tk.Toplevel(root)
+        e = tk.Entry(okno)
+        e.pack()
+        root.update()
+        e.focus_force()
+        root.update()
+        e.event_generate("<Escape>")
+        root.update()
+        assert not okno.winfo_exists()
+        zamkniete = []
+        okno2 = tk.Toplevel(root)
+        okno2.protocol("WM_DELETE_WINDOW", lambda: (zamkniete.append(1), okno2.destroy()))
+        root.update()
+        okno2.focus_force()
+        root.update()
+        okno2.event_generate("<Escape>")
+        root.update()
+        assert zamkniete == [1]                 # Esc = ten sam kod co krzyżyk (np. pytanie o zapis)
+    finally:
+        root.destroy()

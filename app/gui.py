@@ -13,7 +13,7 @@ import paths
 import czuwanie
 import updater
 from version import CHANGELOG, RELEASED, VERSION
-from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, set_icon, step_badge
+from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, esc_zamyka, set_icon, step_badge
 from konfig import COMPANY, load_config, migrate_config, save_config, update_source
 from ustawienia import SettingsDialog
 from logowanie import login_flow
@@ -144,6 +144,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             except Exception:
                 pass
         self.fonts = Fonts(self)
+        esc_zamyka(self)   # Esc zamyka okna dialogowe (jak „Anuluj”)
         self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
         self.geometry("1000x820")
         try:

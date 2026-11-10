@@ -517,6 +517,15 @@ def parse_quick(txt):
     wymiana = ex["wymiana"]
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
     pojazdy = [{"rej": "", "pojazd": "", "rozmiar": s, "ilosc": ilosc, "nowe": True, "wymiana": wymiana, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]} for s in sizes]
+    if len(pojazdy) == 1:   # jedno auto: rejestracja i model jak w polu „Zapytanie klienta”
+        try:
+            fl = parse_free_line(txt) or {}
+        except Exception:
+            fl = {}
+        if fl.get("rej"):
+            pojazdy[0]["rej"] = fl["rej"]
+        if fl.get("pojazd") and (fl.get("rej") or len(fl["pojazd"].split()) >= 2):
+            pojazdy[0]["pojazd"] = fl["pojazd"]
     demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
     nosnosc, predkosc = indeks_z_tekstu(t)
     return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki)),

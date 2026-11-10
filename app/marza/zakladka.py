@@ -55,7 +55,7 @@ class MarzaMixin:
         qh = tk.Frame(drop, bg=SURFACE)
         qh.pack(fill="x")
         tk.Label(qh, text="Kolejka (najwyżej 1 raport na oddział):", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
-        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "ghost", f.small, 8, 2).pack(side="right")
+        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "danger", f.small, 8, 2).pack(side="right")
         self.marza_queue = tk.Frame(drop, bg=SURFACE)
         self.marza_queue.pack(fill="x", pady=(4, 0))
 

@@ -490,3 +490,10 @@ def test_szybkie_polecenie_nosnosc_predkosc():
         q = S.parse_quick(txt)
         assert (q["nosnosc"], q["predkosc"]) == wynik, (txt, q["nosnosc"], q["predkosc"])
     assert S.parse_quick("2254517 lato 91w 2szt")["pojazdy"][0]["ilosc"] == 2
+
+
+def test_szybkie_polecenie_z_rejestracja_i_autem():
+    p = S.parse_quick("skoda octavia 2055516 dw5444lw z wymianą 4 czujniki")["pojazdy"]
+    assert [(x["rej"], x["pojazd"], x["rozmiar"]) for x in p] == [("DW5444LW", "Skoda Octavia", "205/55 R16")]
+    p = S.parse_quick("205/55 r16 3 oferty premium zimowe 4 szt")["pojazdy"]
+    assert (p[0]["rej"], p[0]["pojazd"]) == ("", "")    # same słowa polecenia to nie auto
