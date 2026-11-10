@@ -149,7 +149,7 @@ class Katalog:
             return False
 
     def __call__(self, size_txt):
-        m = re.match(r"(\d{3})/(\d{2}) R(\d{2})", size_txt or "")
+        m = re.match(r"(\d{3})/(\d{2}) R(\d{2}(?:\.5)?)", size_txt or "")   # „C” odsiewa później norm_size
         if not m or not self.swiezy():
             self.uzyty = False
             return None

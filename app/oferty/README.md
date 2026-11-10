@@ -9,7 +9,7 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 
 | Plik | Rola |
 |---|---|
-| `silnik.py` | cała logika bez okna: rozpoznawanie zapytań (rozmiar w dowolnym zapisie, rejestracje, usługi), API xPartner, oferta, XLSX, e-mail; `handle(ścieżka, dane)` – polecenia strony |
+| `silnik.py` | cała logika bez okna: rozpoznawanie zapytań (rozmiar w dowolnym zapisie – połówka średnicy `R17.5` i „C” `R16C` są częścią rozmiaru i filtrują wyniki, od 0.26.0; rejestracje, usługi), API xPartner, oferta, XLSX, e-mail; `handle(ścieżka, dane)` – polecenia strony |
 | `index.html` | interfejs (jeden plik HTML/JS); polecenia przez `window.pywebview.api.call(ścieżka, dane)` |
 | `okno.py` | proces okna (`start.py --oferty`): pywebview/Edge WebView2, `Api.call` → `silnik.handle`, konto i historia z bazy |
 | `zakladka.py` | `OfertyMixin` – osadzenie okna w zakładce (jak SERWIS QR; używa `serwis/embed_win.py`) |

@@ -62,6 +62,20 @@ def test_rozmiary_w_dowolnym_zapisie():
     assert S.find_sizes("2254517 premium 2 szt") == ["225/45 R17"]
 
 
+def test_rozmiar_ciezarowy_i_dostawczy_nie_gubi_oznaczenia():
+    """17,5" to nie 17", a „C” (dostawcze) to inna nośność – oferta nie może pomylić opon."""
+    from oferty import silnik as S
+    assert S.find_sizes("265/70 R17.5") == ["265/70 R17.5"]
+    assert S.find_sizes("205/55R16C 4 szt") == ["205/55 R16C"]
+    assert S.find_sizes("2156516c") == ["215/65 R16C"]
+    assert S.find_sizes("205/55 R16 CrossClimate") == ["205/55 R16"]
+    assert S.norm_size("BARUM L185/75 R16C VANIS 3 104/102R") == "185/75 R16C"
+    assert S.norm_size("YOKOHAMA 245/70 R17.5 704R 136/134M") == "245/70 R17.5"
+    assert S.norm_size("MICHELIN 205/55 R16 PRIMACY 4") == "205/55 R16"
+    # wyszukiwanie 205/65 R16 nie pokazuje opon C i odwrotnie (filtr w do_search: norm_size(nazwa) == rozmiar)
+    assert S.norm_size("BARUM L205/65 R16C VANIS 3") != S.norm_size("205/65 R16")
+
+
 def test_zapytanie_tekstem():
     r = S.parse_request_text("skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia")[0]
     assert (r["rej"], r["pojazd"], r["rozmiar"], r["wymiana"], r["tpms"], r["przech"]) == \

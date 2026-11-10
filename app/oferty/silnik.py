@@ -173,23 +173,29 @@ def get_product(cfg, pid):
     return items[0] if items else None
 
 # ---------------------------------------------------------------- logika
-SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})", re.I)
+# Średnica z połówką (17.5, 19.5, 22.5 – ciężarowe) i „C” (opony dostawcze, inna nośność) są częścią rozmiaru:
+# „265/70 R17.5” ≠ „265/70 R17”, „205/65 R16C” ≠ „205/65 R16”.
+SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})([.,]5)?(C(?![A-Za-z]))?", re.I)
 
-SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})(?:[.,]5)?(?!\d)", re.I)
+SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})([.,]5)?(C(?![A-Za-z]))?(?!\d)", re.I)
+
+def _rozmiar(w, p, r, pol, c):
+    return "%s/%s R%s%s%s" % (w, p, r, ".5" if pol else "", "C" if c else "")
 
 def find_sizes(txt):
-    """Rozpoznaje rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16, 205 55 16, 2055516, 205-55-16, 205/55/16, 205/55ZR16."""
+    """Rozpoznaje rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16, 205 55 16, 2055516, 205-55-16, 205/55/16, 205/55ZR16,
+    także 265/70 R17.5 i 205/65 R16C (połówka i „C” zostają w rozmiarze)."""
     out = []
     for m in SIZE_LOOSE.finditer(txt or ""):
-        w, p, r = (int(x) for x in m.groups())
+        w, p, r = (int(x) for x in m.groups()[:3])
         if 125 <= w <= 355 and w % 5 == 0 and 25 <= p <= 85 and p % 5 == 0 and 12 <= r <= 24:
-            sz = "%d/%d R%d" % (w, p, r)
+            sz = _rozmiar(w, p, r, m.group(4), m.group(5))
             if sz not in out: out.append(sz)
     return out
 
 def norm_size(s):
     m = SIZE_RE.search(s or "")
-    if m: return "%s/%s R%s" % m.groups()
+    if m: return _rozmiar(*m.groups())
     f = find_sizes(s)
     return f[0] if f else None
 
