@@ -12,6 +12,42 @@ import traceback
 from pathlib import Path
 
 
+
+def brakujace_importy() -> list:
+    """Moduły biblioteki standardowej importowane w app/ (poza blokami try), których nie da się wczytać.
+    W .exe biblioteki pochodzą z paczki (lista w launcher.py) – brak = program nie wystartuje po aktualizacji."""
+    import ast
+    import importlib
+    import sys
+    std = getattr(sys, "stdlib_module_names", set())
+    nazwy = set()
+
+    class W(ast.NodeVisitor):
+        def visit_Try(self, node):   # import w try/except – świadomie opcjonalny
+            for n in node.handlers + node.orelse + node.finalbody:
+                self.visit(n)
+
+        def visit_Import(self, node):
+            nazwy.update(a.name for a in node.names)
+
+        def visit_ImportFrom(self, node):
+            if node.module and not node.level:
+                nazwy.add(node.module)
+    for f in Path(__file__).resolve().parent.rglob("*.py"):
+        try:
+            W().visit(ast.parse(f.read_text(encoding="utf-8")))
+        except (SyntaxError, OSError, UnicodeDecodeError):
+            continue
+    brak = []
+    for n in sorted(nazwy):
+        if n.split(".")[0] not in std:
+            continue
+        try:
+            importlib.import_module(n)
+        except ImportError:
+            brak.append(n)
+    return brak
+
 def _isolate_data(d: Path) -> None:
     """Selftest pracuje na własnym folderze danych – nie zmienia ustawień, historii ani sesji w data/
     (także wzorcowego data/config.json w repozytorium). Podmienia ścieżki już wczytanych modułów programu."""
@@ -127,11 +163,14 @@ def run(folder: str) -> int:
                         and ui["user"]["branches"] == ["Latex Opole"])
         from serwis import serwis_window
         res["serwis_window"] = serwis_window.is_available() == ""
+        res["importy_brak"] = brakujace_importy()   # moduły std użyte w app/, których nie ma w paczce .exe
+
         res["ok"] = (res["ui_ok"] and res["xlsx_exact"] and res["serwis_panel"] and res["serwis_window"] and res["serwis_config"] and res["serwis_checks"] and res["marza_missing"] == "" and res["marza_chart_bytes"] > 1000 and sorted(missing) == sorted(exp["missing"]) and not uncertain and a["layout_ok"]
                      and sorted(integra) == sorted(exp["integra"]) and not a["warnings"]
                      and res["daily_ok"] and res["vault_encrypted"]
                      and res["vault_roundtrip"] and res["history_rows"] >= 1
-                     and res["reported"] == sorted(missing) and res["mail_marks_reported"])
+                     and res["reported"] == sorted(missing) and res["mail_marks_reported"]
+                     and not res["importy_brak"])
     except Exception:
         res["error"] = traceback.format_exc()
     (d / "result.json").write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")

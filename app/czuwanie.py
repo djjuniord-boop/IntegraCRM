@@ -21,6 +21,7 @@ OSTRZEZENIE_MIN = 10      # tyle minut wcześniej pojawia się odliczanie
 ODLOZ_MIN = 60            # „Pracuję dalej” odsuwa zamknięcie o tyle minut
 PING_MIN = 5              # co tyle minut zapis „program otwarty” (zielony wiersz w UŻYTKOWNICY)
 SESJA_CO_S = 20           # co tyle sekund: czy administrator nie wylogował konta
+SESJA_BLEDY_ZGLOS = 15    # tyle błędów z rzędu (ok. 5 min) = zgłoszenie błędu (wylogowanie przez admina nie działa)
 PRZERWA_OFERTY_MIN = 120  # po „Później” nowa wersja przypomina się po tym czasie
 WYMUSZ_PO_MIN = 15        # wersja poniżej minimalnej – samoczynne uruchomienie ponownie po tym czasie
 
@@ -68,11 +69,16 @@ def sprawdz_sesje(app):
         return
 
     def work():
+        blad = None
         try:
             ok = sess.rpc("session_ok")
-        except Exception:   # brak sieci albo starsza baza bez funkcji – nic nie robimy
-            ok = None
+        except Exception as e:   # brak sieci albo starsza baza bez funkcji – nic nie robimy
+            ok, blad = None, e
+        czuw = getattr(app, "_czuw", {})
+        czuw["sesja_bledy"] = czuw.get("sesja_bledy", 0) + 1 if blad else 0
         try:
+            if czuw.get("sesja_bledy") == SESJA_BLEDY_ZGLOS:   # trwała awaria (ok. 5 min) – jedno zgłoszenie
+                app.after(0, app._report, blad, "czuwanie: sprawdzanie sesji (wylogowanie przez administratora)")
             if ok is False:
                 app.after(0, app._session_ended)
             app.after(SESJA_CO_S * 1000, sprawdz_sesje, app)

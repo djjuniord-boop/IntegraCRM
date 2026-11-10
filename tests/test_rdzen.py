@@ -225,6 +225,17 @@ def test_sprawdzanie_sesji_wylogowuje_tylko_przy_false():
             o = Okno(wynik)
             czuwanie.sprawdz_sesje(o)
             assert len(o.konce) == ile, (wynik, o.konce)
+        # trwała awaria sprawdzania: jedno zgłoszenie po SESJA_BLEDY_ZGLOS błędach z rzędu, sukces zeruje licznik
+        o = Okno(RuntimeError("HTTP 404"))
+        o._czuw, zgl = {}, []
+        o._report = lambda e, gdzie: zgl.append(gdzie)
+        o.after = lambda ms, fn, *a: fn(*a) if fn == o._report else None
+        for _ in range(czuwanie.SESJA_BLEDY_ZGLOS * 2):
+            czuwanie.sprawdz_sesje(o)
+        assert len(zgl) == 1
+        o.wynik = True
+        czuwanie.sprawdz_sesje(o)
+        assert o._czuw["sesja_bledy"] == 0
     finally:
         czuwanie.threading.Thread = stary
 

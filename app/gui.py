@@ -6,6 +6,7 @@ logowanie.py, ustawienia.py, updater.py. Mapa całości: CLAUDE.md w głównym f
 """
 import os
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 import cloud
@@ -118,8 +119,17 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 stats.SESSION = session
             try:
                 COMPANY.update(session.company())
-            except Exception:
-                pass
+            except Exception:   # chwilowy błąd sieci: ponawiamy w tle, żeby KONTROLA nie wzięła lokalnych odbiorców
+                def _firmowe():
+                    for _ in range(5):
+                        time.sleep(20)
+                        try:
+                            dane = session.company()
+                        except Exception:
+                            continue
+                        self.after(0, COMPANY.update, dane)
+                        return
+                threading.Thread(target=_firmowe, daemon=True).start()
 
             def _sync():
                 try:
