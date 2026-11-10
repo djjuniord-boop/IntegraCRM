@@ -848,3 +848,70 @@ def test_wykres_maila_liczy_dzisiaj_jako_miniony():
     for s in (silnik_wroclaw, silnik_opole):
         with mock.patch.object(s.datetime, "date", D):
             assert s._sales_days_dla_wykresu(2026, 11, {datetime.date(2026, 11, 11)}) == (24, 19)
+
+
+def _kalkulator_lata(path, etykiety):
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Kalkulator marży"
+    ws["B3"], ws["C3"], ws["D3"] = "Miesiąc", "Cel marży", "Aktualna marża"
+    for i, lab in enumerate(etykiety, start=4):
+        ws.cell(row=i, column=2, value=lab)
+        ws.cell(row=i, column=3, value=300000)
+        ws.cell(row=i, column=4, value=1000 * i)
+    sw = wb.create_sheet("Święta PL")
+    sw["A1"] = "Data"
+    sw["A2"] = datetime.datetime(2027, 1, 1)
+    wb.save(path)
+
+
+def _dzien(r, m, d):
+    class D(datetime.date):
+        @classmethod
+        def today(cls):
+            return cls(r, m, d)
+    return D
+
+
+def test_podglad_przechodzi_na_2027():
+    """Od 1.01.2027 podgląd i e-mail nie mogą pokazywać stycznia 2026 (rok nie jest już przypięty na sztywno)."""
+    from unittest import mock
+    from marza import podglad_opole, podglad_wroclaw, silnik_opole, silnik_wroclaw
+    lata = ["Listopad 2026", "Grudzień 2026", "Styczeń 2027", "Luty 2027"]
+    tylko_2026 = ["Styczeń 2026", "Listopad 2026", "Grudzień 2026"]
+    with tempfile.TemporaryDirectory() as d:
+        k = os.path.join(d, "k.xlsx")
+        k26 = os.path.join(d, "k26.xlsx")
+        _kalkulator_lata(k, lata)
+        _kalkulator_lata(k26, tylko_2026)
+        for silnik, podglad in ((silnik_wroclaw, podglad_wroclaw), (silnik_opole, podglad_opole)):
+            assert silnik.PODGLAD_ROK is None
+            out = os.path.join(d, "p.xlsx")
+
+            def gen(src, rok, mies, data):
+                with mock.patch.object(podglad.datetime, "date", data):
+                    return podglad.generate(src, out, only_year=rok, default_label=mies)[0]
+
+            def wybor(src, upd, data):
+                log = []
+                with mock.patch.object(silnik.datetime, "date", data):
+                    return silnik._rok_i_miesiac_podgladu(podglad, src, upd, log), log
+
+            # 4 stycznia 2027, bez nowych raportów: styczeń 2027
+            (rok, mies), log = wybor(k, [], _dzien(2027, 1, 4))
+            assert (rok, mies) == (2027, None) and not log
+            assert gen(k, rok, mies, _dzien(2027, 1, 4)) == "Styczeń 2027"
+            # 2 stycznia 2027 wgrany raport za grudzień: e-mail o grudniu 2026
+            upd = [("r.pdf", "Grudzień 2026", 1.0, 2.0)]
+            (rok, mies), log = wybor(k, upd, _dzien(2027, 1, 2))
+            assert (rok, mies) == (2026, "Grudzień 2026")
+            assert gen(k, rok, mies, _dzien(2027, 1, 2)) == "Grudzień 2026"
+            # kalkulator bez miesięcy 2027: ostatni rok + uwaga; domyślnie grudzień, nie styczeń 2026
+            (rok, mies), log = wybor(k26, [], _dzien(2027, 1, 4))
+            assert rok == 2026 and mies is None
+            assert any("nie ma jeszcze miesięcy roku 2027" in line for line in log)
+            assert gen(k26, rok, mies, _dzien(2027, 1, 4)) == "Grudzień 2026"
+            # w trakcie roku bez zmian: bieżący miesiąc
+            (rok, mies), log = wybor(k26, [], _dzien(2026, 11, 20))
+            assert gen(k26, rok, mies, _dzien(2026, 11, 20)) == "Listopad 2026"

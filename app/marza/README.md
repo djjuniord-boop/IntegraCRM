@@ -50,7 +50,11 @@ Uprawnienie: moduł `marza`.
 - Silnik robi `import smtplib` w funkcji – po zalogowaniu `runner` na czas przebiegu podstawia `sys.modules["smtplib"]`
   (`_ServerSMTP` → funkcja `send-mail`, akcja `raw`) i **zawsze przywraca** prawdziwą bibliotekę (albo ją usuwa).
 - Odbiorcy maili: wyłącznie `app_config['crm'].marza` (zaznaczeni). W kodzie silników `EMAIL_ODBIORCY = []`.
-- Silniki mają rok 2026 na sztywno (celowo – na 2027 powstaje nowy plik kalkulatora).
+- Rok podglądu i e-maila wybiera się sam (`_rok_i_miesiac_podgladu`, od 0.26.0): miesiąc z właśnie zapisanego
+  raportu (grudzień wgrany 2 stycznia → grudzień), bez raportów – bieżący rok, a gdy kalkulator nie ma jeszcze jego
+  miesięcy – ostatni rok z kalkulatora + uwaga „dopisz miesiące”. Na 2027 wystarczy dopisać wiersze „Styczeń 2027”…
+  w tej samej tabeli (albo podmienić plik pod tą samą nazwą). `PODGLAD_ROK = liczba` przypina rok na sztywno.
+  Raport za miesiąc, którego nie ma w tabeli, trafia do `_ODRZUCONE` („brak takiego miesiąca w tabeli”).
 - `import generuj_podglad` w silniku działa, bo `runner` podstawia ten moduł – `tests/check_imports.py` go pomija.
 
 ## Dane w bazie

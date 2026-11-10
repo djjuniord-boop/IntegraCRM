@@ -140,7 +140,7 @@ def _label_to_year_month(label):
     return int(year_str), month
 
 
-def generate(src_path, out_path, only_year=None):
+def generate(src_path, out_path, only_year=None, default_label=None):
     """only_year: jesli podane (np. 2026), lista wyboru miesiecy zawiera
     TYLKO miesiace z tego roku (reszta danych zrodlowych jest ignorowana
     przy budowie pliku podgladowego dla handlowcow)."""
@@ -156,7 +156,13 @@ def generate(src_path, out_path, only_year=None):
     today = datetime.date.today()
     current_label = f"{MONTHS_PL[today.month-1]} {today.year}"
     labels = [m[0] for m in months]
-    default_label = current_label if current_label in labels else labels[0]
+    # Domyslny miesiac: ten z wlasnie zapisanego raportu (np. grudzien wgrany 2 stycznia),
+    # potem biezacy, a gdy go nie ma - ostatni miesiac nie pozniejszy niz dzis.
+    if default_label not in labels:
+        default_label = current_label if current_label in labels else None
+    if default_label is None:
+        przeszle = [l for l in labels if _label_to_year_month(l) <= (today.year, today.month)]
+        default_label = przeszle[-1] if przeszle else labels[0]
 
     # --- Nowy skoroszyt ---
     wb = openpyxl.Workbook()

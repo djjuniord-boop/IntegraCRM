@@ -55,13 +55,13 @@ GOOGLE_DRIVE_FOLDER = r"G:\Mój dysk"
 # zmieniasz to miejsce, SKASUJ stary plik w tej samej chwili.
 GOOGLE_DRIVE_SUBFOLDER = "LATEX Wrocław"
 
-# Ktory rok obejmuje to narzedzie.
-# To wydanie jest CELOWO tylko na 2026 - na 2027 powstanie osobny plik.
-# Dzieki przypieciu roku na sztywno nic sie nie zepsuje w styczniu 2027:
-# podglad dalej bedzie pokazywal miesiace 2026 zamiast probowac przeskoczyc
-# na rok, ktorego w tabeli nie ma.
-# (Gdyby kiedys mial dzialac wieloletnio, wpisz tu None = zawsze biezacy rok.)
-PODGLAD_ROK = 2026
+# Ktory rok obejmuje plik podgladowy dla handlowcow.
+# None = automatycznie: rok miesiaca z wlasnie zapisanego raportu, a bez nowych raportow
+# biezacy rok (gdy kalkulator nie ma jeszcze jego miesiecy - ostatni rok z kalkulatora).
+# Dzieki temu raport za grudzien wgrany 2 stycznia pokazuje grudzien, a od stycznia 2027
+# podglad sam przechodzi na 2027, gdy tylko w kalkulatorze pojawia sie te miesiace.
+# Wpisanie liczby (np. 2026) przypina rok na sztywno.
+PODGLAD_ROK = None
 
 try:
     import openpyxl
@@ -521,7 +521,42 @@ Wiadomość systemowa - panel wyników</p>
     except Exception as e:
         log(f"Uwaga: nie udało się wysłać e-maila z powiadomieniem: {e}", log_lines)
 
-def _refresh_podglad(xlsx_path, log_lines):
+def _rok_i_miesiac_podgladu(generuj_podglad, xlsx_path, updated, log_lines):
+    """Ktory rok i miesiac pokazac w pliku podgladowym i w e-mailu (bez zmiany obliczen)."""
+    dzis = datetime.date.today()
+    miesiac = None
+    if updated:
+        def _klucz(lab):
+            try:
+                return generuj_podglad._label_to_year_month(lab)
+            except Exception:
+                return (0, 0)
+        miesiac = max((lab for _, lab, _, _ in updated), key=_klucz)
+        if _klucz(miesiac) == (0, 0):
+            miesiac = None
+    if PODGLAD_ROK:
+        return PODGLAD_ROK, miesiac
+    if miesiac:
+        return generuj_podglad._label_to_year_month(miesiac)[0], miesiac
+    lata = set()
+    try:
+        months, _ = generuj_podglad._read_source_months(xlsx_path)
+        for m in months:
+            try:
+                lata.add(generuj_podglad._label_to_year_month(m[0])[0])
+            except Exception:
+                pass
+    except Exception:
+        pass
+    if not lata or dzis.year in lata:
+        return dzis.year, None
+    rok = max(lata)
+    log(f"Uwaga: w kalkulatorze nie ma jeszcze miesięcy roku {dzis.year} – podgląd pokazuje rok {rok}. "
+        f"Dopisz miesiące {dzis.year} w tabeli kalkulatora.", log_lines)
+    return rok, None
+
+
+def _refresh_podglad(xlsx_path, log_lines, updated=None):
     """Zwraca (label, cel, zrob, holidays) do wysylki e-maila."""
     """Generuje/odswieza plik podgladowy dla handlowców z aktualnej zawartosci
     xlsx_path (w tym recznie zmienionych celow) i kopiuje go na Dysk Google.
@@ -530,9 +565,9 @@ def _refresh_podglad(xlsx_path, log_lines):
     try:
         import generuj_podglad
         podglad_path = os.path.join(BASE_DIR, generuj_podglad.OUT_NAME)
-        rok = PODGLAD_ROK if PODGLAD_ROK else datetime.date.today().year
+        rok, miesiac = _rok_i_miesiac_podgladu(generuj_podglad, xlsx_path, updated, log_lines)
         label, cel, zrob = generuj_podglad.generate(xlsx_path, podglad_path,
-                                                      only_year=rok)
+                                                      only_year=rok, default_label=miesiac)
         _, holidays_dla_maila = generuj_podglad._read_source_months(xlsx_path)
         log("", log_lines)
         log(f"Odświeżono plik podglądowy dla handlowców ({generuj_podglad.OUT_NAME}):", log_lines)
@@ -835,7 +870,7 @@ def main():
     # Wygeneruj/odśwież uproszczony plik podglądowy dla handlowców (lista
     # rozwijana miesięcy, bez tabeli do edycji, zablokowany przed edycją).
     if updated:
-        _podglad_label, _podglad_cel, _podglad_zrob, _podglad_holidays = _refresh_podglad(xlsx_path, log_lines)
+        _podglad_label, _podglad_cel, _podglad_zrob, _podglad_holidays = _refresh_podglad(xlsx_path, log_lines, updated)
         _wyslij_powiadomienie_email(updated, log_lines, label=_podglad_label,
                                     cel=_podglad_cel, zrob=_podglad_zrob,
                                     holidays=_podglad_holidays)
