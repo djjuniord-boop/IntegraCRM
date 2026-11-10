@@ -27,7 +27,8 @@ class KontrolaMixin:
         bar = tk.Frame(page, bg=BG)
         bar.pack(fill="x", pady=(0, 6))
         self.kontrola_kroki = []
-        for i, nazwa in enumerate(("1  Pliki", "2  Wynik", "3  E-mail")):
+        self.kontrola_nazwy = ["1  Pliki", "2  Wynik", "3  E-mail"]
+        for i, nazwa in enumerate(self.kontrola_nazwy):
             if i:
                 tk.Label(bar, text="────", bg=BG, fg=LINE, font=f.small).pack(side="left", padx=4)
             lb = tk.Label(bar, text=nazwa, bg=BG, fg=MUTED, font=f.label)
@@ -203,7 +204,19 @@ class KontrolaMixin:
 
     def check_wheel_done(self, kind):
         self.check_busy = False
-        self.kontrola_krok(2 if getattr(self.btn_send, "_enabled", False) else 3 if kind == "ok" else 2)
+        if getattr(self, "_kontrola_nieaktualne", False):   # w trakcie wczytano inny plik / zmieniono serwisy
+            self._kontrola_nieaktualne = False
+            self._kontrola_sprawdzone = None
+            self.btn_send.set_enabled(False)
+            self.set_banner("busy", "Pliki zmieniono w trakcie – sprawdzam jeszcze raz…")
+            self.kontrola_krok(1)
+            self.after(100, self._kontrola_auto_sprawdz)
+        elif getattr(self.btn_send, "_enabled", False):
+            self.kontrola_krok(2)               # wynik gotowy, e-mail do sprawdzenia i wysłania
+        elif kind == "ok":
+            self.kontrola_krok(2, bez_maila=True)
+        else:
+            self.kontrola_krok(1)               # błąd albo wynik bez e-maila – wróć do plików
         self.check_frac = postep.postep("Gotowe", self.check_frac)   # Gotowe = 100%
         self.check_wheel.set(self.check_frac)
         self.check_wheel.done(kind)
@@ -318,29 +331,48 @@ class KontrolaMixin:
         if p:
             self.set_pdf(p)
 
-    def kontrola_krok(self, etap):
-        """0 – brak plików, 1 – pliki wczytane, 2 – wynik gotowy, 3 – e-mail wysłany."""
+    def kontrola_krok(self, etap, bez_maila=False):
+        """0 – brak plików, 1 – pliki wczytane, 2 – wynik gotowy (e-mail do wysłania), 3 – e-mail wysłany.
+        bez_maila – wynik „wszystko jest w CRM”: krok E-mail niepotrzebny."""
         self.kontrola_etap = etap
+        nazwy = getattr(self, "kontrola_nazwy", ["1  Pliki", "2  Wynik", "3  E-mail"])
         for i, lb in enumerate(getattr(self, "kontrola_kroki", [])):
-            nazwa = lb.cget("text").lstrip("✔ ").strip()
-            if i < etap:
-                lb.config(text="✔  " + nazwa, fg=OK)
+            if i == 2 and bez_maila:
+                lb.config(text=nazwy[2] + " – niepotrzebny", fg=MUTED)
+            elif i < etap:
+                lb.config(text="✔  " + nazwy[i], fg=OK)
             elif i == etap:
-                lb.config(text=nazwa, fg=RED)
+                lb.config(text=nazwy[i], fg=RED)
             else:
-                lb.config(text=nazwa, fg=MUTED)
+                lb.config(text=nazwy[i], fg=MUTED)
+
+    def _kontrola_klucz(self):
+        return (self.pdf_path.get(), getattr(self, "crm_file", ""), len(getattr(self, "crm_rows", None) or []),
+                tuple(self.chosen_branches()))
 
     def _kontrola_pliki_zmienione(self):
         gotowe = bool(self.pdf_path.get()) and bool(getattr(self, "crm_rows", None))
+        if getattr(self, "check_busy", False):   # zmiana w trakcie sprawdzania – po nim sprawdzimy jeszcze raz
+            self._kontrola_nieaktualne = True
+            return
+        if gotowe and self.kontrola_etap >= 2 and self._kontrola_klucz() == getattr(self, "_kontrola_sprawdzone", None):
+            return   # te same pliki i serwisy (np. upuszczone ponownie) – wynik i poprawiona treść e-maila zostają
         self.kontrola_krok(1 if gotowe else 0)
-        if gotowe and not getattr(self, "check_busy", False):
+        if gotowe and getattr(self, "btn_send", None) is not None:
+            self.btn_send.set_enabled(False)   # e-mail z poprzedniego wyniku nie pasuje do nowych plików
+        if gotowe:
             self.after(400, self._kontrola_auto_sprawdz)
 
     def _kontrola_auto_sprawdz(self):
         """Oba pliki wczytane → sprawdzenie bez klikania (wynik niczego nie wysyła)."""
-        if (self.pdf_path.get() and getattr(self, "crm_rows", None) and self.chosen_branches()
-                and not getattr(self, "check_busy", False) and self.kontrola_etap == 1):
-            self.check()
+        if not (self.pdf_path.get() and getattr(self, "crm_rows", None)) or getattr(self, "check_busy", False) \
+                or self.kontrola_etap != 1:
+            return
+        if not self.chosen_branches():
+            if hasattr(self, "set_banner"):
+                self.set_banner("warn", "⚠  Zaznacz serwis do sprawdzenia – sprawdzenie ruszy samo.")
+            return
+        self.check()
 
     KONTROLA_NISKI_EKRAN = 860   # px wysokości okna – poniżej karty plików zwijają się po sprawdzeniu
 
@@ -403,6 +435,8 @@ class KontrolaMixin:
         except OSError:
             pass
         self._show_report()
+        if getattr(self, "kontrola_etap", 0) >= 1:   # inne serwisy = inny wynik – sprawdzamy ponownie
+            self._kontrola_pliki_zmienione()
 
     def pick_report(self):
         p = filedialog.askopenfilename(filetypes=[("Raport CRM", "*.xlsx *.csv")])
@@ -459,6 +493,8 @@ class KontrolaMixin:
         self.check_busy = True
         self.check_frac = 0.0
         self.check_wheel_show(True)
+        self._kontrola_sprawdzone = self._kontrola_klucz()
+        self._kontrola_nieaktualne = False
         self.check_wheel.start()
         # Tkinter nie jest bezpieczny dla wątków – wszystko z okna odczytujemy tutaj
         pdf = self.pdf_path.get()

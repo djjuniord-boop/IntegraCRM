@@ -1,4 +1,5 @@
--- Limit wysyłek e-mail z serwera (2026-11-10, audyt B-07): najwyżej 60 wiadomości na konto w ciągu 24 godzin.
+-- Limit wysyłek e-mail z serwera (2026-11-10, audyt B-07): najwyżej 60 wiadomości na konto i 400 dla całej
+-- firmy w ciągu 24 godzin.
 -- Chroni firmowego Gmaila (limit ok. 500/dzień) przed zapętleniem albo nadużyciem. Nic nie usuwa.
 create table if not exists public.mail_wysylki (
   id bigint generated always as identity primary key,
@@ -16,8 +17,12 @@ returns boolean language plpgsql security definer set search_path = '' as $$
 declare e text := lower((select u.email from public.me() u)); n int;
 begin
   if e is null then return false; end if;
+  perform pg_advisory_xact_lock(hashtext('mail_wysylki'));   -- równoległe wysyłki liczone po kolei
   select count(*) into n from public.mail_wysylki where email = e and at > now() - interval '24 hours';
   if n >= 60 then return false; end if;
+  -- limit całej firmy (Gmail wysyłkowy ma ok. 500 wiadomości na dobę) – zapas na wysyłki spoza programu
+  select count(*) into n from public.mail_wysylki where at > now() - interval '24 hours';
+  if n >= 400 then return false; end if;
   insert into public.mail_wysylki(email, rodzaj) values (e, left(coalesce(p_rodzaj, ''), 20));
   delete from public.mail_wysylki where at < now() - interval '30 days';   -- sprzątanie starych wpisów
   return true;

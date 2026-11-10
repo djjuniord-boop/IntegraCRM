@@ -224,6 +224,7 @@ def run_scenario(label, sess):
 
         def kontrola_auto_wynik():
             info["kontrola_auto_etap"] = app.kontrola_etap
+            info["kontrola_auto_braki"] = list((app.result or [[]])[0]) if getattr(app, "result", None) else []
             shot(app, f"{label}__main_kreator")
         steps.extend([(kontrola_auto, 8000), (kontrola_auto_wynik, 100)])
     dialogs = [("ustawienia", lambda: g.SettingsDialog(app))]
@@ -391,7 +392,12 @@ def main():
                                           and result.get("marza_serwis", {}).get("wyniki_przyciski_edycji") == 0),
         "wyniki_oznaczenia": (any(r[0].endswith("(ręcznie)") for r in result.get("admin", {}).get("wyniki_tabela", []))
                               and any(r[2].endswith("✎") for r in result.get("admin", {}).get("wyniki_tabela", []))),
-        "kontrola_sama_sprawdza": result.get("admin", {}).get("kontrola_auto_etap", 0) >= 2,
+        "kontrola_sama_sprawdza": (result.get("admin", {}).get("kontrola_auto_etap", 0) == 2
+                                   and result.get("admin", {}).get("kontrola_auto_braki") == ["PO9AB12"]),
+        "dzis_dla_kilku_modulow": (result.get("admin", {}).get("tabs", [""])[0] == "dzis"
+                                   and result.get("marza_serwis", {}).get("tabs", [""])[0] == "dzis"
+                                   and "dzis" not in result.get("kontrola_opole", {}).get("tabs", [])
+                                   and "dzis" not in result.get("handlowiec_wroclaw", {}).get("tabs", [])),
         "kontrola_tresc_maila_widoczna": result.get("admin", {}).get("mail_tresc_px", 0) >= 80,
         "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }

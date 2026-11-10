@@ -717,6 +717,12 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
         if getattr(self, "current_tab", "") == "marza":
             self.marza_add(files)
             return
+        if any(f.lower().endswith((".pdf", ".xlsx", ".csv")) for f in files) and getattr(self, "current_tab", "") != "main":
+            if "main" not in self.pages:
+                messagebox.showinfo("Przeciągnij plik", "To konto nie ma zakładki KONTROLA – pliki z Integry i CRM "
+                                    "sprawdza osoba z dostępem do Kontroli CRM.")
+                return
+            self.show_tab("main")   # np. upuszczenie na ekranie DZIŚ – wynik musi być widoczny
         used = False
         for fp in files:
             low = fp.lower()

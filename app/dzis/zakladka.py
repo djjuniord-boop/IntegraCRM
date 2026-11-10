@@ -16,10 +16,10 @@ def kafle_konta(can) -> list:
     out = []
     if can("crm"):
         out.append("kontrola")
-    if can("wyniki") or can("marza"):
-        out.append("wyniki")
     if can("marza"):
         out.append("marza")
+    if can("wyniki") or can("marza"):
+        out.append("wyniki")
     if can("oferty"):
         out.append("oferty")
     if can("serwis"):
@@ -39,6 +39,8 @@ def kiedy(t, teraz=None) -> str:
     if t is None:
         return "—"
     teraz = teraz or datetime.datetime.now().astimezone()
+    if t.tzinfo and teraz.tzinfo:
+        t = t.astimezone(teraz.tzinfo)
     d = (teraz.date() - t.date()).days
     dzien = "dziś" if d == 0 else "wczoraj" if d == 1 else f"{t.day}.{t.month:02d}"
     return f"{dzien} {t:%H:%M}"
@@ -50,6 +52,8 @@ def tekst_kontroli(row, teraz=None):
         return "Nie ma jeszcze sprawdzeń.", "brak"
     brak = len(row.get("missing") or [])
     t = kiedy(_czas(row.get("created_at")), teraz)
+    if row.get("branches"):
+        t += f" ({', '.join(row['branches'])})"
     if not brak:
         return f"Ostatnie sprawdzenie: {t} – wszystko było w CRM.", "ok"
     mail = "e-mail wysłany" if row.get("mail_to") else "e-mail NIE wysłany"
@@ -70,6 +74,8 @@ def tekst_marzy(rows, teraz=None):
     nazwy = {"wroclaw": "Wrocław", "opole": "Opole"}
     linie, stan = [], "ok"
     for b, t in sorted(ost.items()):
+        if t.tzinfo and teraz.tzinfo:
+            t = t.astimezone(teraz.tzinfo)
         dni = (teraz.date() - t.date()).days
         if dni > 1 and teraz.weekday() != 6:
             stan = "uwaga"
@@ -128,7 +134,7 @@ class DzisMixin:
             siatka.columnconfigure(col, weight=1, uniform="k")
         self.dzis_admin = tk.Label(page, text="", bg=BG, fg=MUTED, font=f.small, anchor="w")
         if s and s.is_admin:
-            self.dzis_admin.pack(fill="x", pady=(8, 0))
+            self.dzis_admin.pack(fill="x", pady=(8, 0), before=siatka)
         self.dzis_ladowanie = False
         self.dzis_job = None
         self.after(300, self.dzis_odswiez)
@@ -143,15 +149,26 @@ class DzisMixin:
     def dzis_odswiez(self):
         if getattr(self, "dzis_ladowanie", False) or self.session is None or not getattr(self, "dzis_kafle", None):
             return
+        if getattr(self, "current_tab", "dzis") != "dzis":   # inna zakładka – odświeży się przy wejściu
+            return
         self.dzis_ladowanie = True
         s, kafle = self.session, set(self.dzis_kafle)
         oddzialy = self.wyniki_oddzialy() if "wyniki" in kafle else []
 
         def work():
+            try:
+                _work()
+            except Exception:   # nieoczekiwany błąd – odświeżanie nie może stanąć na zawsze
+                try:
+                    self.after(0, self._dzis_pokaz, {}, "")
+                except Exception:
+                    pass
+
+        def _work():
             wynik = {}
             if "kontrola" in kafle:
                 try:
-                    r = s.call("GET", "/rest/v1/checks?select=created_at,missing,mail_to&order=created_at.desc&limit=1")
+                    r = s.call("GET", "/rest/v1/checks?select=created_at,missing,mail_to,branches&order=created_at.desc&limit=1")
                     wynik["kontrola"] = tekst_kontroli((r or [None])[0])
                 except Exception as e:
                     wynik["kontrola"] = (opis_bledu(e), "blad")
@@ -175,7 +192,7 @@ class DzisMixin:
                     admin = ""
             try:
                 self.after(0, self._dzis_pokaz, wynik, admin)
-            except RuntimeError:   # okno zamknięte
+            except Exception:   # okno zamknięte
                 pass
         threading.Thread(target=work, daemon=True).start()
 
