@@ -55,7 +55,8 @@ HELP_STEPS = [
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
                    "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
                    "swoje oddziały) – wybór jest zapamiętywany."),
-    ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
+    ("Sprawdź", "Gdy oba pliki są wczytane, program sam porówna numery rejestracyjne (przycisk SPRAWDŹ – ponownie). "
+                "Status i inne kolumny są pomijane. Karty plików zwijają się do jednej linii – „Zmień pliki” je przywraca."),
     ("Wyślij e-mail", "Jeśli czegoś brakuje, e-mail jest gotowy – możesz go poprawić i wysłać."),
 ]
 

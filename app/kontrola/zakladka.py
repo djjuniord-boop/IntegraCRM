@@ -23,6 +23,20 @@ class KontrolaMixin:
 
     def _build_main(self, page):
         f = self.fonts
+        # pasek kroków: ① Pliki ─ ② Wynik ─ ③ E-mail (zielony = zrobione, czerwony = teraz)
+        bar = tk.Frame(page, bg=BG)
+        bar.pack(fill="x", pady=(0, 6))
+        self.kontrola_kroki = []
+        for i, nazwa in enumerate(("1  Pliki", "2  Wynik", "3  E-mail")):
+            if i:
+                tk.Label(bar, text="────", bg=BG, fg=LINE, font=f.small).pack(side="left", padx=4)
+            lb = tk.Label(bar, text=nazwa, bg=BG, fg=MUTED, font=f.label)
+            lb.pack(side="left")
+            self.kontrola_kroki.append(lb)
+        self.kontrola_auto = tk.Label(bar, text="Sprawdzenie rusza samo, gdy wczytasz oba pliki.", bg=BG, fg=MUTED,
+                                      font=f.small)
+        self.kontrola_auto.pack(side="right")
+        self.kontrola_etap = 0
         steps = tk.Frame(page, bg=BG)
         steps.pack(fill="x")
         self.kontrola_steps = steps
@@ -189,6 +203,7 @@ class KontrolaMixin:
 
     def check_wheel_done(self, kind):
         self.check_busy = False
+        self.kontrola_krok(2 if getattr(self.btn_send, "_enabled", False) else 3 if kind == "ok" else 2)
         self.check_frac = postep.postep("Gotowe", self.check_frac)   # Gotowe = 100%
         self.check_wheel.set(self.check_frac)
         self.check_wheel.done(kind)
@@ -303,6 +318,30 @@ class KontrolaMixin:
         if p:
             self.set_pdf(p)
 
+    def kontrola_krok(self, etap):
+        """0 – brak plików, 1 – pliki wczytane, 2 – wynik gotowy, 3 – e-mail wysłany."""
+        self.kontrola_etap = etap
+        for i, lb in enumerate(getattr(self, "kontrola_kroki", [])):
+            nazwa = lb.cget("text").lstrip("✔ ").strip()
+            if i < etap:
+                lb.config(text="✔  " + nazwa, fg=OK)
+            elif i == etap:
+                lb.config(text=nazwa, fg=RED)
+            else:
+                lb.config(text=nazwa, fg=MUTED)
+
+    def _kontrola_pliki_zmienione(self):
+        gotowe = bool(self.pdf_path.get()) and bool(getattr(self, "crm_rows", None))
+        self.kontrola_krok(1 if gotowe else 0)
+        if gotowe and not getattr(self, "check_busy", False):
+            self.after(400, self._kontrola_auto_sprawdz)
+
+    def _kontrola_auto_sprawdz(self):
+        """Oba pliki wczytane → sprawdzenie bez klikania (wynik niczego nie wysyła)."""
+        if (self.pdf_path.get() and getattr(self, "crm_rows", None) and self.chosen_branches()
+                and not getattr(self, "check_busy", False) and self.kontrola_etap == 1):
+            self.check()
+
     KONTROLA_NISKI_EKRAN = 860   # px wysokości okna – poniżej karty plików zwijają się po sprawdzeniu
 
     def kontrola_zwin(self, zwin=True):
@@ -336,6 +375,7 @@ class KontrolaMixin:
         self.pdf_path.set(p)
         name = p.replace("\\", "/").split("/")[-1]
         self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
+        self._kontrola_pliki_zmienione()
 
     # ---------- raport z CRM (.xlsx) i wybór serwisów ----------
     def _build_branches(self, names):
@@ -379,6 +419,7 @@ class KontrolaMixin:
         self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
         self._build_branches(crm_report.branches(rows))
         self._show_report()
+        self._kontrola_pliki_zmienione()
 
     def _show_report(self):
         if not self.crm_rows:
@@ -586,6 +627,7 @@ class KontrolaMixin:
             cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
             self.ui(self.set_banner, "ok", f"✔  E-mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
             self.ui(self.btn_send.set_enabled, False, "Wysłano ✔")
+            self.ui(self.kontrola_krok, 3)
             try:
                 if history is None:
                     raise RuntimeError

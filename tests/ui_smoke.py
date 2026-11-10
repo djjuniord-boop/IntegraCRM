@@ -212,6 +212,20 @@ def run_scenario(label, sess):
             info["okno_px"] = [app.winfo_width(), app.winfo_height()]
             shot(app, f"{label}__main_po_sprawdzeniu")
         steps.extend([(kontrola_wynik, 900), (kontrola_snap, 100)])
+
+        def kontrola_auto():   # prawdziwe pliki testowe: oba wczytane → sprawdzenie rusza samo
+            import subprocess
+            fx = WORK / "fx"
+            subprocess.run([sys.executable, str(SRC / "tools" / "make_fixtures.py"), str(fx)], check=True,
+                           capture_output=True)
+            app.kontrola_zwin(False)
+            app.set_pdf(str(fx / "integra.pdf"))
+            app.set_report(str(fx / "crm.xlsx"))
+
+        def kontrola_auto_wynik():
+            info["kontrola_auto_etap"] = app.kontrola_etap
+            shot(app, f"{label}__main_kreator")
+        steps.extend([(kontrola_auto, 8000), (kontrola_auto_wynik, 100)])
     dialogs = [("ustawienia", lambda: g.SettingsDialog(app))]
     if sess.is_admin:
         dialogs += [("uzytkownik", lambda: g.UserDialog(app, sess.list_users()[1])),
@@ -377,6 +391,7 @@ def main():
                                           and result.get("marza_serwis", {}).get("wyniki_przyciski_edycji") == 0),
         "wyniki_oznaczenia": (any(r[0].endswith("(ręcznie)") for r in result.get("admin", {}).get("wyniki_tabela", []))
                               and any(r[2].endswith("✎") for r in result.get("admin", {}).get("wyniki_tabela", []))),
+        "kontrola_sama_sprawdza": result.get("admin", {}).get("kontrola_auto_etap", 0) >= 2,
         "kontrola_tresc_maila_widoczna": result.get("admin", {}).get("mail_tresc_px", 0) >= 80,
         "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }
