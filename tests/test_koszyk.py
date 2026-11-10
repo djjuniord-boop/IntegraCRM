@@ -160,3 +160,65 @@ def test_zamow_wysyla_post_xml_po_sprawdzeniu_stanow():
     finally:
         K.wyslij, S.get_product = stare[0], stare[1]
         S.KONTO.clear(); S.KONTO.update(stare[2])
+
+
+def test_posrednik_xpartner_bez_hasla_w_programie():
+    """Hasło B2B nie trafia do komputera: zapytania idą przez funkcję serwera „xpartner”, program nie zna hasła."""
+    import io
+    import json
+    import urllib.error
+    from oferty import koszyk, okno, silnik, xp, zamowienia
+    wyslane = []
+
+    def posr(m, params, body=None, timeout=30):
+        wyslane.append((m, params, body))
+        if m == "order":
+            raise xp.BrakOdpowiedzi("Brak odpowiedzi xPartner (błąd serwera 502)")
+        return b"<root><success>true</success><productsCount>0</productsCount></root>"
+    stary = xp.POSREDNIK
+    xp.POSREDNIK = posr
+    try:
+        cfg = {"login": "", "password": ""}           # bez hasła w programie
+        assert silnik.api_call(cfg, productName="205/55 R16") == (0, [])
+        zamowienia.api_xml(cfg, "getOpenOrders", orderXp="")
+        assert [w[0] for w in wyslane] == ["productsList", "getOpenOrders"]
+        assert "login" not in wyslane[0][1] and "pass" not in wyslane[0][1]
+        assert wyslane[1][1] == {}                       # puste parametry nie idą do serwera
+        try:
+            koszyk.wyslij(cfg, "<order/>")
+        except koszyk.Blad as e:
+            assert "czy zamówienie powstało" in str(e)
+        else:
+            raise AssertionError("brak błędu")
+    finally:
+        xp.POSREDNIK = stary
+
+    # odpowiedzi serwera → komunikaty dla pracownika
+    stare = okno.urllib.request.urlopen, okno._token
+    okno._token = lambda: "t"
+
+    def odp(kod, tresc):
+        def f(req, timeout=None):
+            assert json.loads(req.data)["m"] == "order" and req.full_url.endswith("/functions/v1/xpartner")
+            raise urllib.error.HTTPError(req.full_url, kod, "x", None, io.BytesIO(json.dumps(tresc).encode()))
+        return f
+    try:
+        okno.urllib.request.urlopen = odp(403, {"error": "Brak uprawnienia do zamawiania w xPartner – poproś administratora."})
+        try:
+            okno.posrednik_xpartner("order", {}, "<order/>")
+        except xp.BrakOdpowiedzi:
+            raise AssertionError("odmowa to nie brak odpowiedzi")
+        except xp.Blad as e:
+            assert "zamawiania" in str(e)
+        okno.urllib.request.urlopen = odp(502, {"error": "Brak połączenia z xPartner (TimeoutError)"})
+        try:
+            okno.posrednik_xpartner("order", {}, "<order/>")
+        except xp.BrakOdpowiedzi as e:
+            assert "TimeoutError" in str(e)
+        okno.urllib.request.urlopen = odp(404, {})
+        try:
+            okno.posrednik_xpartner("order", {}, "<order/>")
+        except xp.Blad as e:
+            assert "nie jest jeszcze uruchomiony" in str(e)
+    finally:
+        okno.urllib.request.urlopen, okno._token = stare

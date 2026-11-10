@@ -1,10 +1,6 @@
 """Treść e-maila z listą brakujących numerów (wysyła go serwer firmy)."""
 import re
-import smtplib
-import ssl
 from datetime import datetime
-from email.message import EmailMessage
-from email.utils import formataddr
 
 from version import VERSION
 
@@ -32,21 +28,6 @@ def compose(missing: list[str], uncertain: list[tuple[str, str]], reported: dict
     subject = (f"Brakujące zlecenia w CRM ({len(missing)}) – {today}" if missing
                else f"Numery do weryfikacji w CRM ({len(uncertain)}) – {today}")
     return subject, "\n".join(lines)
-
-
-def send(subject: str, body: str, cfg: dict) -> None:
-    msg = EmailMessage()
-    msg["Subject"] = subject
-    name = (cfg.get("sender_name") or DEFAULT_SENDER).strip()
-    msg["From"] = formataddr((name, cfg["gmail_user"])) if name else cfg["gmail_user"]
-    msg["To"] = ", ".join(cfg["recipients"])
-    if cfg.get("cc_self", True) and cfg["gmail_user"].lower() not in {r.lower() for r in cfg["recipients"]}:
-        msg["Cc"] = cfg["gmail_user"]
-    msg.set_content(body)
-    ctx = ssl.create_default_context()
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx, timeout=30) as s:
-        s.login(cfg["gmail_user"], cfg["gmail_app_password"].replace(" ", ""))
-        s.send_message(msg)
 
 
 class NotConfigured(Exception):

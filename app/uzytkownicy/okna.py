@@ -11,7 +11,7 @@ class UserDialog(tk.Toplevel):
     def __init__(self, app, user=None):
         super().__init__(app)
         self.app, self.user = app, user or {}
-        self.title("Użytkownik" if user else "Nowy użytkownik")
+        self.title(f"Konto: {user.get('email', '')}" if user else "Nowe konto")
         self.configure(bg=SURFACE, padx=22, pady=18)
         self.transient(app)
         self.resizable(False, False)
@@ -37,13 +37,13 @@ class UserDialog(tk.Toplevel):
             tk.Label(self, text="Zostaw puste, żeby nie zmieniać hasła.", bg=SURFACE, fg=MUTED,
                      font=f.small).pack(anchor="w", pady=(0, 6))
 
-        def group(title, items):
+        def group(title, items, kolumny=3):
             tk.Label(self, text=title, bg=SURFACE, fg=INK, font=f.label).pack(anchor="w", pady=(6, 0))
             row = tk.Frame(self, bg=SURFACE)
             row.pack(anchor="w")
-            for text, var in items:
+            for i, (text, var) in enumerate(items):   # siatka – okno mieści się na ekranie 1280 px
                 tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE,
-                               font=f.body).pack(side="left", padx=(0, 10))
+                               font=f.body).grid(row=i // kolumny, column=i % kolumny, sticky="w", padx=(0, 12))
         group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES])
         group("Oddziały", [(b, self.v_br[b]) for b in cloud.BRANCHES])
         group("Konto", [("Administrator (dostęp do wszystkiego)", self.v_admin), ("Aktywne", self.v_active)])
@@ -59,7 +59,7 @@ class UserDialog(tk.Toplevel):
         tk.Entry(xr, textvariable=self.v_xp_login, width=20, font=f.body, relief="solid", bd=1).grid(row=1, column=0, ipady=3)
         tk.Entry(xr, textvariable=self.v_xp_pass, show="•", width=20, font=f.body, relief="solid", bd=1).grid(
             row=1, column=1, ipady=3, padx=(10, 0))
-        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany.", bg=SURFACE, fg=MUTED, font=f.small)
+        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty opon).", bg=SURFACE, fg=MUTED, font=f.small)
         self.xp_info.pack(anchor="w")
         self._xp_old_login = ""
         if u:
@@ -93,8 +93,8 @@ class UserDialog(tk.Toplevel):
         self.btn.pack(side="right")
         FlatButton(bar, "Anuluj", self.destroy, "ghost", f.body, 14, 8).pack(side="right", padx=8)
         if u and u.get("email", "").lower() != app.session.email.lower():
-            FlatButton(bar, "Usuń konto", self.delete, "dark", f.body, 14, 8).pack(side="left")
-            FlatButton(bar, "Wyloguj", self.logout, "ghost", f.body, 14, 8).pack(side="left", padx=8)
+            FlatButton(bar, "Usuń konto", self.delete, "danger", f.body, 14, 8).pack(side="left")
+            FlatButton(bar, "Wyloguj z programu teraz", self.logout, "ghost", f.body, 14, 8).pack(side="left", padx=8)
         self.grab_set()
 
     def _run(self, fn, done_text):

@@ -3,7 +3,7 @@ import os
 import threading
 import tkinter as tk
 from tkinter import messagebox, ttk
-from ui import BG, BLACK, FlatButton, MUTED, RED, SURFACE, card
+from ui import BG, BLACK, FlatButton, MUTED, RED, SURFACE, card, opis_bledu
 try:
     from kontrola import history
 except Exception:   # pragma: no cover – stare .exe bez bibliotek historii
@@ -52,7 +52,7 @@ class HistoriaMixin:
             try:
                 rows = history.read_all()
             except Exception as e:
-                rows = [{"data": "", "plik_pdf": f"Nie udało się wczytać historii: {e}"}]
+                rows = [{"data": "", "plik_pdf": f"Nie udało się wczytać historii: {opis_bledu(e)}"}]
             try:
                 self.after(0, self._show_history, rows)
             except RuntimeError:   # okno zamknięte albo pętla okna jeszcze nie działa

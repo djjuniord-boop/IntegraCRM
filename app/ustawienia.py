@@ -3,7 +3,7 @@ import tkinter as tk
 from tkinter import messagebox, ttk
 import cloud
 from kontrola import mailer
-from ui import BLACK, FlatButton, INK, MUTED, RED, SURFACE, set_icon
+from ui import BLACK, FlatButton, INK, MUTED, RED, SURFACE, set_icon, opis_bledu
 from konfig import COMPANY, load_config, save_config
 
 
@@ -155,7 +155,7 @@ class SettingsDialog(tk.Toplevel):
                 COMPANY.clear()
                 COMPANY.update(value)
             except Exception as e:
-                messagebox.showerror("Ustawienia", f"Nie zapisano ustawień firmowych:\n{e}", parent=self)
+                messagebox.showerror("Ustawienia", f"Nie zapisano ustawień firmowych:\n{opis_bledu(e)}", parent=self)
                 return
         if self.company_mode == "locked":   # tych pól użytkownik nie zmienia
             for k in ("recipients", "sender_name", "tesseract_cmd", "update_source"):
@@ -177,4 +177,4 @@ class SettingsDialog(tk.Toplevel):
             messagebox.showinfo("Test", f"E-mail testowy wysłany na adres {me} – sprawdź skrzynkę (także folder SPAM).",
                                 parent=self)
         except Exception as e:
-            messagebox.showerror("Test", f"Nie udało się wysłać:\n{e}", parent=self)
+            messagebox.showerror("Test", f"Nie udało się wysłać:\n{opis_bledu(e)}", parent=self)

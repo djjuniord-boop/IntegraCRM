@@ -14,6 +14,8 @@ import urllib.request
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
+from oferty import xp
+
 VERSION = "panel"
 OUT_DIR = os.path.join(os.path.expanduser("~"), "Documents", "Oferty opon")
 API_URL = "https://xpartner.net.pl/index.php"
@@ -120,18 +122,11 @@ def parse_products(xml_bytes):
     return count, out
 
 def api_call(cfg, **params):
-    if not cfg.get("login") or not cfg.get("password"):
-        raise ApiError("Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go "
-                       "(UŻYTKOWNICY → konto → xPartner).")
-    q = {"a": "b2b_xmlApi", "login": cfg["login"], "pass": cfg["password"], "m": "productsList"}
-    q.update({k: ("true" if v is True else "false" if v is False else v) for k, v in params.items()})
-    url = API_URL + "?" + urllib.parse.urlencode(q)
-    req = urllib.request.Request(url, headers={"User-Agent": "PanelLatexSerwis-Oferty"})
+    q = {k: ("true" if v is True else "false" if v is False else v) for k, v in params.items()}
     try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            data = r.read()
-    except Exception as e:
-        raise ApiError("Brak połączenia z xPartner: %s" % e.__class__.__name__)
+        data = xp.zapytanie(cfg, "productsList", q, timeout=30)   # przez pośrednika na serwerze (hasło tam)
+    except xp.Blad as e:
+        raise ApiError(str(e))
     try:
         return parse_products(data)
     except ET.ParseError:
@@ -173,23 +168,29 @@ def get_product(cfg, pid):
     return items[0] if items else None
 
 # ---------------------------------------------------------------- logika
-SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})", re.I)
+# Średnica z połówką (17.5, 19.5, 22.5 – ciężarowe) i „C” (opony dostawcze, inna nośność) są częścią rozmiaru:
+# „265/70 R17.5” ≠ „265/70 R17”, „205/65 R16C” ≠ „205/65 R16”.
+SIZE_RE = re.compile(r"(\d{3})\s*/\s*(\d{2})\s*Z?R\s*(\d{2})([.,]5(?![0-9A-Za-z]))?(C(?![A-Za-z]))?", re.I)
 
-SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})(?:[.,]5)?(?!\d)", re.I)
+SIZE_LOOSE = re.compile(r"(?<!\d)(\d{3})\s*[/\\\-.x×, ]?\s*(\d{2})\s*(?:[/\\\-., ]|\s*Z?R\s*F?)?\s*(\d{2})([.,]5(?![0-9A-Za-z]))?(C(?![A-Za-z]))?(?!\d)", re.I)
+
+def _rozmiar(w, p, r, pol, c):
+    return "%s/%s R%s%s%s" % (w, p, r, ".5" if pol else "", "C" if c else "")
 
 def find_sizes(txt):
-    """Rozpoznaje rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16, 205 55 16, 2055516, 205-55-16, 205/55/16, 205/55ZR16."""
+    """Rozpoznaje rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16, 205 55 16, 2055516, 205-55-16, 205/55/16, 205/55ZR16,
+    także 265/70 R17.5 i 205/65 R16C (połówka i „C” zostają w rozmiarze)."""
     out = []
     for m in SIZE_LOOSE.finditer(txt or ""):
-        w, p, r = (int(x) for x in m.groups())
+        w, p, r = (int(x) for x in m.groups()[:3])
         if 125 <= w <= 355 and w % 5 == 0 and 25 <= p <= 85 and p % 5 == 0 and 12 <= r <= 24:
-            sz = "%d/%d R%d" % (w, p, r)
+            sz = _rozmiar(w, p, r, m.group(4), m.group(5))
             if sz not in out: out.append(sz)
     return out
 
 def norm_size(s):
     m = SIZE_RE.search(s or "")
-    if m: return "%s/%s R%s" % m.groups()
+    if m: return _rozmiar(*m.groups())
     f = find_sizes(s)
     return f[0] if f else None
 
@@ -516,6 +517,17 @@ def parse_quick(txt):
     wymiana = ex["wymiana"]
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
     pojazdy = [{"rej": "", "pojazd": "", "rozmiar": s, "ilosc": ilosc, "nowe": True, "wymiana": wymiana, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]} for s in sizes]
+    if len(pojazdy) == 1:   # jedno auto: rejestracja i model jak w polu „Zapytanie klienta”
+        try:
+            fl = parse_free_line(txt) or {}
+        except Exception:
+            fl = {}
+        if fl.get("rej"):
+            pojazdy[0]["rej"] = fl["rej"]
+        auto = [w for w in (fl.get("pojazd") or "").split()   # bez indeksów (91V), XL i „run flat”
+                if not re.match(r"^(\d{2,3}[a-z]|xl|run|flat|runflat|rft)$", w, re.I)]
+        if auto and any(re.match(r"^[a-ząćęłńóśźż-]{3,}$", w, re.I) for w in auto) and (fl.get("rej") or len(auto) >= 2):
+            pojazdy[0]["pojazd"] = " ".join(auto)
     demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
     nosnosc, predkosc = indeks_z_tekstu(t)
     return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki)),

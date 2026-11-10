@@ -10,11 +10,12 @@ import paths
 
 # ---------- identyfikacja wizualna ----------
 RED, RED_DARK = "#E30613", "#B8050F"
-BLACK, INK, MUTED = "#111111", "#313131", "#7A7A7A"
+BLACK, INK, MUTED = "#111111", "#313131", "#666666"   # MUTED: kontrast 5,7:1 na białym (WCAG AA)
 BG, SURFACE, LINE = "#F5F5F5", "#FFFFFF", "#E4E4E4"
 OK, OK_BG = "#1E7D32", "#E8F5E9"
 WARN, WARN_BG = "#8A5A00", "#FFF4E0"
 ERR_BG = "#FDECEC"
+OFF_BG, OFF_FG = "#ECECEC", "#767676"   # przycisk wyłączony: tekst 4,5:1
 ASSETS = paths.APP_DIR / "assets"
 
 
@@ -35,31 +36,92 @@ class Fonts:
 
 
 class FlatButton(tk.Label):
-    """Płaski przycisk w stylu strony (czerwony / czarny / obrys) z efektem najechania."""
+    """Płaski przycisk w stylu strony (czerwony / czarny / obrys / „usuń”) z efektem najechania.
+    Działa też z klawiatury: Tab przechodzi na przycisk (czerwona obwódka), Enter lub Spacja go naciska."""
 
     STYLES = {
         "primary": (RED, "white", RED_DARK),
         "dark": (BLACK, "white", "#333333"),
         "ghost": (SURFACE, BLACK, "#EFEFEF"),
+        "danger": (SURFACE, RED_DARK, ERR_BG),   # akcje nieodwracalne (usuń konto, wyczyść)
     }
 
     def __init__(self, parent, text, command, kind="primary", font=None, padx=18, pady=9):
         bg, fg, hover = self.STYLES[kind]
-        super().__init__(parent, text=text, bg=bg, fg=fg, font=font, padx=padx, pady=pady,
-                         cursor="hand2", highlightthickness=1 if kind == "ghost" else 0,
-                         highlightbackground=LINE)
+        ramka = kind in ("ghost", "danger")
+        gr = 1 if ramka else 2   # obwódka fokusu; przy pełnych przyciskach w kolorze tła (niewidoczna bez fokusu)
+        kom = 0 if ramka else gr   # pełny przycisk: obwódka kosztem marginesu – rozmiar jak dawniej
+        super().__init__(parent, text=text, bg=bg, fg=fg, font=font, padx=max(0, padx - kom),
+                         pady=max(0, pady - kom), cursor="hand2", takefocus=1, highlightthickness=gr,
+                         highlightbackground=(RED_DARK if kind == "danger" else LINE) if ramka else bg,
+                         highlightcolor=RED if kind != "primary" else BLACK)
         self._c = (bg, fg, hover)
         self._cmd = command
         self._enabled = True
         self.bind("<Enter>", lambda e: self._enabled and self.config(bg=hover))
-        self.bind("<Leave>", lambda e: self.config(bg=bg if self._enabled else "#BDBDBD"))
+        self.bind("<Leave>", lambda e: self.config(bg=bg if self._enabled else OFF_BG))
         self.bind("<Button-1>", lambda e: self._enabled and self._cmd())
+        self.bind("<Return>", self._klawisz)
+        self.bind("<KP_Enter>", self._klawisz)
+        self.bind("<space>", self._klawisz)
+
+    def _klawisz(self, e=None):
+        if self._enabled:
+            self._cmd()
+        return "break"
 
     def set_enabled(self, on: bool, text: str | None = None):
         self._enabled = on
-        self.config(bg=self._c[0] if on else "#BDBDBD", cursor="hand2" if on else "arrow")
+        bg, fg, _ = self._c
+        self.config(bg=bg if on else OFF_BG, fg=fg if on else OFF_FG, cursor="hand2" if on else "arrow")
+        if not on and self.cget("highlightbackground") == bg:
+            self.config(highlightbackground=OFF_BG)
+        elif on and self.cget("highlightbackground") == OFF_BG:
+            self.config(highlightbackground=bg)
         if text:
             self.config(text=text)
+
+
+def esc_zamyka(root):
+    """Esc w każdym oknie dialogowym działa jak „Anuluj” / zamknięcie okna (to samo co krzyżyk)."""
+    def esc(e):
+        try:
+            top = e.widget.winfo_toplevel()
+        except (tk.TclError, AttributeError):
+            return
+        if top is root or not top.winfo_exists() or top.winfo_class() != "Toplevel":   # nie lista rozwijana
+            return
+        try:
+            cmd = top.protocol("WM_DELETE_WINDOW")
+            if cmd:
+                top.tk.call(cmd)
+            else:
+                top.destroy()
+        except tk.TclError:
+            pass
+    root.bind_all("<Escape>", esc, add="+")
+
+
+def opis_bledu(e) -> str:
+    """Błąd zrozumiały dla pracownika: co się stało i co zrobić (zamiast surowego tekstu wyjątku Pythona).
+    Komunikaty programu i serwera (po polsku) zostają bez zmian."""
+    import socket
+    import urllib.error
+    import zipfile
+    if isinstance(e, PermissionError):
+        return "Plik jest otwarty w innym programie (np. w Excelu) albo brak do niego dostępu – zamknij go i spróbuj ponownie."
+    if isinstance(e, FileNotFoundError):
+        return "Nie znaleziono pliku – mógł zostać przeniesiony albo usunięty."
+    if isinstance(e, zipfile.BadZipFile):
+        return "Plik jest uszkodzony albo ma zły format – pobierz albo zapisz go ponownie i spróbuj jeszcze raz."
+    if isinstance(e, urllib.error.HTTPError):
+        return f"Serwer odrzucił żądanie (kod {e.code}) – spróbuj ponownie później; jeśli się powtarza, zgłoś administratorowi."
+    if isinstance(e, (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError)):
+        return "Brak połączenia z serwerem – sprawdź internet i spróbuj ponownie za chwilę."
+    t = str(e).strip()
+    if t and (any(c in t for c in "ąćęłńóśźżĄĆĘŁŃÓŚŹŻ„") or type(e).__name__ in ("CloudError", "SessionEnded", "Blad", "ApiError")):
+        return t
+    return f"Nieoczekiwany błąd ({type(e).__name__}{': ' + t[:160] if t else ''}). Spróbuj ponownie; jeśli się powtarza – zgłoś administratorowi."
 
 
 def odmiana(n, jeden, kilka, wiele):

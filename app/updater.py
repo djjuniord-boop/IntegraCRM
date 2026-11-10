@@ -71,9 +71,11 @@ def _mirror_for(loc: str) -> str:
     return MIRROR if "/latest/" in loc else MIRROR.replace("/latest/", "/beta/")
 
 
-def check(source: str):
+def check(source: str, wymagana: str = ""):
     """Zwraca (manifest, czy_jest_nowsza_wersja). Rzuca wyjątek, gdy źródło niedostępne.
-    Gdy GitHub jest nieosiągalny, próbuje zapasowego źródła (MIRROR)."""
+    Gdy GitHub jest nieosiągalny, próbuje zapasowego źródła (MIRROR).
+    wymagana – minimalna wersja z bazy: gdy ta wersja jest starsza, przypięcie po wycofaniu
+    (skip_version.txt) nie blokuje aktualizacji – inaczej program nie mógłby wystartować."""
     loc = _manifest_location(source)
     try:
         raw = _read_bytes(loc)
@@ -88,7 +90,8 @@ def check(source: str):
     if "version" not in m or "package" not in m:
         raise RuntimeError("Nieprawidłowy plik version.json")
     m["_base"] = loc
-    newer = _ver(m["version"]) > _ver(VERSION) and m["version"] != _pinned()
+    za_stara = bool(wymagana) and _ver(VERSION) < _ver(wymagana)
+    newer = _ver(m["version"]) > _ver(VERSION) and (m["version"] != _pinned() or za_stara)
     return m, newer
 
 

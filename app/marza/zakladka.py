@@ -5,7 +5,7 @@ import threading
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 from ui import (BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG,
-                WheelProgress, card)
+                WheelProgress, card, opis_bledu)
 from konfig import COMPANY, load_config, save_config
 from marza.okna import MarzaRecipientsDialog
 
@@ -55,7 +55,7 @@ class MarzaMixin:
         qh = tk.Frame(drop, bg=SURFACE)
         qh.pack(fill="x")
         tk.Label(qh, text="Kolejka (najwyżej 1 raport na oddział):", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
-        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "ghost", f.small, 8, 2).pack(side="right")
+        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "danger", f.small, 8, 2).pack(side="right")
         self.marza_queue = tk.Frame(drop, bg=SURFACE)
         self.marza_queue.pack(fill="x", pady=(4, 0))
 
@@ -394,7 +394,7 @@ class MarzaMixin:
             self.after(0, self._marza_schedule_hide)   # ✔ chwilę widoczny, potem miejsce dla kart
         except Exception as e:
             self._report(e, "kalkulator marży")
-            self.after(0, self.marza_set_banner, "bad", f"✖  Błąd: {e}")
+            self.after(0, self.marza_set_banner, "bad", f"✖  {opis_bledu(e)}")
             self.after(0, self.marza_wheel.done, "bad")
             self.after(0, self._marza_schedule_hide)
         finally:

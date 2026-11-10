@@ -9,7 +9,8 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 
 | Plik | Rola |
 |---|---|
-| `silnik.py` | cała logika bez okna: rozpoznawanie zapytań (rozmiar w dowolnym zapisie, rejestracje, usługi), API xPartner, oferta, XLSX, e-mail; `handle(ścieżka, dane)` – polecenia strony |
+| `xp.py` | połączenie z API xPartner – przez pośrednika na serwerze (funkcja `xpartner`, ustawiana w `okno.posrednik_xpartner`); hasło B2B nie trafia do komputera (od 0.26.0) |
+| `silnik.py` | cała logika bez okna: rozpoznawanie zapytań (rozmiar w dowolnym zapisie – połówka średnicy `R17.5` i „C” `R16C` są częścią rozmiaru i filtrują wyniki, od 0.26.0; rejestracje, usługi), API xPartner, oferta, XLSX, e-mail; `handle(ścieżka, dane)` – polecenia strony |
 | `index.html` | interfejs (jeden plik HTML/JS); polecenia przez `window.pywebview.api.call(ścieżka, dane)` |
 | `okno.py` | proces okna (`start.py --oferty`): pywebview/Edge WebView2, `Api.call` → `silnik.handle`, konto i historia z bazy |
 | `zakladka.py` | `OfertyMixin` – osadzenie okna w zakładce (jak SERWIS QR; używa `serwis/embed_win.py`) |
@@ -50,7 +51,7 @@ to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi w
 
 ## Dane w bazie
 
-- `oferty_konta` – `xp_login`, hasło w **Vault** (`xp_haslo_id`; odczyt tylko własnego: rpc `oferty_moje_haslo()`, admin: `oferty_ma_haslo(email)`; jawna kolumna `xp_haslo` pusta po etapie 2 – SQL `oferty_haslo_vault_etap1/2_2026-11-06.sql`), `ustawienia` (marża, VAT, cenniki wymiany osobowe/SUV/dostawcze, TPMS,
+- `oferty_konta` – `xp_login`, hasło w **Vault** (`xp_haslo_id`; odczyt tylko na serwerze – funkcja Edge `xpartner` przez `xpartner_dane` (od 0.26.0; dawne `oferty_moje_haslo()` odebrane etapem 2), admin: `oferty_ma_haslo(email)`; jawna kolumna `xp_haslo` pusta po etapie 2 – SQL `oferty_haslo_vault_etap1/2_2026-11-06.sql`), `ustawienia` (marża, VAT, cenniki wymiany osobowe/SUV/dostawcze, TPMS,
   przechowalnia, marki premium/średnie/budżet, podpis). Odczyt: swój wiersz albo admin. Zapis: `oferty_admin_set_konto`
   (admin, puste hasło = bez zmiany), `oferty_zapisz_ustawienia` (właściciel, bez loginu i hasła).
 - `oferty` – historia (`owner`, `oid`, `klient`, `dane` jsonb, `szukaj`): każdy widzi swoje, administrator wszystkie (kolumna „Kto”, podsumowanie); zmieniać można tylko swoje.

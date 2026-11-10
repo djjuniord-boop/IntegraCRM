@@ -179,7 +179,8 @@ def run_scenario(label, sess):
         return {}
     app.report_callback_exception = lambda *a: errors.append(
         f"[{label}] zdarzenie: {''.join(traceback.format_exception(*a))[-1500:]}")
-    app.geometry("1400x900+0+0")
+    # okno jak zmaksymalizowane na danym ekranie (laptop 1366×768: 1366×705 – pasek zadań), najwyżej 1400×900
+    app.geometry("%dx%d+0+0" % (min(1400, app.winfo_screenwidth()), min(900, app.winfo_screenheight() - 63)))
     info = {"tabs": list(app.pages)}
     steps = []
 
@@ -192,6 +193,40 @@ def run_scenario(label, sess):
 
     for key in list(app.pages):
         tab_step(key)
+    if "main" in app.pages and sess.is_admin:   # KONTROLA po sprawdzeniu – treść e-maila musi być widoczna
+        def kontrola_wynik():
+            app.show_tab("main")
+            app.pdf_path.set("Integra zakończone 09.11.pdf")
+            app.crm_file = "Lista kontrolna 09.11.xlsx"
+            app.set_chips(["DW12345", "WE7A071", "OP 1234X", "DX5521K"], [("DX7806F", "DX78O6F")])
+            app.set_banner("bad", "✖  W CRM brakuje 4 i 1 do weryfikacji z 37 zleceń. E-mail jest gotowy.")
+            app.subject.set("Brak zleceń w CRM – prośba o eksport")
+            app.mail_body.delete("1.0", "end")
+            app.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
+            app.btn_send.set_enabled(True, "Wyślij e-mail")
+            app._kontrola_zwin_jesli_nisko()
+
+        def kontrola_snap():
+            app.update_idletasks()
+            info["mail_tresc_px"] = app.mail_body.winfo_height()
+            info["okno_px"] = [app.winfo_width(), app.winfo_height()]
+            shot(app, f"{label}__main_po_sprawdzeniu")
+        steps.extend([(kontrola_wynik, 900), (kontrola_snap, 100)])
+
+        def kontrola_auto():   # prawdziwe pliki testowe: oba wczytane → sprawdzenie rusza samo
+            import subprocess
+            fx = WORK / "fx"
+            subprocess.run([sys.executable, str(SRC / "tools" / "make_fixtures.py"), str(fx)], check=True,
+                           capture_output=True)
+            app.kontrola_zwin(False)
+            app.set_pdf(str(fx / "integra.pdf"))
+            app.set_report(str(fx / "crm.xlsx"))
+
+        def kontrola_auto_wynik():
+            info["kontrola_auto_etap"] = app.kontrola_etap
+            info["kontrola_auto_braki"] = list((app.result or [[]])[0]) if getattr(app, "result", None) else []
+            shot(app, f"{label}__main_kreator")
+        steps.extend([(kontrola_auto, 8000), (kontrola_auto_wynik, 100)])
     dialogs = [("ustawienia", lambda: g.SettingsDialog(app))]
     if sess.is_admin:
         dialogs += [("uzytkownik", lambda: g.UserDialog(app, sess.list_users()[1])),
@@ -206,9 +241,7 @@ def run_scenario(label, sess):
                     ("wyniki_zmien_cel_reczny", _wyn_reczny),
                     ("wyniki_dodaj_miesiac", lambda: app.wyniki_dodaj_miesiac())]
     if sess.can("marza"):
-        dialogs += [("marza_odbiorcy", lambda: g.MarzaRecipientsDialog(app)),
-                    ("marza_wyniki", lambda: g.MarzaResultsWindow(app)),
-                    ("marza_kopie", lambda: g.MarzaFilesWindow(app))]
+        dialogs += [("marza_odbiorcy", lambda: g.MarzaRecipientsDialog(app))]
     holder = {}
 
     def dialog_step(name, make):
@@ -359,6 +392,13 @@ def main():
                                           and result.get("marza_serwis", {}).get("wyniki_przyciski_edycji") == 0),
         "wyniki_oznaczenia": (any(r[0].endswith("(ręcznie)") for r in result.get("admin", {}).get("wyniki_tabela", []))
                               and any(r[2].endswith("✎") for r in result.get("admin", {}).get("wyniki_tabela", []))),
+        "kontrola_sama_sprawdza": (result.get("admin", {}).get("kontrola_auto_etap", 0) == 2
+                                   and result.get("admin", {}).get("kontrola_auto_braki") == ["PO9AB12"]),
+        "dzis_dla_kilku_modulow": (result.get("admin", {}).get("tabs", [""])[0] == "dzis"
+                                   and result.get("marza_serwis", {}).get("tabs", [""])[0] == "dzis"
+                                   and "dzis" not in result.get("kontrola_opole", {}).get("tabs", [])
+                                   and "dzis" not in result.get("handlowiec_wroclaw", {}).get("tabs", [])),
+        "kontrola_tresc_maila_widoczna": result.get("admin", {}).get("mail_tresc_px", 0) >= 80,
         "stangum_bez_wynikow": result.get("handlowiec_stangum", {}).get("wyniki_oddzialy") == [],
     }
     report = {"ok": not all_err and all(checks.values()), "checks": checks, "scenarios": result,

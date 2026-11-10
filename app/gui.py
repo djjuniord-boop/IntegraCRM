@@ -6,6 +6,7 @@ logowanie.py, ustawienia.py, updater.py. Mapa całości: CLAUDE.md w głównym f
 """
 import os
 import threading
+import time
 import tkinter as tk
 from tkinter import messagebox, ttk
 import cloud
@@ -13,7 +14,7 @@ import paths
 import czuwanie
 import updater
 from version import CHANGELOG, RELEASED, VERSION
-from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, set_icon, step_badge
+from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, esc_zamyka, set_icon, step_badge, opis_bledu
 from konfig import COMPANY, load_config, migrate_config, save_config, update_source
 from ustawienia import SettingsDialog
 from logowanie import login_flow
@@ -36,6 +37,7 @@ from serwis.zakladka import SerwisMixin
 from oferty.zakladka import OfertyMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
+from dzis.zakladka import DzisMixin, kafle_konta
 from statystyki.zakladka import StatystykiMixin
 
 
@@ -54,7 +56,8 @@ HELP_STEPS = [
     ("Dane z CRM", "Najlepiej: w CRM w „Listy kontrolne” pobierz raport .xlsx i przeciągnij go na okno "
                    "(albo „Raport z CRM (.xlsx)…”). Zaznacz serwisy do sprawdzenia (widzisz tylko "
                    "swoje oddziały) – wybór jest zapamiętywany."),
-    ("Sprawdź", "Program porówna numery rejestracyjne. Status i inne kolumny są pomijane."),
+    ("Sprawdź", "Gdy oba pliki są wczytane, program sam porówna numery rejestracyjne (przycisk SPRAWDŹ – ponownie). "
+                "Status i inne kolumny są pomijane. Karty plików zwijają się do jednej linii – „Zmień pliki” je przywraca."),
     ("Wyślij e-mail", "Jeśli czegoś brakuje, e-mail jest gotowy – możesz go poprawić i wysłać."),
 ]
 
@@ -99,7 +102,7 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
+class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
           tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
@@ -118,8 +121,17 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
                 stats.SESSION = session
             try:
                 COMPANY.update(session.company())
-            except Exception:
-                pass
+            except Exception:   # chwilowy błąd sieci: ponawiamy w tle, żeby KONTROLA nie wzięła lokalnych odbiorców
+                def _firmowe():
+                    for _ in range(5):
+                        time.sleep(20)
+                        try:
+                            dane = session.company()
+                        except Exception:
+                            continue
+                        self.after(0, COMPANY.update, dane)
+                        return
+                threading.Thread(target=_firmowe, daemon=True).start()
 
             def _sync():
                 try:
@@ -144,7 +156,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             except Exception:
                 pass
         self.fonts = Fonts(self)
-        self.title(f"Latex Serwis – kontrola eksportu zleceń  v{VERSION}")
+        esc_zamyka(self)   # Esc zamyka okna dialogowe (jak „Anuluj”)
+        self.title(f"Panel Latex Serwis  v{VERSION}")
         self.geometry("1000x820")
         try:
             self.state("zoomed")   # Windows: pełny ekran roboczy – więcej miejsca na wynik i mail
@@ -219,6 +232,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.attributes("-topmost", True)
         with open(f"{out_dir}/dnd.txt", "w", encoding="utf-8") as fh:
             fh.write(f"enable={self.dnd_ok}\n")
+        if "main" in self.pages:
+            self.show_tab("main")
         if self.dnd_ok:
             self._simulate_drop(r"C:\Raporty\Integra zakończone 09.10.pdf")
             import time
@@ -234,6 +249,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.subject.set("Brak zleceń w CRM – prośba o eksport")
         self.mail_body.insert("1.0", "Dzień dobry,\n\nw CRM brakuje zleceń o numerach: DW12345, WE7A071.\n")
         self.btn_send.set_enabled(True)
+        self._kontrola_zwin_jesli_nisko()
         grab(self, "2-wynik")
         mw = self.edit_mail_big()
         mw.attributes("-topmost", True)
@@ -320,6 +336,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         shot = bool(os.environ.get("INTEGRA_SHOT"))
         can = (lambda m: shot or self.session.can(m)) if self.session else (lambda m: True)
         tab_list = []
+        if self.session and len(kafle_konta(can)) >= 2:   # ekran startowy – gdy konto ma kilka modułów
+            tab_list.append(("dzis", "DZIŚ"))
         # każda zakładka to osobny moduł włączany w uprawnieniach konta (admin ma wszystkie)
         if can("crm"):
             tab_list.append(("main", "KONTROLA"))
@@ -354,6 +372,13 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         if "stat" in self.pages:
             self._build_statystyki(self.pages["stat"])
         self._build_help(self.pages["help"])
+        if "dzis" in self.pages:
+            try:   # błąd ekranu startowego nie może zablokować programu
+                self._build_dzis(self.pages["dzis"])
+            except Exception as e:
+                self._report(e, "zakładka DZIŚ")
+                tk.Label(self.pages["dzis"], text="Nie udało się przygotować ekranu startowego – wybierz zakładkę u góry.",
+                         bg=BG, fg=MUTED).pack(anchor="w")
         if "users" in self.pages:
             self._build_users(self.pages["users"])
         if "marza" in self.pages:
@@ -439,6 +464,8 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.tab_btns[key].config(fg="white", bg=RED)
         if hasattr(self, "head_sub"):
             self.head_sub.config(text=f"{self.tab_names.get(key, '')}   ·   wersja {VERSION}")
+        if key == "dzis" and hasattr(self, "dzis_kafle"):
+            self.dzis_odswiez()
         if "serwis" in self.pages and hasattr(self, "serwis_host"):
             try:
                 if key == "serwis":
@@ -636,7 +663,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         self.updating = False
         self.btn_update.set_enabled(True)
         self.set_update_status(f"Aktualizacja nie powiodła się: {e}")
-        messagebox.showerror("Aktualizacja", f"Aktualizacja nie powiodła się:\n{e}\n\n"
+        messagebox.showerror("Aktualizacja", f"Aktualizacja nie powiodła się:\n{opis_bledu(e)}\n\n"
                              f"Program działa dalej w wersji {VERSION}.")
 
     def rollback(self):
@@ -650,7 +677,7 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
             updater.rollback(pin=True)
         except Exception as e:
             self._report(e, "przywracanie wersji")
-            messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{e}")
+            messagebox.showerror("Przywracanie", f"Nie udało się przywrócić:\n{opis_bledu(e)}")
             return
         self._restart()
 
@@ -690,6 +717,12 @@ class App(KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin
         if getattr(self, "current_tab", "") == "marza":
             self.marza_add(files)
             return
+        if any(f.lower().endswith((".pdf", ".xlsx", ".csv")) for f in files) and getattr(self, "current_tab", "") != "main":
+            if "main" not in self.pages:
+                messagebox.showinfo("Przeciągnij plik", "To konto nie ma zakładki KONTROLA – pliki z Integry i CRM "
+                                    "sprawdza osoba z dostępem do Kontroli CRM.")
+                return
+            self.show_tab("main")   # np. upuszczenie na ekranie DZIŚ – wynik musi być widoczny
         used = False
         for fp in files:
             low = fp.lower()
@@ -738,8 +771,8 @@ def main():
     App(sess).mainloop()
 
 # Nazwy używane przez testy i starsze odwołania (gui.SettingsDialog, gui.UserDialog …)
-from marza.okna import MarzaFilesWindow, MarzaRecipientsDialog, MarzaResultsWindow  # noqa: E402
+from marza.okna import MarzaRecipientsDialog  # noqa: E402
 from uzytkownicy.okna import AuditWindow, UserDialog  # noqa: E402
 
 __all__ = ["App", "main", "login_flow", "SettingsDialog", "UserDialog", "AuditWindow",
-           "MarzaRecipientsDialog", "MarzaResultsWindow", "MarzaFilesWindow"]
+           "MarzaRecipientsDialog"]

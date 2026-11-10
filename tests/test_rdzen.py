@@ -225,6 +225,17 @@ def test_sprawdzanie_sesji_wylogowuje_tylko_przy_false():
             o = Okno(wynik)
             czuwanie.sprawdz_sesje(o)
             assert len(o.konce) == ile, (wynik, o.konce)
+        # trwała awaria sprawdzania: jedno zgłoszenie po SESJA_BLEDY_ZGLOS błędach z rzędu, sukces zeruje licznik
+        o = Okno(RuntimeError("HTTP 404"))
+        o._czuw, zgl = {}, []
+        o._report = lambda e, gdzie: zgl.append(gdzie)
+        o.after = lambda ms, fn, *a: fn(*a) if fn == o._report else None
+        for _ in range(czuwanie.SESJA_BLEDY_ZGLOS * 2):
+            czuwanie.sprawdz_sesje(o)
+        assert len(zgl) == 1
+        o.wynik = True
+        czuwanie.sprawdz_sesje(o)
+        assert o._czuw["sesja_bledy"] == 0
     finally:
         czuwanie.threading.Thread = stary
 
@@ -237,3 +248,70 @@ def test_pracuje_teraz():
     assert not pracuje_teraz("2026-10-17T07:50:00+00:00", t)
     assert not pracuje_teraz(None, t) and not pracuje_teraz("zle", t)
     assert not pracuje_teraz("2026-10-17T09:00:00+00:00", t)   # czas z przyszłości – nie zgadujemy
+
+
+def test_wycofana_wersja_nie_blokuje_startu_przy_minimalnej():
+    """Po „Przywróć poprzednią” wersja jest przypięta (skip_version.txt). Gdy minimalna wersja w bazie to właśnie
+    wycofana wersja, wymuszona aktualizacja musi ją zainstalować – inaczej program się nie uruchomi."""
+    import json as _j
+    import paths
+    import updater
+    from version import VERSION
+    temp_data()
+    nowsza = "99.0.0"
+    paths.DATA_DIR.mkdir(parents=True, exist_ok=True)
+    paths.SKIP_FILE.write_text(nowsza, encoding="utf-8")
+    stary = updater._read_bytes
+    updater._read_bytes = lambda loc: _j.dumps({"version": nowsza, "package": "p.zip"}).encode()
+    try:
+        src = "https://github.com/x/y/releases/latest/download/version.json"
+        assert updater.check(src)[1] is False                       # zwykłe sprawdzenie: przypięcie działa
+        assert updater.check(src, wymagana=VERSION)[1] is False     # ta wersja wystarcza – przypięcie działa
+        assert updater.check(src, wymagana=nowsza)[1] is True       # minimalna wyższa – instaluj mimo przypięcia
+    finally:
+        updater._read_bytes = stary
+        paths.SKIP_FILE.unlink()
+
+
+def test_przycisk_z_klawiatury_i_esc_w_oknie():
+    """Przyciski działają z klawiatury (Tab, Enter, Spacja); wyłączony nic nie robi; Esc zamyka okno dialogowe."""
+    import tkinter as tk
+    import ui
+    root = tk.Tk()
+    try:
+        ui.esc_zamyka(root)
+        klik = []
+        b = ui.FlatButton(root, "Zapisz", lambda: klik.append(1))
+        b.pack()
+        assert int(b.cget("takefocus")) == 1
+        root.update()
+        b.focus_force()
+        root.update()
+        b.event_generate("<Return>")
+        b.event_generate("<space>")
+        b.set_enabled(False)
+        b.event_generate("<Return>")
+        assert klik == [1, 1]
+        assert b.cget("bg") == ui.OFF_BG and b.cget("fg") == ui.OFF_FG
+        b.set_enabled(True)
+        assert b.cget("fg") == "white"
+        okno = tk.Toplevel(root)
+        e = tk.Entry(okno)
+        e.pack()
+        root.update()
+        e.focus_force()
+        root.update()
+        e.event_generate("<Escape>")
+        root.update()
+        assert not okno.winfo_exists()
+        zamkniete = []
+        okno2 = tk.Toplevel(root)
+        okno2.protocol("WM_DELETE_WINDOW", lambda: (zamkniete.append(1), okno2.destroy()))
+        root.update()
+        okno2.focus_force()
+        root.update()
+        okno2.event_generate("<Escape>")
+        root.update()
+        assert zamkniete == [1]                 # Esc = ten sam kod co krzyżyk (np. pytanie o zapis)
+    finally:
+        root.destroy()

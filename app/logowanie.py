@@ -10,19 +10,24 @@ from konfig import load_config, update_source
 
 
 # ---------- logowanie (zawsze online) ----------
-def _version_ok(sess) -> bool:
-    """Wersja programu nie starsza niż minimalna ustawiona przez administratora."""
+def _min_version(sess) -> str:
     try:
-        need = sess.min_version()
+        return sess.min_version() or ""
     except cloud.CloudError:
-        return True
+        return ""
+
+
+def _version_ok(sess, need=None) -> bool:
+    """Wersja programu nie starsza niż minimalna ustawiona przez administratora."""
+    need = _min_version(sess) if need is None else need
     return not need or updater._ver(VERSION) >= updater._ver(need)
 
 
-def _force_update(root):
-    """Za stara wersja: próba aktualizacji; inaczej komunikat i koniec."""
+def _force_update(root, need=""):
+    """Za stara wersja: próba aktualizacji (także wersji wcześniej wycofanej – minimalna wygrywa);
+    inaczej komunikat i koniec."""
     try:
-        m, newer = updater.check(update_source(load_config()))
+        m, newer = updater.check(update_source(load_config()), wymagana=need)
         if newer:
             messagebox.showinfo("Aktualizacja", f"Wymagana nowsza wersja programu. Instaluję {m['version']}…",
                                 parent=root)
@@ -45,8 +50,9 @@ def login_flow():
     result = {"s": None}
 
     def finish(sess):
-        if not _version_ok(sess):
-            _force_update(root)
+        need = _min_version(sess)
+        if not _version_ok(sess, need):
+            _force_update(root, need)
             root.destroy()
             return
         result["s"] = sess

@@ -254,3 +254,41 @@ def test_kolo_wynik():
     assert postep.rodzaj_wyniku(dict(ok, integra=[])) == "warn"
     assert postep.rodzaj_wyniku(None) == "bad"
     assert postep.rodzaj_wyniku(ok, error=True) == "bad"
+
+
+def test_kreator_auto_sprawdzenie_po_obu_plikach():
+    """KONTROLA: pasek kroków i automatyczne sprawdzenie, gdy wczytane są oba pliki (raz, nie w trakcie)."""
+    from kontrola.zakladka import KontrolaMixin
+
+    class Var:
+        def __init__(self, v=""):
+            self.v = v
+
+        def get(self):
+            return self.v
+
+    class Okno(KontrolaMixin):
+        def __init__(self):
+            self.pdf_path, self.crm_rows, self.check_busy, self.sprawdzenia = Var(), None, False, 0
+            self.kontrola_kroki, self.kontrola_etap = [], 0
+
+        def after(self, ms, fn, *a):
+            fn(*a)
+
+        def chosen_branches(self):
+            return ["Latex Opole"]
+
+        def check(self):
+            self.sprawdzenia += 1
+            self.kontrola_etap = 2
+
+    o = Okno()
+    o.pdf_path.v = "a.pdf"
+    o._kontrola_pliki_zmienione()
+    assert o.sprawdzenia == 0 and o.kontrola_etap == 0      # tylko PDF – czekamy na raport z CRM
+    o.crm_rows = [{"plate": "DW12345"}]
+    o._kontrola_pliki_zmienione()
+    assert o.sprawdzenia == 1
+    o.check_busy = True
+    o._kontrola_pliki_zmienione()
+    assert o.sprawdzenia == 1                               # w trakcie sprawdzania nie startuje drugi raz

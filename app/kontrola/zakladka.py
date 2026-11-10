@@ -5,7 +5,7 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 import paths
 from kontrola import analyze, crm_report, mailer, postep
-from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, WheelProgress, card, odmiana, step_badge
+from ui import BG, BLACK, ERR_BG, FlatButton, INK, LINE, MUTED, OK, OK_BG, RED, RED_DARK, SURFACE, WARN, WARN_BG, WheelProgress, card, odmiana, step_badge, opis_bledu
 from konfig import COMPANY, load_config, recipients_for, save_config
 from kontrola.mailer import parse_recipients
 try:
@@ -23,8 +23,31 @@ class KontrolaMixin:
 
     def _build_main(self, page):
         f = self.fonts
+        # pasek kroków: ① Pliki ─ ② Wynik ─ ③ E-mail (zielony = zrobione, czerwony = teraz)
+        bar = tk.Frame(page, bg=BG)
+        bar.pack(fill="x", pady=(0, 6))
+        self.kontrola_kroki = []
+        self.kontrola_nazwy = ["1  Pliki", "2  Wynik", "3  E-mail"]
+        for i, nazwa in enumerate(self.kontrola_nazwy):
+            if i:
+                tk.Label(bar, text="────", bg=BG, fg=LINE, font=f.small).pack(side="left", padx=4)
+            lb = tk.Label(bar, text=nazwa, bg=BG, fg=MUTED, font=f.label)
+            lb.pack(side="left")
+            self.kontrola_kroki.append(lb)
+        self.kontrola_auto = tk.Label(bar, text="Sprawdzenie rusza samo, gdy wczytasz oba pliki.", bg=BG, fg=MUTED,
+                                      font=f.small)
+        self.kontrola_auto.pack(side="right")
+        self.kontrola_etap = 0
         steps = tk.Frame(page, bg=BG)
         steps.pack(fill="x")
+        self.kontrola_steps = steps
+        # na niskim ekranie (laptop 1366×768) po sprawdzeniu karty 1–2 zwijają się do jednej linii,
+        # żeby treść e-maila miała miejsce (kontrola_zwin)
+        self.kontrola_pliki = tk.Frame(page, bg=SURFACE, highlightthickness=1, highlightbackground=LINE)
+        self.kontrola_pliki_txt = tk.Label(self.kontrola_pliki, bg=SURFACE, fg=OK, font=f.body, anchor="w", padx=12, pady=6)
+        FlatButton(self.kontrola_pliki, "Zmień pliki", lambda: self.kontrola_zwin(False), "ghost", f.small, 10, 4
+                   ).pack(side="right", padx=8, pady=4)
+        self.kontrola_pliki_txt.pack(side="left", fill="x", expand=True)
         steps.columnconfigure(0, weight=1, uniform="s")
         steps.columnconfigure(1, weight=1, uniform="s")
 
@@ -181,6 +204,19 @@ class KontrolaMixin:
 
     def check_wheel_done(self, kind):
         self.check_busy = False
+        if getattr(self, "_kontrola_nieaktualne", False):   # w trakcie wczytano inny plik / zmieniono serwisy
+            self._kontrola_nieaktualne = False
+            self._kontrola_sprawdzone = None
+            self.btn_send.set_enabled(False)
+            self.set_banner("busy", "Pliki zmieniono w trakcie – sprawdzam jeszcze raz…")
+            self.kontrola_krok(1)
+            self.after(100, self._kontrola_auto_sprawdz)
+        elif getattr(self.btn_send, "_enabled", False):
+            self.kontrola_krok(2)               # wynik gotowy, e-mail do sprawdzenia i wysłania
+        elif kind == "ok":
+            self.kontrola_krok(2, bez_maila=True)
+        else:
+            self.kontrola_krok(1)               # błąd albo wynik bez e-maila – wróć do plików
         self.check_frac = postep.postep("Gotowe", self.check_frac)   # Gotowe = 100%
         self.check_wheel.set(self.check_frac)
         self.check_wheel.done(kind)
@@ -295,10 +331,83 @@ class KontrolaMixin:
         if p:
             self.set_pdf(p)
 
+    def kontrola_krok(self, etap, bez_maila=False):
+        """0 – brak plików, 1 – pliki wczytane, 2 – wynik gotowy (e-mail do wysłania), 3 – e-mail wysłany.
+        bez_maila – wynik „wszystko jest w CRM”: krok E-mail niepotrzebny."""
+        self.kontrola_etap = etap
+        nazwy = getattr(self, "kontrola_nazwy", ["1  Pliki", "2  Wynik", "3  E-mail"])
+        for i, lb in enumerate(getattr(self, "kontrola_kroki", [])):
+            if i == 2 and bez_maila:
+                lb.config(text=nazwy[2] + " – niepotrzebny", fg=MUTED)
+            elif i < etap:
+                lb.config(text="✔  " + nazwy[i], fg=OK)
+            elif i == etap:
+                lb.config(text=nazwy[i], fg=RED)
+            else:
+                lb.config(text=nazwy[i], fg=MUTED)
+
+    def _kontrola_klucz(self):
+        return (self.pdf_path.get(), getattr(self, "crm_file", ""), len(getattr(self, "crm_rows", None) or []),
+                tuple(self.chosen_branches()))
+
+    def _kontrola_pliki_zmienione(self):
+        gotowe = bool(self.pdf_path.get()) and bool(getattr(self, "crm_rows", None))
+        if getattr(self, "check_busy", False):   # zmiana w trakcie sprawdzania – po nim sprawdzimy jeszcze raz
+            self._kontrola_nieaktualne = True
+            return
+        if gotowe and self.kontrola_etap >= 2 and self._kontrola_klucz() == getattr(self, "_kontrola_sprawdzone", None):
+            return   # te same pliki i serwisy (np. upuszczone ponownie) – wynik i poprawiona treść e-maila zostają
+        self.kontrola_krok(1 if gotowe else 0)
+        if gotowe and getattr(self, "btn_send", None) is not None:
+            self.btn_send.set_enabled(False)   # e-mail z poprzedniego wyniku nie pasuje do nowych plików
+        if gotowe:
+            self.after(400, self._kontrola_auto_sprawdz)
+
+    def _kontrola_auto_sprawdz(self):
+        """Oba pliki wczytane → sprawdzenie bez klikania (wynik niczego nie wysyła)."""
+        if not (self.pdf_path.get() and getattr(self, "crm_rows", None)) or getattr(self, "check_busy", False) \
+                or self.kontrola_etap != 1:
+            return
+        if not self.chosen_branches():
+            if hasattr(self, "set_banner"):
+                self.set_banner("warn", "⚠  Zaznacz serwis do sprawdzenia – sprawdzenie ruszy samo.")
+            return
+        self.check()
+
+    KONTROLA_NISKI_EKRAN = 860   # px wysokości okna – poniżej karty plików zwijają się po sprawdzeniu
+
+    def kontrola_zwin(self, zwin=True):
+        """Zwija karty 1–2 (wybór plików) do jednej linii albo je przywraca."""
+        steps, bar = getattr(self, "kontrola_steps", None), getattr(self, "kontrola_pliki", None)
+        if steps is None or bar is None:
+            return
+        if zwin:
+            pdf = (self.pdf_path.get() or "").replace("\\", "/").split("/")[-1]
+            crm = getattr(self, "crm_file", "") or ""
+            self.kontrola_pliki_txt.config(text="   ·   ".join(x for x in (f"✔  PDF: {pdf}" if pdf else "",
+                                                                       f"✔  CRM: {crm}" if crm else "") if x))
+            steps.pack_forget()
+            if not bar.winfo_ismapped():
+                bar.pack(fill="x", before=self.btn_check)
+        else:
+            bar.pack_forget()
+            if not steps.winfo_ismapped():
+                steps.pack(fill="x", before=self.btn_check)
+
+    def _kontrola_zwin_jesli_nisko(self):
+        try:
+            h = self.winfo_height()
+        except Exception:
+            return
+        if 1 < h < self.KONTROLA_NISKI_EKRAN:
+            self.kontrola_zwin(True)
+
     def set_pdf(self, p):
+        self.kontrola_zwin(False)
         self.pdf_path.set(p)
         name = p.replace("\\", "/").split("/")[-1]
         self.pdf_box.config(text=f"✔  {name}", fg=OK, bg=OK_BG)
+        self._kontrola_pliki_zmienione()
 
     # ---------- raport z CRM (.xlsx) i wybór serwisów ----------
     def _build_branches(self, names):
@@ -326,6 +435,8 @@ class KontrolaMixin:
         except OSError:
             pass
         self._show_report()
+        if getattr(self, "kontrola_etap", 0) >= 1:   # inne serwisy = inny wynik – sprawdzamy ponownie
+            self._kontrola_pliki_zmienione()
 
     def pick_report(self):
         p = filedialog.askopenfilename(filetypes=[("Raport CRM", "*.xlsx *.csv")])
@@ -333,14 +444,16 @@ class KontrolaMixin:
             self.set_report(p)
 
     def set_report(self, p):
+        self.kontrola_zwin(False)
         try:
             rows = crm_report.load(p)
         except Exception as e:
-            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{e}")
+            messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{opis_bledu(e)}")
             return
         self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
         self._build_branches(crm_report.branches(rows))
         self._show_report()
+        self._kontrola_pliki_zmienione()
 
     def _show_report(self):
         if not self.crm_rows:
@@ -380,6 +493,8 @@ class KontrolaMixin:
         self.check_busy = True
         self.check_frac = 0.0
         self.check_wheel_show(True)
+        self._kontrola_sprawdzone = self._kontrola_klucz()
+        self._kontrola_nieaktualne = False
         self.check_wheel.start()
         # Tkinter nie jest bezpieczny dla wątków – wszystko z okna odczytujemy tutaj
         pdf = self.pdf_path.get()
@@ -467,6 +582,7 @@ class KontrolaMixin:
                 self.mail_body.delete("1.0", "end")
                 self.mail_body.insert("1.0", body)
                 self.btn_send.set_enabled(True, "Wyślij e-mail")
+                self._kontrola_zwin_jesli_nisko()
             self.ui(fill)
             parts = []
             if missing:
@@ -479,7 +595,7 @@ class KontrolaMixin:
             kind = "bad"
             self.say(f"Błąd: {e}")
             self._report(e, "sprawdzanie")
-            self.ui(self.set_banner, "bad", f"✖  Błąd: {e}")
+            self.ui(self.set_banner, "bad", f"✖  {opis_bledu(e)}")
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
             self.ui(self.check_wheel_done, kind)
@@ -541,12 +657,13 @@ class KontrolaMixin:
                 cfg["gmail_user"] = self.session.email
             except Exception as e:
                 self._report(e, "wysyłka e-maila")
-                self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {e}")
+                self.ui(self.set_banner, "bad", f"✖  Nie udało się wysłać: {opis_bledu(e)}")
                 self.ui(self.btn_send.set_enabled, True, "Wyślij e-mail")
                 return
             cc = f" (kopia: {cfg['gmail_user']})" if cfg.get("cc_self", True) else ""
             self.ui(self.set_banner, "ok", f"✔  E-mail wysłany do: {', '.join(cfg['recipients'])}{cc}")
             self.ui(self.btn_send.set_enabled, False, "Wysłano ✔")
+            self.ui(self.kontrola_krok, 3)
             try:
                 if history is None:
                     raise RuntimeError

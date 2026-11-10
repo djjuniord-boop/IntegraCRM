@@ -8,6 +8,17 @@ const URL = Deno.env.get("SUPABASE_URL")!;
 const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
 const GMAIL_USER = Deno.env.get("GMAIL_USER") ?? "";
 const GMAIL_PASS = (Deno.env.get("GMAIL_APP_PASSWORD") ?? "").replace(/\s/g, "");
+const LIMIT_MSG = "Przekroczono dzienny limit wysyłek (60 z konta albo 400 z całej firmy w ciągu 24 godzin) – spróbuj później albo zgłoś administratorowi.";
+// limit wysyłek (tabela mail_wysylki). Tylko gdy funkcji jeszcze nie ma w bazie (PGRST202) – bez limitu,
+// żeby nie zablokować pracy; każdy inny błąd = odmowa (lepiej nie wysłać niż przekroczyć limit Gmaila).
+async function limitOk(sb: ReturnType<typeof createClient>, rodzaj: string): Promise<boolean> {
+  const { data, error } = await sb.rpc("mail_limit_ok", { p_rodzaj: rodzaj });
+  if (error) {
+    console.error("mail_limit_ok:", error.code, error.message);
+    return error.code === "PGRST202";
+  }
+  return data === true;
+}
 const json = (b: unknown, s = 200) => new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json" } });
 
 Deno.serve(async (req) => {
@@ -35,6 +46,7 @@ Deno.serve(async (req) => {
     // nagłówek „Od” zawsze z konta wysyłkowego serwera (silnik nie zna tego adresu)
     const cut = raw.search(/\r?\n\r?\n/);
     if (cut > 0) raw = raw.slice(0, cut).replace(/^From:[^\r\n]*(\r?\n[ \t][^\r\n]*)*/m, `From: Panel Wynikow LATEX <${GMAIL_USER}>`) + raw.slice(cut);
+    if (!(await limitOk(sb, "marza"))) return json({ error: LIMIT_MSG }, 429);
     const t = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } });
     try {
       await t.sendMail({ envelope: { from: GMAIL_USER, to: rto }, raw });
@@ -70,6 +82,7 @@ Deno.serve(async (req) => {
   const bad = to.filter((x) => !okAddr(x));
   if (bad.length) return json({ error: `Adres spoza firmy: ${bad.join(", ")} – można wpisać adres w domenie firmowej (${[...domains].join(", ") || "brak"}) albo poprosić administratora o dodanie go w Ustawieniach.` }, 400);
 
+  if (!(await limitOk(sb, "kontrola"))) return json({ error: LIMIT_MSG }, 429);
   const userEmail = String(me?.email ?? "");
   const transport = nodemailer.createTransport({ host: "smtp.gmail.com", port: 465, secure: true, auth: { user: GMAIL_USER, pass: GMAIL_PASS } });
   try {

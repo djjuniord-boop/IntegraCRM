@@ -16,8 +16,8 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | `analyze.py` | cała analiza: PDF → numery, raport CRM → numery, porównanie dokładne, ostrzeżenia (zły oddział/okres), `daily_stats` |
 | `plates.py` | wzorce numerów (Integra, w tym `extract_integra_visits` – wiersze z datą), normalizacja; funkcje OCR (`ocr_equal`, `compare`) zostały, ale analiza ich już nie używa |
 | `crm_report.py` | odczyt raportu CRM `.xlsx/.csv` (kolumny Data, Rejestracja, Oddział), wybór oddziałów |
-| `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu nieużywane od 0.21.0 |
-| `mailer.py` | treść maila, wysyłka przez serwer (`send_server`) albo awaryjnie Gmail z komputera |
+| `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu usunięte w 0.26.1 |
+| `mailer.py` | treść maila, wysyłka przez serwer (`send_server`; dawna wysyłka Gmailem z komputera usunięta w 0.26.1) |
 | `history.py` | historia sprawdzeń i rejestr „zgłoszony już” – w bazie po zalogowaniu, lokalnie bez sesji (testy); `save_visit_stats` |
 
 ## Dane w bazie
@@ -39,6 +39,13 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 - Gdy dane z CRM prawie nie pokrywają się z Integrą (`no_overlap`) – ostrzeżenie i **brak gotowego maila**.
 - Do rejestru „zgłoszony już” trafiają tylko pewne braki, nie „do weryfikacji”.
 - `_check_work` działa w wątku – nie czyta pól okna (dostaje `pdf`, `src` jako argumenty).
+- **Kreator (od 0.27.0):** pasek kroków Pliki → Wynik → E-mail (`kontrola_krok`). Oba pliki wczytane → sprawdzenie
+  rusza samo (`_kontrola_auto_sprawdz`); te same pliki i serwisy upuszczone ponownie – bez ponownego sprawdzenia
+  (poprawiona treść e-maila zostaje); plik zmieniony w trakcie sprawdzania → wynik odrzucony i sprawdzenie od nowa
+  (`_kontrola_nieaktualne`); zmiana serwisów → ponowne sprawdzenie. Plik upuszczony na innej zakładce przełącza na KONTROLĘ.
+- Niski ekran (okno < 860 px, laptop 1366×768): po sprawdzeniu karty 1–2 zwijają się do jednej linii
+  (`kontrola_zwin`, przycisk „Zmień pliki”; wybór nowego pliku je przywraca), żeby treść e-maila była widoczna.
+  `tests/ui_smoke.py` sprawdza to w rozmiarze ekranu (`kontrola_tresc_maila_widoczna`, min. 80 px).
 
 ## Testy
 

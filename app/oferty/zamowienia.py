@@ -6,8 +6,6 @@ Listy przewozowe (wysłane opony) wymagają tokenu głównego konta – na razie
 """
 import datetime
 import re
-import urllib.parse
-import urllib.request
 import xml.etree.ElementTree as ET
 
 API_URL = "https://xpartner.net.pl/index.php"
@@ -62,16 +60,11 @@ def _wszystkie(el, nazwa):
 
 
 def api_xml(cfg, metoda, **params):
-    if not cfg.get("login") or not cfg.get("password"):
-        raise Blad("Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora (UŻYTKOWNICY → konto → xPartner).")
-    q = {"a": "b2b_xmlApi", "login": cfg["login"], "pass": cfg["password"], "m": metoda}
-    q.update({k: v for k, v in params.items() if v not in (None, "")})
-    req = urllib.request.Request(API_URL + "?" + urllib.parse.urlencode(q), headers={"User-Agent": "PanelLatexSerwis-Oferty"})
+    from oferty import xp
     try:
-        with urllib.request.urlopen(req, timeout=40) as r:
-            dane = r.read()
-    except Exception as e:
-        raise Blad("Brak połączenia z xPartner: %s" % e.__class__.__name__)
+        dane = xp.zapytanie(cfg, metoda, params, timeout=40)   # przez pośrednika na serwerze (hasło tam)
+    except xp.Blad as e:
+        raise Blad(str(e))
     return parsuj(dane)
 
 

@@ -62,6 +62,22 @@ def test_rozmiary_w_dowolnym_zapisie():
     assert S.find_sizes("2254517 premium 2 szt") == ["225/45 R17"]
 
 
+def test_rozmiar_ciezarowy_i_dostawczy_nie_gubi_oznaczenia():
+    """17,5" to nie 17", a „C” (dostawcze) to inna nośność – oferta nie może pomylić opon."""
+    from oferty import silnik as S
+    assert S.find_sizes("265/70 R17.5") == ["265/70 R17.5"]
+    assert S.find_sizes("205/55R16C 4 szt") == ["205/55 R16C"]
+    assert S.find_sizes("2156516c") == ["215/65 R16C"]
+    assert S.find_sizes("205/55 R16 CrossClimate") == ["205/55 R16"]
+    assert S.find_sizes("205/55R16,5szt") == ["205/55 R16"]          # „,5szt” to ilość, nie połówka
+    assert S.find_sizes("265/70R17,5 4 szt") == ["265/70 R17.5"]
+    assert S.norm_size("BARUM L185/75 R16C VANIS 3 104/102R") == "185/75 R16C"
+    assert S.norm_size("YOKOHAMA 245/70 R17.5 704R 136/134M") == "245/70 R17.5"
+    assert S.norm_size("MICHELIN 205/55 R16 PRIMACY 4") == "205/55 R16"
+    # wyszukiwanie 205/65 R16 nie pokazuje opon C i odwrotnie (filtr w do_search: norm_size(nazwa) == rozmiar)
+    assert S.norm_size("BARUM L205/65 R16C VANIS 3") != S.norm_size("205/65 R16")
+
+
 def test_zapytanie_tekstem():
     r = S.parse_request_text("skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia")[0]
     assert (r["rej"], r["pojazd"], r["rozmiar"], r["wymiana"], r["tpms"], r["przech"]) == \
@@ -474,3 +490,14 @@ def test_szybkie_polecenie_nosnosc_predkosc():
         q = S.parse_quick(txt)
         assert (q["nosnosc"], q["predkosc"]) == wynik, (txt, q["nosnosc"], q["predkosc"])
     assert S.parse_quick("2254517 lato 91w 2szt")["pojazdy"][0]["ilosc"] == 2
+
+
+def test_szybkie_polecenie_z_rejestracja_i_autem():
+    p = S.parse_quick("skoda octavia 2055516 dw5444lw z wymianą 4 czujniki")["pojazdy"]
+    assert [(x["rej"], x["pojazd"], x["rozmiar"]) for x in p] == [("DW5444LW", "Skoda Octavia", "205/55 R16")]
+    p = S.parse_quick("205/55 r16 3 oferty premium zimowe 4 szt")["pojazdy"]
+    assert (p[0]["rej"], p[0]["pojazd"]) == ("", "")    # same słowa polecenia to nie auto
+    for t, rej in (("2254517 91v xl zimowe", ""), ("225/45 r17 zimowe bez demo run flat", ""),
+                   ("golf 2055516 94v xl zima", ""), ("dw5444lw 2055516 91v", "DW5444LW")):
+        p = S.parse_quick(t)["pojazdy"][0]
+        assert (p["rej"], p["pojazd"]) == (rej, ""), (t, p)   # indeks, XL, „run flat” to nie model auta

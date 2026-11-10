@@ -37,11 +37,12 @@ Uprawnienie: moduł `marza`.
 | Plik | Rola |
 |---|---|
 | `zakladka.py` | `MarzaMixin` – zakładka MARŻA: folder, kolejka raportów, „AKTUALIZUJ WSZYSTKO” (wątek), dziennik przebiegu |
-| `okna.py` | okna: Odbiorcy maili (zapis firmowy); Wyniki online i Kopie w chmurze – przyciski usunięte z zakładki; klasy zostają, bo importuje je `gui.py` i sprawdza `ui_smoke` |
+| `okna.py` | okno Odbiorcy maili (zapis firmowy); okna „Wyniki online” i „Kopie w chmurze” usunięte w 0.26.1 (wyniki są w zakładce WYNIKI) |
 | `runner.py` | uruchamia silniki w procesie programu, podmienia ścieżki/pocztę, **podsłuch do chmury** (`_cloud_hooks`, `_cloud_save`), miesiące dla zakładki WYNIKI (`_save_months`) |
 | `rozdziel.py` | rozdziela raporty na oddziały, **rozpoznaje przebieg z dziennika silnika** (stałe `T_*` – te same teksty co w silnikach; zmieniasz tekst w silniku → zmień stałą i test), dane kart, podsumowanie; `kwota()` = „154 186,54 zł” |
 | `silnik_wroclaw.py`, `silnik_opole.py` | **oryginalne skrypty kalkulatorów** (Excel, wykres, mail) |
-| `podglad_wroclaw.py`, `podglad_opole.py` | podgląd dla handlowców (`PODGLAD_dla_handlowcow.xlsx`, kopia na Dysk Google) |
+| `_podglad_wspolny.py` | **jeden kod** podglądu dla handlowców (`PODGLAD_dla_handlowcow_<oddział>.xlsx` + CSV, kopia na Dysk Google) – od 0.26.1; zmiany podglądu tylko tutaj |
+| `podglad_wroclaw.py`, `podglad_opole.py` | ustawienia oddziału (nazwa kalkulatora, plików, 2 napisy) + wykonanie wspólnego kodu we własnej przestrzeni nazw (osobne `SCRIPT_DIR`/`BASE_DIR`). Nowy oddział = nowy taki plik (10 linii) |
 
 ## Zasady, których nie wolno złamać
 
@@ -50,7 +51,11 @@ Uprawnienie: moduł `marza`.
 - Silnik robi `import smtplib` w funkcji – po zalogowaniu `runner` na czas przebiegu podstawia `sys.modules["smtplib"]`
   (`_ServerSMTP` → funkcja `send-mail`, akcja `raw`) i **zawsze przywraca** prawdziwą bibliotekę (albo ją usuwa).
 - Odbiorcy maili: wyłącznie `app_config['crm'].marza` (zaznaczeni). W kodzie silników `EMAIL_ODBIORCY = []`.
-- Silniki mają rok 2026 na sztywno (celowo – na 2027 powstaje nowy plik kalkulatora).
+- Rok podglądu i e-maila wybiera się sam (`_rok_i_miesiac_podgladu`, od 0.26.0): miesiąc z właśnie zapisanego
+  raportu (grudzień wgrany 2 stycznia → grudzień), bez raportów – bieżący rok, a gdy kalkulator nie ma jeszcze jego
+  miesięcy – ostatni rok z kalkulatora + uwaga „dopisz miesiące”. Na 2027 wystarczy dopisać wiersze „Styczeń 2027”…
+  w tej samej tabeli (albo podmienić plik pod tą samą nazwą). `PODGLAD_ROK = liczba` przypina rok na sztywno.
+  Raport za miesiąc, którego nie ma w tabeli, trafia do `_ODRZUCONE` („brak takiego miesiąca w tabeli”).
 - `import generuj_podglad` w silniku działa, bo `runner` podstawia ten moduł – `tests/check_imports.py` go pomija.
 
 ## Dane w bazie
