@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| 2026-11-10 | Audyt – ETAP 3 (KONTROLA kreator, ekran DZIŚ, limit maili, MFA) | praca/etap3 | app/kontrola/, app/gui.py, app/dzis/ (nowy), supabase/, tests/ |
+| | | | |
