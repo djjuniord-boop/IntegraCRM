@@ -8,7 +8,7 @@ import urllib.parse
 import urllib.request
 
 API_URL = "https://xpartner.net.pl/index.php"
-POSREDNIK = None   # funkcja(m, params: dict, body: str|None, timeout: int) -> bytes; błąd -> Blad z polskim opisem
+POSREDNIK = None   # funkcja(m, params, body, timeout, dziennik=None) -> bytes; błąd -> Blad z polskim opisem
 
 
 class Blad(Exception):
@@ -19,11 +19,12 @@ class BrakOdpowiedzi(Blad):
     """Zapytanie mogło dotrzeć do xPartner, ale nie ma odpowiedzi (ważne przy zamówieniu)."""
 
 
-def zapytanie(cfg, m, params=None, body=None, timeout=30):
-    """Surowa odpowiedź xPartner (XML) dla metody m."""
+def zapytanie(cfg, m, params=None, body=None, timeout=30, dziennik=None):
+    """Surowa odpowiedź xPartner (XML) dla metody m. dziennik – szczegóły zamówienia do wpisu w Dzienniku zmian
+    (zapisuje go serwer razem z numerami zamówień)."""
     params = {k: v for k, v in (params or {}).items() if v not in (None, "")}
     if POSREDNIK is not None:
-        return POSREDNIK(m, params, body, timeout)
+        return POSREDNIK(m, params, body, timeout, dziennik=dziennik)
     if not cfg.get("login") or not cfg.get("password"):
         raise Blad("Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora "
                    "(UŻYTKOWNICY → konto → xPartner).")

@@ -168,6 +168,15 @@ class KontrolaMixin:
         self.mail_body.pack(fill="both", expand=True)
         self.btn_send.set_enabled(False)
 
+    def kontrola_odswiez_odbiorcow(self):
+        """Lista podpowiedzi „Odbiorca” po dociągnięciu ustawień firmowych (gui – ponowienie company())."""
+        box = getattr(self, "recipient_box", None)
+        if box is not None:
+            try:
+                box.configure(values=self._known_recipients())
+            except tk.TclError:
+                pass
+
     def _known_recipients(self):
         """Adresy z ustawień firmowych (domyślni i wg oddziałów) – do wyboru z listy."""
         out = []

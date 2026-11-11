@@ -56,6 +56,7 @@ class FlatButton(tk.Label):
                          highlightbackground=(RED_DARK if kind == "danger" else LINE) if ramka else bg,
                          highlightcolor=RED if kind != "primary" else BLACK)
         self._c = (bg, fg, hover)
+        self._obwodka = self.cget("highlightbackground")   # kolor ramki/obwódki włączonego przycisku
         self._cmd = command
         self._enabled = True
         self.bind("<Enter>", lambda e: self._enabled and self.config(bg=hover))
@@ -74,10 +75,9 @@ class FlatButton(tk.Label):
         self._enabled = on
         bg, fg, _ = self._c
         self.config(bg=bg if on else OFF_BG, fg=fg if on else OFF_FG, cursor="hand2" if on else "arrow")
-        if not on and self.cget("highlightbackground") == bg:
-            self.config(highlightbackground=OFF_BG)
-        elif on and self.cget("highlightbackground") == OFF_BG:
-            self.config(highlightbackground=bg)
+        # wyłączony: obwódka w kolorze tła (pełne przyciski) albo szara ramka (obrys, „usuń”)
+        wyl = OFF_BG if self._obwodka == bg else LINE
+        self.config(highlightbackground=self._obwodka if on else wyl)
         if text:
             self.config(text=text)
 

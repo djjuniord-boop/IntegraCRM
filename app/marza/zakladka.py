@@ -55,7 +55,9 @@ class MarzaMixin:
         qh = tk.Frame(drop, bg=SURFACE)
         qh.pack(fill="x")
         tk.Label(qh, text="Kolejka (najwyżej 1 raport na oddział):", bg=SURFACE, fg=MUTED, font=f.small).pack(side="left")
-        FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "danger", f.small, 8, 2).pack(side="right")
+        self.btn_marza_clear = FlatButton(qh, "Wyczyść kolejkę", self.marza_clear, "danger", f.small, 8, 2)
+        self.btn_marza_clear.pack(side="right")
+        self.btn_marza_clear.set_enabled(False)   # włączany, gdy w kolejce są raporty
         self.marza_queue = tk.Frame(drop, bg=SURFACE)
         self.marza_queue.pack(fill="x", pady=(4, 0))
 
@@ -416,6 +418,8 @@ class MarzaMixin:
         if items is None:
             root = self._marza_root()
             items = runner.pending_info(root) if root and not runner.check_folder(root) else []
+        if hasattr(self, "btn_marza_clear"):
+            self.btn_marza_clear.set_enabled(bool(items))
         if not items:
             tk.Label(self.marza_queue, text="Brak raportów w kolejce.", bg=SURFACE, fg=MUTED, font=f.small
                      ).pack(anchor="w")

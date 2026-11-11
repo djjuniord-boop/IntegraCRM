@@ -26,7 +26,8 @@ class HistoriaMixin:
         cols = ("data", "kto", "plik", "integra", "crm", "brakuje", "mail")
         s = ttk.Style(self)
         s.configure("H.Treeview", font=f.body, rowheight=26, background=SURFACE, fieldbackground=SURFACE)
-        s.configure("H.Treeview.Heading", font=f.label, background=BG)
+        s.configure("H.Treeview.Heading", font=f.label, background=BG, relief="flat", lightcolor=BG, darkcolor=BG,
+                    padding=(6, 5))
         s.map("H.Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
         self.hist_tree = ttk.Treeview(box, columns=cols, show="headings", style="H.Treeview")
         for c, t, w in (("data", "Data", 130), ("kto", "Kto / oddział", 280), ("plik", "Plik PDF", 170),

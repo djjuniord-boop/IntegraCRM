@@ -90,7 +90,14 @@ Deno.serve(async (req) => {
   if (m === "order") {
     const txt = new TextDecoder().decode(dane);
     const nr = [...txt.matchAll(/<order(?:XP|Xp|No)>([^<]{1,40})</g)].map((x) => x[1]);
-    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru", { http: odp.status, numery: nr, znakow: xml.length });
+    // szczegóły od programu (pozycje, adres, numer własny) – tylko jako opis, przycięte; numery i konto ustala serwer
+    let opis: unknown = null;
+    try {
+      const t = JSON.stringify(b.dziennik ?? null);
+      opis = t && t.length <= 4000 ? JSON.parse(t) : { uwaga: "szczegóły pominięte (za długie)" };
+    } catch { opis = null; }
+    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru",
+                   { http: odp.status, numery: nr, znakow: xml.length, szczegoly: opis });
   }
   return new Response(dane, { status: 200, headers: { "Content-Type": "application/xml; charset=utf-8", "X-Xpartner-Status": String(odp.status) } });
 });

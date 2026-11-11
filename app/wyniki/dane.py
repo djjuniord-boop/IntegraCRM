@@ -218,7 +218,9 @@ def wiersz_tabeli(row: dict) -> tuple:
     label = p["label"] + (" (ręcznie)" if row.get("manual") else "")
     cel = zl(p["cel"]) + (" ✎" if row.get("target_pending") else "")
     tag = () if p["pct"] is None else (("ok",) if p["pct"] >= 100 else ("bad",))
-    return (label, zl(p["zrobione"]), cel, f"{p['pct']:.0f}%" if p["pct"] is not None else "—"), tag
+    # znak obok procentu – stan czytelny także bez rozróżniania kolorów i na wydruku
+    pct = "—" if p["pct"] is None else (f"✔ {p['pct']:.0f}%" if p["pct"] >= 100 else f"✖ {p['pct']:.0f}%")
+    return (label, zl(p["zrobione"]), cel, pct), tag
 
 
 def domyslny_nowy_miesiac(rows: list, today: datetime.date | None = None) -> tuple:
