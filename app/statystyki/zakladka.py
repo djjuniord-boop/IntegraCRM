@@ -45,7 +45,7 @@ class StatystykiMixin:
             c.grid(row=0, column=i, sticky="nsew", padx=(0 if i == 0 else 10, 0))
             tiles.grid_columnconfigure(i, weight=1)
             tk.Label(c, text=title, bg=SURFACE, fg=MUTED, font=f.small).pack(anchor="w")
-            v = tk.Label(c, text="—", bg=SURFACE, fg=RED if key == "na10" else BLACK, font=(f.family, 22, "bold"))
+            v = tk.Label(c, text="—", bg=SURFACE, fg=BLACK, font=(f.family, 22, "bold"))
             v.pack(anchor="w")
             self.st_tiles[key] = v
 
@@ -119,7 +119,8 @@ class StatystykiMixin:
         self.st_tiles["na10"].config(text=dane.fmt_na10(o["na10"]))
         self.st_tiles["visits"].config(text=dane.fmt_int(o["visits"]))
         self.st_tiles["lists"].config(text=dane.fmt_int(o["lists"]))
-        self.st_tiles["missing"].config(text=dane.fmt_int(o["missing"]), fg=WARN if o["missing"] else OK)
+        self.st_tiles["missing"].config(text=("⚠ " if o["missing"] else "✔ ") + dane.fmt_int(o["missing"]),
+                                        fg=WARN if o["missing"] else OK)
         t = self.st_tree
         t.delete(*t.get_children())
         for m in dane.miesiace(rows):

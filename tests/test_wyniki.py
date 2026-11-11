@@ -181,13 +181,13 @@ def test_oznaczenia_reczny_i_czeka_na_excel():
     from wyniki import dane
     zwykly = _row(month=9, label="Wrzesień 2026", done=310000)
     vals, tag = dane.wiersz_tabeli(zwykly)
-    assert vals == ("Wrzesień 2026", "310 000 zł", "300 000 zł", "103%") and tag == ("ok",)
+    assert vals == ("Wrzesień 2026", "310 000 zł", "300 000 zł", "✔ 103%") and tag == ("ok",)
     vals, tag = dane.wiersz_tabeli(dict(zwykly, target_pending=True, target=400000))
-    assert vals[2] == "400 000 zł ✎" and vals[3] == "78%" and tag == ("bad",)
+    assert vals[2] == "400 000 zł ✎" and vals[3] == "✖ 78%" and tag == ("bad",)
     reczny = {"branch": "wroclaw", "year": 2023, "month": 2, "label": "Luty 2023", "target": 200000, "done": 150000,
               "holidays": None, "manual": True}
     vals, _ = dane.wiersz_tabeli(reczny)
-    assert vals[0] == "Luty 2023 (ręcznie)" and vals[3] == "75%"
+    assert vals[0] == "Luty 2023 (ręcznie)" and vals[3] == "✖ 75%"
     assert dane.oznaczenie(reczny) == "(ręcznie)" and "Excel" in dane.oznaczenie({"target_pending": True})
     assert dane.wiersz_tabeli(dict(reczny, target=None, done=None))[0][1:] == ("—", "—", "—")
     # ręczny stary miesiąc trafia do tabeli jak pozostałe, we właściwej kolejności; nie zostaje „bieżącym”

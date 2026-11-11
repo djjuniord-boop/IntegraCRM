@@ -62,7 +62,7 @@ Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy k
 
 1. **Ustal moduł** z mapy wyżej. Czytaj tylko `CLAUDE.md` + README tego modułu + jego pliki.
    Zmiana w jednym module → agent tego modułu (`.claude/agents/agent-<moduł>.md`): `agent-kontrola`, `agent-marza`,
-   `agent-wyniki`, `agent-statystyki`, `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
+   `agent-wyniki`, `agent-statystyki`, `agent-dzis` (ekran DZIŚ), `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
    (`mobile/`), `agent-uzytkownicy`, `agent-baza` (Supabase). Zmiana silnika ofert albo wzorów WYNIKÓW = także
    ta sama zmiana w telefonie (agent Android).
    Zmiana w kilku modułach albo w rdzeniu → kontroler sam, po kolei, z agentami jako pomocą.

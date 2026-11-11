@@ -146,13 +146,17 @@ def test_uprawnienie_zamawiania():
 def test_zamow_wysyla_post_xml_po_sprawdzeniu_stanow():
     wyslane = {}
     stare = (K.wyslij, S.get_product, dict(S.KONTO))
-    K.wyslij = lambda cfg, x: wyslane.setdefault("xml", x) and b"<response><success>true</success><orders><order><orderXP>XP/9</orderXP></order></orders></response>"
+    def _wyslij(cfg, x, dziennik=None):
+        wyslane["dziennik"] = dziennik
+        return wyslane.setdefault("xml", x) and b"<response><success>true</success><orders><order><orderXP>XP/9</orderXP></order></orders></response>"
+    K.wyslij = _wyslij
     S.get_product = lambda cfg, pid: {"netto": 10.0, "ilosc": 9, "nazwa": "X"}
     log = []
     S.KONTO.update(admin=True, dziennik=lambda *a: log.append(a))
     try:
         code, r = S.handle("/api/koszyk/zamow", _zam())
-        assert code == 200 and r["zamowienia"][0]["nr"] == "XP/9" and wyslane["xml"] == DOC and log[0][1] == "XP/9"
+        assert code == 200 and r["zamowienia"][0]["nr"] == "XP/9" and wyslane["xml"] == DOC
+        assert log == [] and "dostawa" in wyslane["dziennik"]   # wpis w dzienniku robi serwer, program podaje szczegóły
         S.get_product = lambda cfg, pid: {"netto": 10.0, "ilosc": 1, "nazwa": "X"}
         wyslane.clear()
         code, r = S.handle("/api/koszyk/zamow", _zam())
@@ -170,7 +174,7 @@ def test_posrednik_xpartner_bez_hasla_w_programie():
     from oferty import koszyk, okno, silnik, xp, zamowienia
     wyslane = []
 
-    def posr(m, params, body=None, timeout=30):
+    def posr(m, params, body=None, timeout=30, dziennik=None):
         wyslane.append((m, params, body))
         if m == "order":
             raise xp.BrakOdpowiedzi("Brak odpowiedzi xPartner (błąd serwera 502)")

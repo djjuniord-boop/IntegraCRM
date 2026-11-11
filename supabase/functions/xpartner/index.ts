@@ -82,7 +82,7 @@ Deno.serve(async (req) => {
       : { headers: { "User-Agent": "PanelLatexSerwis-Oferty" }, signal: ctl.signal });
     dane = new Uint8Array(await odp.arrayBuffer());
   } catch (e) {
-    if (m === "order") await dziennik(admin, email, "brak odpowiedzi – sprawdzić w xPartner", { blad: (e as Error).name });
+    if (m === "order") await dziennik(admin, email, "brak odpowiedzi – sprawdzić w xPartner", { blad: (e as Error).name, ...zXml(xml, b) });
     return json({ error: `Brak połączenia z xPartner (${(e as Error).name})` }, 502);
   } finally {
     clearTimeout(stop);
@@ -90,10 +90,20 @@ Deno.serve(async (req) => {
   if (m === "order") {
     const txt = new TextDecoder().decode(dane);
     const nr = [...txt.matchAll(/<order(?:XP|Xp|No)>([^<]{1,40})</g)].map((x) => x[1]);
-    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru", { http: odp.status, numery: nr, znakow: xml.length });
+    await dziennik(admin, email, nr.length ? nr.join(", ") : "bez numeru", { ...zXml(xml, b), http: odp.status, numery: nr });
   }
   return new Response(dane, { status: 200, headers: { "Content-Type": "application/xml; charset=utf-8", "X-Xpartner-Status": String(odp.status) } });
 });
+
+// Szczegóły zamówienia do Dziennika – z wysłanego XML (nie da się ich podrobić); od programu tylko opis adresu.
+function zXml(xml: string, b: Record<string, unknown>): Record<string, unknown> {
+  const pole = (t: string) => (xml.match(new RegExp(`<${t}>([^<]{0,100})</${t}>`)) ?? [])[1] ?? "";
+  const pozycje = [...xml.matchAll(/<product>\s*<productId>(\d{1,12})<\/productId>\s*<quantity>(\d{1,5})<\/quantity>/g)]
+    .slice(0, 50).map((x) => ({ id: Number(x[1]), ilosc: Number(x[2]) }));
+  const d = (b.dziennik && typeof b.dziennik === "object") ? b.dziennik as Record<string, unknown> : {};
+  return { pozycje, numer_wlasny: pole("extOrderNumber"), opis_faktury: pole("extInvoiceDescription"),
+           dostawa_wg_programu: String(d.dostawa ?? "").slice(0, 200) };
+}
 
 async function dziennik(admin: ReturnType<typeof createClient>, email: string, label: string, detail: Record<string, unknown>) {
   try {

@@ -129,7 +129,7 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
                             dane = session.company()
                         except Exception:
                             continue
-                        self.after(0, COMPANY.update, dane)
+                        self.after(0, lambda d=dane: (COMPANY.update(d), self.kontrola_odswiez_odbiorcow()))
                         return
                 threading.Thread(target=_firmowe, daemon=True).start()
 
@@ -298,6 +298,13 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
         s.map("TCheckbutton", background=[("active", SURFACE)], indicatorcolor=[("selected", RED)])
         s.configure("Vertical.TScrollbar", background="#DDDDDD", troughcolor=BG, bordercolor=BG,
                     arrowcolor=MUTED, lightcolor="#DDDDDD", darkcolor="#DDDDDD")
+        # tabele: płaskie nagłówki bez wypukłych ramek, wyższe wiersze, zaznaczenie w kolorze firmy
+        s.configure("Treeview", font=f.body, rowheight=26, background=SURFACE, fieldbackground=SURFACE,
+                    bordercolor=LINE, lightcolor=LINE, darkcolor=LINE)
+        s.configure("Treeview.Heading", font=f.label, background=BG, foreground=INK, relief="flat",
+                    bordercolor=LINE, lightcolor=BG, darkcolor=BG, padding=(6, 5))
+        s.map("Treeview.Heading", background=[("active", "#EBEBEB")])
+        s.map("Treeview", background=[("selected", RED)], foreground=[("selected", "white")])
 
     # ---------- układ ----------
     def _build(self):
@@ -419,6 +426,19 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
         messagebox.showinfo("Wylogowano", "Administrator wylogował Twoje konto albo sesja wygasła.\n"
                             "Program zostanie zamknięty – uruchom go ponownie i zaloguj się.")
         self._on_close()
+
+    def destroy(self):
+        """Przed zamknięciem okna anulujemy zaplanowane odświeżenia (WYNIKI, STATYSTYKI, UŻYTKOWNICY, DZIŚ…) –
+        inaczej Tcl wypisuje błędy „invalid command name” po zamknięciu."""
+        try:
+            for job in self.tk.splitlist(self.tk.call("after", "info")):
+                try:
+                    self.after_cancel(job)
+                except tk.TclError:
+                    pass
+        except tk.TclError:
+            pass
+        super().destroy()
 
     def _on_close(self):
         self.serwis_stop()
@@ -587,8 +607,19 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
             def save():
                 on_save(t.get("1.0", "end").strip())
                 w.destroy()
+
+            def zamknij():   # krzyżyk, Esc, „Anuluj” – przy zmienionej treści pytamy, żeby nie zgubić poprawek
+                if t.get("1.0", "end").strip() != content.strip():
+                    odp = messagebox.askyesnocancel("Treść zmieniona", "Zapisać zmiany w treści e-maila?", parent=w)
+                    if odp is None:
+                        return
+                    if odp:
+                        save()
+                        return
+                w.destroy()
+            w.protocol("WM_DELETE_WINDOW", zamknij)
             FlatButton(bar, "Zapisz zmiany", save, "primary", f.label, 16, 5).pack(side="right")
-            FlatButton(bar, "Anuluj", w.destroy, "ghost", f.body, 12, 5).pack(side="right", padx=8)
+            FlatButton(bar, "Anuluj", zamknij, "ghost", f.body, 12, 5).pack(side="right", padx=8)
         else:
             FlatButton(bar, "Zamknij", w.destroy, "dark", f.body, 14, 5).pack(side="right")
         t.focus_set()

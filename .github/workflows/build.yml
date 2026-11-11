@@ -45,7 +45,7 @@ jobs:
         run: python tests/pdf_edge.py
 
       - name: Tesseract OCR
-        run: choco install tesseract -y --no-progress
+        run: choco install tesseract --version 5.5.3.20260724 -y --no-progress   # przypięta wersja (powtarzalna paczka .exe)
 
       - name: Wersja
         id: ver

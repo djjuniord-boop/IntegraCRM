@@ -153,10 +153,10 @@ def czytaj_wynik(dane):
                + ". Zanim zamówisz ponownie, sprawdź w xPartner, czy zamówienie nie powstało.")
 
 
-def wyslij(cfg, xml_txt, timeout=60):
+def wyslij(cfg, xml_txt, timeout=60, dziennik=None):
     from oferty import xp
     try:   # przez pośrednika na serwerze: sprawdza prawo do zamawiania i zapisuje zamówienie w dzienniku
-        return xp.zapytanie(cfg, "order", body=xml_txt, timeout=timeout)
+        return xp.zapytanie(cfg, "order", body=xml_txt, timeout=timeout, dziennik=dziennik)
     except xp.BrakOdpowiedzi as e:
         raise Blad("%s – sprawdź w xPartner („📦 Zamówienia”), czy zamówienie powstało, zanim zamówisz ponownie." % e)
     except xp.Blad as e:   # odmowa przed wysłaniem do xPartner (uprawnienia, brak loginu) – zamówienie nie powstało

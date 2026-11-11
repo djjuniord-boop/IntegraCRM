@@ -98,12 +98,12 @@ class Historia:
         return [r for r in rows if isinstance(r.get("dane"), dict)]
 
 
-def posrednik_xpartner(m, params, body=None, timeout=30):
+def posrednik_xpartner(m, params, body=None, timeout=30, dziennik=None):
     """Zapytanie do xPartner przez funkcję serwera „xpartner” (login i hasło B2B dokłada serwer)."""
     import cloud
     from oferty import xp
     req = urllib.request.Request(cloud.URL + "/functions/v1/xpartner",
-                                 data=json.dumps({"m": m, "params": params, "body": body}).encode("utf-8"),
+                                 data=json.dumps({"m": m, "params": params, "body": body, "dziennik": dziennik}).encode("utf-8"),
                                  method="POST",
                                  headers={"Content-Type": "application/json", "apikey": cloud.ANON_KEY,
                                           "Authorization": "Bearer " + _token(),
@@ -214,17 +214,9 @@ def wczytaj_oddzialy(admin=False):
     moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
     silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
                         zamowienia="zamowienia" in (me.get("modules") or []),
-                        zamawianie="zamawianie" in (me.get("modules") or []), dziennik=dziennik,
+                        zamawianie="zamawianie" in (me.get("modules") or []),
                         oddzialy_konta=list(me.get("branches") or []))   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
 
-
-def dziennik(akcja, etykieta, szczegoly):
-    """Wpis do Dziennika zmian (np. wysłane zamówienie xPartner); błąd zapisu nie zatrzymuje pracy."""
-    try:
-        _db("POST", "/rest/v1/rpc/log_event", {"p_action": akcja, "p_entity": "zamówienie xPartner",
-                                               "p_label": str(etykieta)[:120], "p_detail": szczegoly})
-    except Exception:
-        pass
 
 
 def zapisz_oddzialy(dane: dict):
