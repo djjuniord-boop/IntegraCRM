@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.0"
-RELEASED = "2026-11-10"
+VERSION = "0.27.1"
+RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.1",
+        "date": "2026-11-11",
+        "changes": [
+            "Kontrola CRM: okno „Powiększ” pyta o zapis zmian w treści e-maila przed zamknięciem (Esc, krzyżyk, Anuluj); lista podpowiedzi odbiorców odświeża się po wczytaniu ustawień firmowych",
+            "Wyniki i Statystyki: przy procencie celu znak ✔ albo ✖ (czytelne także bez rozróżniania kolorów i na wydruku); tabele z płaskimi, czytelniejszymi nagłówkami",
+            "MARŻA: „Wyczyść kolejkę” jest nieaktywne, gdy kolejka jest pusta",
+            "Zamówienia xPartner zapisują się w Dzienniku zmian jednym wpisem z serwera (numery zamówień i pozycje)",
+            "Porządki: koniec komunikatów błędów przy zamykaniu programu, stałe wersje narzędzi przy budowie paczki",
+        ],
+    },
     {
         "version": "0.27.0",
         "date": "2026-11-10",
