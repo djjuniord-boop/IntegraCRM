@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| 2026-11-11 | Drobne poprawki z audytu (odbiorcy, Powiększ, kolejka MARŻY, dziennik zamówień, czytelność WYNIKÓW/STAT, porządki CI) | praca/drobne | app/kontrola/zakladka.py, app/gui.py, app/marza/zakladka.py, app/oferty/, app/wyniki/, app/statystyki/, app/ui.py, supabase/, .github/workflows/ |
+| | | | |
