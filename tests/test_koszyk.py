@@ -156,7 +156,7 @@ def test_zamow_wysyla_post_xml_po_sprawdzeniu_stanow():
     try:
         code, r = S.handle("/api/koszyk/zamow", _zam())
         assert code == 200 and r["zamowienia"][0]["nr"] == "XP/9" and wyslane["xml"] == DOC
-        assert log == [] and "pozycje" in wyslane["dziennik"]   # wpis w dzienniku robi serwer, program podaje szczegóły
+        assert log == [] and "dostawa" in wyslane["dziennik"]   # wpis w dzienniku robi serwer, program podaje szczegóły
         S.get_product = lambda cfg, pid: {"netto": 10.0, "ilosc": 1, "nazwa": "X"}
         wyslane.clear()
         code, r = S.handle("/api/koszyk/zamow", _zam())
