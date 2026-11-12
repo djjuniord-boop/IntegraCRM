@@ -16,6 +16,7 @@ CHANGELOG = [
         "date": "2026-11-12",
         "changes": [
             "Aktualizacje: gdy GitHub odpowiada błędem serwera (500), program pobiera aktualizację z zapasowego źródła",
+            "Zamówienia xPartner – Zrealizowane: mniej zapytań naraz i ponowna próba przy odmowie xPartner; przy błędzie widać jego treść",
         ],
     },
     {
