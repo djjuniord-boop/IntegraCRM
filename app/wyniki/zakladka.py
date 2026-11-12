@@ -125,7 +125,8 @@ class WynikiMixin:
         leg = tk.Frame(hd, bg=SURFACE)
         leg.pack(side="right")
         tk.Label(leg, text="■ wykonanie", bg=SURFACE, fg=RED, font=f.small).pack(side="left", padx=6)
-        tk.Label(leg, text="— plan", bg=SURFACE, fg=INK, font=f.small).pack(side="left")
+        tk.Label(leg, text="– – plan", bg=SURFACE, fg=INK, font=f.small).pack(side="left", padx=6)
+        tk.Label(leg, text="··· prognoza", bg=SURFACE, fg=RED, font=f.small).pack(side="left")
         self.wyn_chart = tk.Canvas(ch, height=230, bg=SURFACE, highlightthickness=0)
         self.wyn_chart.pack(fill="both", expand=True, pady=(8, 0))
         self.wyn_chart.bind("<Configure>", lambda e: self._wyn_draw_chart())
@@ -229,6 +230,7 @@ class WynikiMixin:
             return
         s = dane.podsumowanie(m)
         self.wyn_sum, self.wyn_points = s, dane.punkty_wykresu(m, d.get("runs", []))
+        self.wyn_days = dane.dni_sprzedazowe(s["year"], s["month"], m.get("holidays"))
         self.wyn_msg.pack_forget()
         self.wyn_main.pack(fill="both", expand=True)
         self.wyn_month.config(text=f"{names.get(branch, branch).upper()}  ·  {s['label']}"
@@ -496,35 +498,76 @@ class WynikiMixin:
             c.create_rectangle(x - 1, 0, x + 1, h, fill=PLAN, width=0)
 
     def _wyn_draw_chart(self):
+        """Wykres narastająco: plan (linia przerywana do celu), wykonanie (czerwona linia z wypełnieniem),
+        prognoza do końca miesiąca (kropki), znacznik „dziś” z różnicą do planu. Oś Y w okrągłych kwotach,
+        oś X – daty dni sprzedażowych."""
         c, s = self.wyn_chart, getattr(self, "wyn_sum", None)
         c.delete("all")
         w, h = c.winfo_width(), c.winfo_height()
         if w < 50 or not s or not s["dni_all"]:
             return
-        f = self.fonts
+        f, n = self.fonts, s["dni_all"]
         pts = getattr(self, "wyn_points", [])
-        top = max([s["cel"] or 0] + [v for _, v in pts] + [1]) * 1.08
-        L, R, T, B = 70, 12, 8, 22
-        X = lambda i: L + (w - L - R) * i / s["dni_all"]
+        dni = getattr(self, "wyn_days", None) or []
+        prog = s["prognoza"] if s["biezacy"] and pts and s["prognoza"] else None
+        osie = dane.podzialka(max([s["cel"] or 0, prog or 0] + [v for _, v in pts] + [1]) * 1.04)
+        top = osie[-1]
+        L, R, T, B = 62, 118, 14, 24
+        X = lambda i: L + (w - L - R) * i / n
         Y = lambda v: T + (h - T - B) * (1 - v / top)
-        for k in range(5):   # siatka i opis osi
-            v = top * k / 4
+        for v in osie:   # siatka i opis osi
             c.create_line(L, Y(v), w - R, Y(v), fill=LINE)
-            c.create_text(L - 6, Y(v), text=dane.zl(v).replace(" zł", ""), anchor="e", fill=MUTED, font=f.small)
-        c.create_text(L, h - 4, text="1. dzień", anchor="sw", fill=MUTED, font=f.small)
-        c.create_text(w - R, h - 4, text=f"{s['dni_all']}. dzień roboczy", anchor="se", fill=MUTED, font=f.small)
+            c.create_text(L - 8, Y(v), text=dane.krotko_zl(v), anchor="e", fill=MUTED, font=f.small)
+        li, lv = pts[-1] if pts else (None, None)
+        dzis = li if s["biezacy"] and pts else None
+        # oś X: daty co ok. 5 dni sprzedażowych + pierwszy, ostatni i dzisiejszy (pogrubiony)
+        co = max(1, round(n / 5))
+        opisy = {1, n} | {i for i in range(co, n, co) if n - i >= co / 2}
+        if dzis:
+            opisy = {i for i in opisy if abs(i - dzis) >= co / 2 or i in (1, n)} | {dzis}
+        for i in range(1, n + 1):
+            c.create_line(X(i), Y(0), X(i), Y(0) + 3, fill=LINE)
+            if i in opisy:
+                txt = f"{dni[i - 1].day}.{dni[i - 1].month:02d}" if len(dni) == n else f"{i}. dzień"
+                c.create_text(X(i), h - 4, text=txt, anchor="s", fill=BLACK if i == dzis else MUTED,
+                              font=f.label if i == dzis else f.small)
+        prawe = []   # opisy przy prawej krawędzi: (y, tekst, kolor)
         if s["cel"]:
-            c.create_line(X(0), Y(0), X(s["dni_all"]), Y(s["cel"]), fill=INK, width=2, dash=(6, 4))
+            c.create_line(X(0), Y(0), X(n), Y(s["cel"]), fill=INK, width=2, dash=(6, 4))
+            prawe.append([Y(s["cel"]), "cel " + dane.krotko_zl(s["cel"]), INK])
         if pts:
             line = [X(0), Y(0)]
             for i, v in pts:
                 line += [X(i), Y(v)]
-            c.create_line(*line, fill=RED, width=3)
+            c.create_polygon(*line, X(li), Y(0), fill="#FCE4E5", outline="")
+            if prog:
+                c.create_line(X(li), Y(lv), X(n), Y(prog), fill=RED, width=2, dash=(2, 4))
+                prawe.append([Y(prog), "prognoza " + dane.krotko_zl(prog), RED])
+            if dzis and s["cel"]:   # dziś: gdzie powinniśmy być według planu
+                pl = s["cel"] * li / n
+                c.create_line(X(li), Y(max(pl, lv)) - 8, X(li), Y(0), fill=MUTED, dash=(2, 3))
+                c.create_oval(X(li) - 4, Y(pl) - 4, X(li) + 4, Y(pl) + 4, fill=SURFACE, outline=INK, width=2)
+                roz = lv - pl
+                c.create_text(X(li) - 8, Y(max(pl, lv)) - 8, anchor="se",
+                              text=("−" if roz < 0 else "+") + dane.krotko_zl(abs(roz))
+                              + (" do planu" if roz < 0 else " ponad plan"),
+                              fill=RED if roz < 0 else OK, font=f.label)
+            c.create_line(*line, fill=RED, width=3, joinstyle="round")
             for i, v in pts:
-                c.create_oval(X(i) - 4, Y(v) - 4, X(i) + 4, Y(v) + 4, fill=RED, outline=SURFACE, width=2)
+                c.create_oval(X(i) - 3, Y(v) - 3, X(i) + 3, Y(v) + 3, fill=RED, outline=SURFACE, width=1)
+            c.create_oval(X(li) - 6, Y(lv) - 6, X(li) + 6, Y(lv) + 6, fill=RED, outline=SURFACE, width=2)
+            c.create_text(X(li) + 10, Y(lv) + 4, anchor="nw", text=dane.krotko_zl(lv, True),
+                          fill=BLACK, font=f.label)
+        prawe.sort()
+        for a_, b_ in zip(prawe, prawe[1:]):   # rozsuń, gdy cel i prognoza są blisko siebie
+            if b_[0] - a_[0] < 16:
+                d = (16 - (b_[0] - a_[0])) / 2
+                a_[0] -= d
+                b_[0] += d
+        for y, txt, col in prawe:
+            c.create_text(X(n) + 8, y, text=txt, anchor="w", fill=col, font=f.small)
         self.wyn_chart_note.config(
             text="Wykres uzupełnia się przy każdej aktualizacji MARŻY." if len(pts) < 3 else "")
-
 
 def _kiedy(ts) -> str:
     if not ts:

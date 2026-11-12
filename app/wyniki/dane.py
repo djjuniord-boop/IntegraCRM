@@ -5,6 +5,7 @@ Dzień aktualizacji MARŻY liczy się jako miniony (raport z danego dnia), inne 
 daty aktualizacji w czasie polskim (_data_lokalna).
 """
 import calendar
+import math
 import datetime
 
 ODDZIALY = [("wroclaw", "Wrocław"), ("opole", "Opole")]
@@ -108,6 +109,32 @@ def poprzednie(rows: list, biezacy: dict | None, n: int | None = None) -> list:
            and (r.get("target") is not None or r.get("done") is not None)]
     out.sort(key=lambda r: (int(r["year"]), int(r["month"])), reverse=True)
     return out if n is None else out[:n]
+
+
+def podzialka(top: float, ile: int = 5) -> list:
+    """Okrągłe wartości osi wykresu (0, 100 tys., 200 tys. …): najniższa okrągła góra ≥ top,
+    najwyżej `ile` odcinków (krok 1 / 2 / 2,5 / 5 × 10^k)."""
+    if not top or top <= 0:
+        return [0.0, 1.0]
+    rzad = 10 ** math.floor(math.log10(top / ile))
+    kroki = [k * rzad * m for m in (1, 10) for k in (1, 2, 2.5, 5)]
+    krok = min((k for k in kroki if math.ceil(top / k - 1e-9) <= ile), key=lambda k: (math.ceil(top / k - 1e-9) * k, abs(math.ceil(top / k - 1e-9) - 4)))
+    n = math.ceil(top / krok - 1e-9)
+    return [krok * i for i in range(n + 1)]
+
+
+def krotko_zl(v, zl_na_koncu: bool = False) -> str:
+    """Kwota krótko na wykres: 112 195 → „112 tys.”, 1 250 000 → „1,25 mln”."""
+    v = float(v or 0)
+    znak = "−" if v < 0 else ""
+    a = abs(v)
+    if a >= 1_000_000:
+        t = f"{a / 1_000_000:.2f}".rstrip("0").rstrip(".").replace(".", ",") + " mln"
+    elif a >= 1000:
+        t = f"{a / 1000:.0f} tys."
+    else:
+        t = f"{a:.0f}"
+    return znak + t + (" zł" if zl_na_koncu else "")
 
 
 def punkty_wykresu(row: dict, runs: list, today: datetime.date | None = None) -> list:
