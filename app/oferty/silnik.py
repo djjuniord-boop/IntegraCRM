@@ -55,14 +55,35 @@ def load_cfg():
         for k in ("premium", "srednie", "budzet", "klasy_ver"):
             user.pop(k, None)
     cfg.update({k: v for k, v in user.items() if k in DEFAULT_CFG})
+    o = oddzial_cen()
+    if o:   # marża wspólna oddziału – nadpisuje ustawienia osobiste
+        cfg.update({k: v for k, v in ((KONTO.get("ceny_oddz") or {}).get(o) or {}).items() if k in CENY_WSPOLNE})
     cfg["login"], cfg["password"] = KONTO.get("login") or "", KONTO.get("password") or ""
     return cfg
+
+
+CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi")
+ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą ustalaną przez administratora (decyzja właściciela 2026-11-12)
+
+
+def oddzial_cen():
+    """Oddział konta, dla którego obowiązuje wspólna marża (pierwszy pasujący), albo None."""
+    for o in KONTO.get("oddzialy_konta") or []:
+        if o in ODDZ_CEN:
+            return o
+    return None
 
 def bkey(x):
     return re.sub(r"[^A-ZĄĆĘŁŃÓŚŹŻ0-9]", "", (x or "").upper())
 
 def save_cfg(cfg):
     dane = {k: cfg[k] for k in DEFAULT_CFG if k in cfg}
+    if oddzial_cen():   # marża wspólna oddziału nie trafia do ustawień osobistych
+        stare = KONTO.get("ustawienia") or {}
+        for k in CENY_WSPOLNE:
+            dane.pop(k, None)
+            if k in stare:
+                dane[k] = stare[k]
     if KONTO.get("zapisz"):
         KONTO["zapisz"](dane)
     KONTO["ustawienia"] = dane
@@ -1335,6 +1356,8 @@ def handle(path, body=None, open_path=None):
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 c["zamawianie"] = moze_zamawiac()
+                c["ceny_oddzial"] = oddzial_cen() or ""
+                c["ceny_edycja"] = bool(not c["ceny_oddzial"] or KONTO.get("admin"))
                 return 200, c
             if route in ("/api/zamowienia", "/api/zamkniete", "/api/faktury", "/api/faktura"):
                 if not (KONTO.get("admin") or KONTO.get("zamowienia")):
@@ -1361,9 +1384,14 @@ def handle(path, body=None, open_path=None):
                 return 200, {"ok": True}
             return 404, {"error": "404"}
         if route == "/api/cfg":
+            o = oddzial_cen()
             for k in DEFAULT_CFG:
-                if k in body:
+                if k in body and not (o and k in CENY_WSPOLNE):   # marża wspólna – nie w ustawieniach osobistych
                     cfg[k] = body[k]
+            if o and any(k in body for k in CENY_WSPOLNE):
+                nowe = {k: body[k] for k in CENY_WSPOLNE if k in body}
+                if KONTO.get("admin") and KONTO.get("zapisz_ceny"):   # pracownik: pola zablokowane, wartości pomijamy
+                    KONTO["zapisz_ceny"](o, nowe)
             save_cfg(cfg)
             return 200, {"ok": True}
         if route == "/api/test":

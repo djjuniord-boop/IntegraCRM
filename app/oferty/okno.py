@@ -211,12 +211,27 @@ def wczytaj_oddzialy(admin=False):
         dane = rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
     except Exception:
         dane = {}
+    try:   # ceny wspólne oddziału (marża / narzut) – ustala tylko administrator (app_config: zapis tylko admin)
+        rows = _db("GET", "/rest/v1/app_config?key=eq.oferty_ceny&select=value") or []
+        ceny = rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
+    except Exception:
+        ceny = {}
     moje = list(dane) if admin else [b for b in (me.get("branches") or [])]
     silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
                         zamowienia="zamowienia" in (me.get("modules") or []),
                         zamawianie="zamawianie" in (me.get("modules") or []),
-                        oddzialy_konta=list(me.get("branches") or []))   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
+                        oddzialy_konta=list(me.get("branches") or []), ceny_oddz=ceny, zapisz_ceny=zapisz_ceny)   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
 
+
+
+def zapisz_ceny(oddzial: str, dane: dict):
+    """Administrator: marża / narzut wspólne dla oddziału (baza przyjmie zapis tylko od administratora)."""
+    rows = _db("GET", "/rest/v1/app_config?key=eq.oferty_ceny&select=value") or []
+    wsz = rows[0]["value"] if rows and isinstance(rows[0].get("value"), dict) else {}
+    wsz[str(oddzial)[:60]] = dane
+    _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "oferty_ceny", "value": wsz}, prefer="resolution=merge-duplicates,return=minimal")
+    from oferty import silnik
+    silnik.KONTO["ceny_oddz"] = wsz
 
 
 def zapisz_oddzialy(dane: dict):

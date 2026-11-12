@@ -502,3 +502,24 @@ def test_szybkie_polecenie_z_rejestracja_i_autem():
                    ("golf 2055516 94v xl zima", ""), ("dw5444lw 2055516 91v", "DW5444LW")):
         p = S.parse_quick(t)["pojazdy"][0]
         assert (p["rej"], p["pojazd"]) == (rej, ""), (t, p)   # indeks, XL, „run flat” to nie model auta
+
+
+def test_marza_wspolna_wroclaw_ustala_admin():
+    stare = dict(S.KONTO)
+    zapis = []
+    try:
+        S.KONTO.update(oddzialy_konta=["Latex Wrocław"], admin=False, ustawienia={"marza_proc": 30.0},
+                       ceny_oddz={"Latex Wrocław": {"marza_proc": 12.0, "narzut_tryb": "procent", "progi": []}},
+                       zapisz=lambda d: None, zapisz_ceny=lambda o, d: zapis.append((o, d)))
+        assert S.load_cfg()["marza_proc"] == 12.0          # osobista 30% nie działa
+        code, c = S.handle("/api/cfg")
+        assert c["ceny_oddzial"] == "Latex Wrocław" and c["ceny_edycja"] is False
+        S.handle("/api/cfg", {"marza_proc": 50, "waznosc_dni": 9})
+        assert not zapis and S.load_cfg()["marza_proc"] == 12.0 and S.load_cfg()["waznosc_dni"] == 9
+        S.KONTO["admin"] = True
+        S.handle("/api/cfg", {"marza_proc": 15})
+        assert zapis == [("Latex Wrocław", {"marza_proc": 15})]
+        S.KONTO.update(oddzialy_konta=["Latex Opole"], admin=False)
+        assert S.load_cfg()["marza_proc"] == 30.0 and S.handle("/api/cfg")[1]["ceny_edycja"] is True
+    finally:
+        S.KONTO.clear(); S.KONTO.update(stare)
