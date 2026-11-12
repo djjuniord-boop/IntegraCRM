@@ -467,11 +467,11 @@ def test_porownanie_2_3_modele():
     assert code == 500 and "2 lub 3" in r["error"]
 
 
-def test_szukaj_bez_opon_ze_zbyt_malym_stanem():
-    """Potrzeba 2 szt. -> opony z 1 szt. na stanie w ogóle nie są pokazywane."""
+def test_szukaj_pokazuje_zbyt_maly_stan_z_ostrzezeniem():
+    """Potrzeba 2 szt. -> opona z 1 szt. jest widoczna (na końcu) z oznaczeniem za_malo; rozmiar C osobno."""
     cfg = S.load_cfg()
     baza = [{"id": i, "nazwa": "MARKA%d 225/45 R17 MODEL 91W" % i, "netto": 300 + i, "ilosc": il, "attrs": {"Sezon": "Letnia"}}
-            for i, il in ((1, 1), (2, 2), (3, 30))]
+            for i, il in ((1, 1), (2, 2), (3, 30))] + [{"id": 4, "nazwa": "MARKA 225/45 R17C MODEL 104T", "netto": 200, "ilosc": 9, "attrs": {"Sezon": "Letnia"}}]
     stare = S.search_size
     S.search_size = lambda cfg, s: [dict(p) for p in baza]
     try:
@@ -479,8 +479,9 @@ def test_szukaj_bez_opon_ze_zbyt_malym_stanem():
     finally:
         S.search_size = stare
     lst = list(r["wyniki"]["225/45 R17"].values())[0]
-    assert sorted(p["id"] for p in lst) == [2, 3]
-    assert [p["ok_stan"] for p in sorted(lst, key=lambda p: p["id"])] == [False, False]   # poniżej min. stanu 50 – szare, ale widoczne
+    assert [p["id"] for p in lst][-1] == 1 and sorted(p["id"] for p in lst) == [1, 2, 3]   # bez dostawczej R17C
+    assert [p["za_malo"] for p in sorted(lst, key=lambda p: p["id"])] == [True, False, False]
+    assert S.norm_size("2254517c") == "225/45 R17C" and S.norm_size("225/45 17C") == "225/45 R17C"
 
 
 
