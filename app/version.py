@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.1"
+VERSION = "0.27.2"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.2",
+        "date": "2026-11-12",
+        "changes": [
+            "Oferty opon: widać wszystkie opony w rozmiarze, także gdy stan jest mniejszy niż potrzeba – z ostrzeżeniem „⚠ tylko 2 szt.” (na końcu listy)",
+            "Opony dostawcze (R17C) pokazują się tylko, gdy wpiszesz rozmiar z „C”, np. 215/60 R17C albo 2156017c",
+        ],
+    },
     {
         "version": "0.27.1",
         "date": "2026-11-11",
