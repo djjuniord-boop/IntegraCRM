@@ -79,8 +79,11 @@ def check(source: str, wymagana: str = ""):
     loc = _manifest_location(source)
     try:
         raw = _read_bytes(loc)
-    except urllib.error.HTTPError:   # GitHub odpowiada (np. 404 w trakcie publikacji) – to nie blokada sieci
-        raise
+    except urllib.error.HTTPError as e:   # 404 w trakcie publikacji – nie blokada sieci; 5xx = awaria GitHuba → zapasowe źródło
+        if e.code < 500 or "github.com/" not in loc:
+            raise
+        loc = _mirror_for(loc)
+        raw = _read_bytes(loc)
     except OSError:
         if "github.com/" not in loc:
             raise
