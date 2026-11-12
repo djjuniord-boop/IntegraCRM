@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.2"
+VERSION = "0.27.3"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.3",
+        "date": "2026-11-12",
+        "changes": [
+            "Oferty opon: marżę (narzut) dla oddziału Latex Wrocław ustala administrator – wspólna dla wszystkich; pracownicy widzą ją w ustawieniach bez możliwości zmiany. Rabat w ofercie bez zmian",
+        ],
+    },
     {
         "version": "0.27.2",
         "date": "2026-11-12",
