@@ -242,7 +242,7 @@ let ZAM=null,FAK=null,ZAMK=null,ZT='z';
 const ZKTO_KEY='zam_kto';
 function openZam(){$('#bFak').style.display=CFG.admin?'':'none';zdlg.showModal();if(!ZAM)loadZam();else zDraw()}
 function zTab(b){ZT=b.dataset.t;document.querySelectorAll('.zt').forEach(x=>x.classList.toggle('on',x===b));$('#zZ').style.display=ZT!=='f'?'':'none';$('#zDaty').style.display=ZT==='h'?'':'none';
- if(ZT==='h'&&!ZAMK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#hdo').value=iso(d);d.setDate(d.getDate()-30);$('#hod').value=iso(d);loadZamk()}else if(ZT!=='f'){zKto();zDraw()}$('#zF').style.display=b.dataset.t==='f'?'':'none';
+ if(ZT==='h'&&!ZAMK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#hdo').value=iso(d);d.setDate(d.getDate()-2);$('#hod').value=iso(d);loadZamk()}else if(ZT!=='f'){zKto();zDraw()}$('#zF').style.display=b.dataset.t==='f'?'':'none';
  if(b.dataset.t==='f'&&!FAK){const d=new Date(),p=n=>String(n).padStart(2,'0'),iso=x=>x.getFullYear()+'-'+p(x.getMonth()+1)+'-'+p(x.getDate());$('#fdo').value=iso(d);d.setDate(d.getDate()-30);$('#fod').value=iso(d);loadFak()}}
 function zOdswiez(){if(ZT==='f')loadFak();else if(ZT==='h')loadZamk();else{ZAM=null;loadZam()}}
 function zDane(){return ZT==='h'?ZAMK:ZAM}
