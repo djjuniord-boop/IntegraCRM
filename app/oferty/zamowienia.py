@@ -5,6 +5,7 @@ Ten sam kod w aplikacji Android: mobile/www/zamowienia.js (test zgodności pilnu
 Listy przewozowe (wysłane opony) wymagają tokenu głównego konta – na razie nie ma (zob. README).
 """
 import datetime
+import time
 import re
 import xml.etree.ElementTree as ET
 
@@ -171,17 +172,24 @@ def _pozycje_faktury(root):
              "zostalo": 0, "dostepne": 0, "cena": p["cena"]} for p in f["pozycje"]]
 
 
-def zamkniete(cfg, od, do, rownolegle=6):
+def zamkniete(cfg, od, do, rownolegle=3):
     """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder."""
     import concurrent.futures as cf
     login = cfg.get("login", "")
     fak = czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do))
 
+    def z_ponowieniem(metoda, **p):   # xPartner bywa przeciążony – jedna ponowna próba po chwili
+        try:
+            return api_xml(cfg, metoda, **p)
+        except Blad:
+            time.sleep(1.5)
+            return api_xml(cfg, metoda, **p)
+
     def nr_z_faktury(f):
         k = (login, "F", f["nr"])
         if k not in _PAMIEC:
             if FAKTURA_NR.match(f["nr"]):
-                r = api_xml(cfg, "getInvoice", invoiceNumber=f["nr"])
+                r = z_ponowieniem("getInvoice", invoiceNumber=f["nr"])
                 _PAMIEC[k] = (numery_zamowien(r), _pozycje_faktury(r))
             else:
                 _PAMIEC[k] = ([], [])
@@ -191,18 +199,19 @@ def zamkniete(cfg, od, do, rownolegle=6):
         k = (login, "Z", n)
         if k in _PAMIEC:
             return _PAMIEC[k]
-        z = czytaj_zamowienie(api_xml(cfg, "getOrder", **({"orderXp": n} if ZAM_XP.match(n) else {"orderErp": n})))
+        z = czytaj_zamowienie(z_ponowieniem("getOrder", **({"orderXp": n} if ZAM_XP.match(n) else {"orderErp": n})))
         if z["status"] == 6:
             _PAMIEC[k] = z
         return z
 
-    faktury_zam, poz_faktur, ile_zam, bledy = {}, {}, {}, 0
+    faktury_zam, poz_faktur, ile_zam, bledy, opis = {}, {}, {}, 0, []
     with cf.ThreadPoolExecutor(rownolegle) as ex:
         for fu in [ex.submit(nr_z_faktury, f) for f in fak]:
             try:
                 f, (nry, poz) = fu.result()
-            except Exception:   # jedna nietypowa faktura nie może wyłączyć całej listy
+            except Exception as e:   # jedna nietypowa faktura nie może wyłączyć całej listy
                 bledy += 1
+                opis.append(str(e) if isinstance(e, Blad) else e.__class__.__name__)
                 continue
             poz_faktur[f["nr"]], ile_zam[f["nr"]] = poz, len(nry)
             for n in nry:
@@ -211,8 +220,9 @@ def zamkniete(cfg, od, do, rownolegle=6):
         for n, fu in [(n, ex.submit(zam, n)) for n in faktury_zam]:
             try:
                 wyn[n] = fu.result()
-            except Exception:
+            except Exception as e:
                 bledy += 1
+                opis.append(str(e) if isinstance(e, Blad) else e.__class__.__name__)
     out, byly = [], set()
     for n, z in wyn.items():
         if z["nr"] in byly:
@@ -226,7 +236,7 @@ def zamkniete(cfg, od, do, rownolegle=6):
             z["poz_z_faktury"] = "wspolna" if any(ile_zam.get(x, 0) > 1 for x in fk) else "tak"
         out.append(z)
     out.sort(key=lambda z: z["data"], reverse=True)
-    return {"zamowienia": out, "faktur": len(fak), "bledy": bledy}
+    return {"zamowienia": out, "faktur": len(fak), "bledy": bledy, "blad_opis": opis[0][:200] if opis else ""}
 
 
 def okres(od, do, dzis=None):
