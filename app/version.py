@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.3"
+VERSION = "0.27.4"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.4",
+        "date": "2026-11-12",
+        "changes": [
+            "Oferty opon: zamawianie z historii – przycisk „🛒 Zamów” przy ofercie i pasek „Zamów w xPartner” w otwartej ofercie (opona do koszyka z ilością z oferty)",
+        ],
+    },
     {
         "version": "0.27.3",
         "date": "2026-11-12",

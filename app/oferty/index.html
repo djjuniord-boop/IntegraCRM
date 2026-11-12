@@ -41,6 +41,7 @@ body.hidebuy .buy{display:none}
 .zk td,.zk th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.zk .n{text-align:right;white-space:nowrap}
 .st{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:9px;background:#EEF3FF;color:#1d4f9c}.st.s5{background:#fde8e8;color:#b00012}.st.s6{background:#e9f5ec;color:#145a26}
 button.zt.on{background:var(--navy);color:#fff;border-color:var(--navy)}.fr{cursor:pointer}.fr:hover td{background:#fafafa}
+.kz{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border-radius:10px;background:#fff7f7;border:1px solid #f3c6c9}
 .kcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.kbox{border:1px solid var(--line);border-radius:10px;padding:10px 14px}.kbox h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
 .kbox label{display:block;margin:6px 0;font-size:13px}.kbox input:not([type]),.kbox textarea{width:100%;box-sizing:border-box}.kadr{border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:4px 0;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
 .kadr.on{border-color:var(--navy);background:#f6f7fb}.kadr.nowy{display:block;border-style:dashed}.kform{display:none;grid-template-columns:2fr 1fr;gap:6px;margin-top:6px}.kadr.nowy.on .kform{display:grid}
@@ -105,7 +106,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div class="row" style="margin-top:12px"><button class="red" onclick="offer()" id="bO">📄 Generuj ofertę (odświeża ceny i stany)</button></div><div id="oMsg"></div></div>
 <div class="card" id="outCard" style="display:none"><h2><span class="n">4</span>Oferta</h2>
 <div id="zmBox"></div><div id="edit" class="edit"></div><div id="sum"></div>
-<div id="ul" style="margin:10px 0"></div>
+<div id="ul" style="margin:10px 0"></div><div id="kz" class="kz" style="display:none"></div>
 <div class="row" style="margin:8px 0"><button class="sec" onclick="copyMail()">📋 Kopiuj treść e-maila</button><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button></div>
 <textarea id="email"></textarea></div>
 </main>
@@ -291,7 +292,7 @@ function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs'
  <td style="white-space:nowrap">${h.owner===ME?`<select data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
  ${h.oddzwon?'<div class="sx" style="background:#fff3cd;color:#7a5900;margin-top:4px">📞 oddzwoń – brak odpowiedzi 2 dni</div>':''}${h.link?`<div style="font-size:11px;color:var(--muted);margin-top:3px">🔗 link${h.otwarta?' · 👁 klient otworzył':' · nieotwarty'}</div>`:''}
  ${h.odp?`<div class="odp">✅ <b>${esc(h.odp.wybor)}</b>${h.odp.tel?` · ☎ ${esc(h.odp.tel)}`:''}${h.odp.uwagi?`<br>„${esc(h.odp.uwagi)}”`:''}</div>`:''}</td>
- <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button> ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
+ <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
 async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
@@ -376,11 +377,14 @@ async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświ
  $('#zmBox').innerHTML=(j.zmiany&&j.zmiany.length)?`<div class="msg w"><b>⚠ Od zapisania tej oferty (${esc(HDATA)}) zmieniło się w xPartner:</b><ul style="margin:6px 0 0 18px;padding:0">${j.zmiany.map(z=>`<li>${esc(z.nazwa)}: <b style="color:${z.w_gore?'var(--red)':'#1b7a33'}">${esc(z.co)}</b></li>`).join('')}</ul><div style="font-size:12px;margin-top:4px">Oferta poniżej ma już aktualne ceny i stany – sprawdź przed wysłaniem klientowi.</div></div>`:'';
  msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+(j.plik?'Zapisano: '+j.plik:'Oferta zapisana w historii.'),j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
- ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();
+ ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();drawKz();
  $('#email').value=j.email;drawEdit();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 let OODD=(()=>{try{return localStorage.getItem('oferty_oddzial')||''}catch(e){return ''}})(),HSNAP=null,HDATA='';
 function setOdd(v){OODD=v;try{localStorage.setItem('oferty_oddzial',v)}catch(e){}}
+function drawKz(){const b=$('#kz');if(!CFG.zamawianie||!ULS.length){b.style.display='none';return}b.style.display='';
+ b.innerHTML='<b>🛒 Zamów w xPartner:</b>'+ULS.map(u=>`<button class="sec" onclick='kDodaj(${u.id},${u.szt||4},${esc(JSON.stringify(u.nazwa))});openKosz()'>🛒 ${esc(u.nazwa)} · <b>${u.szt||4} szt.</b></button>`).join('')+
+ '<span class="muted" style="font-size:12px;flex-basis:100%">Kliknij oponę, którą wybrał klient – trafi do koszyka z ilością z oferty, ceny i stany sprawdzę na żywo.</span>'}
 function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';
  $('#ul').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">jeden model opony · każda usługa osobno · dane Twojego oddziału</span>'+
  (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="setOdd(this.value)" style="width:auto" title="Zapamiętany na tym komputerze – do kolejnej zmiany">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+
