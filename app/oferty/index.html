@@ -224,7 +224,7 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;
+ RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';
  const filt=req.sezony.length||req.klasy.length||req.producenci.trim();
  if(filt){const n=1;for(const[s,g]of Object.entries(RES.wyniki))for(const[z,l]of Object.entries(g))l.filter(p=>p.ok_stan).slice(0,n).forEach(p=>SEL.add(s+'|'+z+'|'+p.id))}
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
@@ -232,7 +232,7 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null;
