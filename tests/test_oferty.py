@@ -100,6 +100,7 @@ def test_oferta_ceny_wymiana_uslugi_historia():
          "tpms": 4, "przech": "opony", "typ": "osobowy"}], "wybor": {"205/55 R16": {"wszystkie": [1]}}, "rabat": "10"}
     code, res = S.handle("/api/offer", req)
     assert code == 200, res
+    assert res["ulotki"][0]["szt"] == 2   # ilość do koszyka z oferty
     w = res["warianty"][0]
     # 344,10 × 1,05 × 1,23 = 444,41 → 445 zł; rabat 10% → 400,50 → 401 zł; 2 szt.; wymiana 2 × 44; TPMS 4 × 150; przechowalnia 120
     assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (802.0, 88.0, 600.0, 120.0)

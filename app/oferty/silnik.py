@@ -1474,13 +1474,18 @@ def handle(path, body=None, open_path=None):
             summ = [{"wariant": vlabel(variants, (s, k)), "modele": v["modele"], "opony": round(v["opony"], 2),
                      "wymiana": round(v["wymiana"], 2), "tpms": round(v["tpms_kw"], 2), "przech": round(v["przech_kw"], 2),
                      "razem": round(total(v), 2)} for (s, k), v in sorted(variants.items(), key=lambda kv: vkey(kv[0]))]
+            szt = {}   # ilość do zamówienia: każde auto raz (warianty tej samej opony się nie sumują)
+            for r in rows:
+                if r["p"]:
+                    szt.setdefault(r["p"]["id"], {})[(r.get("rej"), r.get("pojazd"), r["rozmiar"])] = int(r.get("ilosc") or 0)
             ul, seen = [], set()
             for r in rows:
                 p = r["p"]
                 if p and p["id"] not in seen:
                     seen.add(p["id"])
                     ul.append({"id": p["id"], "nazwa": p["nazwa"], "cena": p["cena_brutto"], "auto": p["cena_auto"],
-                               "recznie": p["recznie"], "zakup": p["brutto_zak"], "url": leaflet_url(p["id"], p["cena_brutto"])})
+                               "recznie": p["recznie"], "zakup": p["brutto_zak"], "url": leaflet_url(p["id"], p["cena_brutto"]),
+                               "szt": sum(szt.get(p["id"], {}).values())})
             try:
                 save_hist(body, summ, path_x, rows)
             except Exception as e:
