@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.6"
+VERSION = "0.27.7"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.7",
+        "date": "2026-11-12",
+        "changes": [
+            "Aktualizacje: gdy GitHub odpowiada błędem serwera (500), program pobiera aktualizację z zapasowego źródła",
+        ],
+    },
     {
         "version": "0.27.6",
         "date": "2026-11-12",
