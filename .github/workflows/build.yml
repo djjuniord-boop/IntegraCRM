@@ -205,6 +205,8 @@ jobs:
       - name: Kontrola – panel SERWIS QR osadzony w zakładce programu
         shell: pwsh
         run: |
+          $wyg = python -c "import sys; sys.path.insert(0, 'app'); import konfig; print(konfig.SERWIS_WYGASZONY)"
+          if ($wyg -eq 'True') { 'SERWIS QR wygaszony w programie (konfig.SERWIS_WYGASZONY) – kontrola osadzenia pominięta'; exit 0 }
           if (-not (Test-Path shots/serwis_embed.txt)) { throw "Brak wyniku osadzania panelu" }
           Get-Content shots/serwis_embed.txt
           if (-not (Select-String -Path shots/serwis_embed.txt -Pattern "embedded=True" -Quiet)) {
@@ -315,7 +317,7 @@ jobs:
           foreach ($need in @('rpc("get_car"', '<script src="config.js"></script>', 'content="noindex"')) {
             if (-not $html.Contains($need)) { throw "Zbudowana strona nie zawiera: $need" }
           }
-          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js) -or -not (Test-Path pages_out/supabase.min.js) -or -not (Test-Path pages_out/oferta.html) -or -not (Test-Path pages_out/logo.png)) { throw "Brak plików strony" }
+          if (-not (Test-Path pages_out/config.js) -or -not (Test-Path pages_out/qrcode.min.js) -or -not (Test-Path pages_out/supabase.min.js) -or -not (Test-Path pages_out/logo.png)) { throw "Brak plików strony" }
           Set-Location pages_out
           git config user.name "github-actions"
           git config user.email "github-actions@users.noreply.github.com"

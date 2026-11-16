@@ -846,7 +846,6 @@ def list_hist(q=""):
 
 STATUSY_OFERT = {"nowa": "Nowa", "wyslana": "Wysłana", "przyjeta": "Przyjęta", "odrzucona": "Odrzucona", "zamowiona": "Zamówiona"}
 ODDZWON_DNI = 2
-STRONA_KLIENTA = "https://djjuniord-boop.github.io/IntegraCRM/"   # strona z ofertą dla klienta (GitHub Pages, jak SERWIS QR)
 
 
 def do_oddzwonienia(status, status_at, teraz=None):
@@ -861,75 +860,9 @@ def do_oddzwonienia(status, status_at, teraz=None):
     return (teraz - t).total_seconds() >= ODDZWON_DNI * 86400
 
 
-def link_dane(cfg, req, rows, oddzial, kto=""):
-    """Migawka dla strony klienta: gotowe strony PDF każdego modelu (bez cen zakupu) + skrót do kart wyboru."""
-    modele, byly = [], set()
-    for r in rows:
-        p = r.get("p")
-        if not p or p["id"] in byly:
-            continue
-        byly.add(p["id"])
-        d = pdf_dane(cfg, req, rows, p["id"], oddzial, kto, STRONA_KLIENTA + "logo.png")
-        modele.append({"id": p["id"], "tytul": d["tytul"], "tag": d["tag"], "cena_szt": d["cena_szt"], "brutto": d["brutto"],
-                       "mokra": p.get("mokra") or "", "opory": p.get("opory") or "", "halas": p.get("halas") or "",
-                       "html": wypelnij(wzor_pdf(), d)})
-    if not modele:
-        raise ValueError("W ofercie nie ma opon – wybierz opony i przelicz ofertę.")
-    d0 = pdf_dane(cfg, req, rows, modele[0]["id"], oddzial, kto, "")
-    return {"nr": d0["nr"], "klient": d0["klient"], "wazna": d0["wazna"], "o_nazwa": d0["o_nazwa"], "o_tel": d0["o_tel"],
-            "o_kom": [x["t"] for x in d0["o_kom"]], "kto": kto, "modele": modele}
-
 def pl(x):
     s = "{:,.2f}".format(x).replace(",", " ").replace(".", ",")
     return s + " zł"
-
-def email_text(cfg, req, rows, variants):
-    kl = (req.get("klient") or "").strip()
-    L = ["Dzień dobry,", "", "dziękujemy za zapytanie. W załączeniu przesyłamy ofertę na zakup i wymianę opon" + (" dla %s" % kl if kl else "") + ".", ""]
-    per_car = any(r.get("rej") or r.get("pojazd") for r in rows if r["p"])
-    by_var = {}
-    for r in rows:
-        if r["p"]: by_var.setdefault(r["wariant"], []).append(r)
-    for key in sorted(variants, key=vkey):
-        sez, k = key; var = variants[key]
-        L.append("WARIANT: " + vlabel(variants, key).upper())
-        if per_car:
-            for r in by_var.get(key, []):
-                p = r["p"]; kto = " ".join(x for x in (r.get("rej"), r.get("pojazd")) if x) or r["rozmiar"]
-                L.append("• %s: %s %s %s %s – %s brutto/szt. × %d = %s" % (kto, p["producent"].title(), p["model_oferta"], r["rozmiar"], p["indeks"], pl(p["cena_brutto"]), r["ilosc"], pl(r["opony"])))
-        else:
-            seen = {}
-            for r in by_var.get(key, []):
-                p = r["p"]; kk = (p["id"])
-                seen.setdefault(kk, [p, r["rozmiar"], 0]); seen[kk][2] += r["ilosc"]
-            for p, s, q in seen.values():
-                L.append("• %s %s %s %s – %s brutto/szt. × %d = %s" % (p["producent"].title(), p["model_oferta"], s, p["indeks"], pl(p["cena_brutto"]), q, pl(p["cena_brutto"] * q)))
-        parts = []
-        if var["opony"]: parts.append("Opony: " + pl(var["opony"]))
-        if var["wymiana"]: parts.append("Wymiana: " + pl(var["wymiana"]))
-        if var["tpms_kw"]: parts.append("Czujniki TPMS: " + pl(var["tpms_kw"]))
-        if var["przech_kw"]: parts.append("Przechowalnia: " + pl(var["przech_kw"]))
-        L.append(" | ".join(parts + ["RAZEM: %s brutto" % pl(total(var))]))
-        L.append("")
-    us = [r for r in rows if r["uslugi"]]
-    if us:
-        L.append("USŁUGI DODATKOWE")
-        seen = set()
-        for r in us:
-            k = (r["rej"], r["rozmiar"])
-            if k in seen: continue
-            seen.add(k)
-            kto = " ".join(x for x in (r["pojazd"], r["rej"]) if x) or r["rozmiar"]
-            if r["tpms_kw"]: L.append("• %s – %s = %s" % (kto, r["tpms_op"], pl(r["tpms_kw"])))
-            if r["przech_kw"]: L.append("• %s – %s = %s" % (kto, r["przech_op"], pl(r["przech_kw"])))
-        L.append("")
-    L += ["GWARANCJA",
-          "• Gwarancja producenta na wady fabryczne (materiałowe i produkcyjne) – standardowo do 5 lat od daty produkcji.",
-          "• Nie obejmuje uszkodzeń mechanicznych (przebicia, przecięcia, uderzenia), jazdy na niewłaściwym ciśnieniu, złej geometrii ani naturalnego zużycia.",
-          "• Reklamację zgłaszają Państwo w naszym serwisie z dowodem zakupu; oponę przekazujemy do oceny producenta.", "",
-          "Ceny ważne %d dni, z zastrzeżeniem dostępności." % cfg["waznosc_dni"], "",
-          "Z poważaniem,", cfg["podpis"]]
-    return "\n".join(L)
 
 # ---------------------------------------------------------------- HTTP
 
@@ -1415,26 +1348,6 @@ def handle(path, body=None, open_path=None):
                              "oddzial": o, "stron": 1}
             strony = [pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], pid, dane, KONTO.get("kto") or "", body.get("logo") or "") for pid in ids]
             return 200, {"html": polacz_strony(strony), "oddzial": o, "stron": len(strony)}
-        if route == "/api/link":
-            if not (HIST and hasattr(HIST, "link")):
-                return 500, {"error": "Link wymaga zapisu w historii (zaloguj się ponownie)."}
-            if not OSTATNIA.get("rows"):
-                return 400, {"error": "Najpierw przelicz ofertę."}
-            o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
-            oid = safe_oid(OSTATNIA["req"].get("oid"))
-            try:
-                ld = link_dane(cfg, OSTATNIA["req"], OSTATNIA["rows"], dane, KONTO.get("kto") or "")
-                tok = HIST.link(oid, ld)
-            except Exception as e:
-                msg = str(e)
-                if "oferty_link" in msg or "404" in msg or "PGRST202" in msg:
-                    msg = "Baza nie ma jeszcze funkcji linków – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."
-                return 500, {"error": msg}
-            url = STRONA_KLIENTA + "oferta.html#" + str(tok)
-            tel = o and (dane or {}).get("tel") or ""
-            sms = "Dzień dobry, oferta na opony od Latex Serwis: %s (ważna do %s). Wybierz model i kliknij „Akceptuję” – oddzwonimy.%s" % (
-                url, ld["wazna"], (" Tel. " + tel) if tel else "")
-            return 200, {"url": url, "sms": sms, "wazna": ld["wazna"]}
         if route == "/api/status":
             st = body.get("status")
             if st not in STATUSY_OFERT or not HIST or not hasattr(HIST, "status"):
@@ -1507,7 +1420,7 @@ def handle(path, body=None, open_path=None):
                     wc[r["wym_klucz"]] = {"klucz": r["wym_klucz"], "opis": "Wymiana %s%s" % (d, "" if t == "osobowy" else " " + TYPY.get(t, t)),
                                           "cennik": r["wym_cennik"], "auto": r["wym_auto"], "cena": r["wym_szt"], "recznie": r["wym_recznie"]}
             return 200, {"ulotki": ul, "wymiany": list(wc.values()), "zmiany": zmiany_ofert(body.get("porownaj"), rows) if body.get("porownaj") else [],
-                         "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "email": email_text(cfg, body, rows, variants), "warianty": summ, "uwagi": warns}
+                         "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "warianty": summ, "uwagi": warns}
     except ApiError as e:
         return 502, {"error": str(e)}
     except Exception as e:

@@ -104,7 +104,7 @@ def test_oferta_ceny_wymiana_uslugi_historia():
     w = res["warianty"][0]
     # 344,10 × 1,05 × 1,23 = 444,41 → 445 zł; rabat 10% → 400,50 → 401 zł; 2 szt.; wymiana 2 × 44; TPMS 4 × 150; przechowalnia 120
     assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (802.0, 88.0, 600.0, 120.0)
-    assert res["plik"] == "" and "Test" in res["email"]          # bez arkusza Excel (decyzja właściciela 2026-11-09)
+    assert res["plik"] == "" and "email" not in res          # bez arkusza Excel (decyzja właściciela 2026-11-09)
     assert S.HIST.get("20261105_120000")["klient"] == "Test"
     code, lst = S.handle("/api/history?q=")
     assert code == 200 and lst["lista"][0]["klient"] == "Test" and lst["lista"][0]["kto"] == "Jan"
@@ -159,7 +159,7 @@ def test_demo_i_indeks_xpartner():
     assert q["demo"] == "tylko" and S.parse_quick("2355518 bez demo")["demo"] == "bez"
     req = {"oid": "1", "pojazdy": [{"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}], "wybor": {"235/55 R18": {"wszystkie": [5]}}}
     code, res = S.handle("/api/offer", req)
-    assert code == 200 and "DEMO" in res["email"]
+    assert code == 200 and "DEMO" in str(res["ulotki"]) + str(S.OSTATNIA["rows"])
     from openpyxl import load_workbook
     ws = load_workbook(S.write_xlsx(S.load_cfg(), req, *S.build_offer(S.load_cfg(), req)[:2])).active   # funkcja zostaje (wyłączona w ofercie)
     assert ws.cell(4, 7).value == "Indeks xPartner" and ws.cell(5, 7).value == 5 and ws.cell(5, 11).value == "=I5*J5"
@@ -432,30 +432,6 @@ def test_statusy_oddzwonienie_i_zmiany_cen():
     assert snap and snap[0]["id"] == 1 and S.zmiany_ofert(snap, rows) == []       # bez zmian -> brak ostrzeżeń
     z = S.zmiany_ofert([dict(snap[0], cena=snap[0]["cena"] - 20), {"id": 777, "nazwa": "Znikła", "cena": 1, "ilosc": 1}], rows)
     assert z[0]["w_gore"] is True and "→" in z[0]["co"] and z[1]["nazwa"] == "Znikła"
-
-
-def test_link_dla_klienta_bez_cen_zakupu():
-    _pdf(["Latex Wrocław"], {"id": 1}, {"wybor": {"205/55 R16": {"wszystkie": [1, 2]}}})
-    zapis = {}
-
-    class H:
-        admin, me = False, "ania@x.pl"
-        def link(self, oid, dane):
-            zapis.update(oid=oid, dane=dane)
-            return "11111111-2222-3333-4444-555555555555"
-    stare = S.HIST
-    S.HIST = H()
-    try:
-        code, r = S.handle("/api/link", {"oddzial": "Latex Wrocław"})
-    finally:
-        S.HIST = stare
-    assert code == 200 and r["url"].endswith("oferta.html#11111111-2222-3333-4444-555555555555") and r["url"] in r["sms"]
-    d = zapis["dane"]
-    assert len(d["modele"]) == 2 and d["o_tel"] == "71 341 30 60"
-    zakupy = {S.pl(r["p"]["netto"]) for r in S.OSTATNIA["rows"] if r.get("p")}
-    txt = __import__("json").dumps(d, ensure_ascii=False)
-    assert not any(z in txt for z in zakupy) and "zakup" not in txt.lower()        # klient nie widzi cen zakupu
-    assert all("{{" not in m["html"] for m in d["modele"])
 
 
 def test_porownanie_2_3_modele():

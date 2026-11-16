@@ -71,10 +71,6 @@ class Historia:
              "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
             prefer="resolution=merge-duplicates,return=minimal")
 
-    def link(self, oid, dane):
-        """Link dla klienta: migawka stron PDF w bazie, zwraca token (uuid)."""
-        return _db("POST", "/rest/v1/rpc/oferty_link", {"p_oid": oid, "p_dane": dane})
-
     def status(self, oid, status):
         _db("POST", "/rest/v1/rpc/oferty_status", {"p_oid": oid, "p_status": status}, prefer="return=minimal")
 
