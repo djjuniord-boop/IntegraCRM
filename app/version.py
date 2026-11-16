@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.7"
+VERSION = "0.27.8"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.8",
+        "date": "2026-11-16",
+        "changes": [
+            "Oferty opon: „📝 Uwagi do oferty” – wewnętrzne notatki (np. dla kogo zamówienie), widoczne w historii ofert i po otwarciu oferty; nie trafiają do PDF ani do klienta",
+            "Oferty opon: usunięta treść e-maila i przycisk „Kopiuj treść e-maila”",
+            "Oferty opon: „Zapytanie klienta” domyślnie zwinięte – rozwijasz kliknięciem w nagłówek",
+        ],
+    },
     {
         "version": "0.27.7",
         "date": "2026-11-12",

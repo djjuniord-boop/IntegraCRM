@@ -78,17 +78,32 @@ class Historia:
     def status(self, oid, status):
         _db("POST", "/rest/v1/rpc/oferty_status", {"p_oid": oid, "p_status": status}, prefer="return=minimal")
 
+    def uwagi(self, txt, rid=None, oid=None):
+        """Wewnętrzne uwagi do oferty (autor albo administrator – sprawdza baza)."""
+        if not rid:
+            rows = _db("GET", "/rest/v1/oferty?select=id&oid=eq." + urllib.parse.quote(oid)
+                       + "&owner=eq." + urllib.parse.quote(_email(_token()))) or []
+            if not rows:
+                return
+            rid = rows[0]["id"]
+        _db("POST", "/rest/v1/rpc/oferty_uwagi", {"p_id": int(rid), "p_uwagi": (txt or "")[:1000]}, prefer="return=minimal")
+
     def list(self, q=""):
-        flt = ""
+        flt = flt_u = ""
         q = (q or "").strip().lower().replace("*", "").replace(",", " ").replace("(", " ").replace(")", " ")
         if q:
             w = urllib.parse.quote("*" + q + "*")
             flt = f"&or=(szukaj.ilike.{w},owner.ilike.{w})"
-        try:   # status i link (od 0.25); bez tych kolumn w bazie – stara lista
-            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp"
-                              "&order=updated_at.desc&limit=1000" + flt) or []
+            flt_u = f"&or=(szukaj.ilike.{w},owner.ilike.{w},uwagi.ilike.{w})"
+        try:   # uwagi (od 0.27.8), status i link (od 0.25); bez tych kolumn w bazie – starsza lista
+            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp,uwagi,uwagi_at,uwagi_kto"
+                              "&order=updated_at.desc&limit=1000" + flt_u) or []
         except Exception:
-            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []
+            try:
+                rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp"
+                                  "&order=updated_at.desc&limit=1000" + flt) or []
+            except Exception:
+                rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []
         try:
             names = {u["email"].lower(): (u.get("name") or "") for u in _db("GET", "/rest/v1/app_users?select=email,name") or []}
         except Exception:
