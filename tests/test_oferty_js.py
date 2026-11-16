@@ -33,7 +33,7 @@ def test_okna_ofert_bez_bledow_js():
             pg.on("pageerror", lambda e: bledy.append(str(e)))
             pg.goto(p.as_uri())
             pg.wait_for_timeout(600)
-            for js in ("openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
+            for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
                        "zapTog()", "zapTog()"):
                 try:
                     pg.evaluate(js)
