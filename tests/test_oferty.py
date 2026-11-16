@@ -518,3 +518,9 @@ def test_uwagi_do_oferty_zapis():
         assert S.handle("/api/uwagi", {"oid": "x", "uwagi": "a"})[0] == 400
     finally:
         S.HIST = stary
+
+
+def test_szybkie_ten_sam_model():
+    q = S.parse_quick("2754020 3153520 wielosezonowe 2 szt ten sam model")
+    assert q["ten_sam"] is True and len(q["pojazdy"]) == 2
+    assert S.parse_quick("2754020 3153520 2 szt")["ten_sam"] is False
