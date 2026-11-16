@@ -4,7 +4,6 @@ Robi zrzuty tego, czego zwykły test okna nie pokazuje (strona Panelu działa w 
   oferty_zamowienia.png  – okno „Zamówienia xPartner” z przykładowymi danymi
   oferty_historia.png    – historia ofert ze statusami, przypomnieniem i odpowiedzią klienta
   oferty_porownanie.png  – PDF „Porównanie” (2 modele) wygenerowany z prawdziwego wzoru
-  oferta_klient.png      – strona oferty dla klienta (telefon 390 px)
 Dane zmyślone (tests/test_oferty, tests/test_zamowienia). Uruchom: python tests/ui_oferty_win.py <folder_na_zrzuty>
 """
 import json
@@ -72,15 +71,6 @@ try:
     p = TMP / "porownanie.html"; p.write_text(r["html"], encoding="utf-8")
     wyniki.append(zrzut(p, "oferty_porownanie.png", 794, 1123))
 
-    d = S.link_dane(S.load_cfg(), S.OSTATNIA["req"], S.OSTATNIA["rows"], T.ODDZ["Latex Wrocław"], "Jan Test")
-    k = (ROOT / "app/oferty/klient.html").read_text(encoding="utf-8").replace(
-        '<script src="config.js"></script>',
-        "<script>window.SERWIS_CFG={url:'x',key:'x'};location.hash='11111111-2222-3333-4444-555555555555';"
-        "window.fetch=async()=>({ok:true,json:async()=>(%s)});</script>" % json.dumps({"dane": d, "odp": None}))
-    p = TMP / "klient.html"; p.write_text(k, encoding="utf-8")
-    import shutil
-    shutil.copy2(ROOT / "app/assets/logo.png", TMP / "logo.png")
-    wyniki.append(zrzut(p, "oferta_klient.png", 390, 1400))
 finally:
     for f in (ROOT / "app/oferty").glob("_test_*.html"):
         f.unlink()

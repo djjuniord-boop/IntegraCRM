@@ -2,7 +2,6 @@
 
 **Co robi:** porównuje zakończone zlecenia z raportu Integry 7 (PDF) z raportem z CRM (`.xlsx/.csv` z „Listy
 kontrolne”) po numerach rejestracyjnych, pokazuje braki i przygotowuje mail do handlowców. Każde sprawdzenie
-trafia do wspólnej historii w bazie, a liczniki dzienne (wizyty / listy kontrolne / braki) do `visit_stats`
 (zakładka STATYSTYKI). Od 0.21.0 **bez wycinka ekranu (OCR)** – upuszczony obraz → komunikat „pobierz .xlsx”.
 OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `crm` + oddziały.
 
@@ -18,13 +17,12 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | `crm_report.py` | odczyt raportu CRM `.xlsx/.csv` (kolumny Data, Rejestracja, Oddział), wybór oddziałów |
 | `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu usunięte w 0.26.1 |
 | `mailer.py` | treść maila, wysyłka przez serwer (`send_server`; dawna wysyłka Gmailem z komputera usunięta w 0.26.1) |
-| `history.py` | historia sprawdzeń i rejestr „zgłoszony już” – w bazie po zalogowaniu, lokalnie bez sesji (testy); `save_visit_stats` |
+| `history.py` | historia sprawdzeń i rejestr „zgłoszony już” – w bazie po zalogowaniu, lokalnie bez sesji (testy) |
 
 ## Dane w bazie
 
 - `checks` – sprawdzenia (kto, oddziały, liczby, braki, komu wysłano mail). Pracownik widzi swoje i swoich oddziałów.
 - `reported` + funkcja `report_plates()` – numery już zgłoszone (wspólne dla oddziałów, wygasają po 60 dniach).
-- `visit_stats` przez `rpc/save_visit_stats` – po każdym sprawdzeniu, w wątku, po `add_check`, dla każdego dnia
   z zakresu raportu Integry: `visits` = wiersze zleceń z pojazdem tego dnia (**bez odduplikowania**: to samo auto
   2× = 2 wizyty), `lists` = wiersze raportu CRM tego dnia dla oddziału (bez odduplikowania), `missing` = wizyty,
   których numeru nie ma w CRM **tego samego dnia**. Zapis tylko gdy zaznaczony jest dokładnie jeden serwis
