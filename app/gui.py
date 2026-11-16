@@ -82,10 +82,19 @@ HELP_MODULES = [
                             "same; wyniki trafiają też do zakładki WYNIKI."),
     ]),
     ("oferty", "OFERTY OPON", [
-        ("Szybkie polecenie", "Wpisz np. „2055516 zimowe premium” albo „skoda octavia 2055516 dw5444lw z wymianą” – "
-                              "program sprawdzi ceny i stany w xPartner na żywo."),
-        ("Oferta", "Zaznacz opony i kliknij „Generuj ofertę”: karta z sumą, e-mail do skopiowania, plik XLSX "
-                   "(folder Dokumenty\\Oferty opon) i ulotki PDF. Historia ofert jest zapisana na Twoim koncie."),
+        ("Szybkie polecenie", "Wpisz np. „2055516 zimowe premium 4 szt” albo „2156017c” (dostawcze) i kliknij "
+                              "„Zrób ofertę”. Opony z mniejszym stanem niż potrzeba są na końcu listy z dopiskiem "
+                              "„⚠ tylko N szt.”. „Zapytanie klienta” rozwiniesz kliknięciem w nagłówek."),
+        ("Oferta i PDF", "Zaznacz opony i kliknij „Generuj ofertę” – ceny i stany odświeżą się na żywo. PDF dla klienta "
+                         "z danymi Twojego oddziału; rabat wpisujesz w „Warunkach tej oferty”. W „📝 Uwagi do oferty” "
+                         "zapisz informacje tylko dla nas (nie trafiają do PDF)."),
+        ("Historia ofert", "Wszystkie oferty z uwagami i statusami. „Otwórz i odśwież” wczytuje ofertę z aktualnymi "
+                           "cenami, „🛒 Zamów” prowadzi od razu do zamawiania."),
+        ("Koszyk xPartner", "Opony dodasz przyciskiem 🛒 w wynikach albo w ofercie. W koszyku: ilości, ceny zakupu, "
+                            "adres dostawy oddziału albo jednorazowy. Faktura VAT i przelew są stałe; przed wysłaniem "
+                            "pokazuje się kwota do potwierdzenia, a po – numer zamówienia z xPartner."),
+        ("Zamówienia xPartner", "Otwarte zamówienia, zrealizowane (domyślnie 2 dni – dłuższy okres wybierz datami) "
+                                "i faktury."),
     ]),
     ("serwis", "SERWIS QR", [
         ("Wpis serwisowy", "W zakładce SERWIS QR dodaj wpis (numer, przebieg, olej, filtry) i wydrukuj naklejkę "
@@ -350,7 +359,7 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
         if can("serwis") and not SERWIS_WYGASZONY:
             tab_list.append(("serwis", "SERWIS QR  β"))
         if can("oferty"):
-            tab_list.append(("oferty", "OFERTY OPON  β"))
+            tab_list.append(("oferty", "OFERTY OPON"))
         if self.session and self.session.is_admin:
             tab_list.append(("users", "UŻYTKOWNICY"))
         tab_list.append(("help", "POMOC I WERSJE"))

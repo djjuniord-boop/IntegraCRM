@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.9"
+VERSION = "0.27.10"
 RELEASED = "2026-11-11"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "0.27.10",
+        "date": "2026-11-16",
+        "changes": [
+            "Oferty opon bez oznaczenia „beta”; nowa pomoc do Ofert (szybkie polecenie, uwagi, historia, koszyk, zamówienia)",
+            "Zawiera zmiany z 0.27.9: usunięte STATYSTYKI, wygaszony SERWIS QR",
+        ],
+    },
     {
         "version": "0.27.9",
         "date": "2026-11-16",

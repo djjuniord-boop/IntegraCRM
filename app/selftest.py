@@ -157,7 +157,8 @@ def run(folder: str) -> int:
                 ui[nm]["rows"] = len(app.users_tv.get_children())
             app.destroy()
         res["ui"] = ui
-        res["ui_ok"] = ("users" in ui["admin"]["tabs"] and "serwis" in ui["admin"]["tabs"]
+        from konfig import SERWIS_WYGASZONY   # SERWIS QR wygaszony = zakładki nie ma także u administratora
+        res["ui_ok"] = ("users" in ui["admin"]["tabs"] and ("serwis" in ui["admin"]["tabs"]) == (not SERWIS_WYGASZONY)
                         and ui["admin"].get("rows") == 2 and "users" not in ui["user"]["tabs"]
                         and "serwis" not in ui["user"]["tabs"] and "main" in ui["user"]["tabs"]
                         and ui["user"]["branches"] == ["Latex Opole"])
