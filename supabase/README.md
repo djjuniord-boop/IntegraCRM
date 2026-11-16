@@ -25,7 +25,7 @@ Projekt `latex-serwis-qr` (id `nlrwulrtaocuemfmlfav`, Frankfurt, plan darmowy). 
 
 `me`, `is_admin`, `has_module`, `has_branch`, `can_see_marza` (uprawnienia) · `app_login` (profil + ostatnie
 logowanie) · `admin_set_user` · `report_plates` · `log_event` · `get_car` (strona klienta, anon) ·
-~~`save_visit_stats`~~ (usunięta 2026-11-16) · `audit_trg`, `marza_months_stamp`, `visit_stats_stamp` (wyzwalacze).
+~~`save_visit_stats`~~ (usunięta 2026-11-16) · `audit_trg`, `marza_months_stamp`, `visit_stats_stamp` (wyzwalacze; `visit_stats_stamp` do usunięcia – `porzadki_2_2026-11-16.sql`).
 
 - `can_see_marza(b)` – `b` = `'wroclaw'` / `'opole'`: moduł `marza` ALBO (moduł `wyniki` I oddział
   `Latex Wrocław` / `Latex Opole` na koncie). Admin – zawsze; zablokowane i obce konta – nigdy. Wywołanie

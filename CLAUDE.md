@@ -111,6 +111,7 @@ xvfb-run -a /tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|ofert
 /tmp/venv/bin/python tools/make_fixtures.py /tmp/fx      # dane testowe (bez prawdziwych danych firmy)
 INTEGRA_SELFTEST=/tmp/fx xvfb-run -a /tmp/venv/bin/python app/start.py   # ścieżka PDF→OCR→porównanie→mail
 xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/venv/bin/python tests/ui_smoke.py . /tmp/zrzuty  # okno jak nowy użytkownik
+python3 tests/test_oferty_js.py                           # panel OFERT: każde okno bez błędów JS (systemowy Python z Playwright)
 ```
 
 `selftest` na Linuksie: `serwis_window: false` jest oczekiwane (okno panelu działa tylko na Windows).

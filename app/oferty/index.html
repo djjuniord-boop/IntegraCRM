@@ -33,7 +33,6 @@ td input{width:100%}.num{text-align:right;white-space:nowrap}
 .msg{padding:8px 12px;border-radius:6px;margin-top:8px;white-space:pre-wrap}.msg.e{background:#fdecec;color:#8a1111}.msg.i{background:#e9f5ec;color:#145a26}.msg.w{background:#fff6dc;color:#5c4400;white-space:normal}.msg.ok{background:#e9f5ec;color:#145a26;white-space:normal}
 .hb{background:var(--red);color:#fff;border-radius:9px;padding:0 7px;font-size:12px;font-weight:800;margin-left:4px}
 .sx{font-size:12px;font-weight:700;border-radius:9px;padding:2px 8px;white-space:nowrap}.sx.nowa{background:#eee}.sx.wyslana{background:#e3edfb;color:#0B4FA8}.sx.przyjeta{background:#e1f4e4;color:#1b6b2a}.sx.odrzucona{background:#f1f1f1;color:#888}.sx.zamowiona{background:#141414;color:#fff}
-.odp{background:#e9f5ec;border-radius:6px;padding:4px 8px;margin-top:4px;font-size:12px}
 body.hidebuy .buy{display:none}
 .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:9px;background:#F0F0F0;color:#444}
 .zk{border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:10px}.zk.err{border-color:var(--red);background:#fff5f5}
@@ -288,13 +287,13 @@ function openHist(){$('#hq').value='';loadHist();hdlg.showModal()}
 let HL=[],HADM=false;
 async function loadHist(){const j=await api('/api/history?q='+encodeURIComponent($('#hq').value));HL=j.lista;HADM=j.admin;ME=j.me||ME;
  const osoby=[...new Set(HL.map(h=>h.kto))].sort();const cur=$('#hk')?$('#hk').value:'';
- const cs=$('#hs')?$('#hs').value:'';const nOd=HL.filter(h=>h.oddzwon&&(!HADM||h.owner===ME)).length,nOdp=HL.filter(h=>h.odp&&h.status==='przyjeta'&&(!HADM||h.owner===ME)).length;
+ const cs=$('#hs')?$('#hs').value:'';const nOd=HL.filter(h=>h.oddzwon&&(!HADM||h.owner===ME)).length,nOdp=0;
  $('#hfil').innerHTML=(HADM?`<label style="font-size:12px;color:var(--muted)">Osoba <select id="hk" onchange="drawHist()"><option value="">wszyscy (${HL.length})</option>${osoby.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label> `:'')+
  `<label style="font-size:12px;color:var(--muted)">Status <select id="hs" onchange="drawHist()"><option value="">wszystkie</option><option value="oddzwon" ${cs==='oddzwon'?'selected':''}>📞 do oddzwonienia (${nOd})</option>${Object.entries(STATUSY).map(([k,v])=>`<option value="${k}" ${cs===k?'selected':''}>${v}</option>`).join('')}</select></label>`;
  badge(nOd+nOdp);drawHist()}
 const STATUSY={nowa:'Nowa',wyslana:'Wysłana',przyjeta:'Przyjęta',odrzucona:'Odrzucona',zamowiona:'Zamówiona'};let ME='';
 function badge(n){const b=$('#hBadge');if(!b)return;b.style.display=n?'':'none';b.textContent=n;b.title=n+' ofert do oddzwonienia'}
-async function badgeStart(){try{const j=await api('/api/history?q=');ME=j.me||'';badge(j.lista.filter(h=>(h.oddzwon||(h.odp&&h.status==='przyjeta'))&&(!j.admin||h.owner===ME)).length)}catch(e){}}
+async function badgeStart(){try{const j=await api('/api/history?q=');ME=j.me||'';badge(j.lista.filter(h=>h.oddzwon&&(!j.admin||h.owner===ME)).length)}catch(e){}}
 async function setStatus(oid,st,sel){sel.disabled=true;try{await api('/api/status',{oid,status:st});const h=HL.find(x=>x.oid===oid&&x.owner===ME);if(h){h.status=st;h.oddzwon=false}loadHist()}catch(e){alert(e.message);sel.disabled=false}}
 function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs').value:'';const L=HL.filter(h=>(!k||h.kto===k)&&(!st||(st==='oddzwon'?h.oddzwon:h.status===st)));
  let sum='';{const by={};for(const h of L){const o=by[h.kto]??={n:0,kl:new Set(),wart:0,mod:{},wys:0,prz:0};o.n++;if(h.status!=='nowa')o.wys++;if(h.status==='przyjeta'||h.status==='zamowiona')o.prz++;if(h.klient)o.kl.add(h.klient);o.wart+=h.razem||0;for(const w of h.warianty)for(const m of(w.modele||'').split(', ').filter(Boolean))o.mod[m]=(o.mod[m]||0)+1}
@@ -423,12 +422,12 @@ let PROGI=[];
 function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';
  if(k!=='kwota'){$('#progiBox').innerHTML='';return}
  $('#progiBox').innerHTML='<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+PROGI.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="PROGI[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="PROGI[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="PROGI.splice(${i},1);drawProgi()">✕</button></td></tr>`).join('')+'</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="PROGI.splice(PROGI.length-1,0,{do:null,kwota:0});drawProgi()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, w górę do pełnych zł.</span>'}
-function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','podpis'])$('#c_'+k).value=CFG[k]??'';
+function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])$('#c_'+k).value=CFG[k]??'';
  WT={wymiana_kolo:{...CFG.wymiana_kolo},wymiana_suv:{...CFG.wymiana_suv},wymiana_dost:{...CFG.wymiana_dost}};WCUR='wymiana_kolo';document.querySelectorAll('.wtabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==WCUR));drawW();
  for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_premium').value=CFG.premium.join(', ');PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));drawProgi();drawOddz();msg('#cMsg','');cenyBlok();dlg.showModal()}
 function cenyBlok(){const o=CFG.ceny_oddzial,ed=CFG.ceny_edycja;$('#cenyInfo').textContent=o?(ed?'– wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':'– ustala administrator dla oddziału '+o):'';
  document.querySelectorAll('#cenyBox input,#cenyBox button,#c_marza_proc').forEach(e=>e.disabled=!ed)}
-async function saveCfg(){const c={};for(const k of['podpis'])c[k]=$('#c_'+k).value;for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])c[k]=+$('#c_'+k).value;
+async function saveCfg(){const c={};for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])c[k]=+$('#c_'+k).value;
  readW();Object.assign(c,WT);for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])c[k]=+$('#c_'+k).value||0;
  c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=PROGI.filter(p=>p.kwota!==undefined&&p.kwota!=='').map(p=>({do:p.do===null||p.do===''?null:+p.do,kwota:+p.kwota}));
  c.premium=$('#c_premium').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
