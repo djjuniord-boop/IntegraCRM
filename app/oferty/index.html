@@ -69,7 +69,7 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main>
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
-<div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button></div>
+<div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button><button class="sec" onclick="clearAll()" title="Czyści polecenie, zapytanie klienta, wyniki, zaznaczenia i ofertę">🧹 Wyczyść wszystko</button></div>
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: rozmiar(y) w dowolnym zapisie (205/55 R16, 205/55 16, 2055516), ilość („8 szt”), sezon (zimowe / całoroczne / letnie), klasy (premium / średnia / budżet, bez podania = wszystkie), marki, „runflat”, „suv”, „dostawczy”, „z wymianą”, „4 czujniki”, „przechowalnia opon/kół”.</div><div id="qMsg"></div></div>
 <div class="card"><h2 class="tog" onclick="zapTog()"><span class="n">1</span>Zapytanie klienta <span class="muted" style="font-size:13px;font-weight:400">· pojazdy, rozmiary, usługi – ręcznie</span><span class="chev" id="zapChev">▸ Rozwiń</span></h2>
 <div id="zapBody" style="display:none">
@@ -232,8 +232,7 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
  RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
- const filt=req.sezony.length||req.klasy.length||req.producenci.trim();
- if(filt){const n=1;for(const[s,g]of Object.entries(RES.wyniki))for(const[z,l]of Object.entries(g))l.filter(p=>p.ok_stan).slice(0,n).forEach(p=>SEL.add(s+'|'+z+'|'+p.id))}
+ // bez automatycznego zaznaczania – opony wybiera użytkownik (decyzja właściciela 2026-11-16)
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
 function clearAll(){if(SEL.size&&!confirmClear())return;
@@ -331,7 +330,7 @@ let SEL=new Set(),PAGE={};
 function hideBuy(v){const on=v===undefined?!document.body.classList.contains('hidebuy'):!!v;document.body.classList.toggle('hidebuy',on);try{localStorage.setItem('hidebuy',on?'1':'')}catch(e){}}
 try{if(localStorage.getItem('hidebuy'))document.body.classList.add('hidebuy')}catch(e){}const PER=20;
 function tog(c){const k=c.dataset.k;c.checked?SEL.add(k):SEL.delete(k);updCnt()}
-function updCnt(){$('#bO').textContent='📄 Generuj ofertę ('+SEL.size+' wybr.) – odświeża ceny i stany'}
+function updCnt(){const b=$('#bO');b.disabled=!SEL.size;b.textContent=SEL.size?'📄 Generuj ofertę ('+SEL.size+' wybr.) – odświeża ceny i stany':'📄 Zaznacz opony do oferty'}
 function go(g,d){PAGE[g]=(PAGE[g]||0)+d;render();document.getElementById('g_'+g)?.scrollIntoView({block:'start'})}
 let SORT={k:'',d:1};
 const HOM={MO:'Mercedes (MO)',AO:'Audi (AO/RO)','*':'BMW (*)',N:'Porsche (N0–N9)',VOL:'Volvo (VOL)',T0:'Tesla (T0)',J:'Jaguar (J)',LR:'Land Rover (LR)',VW:'VW',FR:'rant ochronny felgi'};
