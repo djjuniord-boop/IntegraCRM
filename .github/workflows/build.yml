@@ -205,6 +205,8 @@ jobs:
       - name: Kontrola – panel SERWIS QR osadzony w zakładce programu
         shell: pwsh
         run: |
+          $wyg = python -c "import sys; sys.path.insert(0, 'app'); import konfig; print(konfig.SERWIS_WYGASZONY)"
+          if ($wyg -eq 'True') { 'SERWIS QR wygaszony w programie (konfig.SERWIS_WYGASZONY) – kontrola osadzenia pominięta'; exit 0 }
           if (-not (Test-Path shots/serwis_embed.txt)) { throw "Brak wyniku osadzania panelu" }
           Get-Content shots/serwis_embed.txt
           if (-not (Select-String -Path shots/serwis_embed.txt -Pattern "embedded=True" -Quiet)) {
