@@ -18,8 +18,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | **Kontrola CRM** | `app/kontrola/` | → [`app/kontrola/README.md`](app/kontrola/README.md) |
 | **MARŻA** | `app/marza/` | → [`app/marza/README.md`](app/marza/README.md) |
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
-| **STATYSTYKI** | `app/statystyki/` | → [`app/statystyki/README.md`](app/statystyki/README.md) – listy kontrolne na 10 zleceń, prognoza |
-| **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) |
+| **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) – **wygaszony w programie** (`konfig.SERWIS_WYGASZONY`, decyzja 2026-11-16); strona z kodów QR działa |
 | **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner (beta) |
 | **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – oferty opon i wyniki marży na telefonie
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
@@ -62,7 +61,7 @@ Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy k
 
 1. **Ustal moduł** z mapy wyżej. Czytaj tylko `CLAUDE.md` + README tego modułu + jego pliki.
    Zmiana w jednym module → agent tego modułu (`.claude/agents/agent-<moduł>.md`): `agent-kontrola`, `agent-marza`,
-   `agent-wyniki`, `agent-statystyki`, `agent-dzis` (ekran DZIŚ), `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
+   `agent-wyniki`, `agent-dzis` (ekran DZIŚ), `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
    (`mobile/`), `agent-uzytkownicy`, `agent-baza` (Supabase). Zmiana silnika ofert albo wzorów WYNIKÓW = także
    ta sama zmiana w telefonie (agent Android).
    Zmiana w kilku modułach albo w rdzeniu → kontroler sam, po kolei, z agentami jako pomocą.
@@ -107,7 +106,7 @@ apt-get install -y python3-tk             # raz
 python3.12 -m venv /tmp/venv && /tmp/venv/bin/pip install pdfplumber pytesseract Pillow openpyxl pypdf matplotlib pyflakes reportlab
 /tmp/venv/bin/python -m pyflakes app                      # brakujące nazwy, literówki
 /tmp/venv/bin/python tests/check_imports.py               # każdy import wskazuje istniejący moduł
-/tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|statystyki|serwis|rdzen]   # testy modułów (bez okna)
+/tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|serwis|rdzen]   # testy modułów (bez okna)
 /tmp/venv/bin/python tools/make_fixtures.py /tmp/fx      # dane testowe (bez prawdziwych danych firmy)
 INTEGRA_SELFTEST=/tmp/fx xvfb-run -a /tmp/venv/bin/python app/start.py   # ścieżka PDF→OCR→porównanie→mail
 xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/venv/bin/python tests/ui_smoke.py . /tmp/zrzuty  # okno jak nowy użytkownik

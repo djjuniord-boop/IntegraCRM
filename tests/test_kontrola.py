@@ -146,32 +146,6 @@ class _Okno:
         self.lines.append(t)
 
 
-def test_zapis_statystyk_jeden_oddzial_i_brak_przy_dwoch():
-    temp_data()
-    from kontrola import history
-    from kontrola.zakladka import KontrolaMixin
-    res = {"daily": [{"day": "2026-10-13", "visits": 3, "lists": 1, "missing": 1}], "no_overlap": False}
-    s = _Sesja()
-    stara = history.SESSION
-    history.SESSION = s
-    try:
-        w = _Okno()
-        KontrolaMixin._save_daily(w, res, ["Latex Wrocław", "Latex Opole"])
-        assert s.calls == [] and "kilka serwisów" in w.lines[-1]
-        KontrolaMixin._save_daily(w, res, ["Latex Wrocław"])
-        assert s.calls == [("save_visit_stats", {"p_branch": "Latex Wrocław", "p_day": "2026-10-13", "p_visits": 3,
-                                                 "p_lists": 1, "p_missing": 1, "p_check_id": 7})], s.calls
-
-        def zly(*a, **k):
-            raise RuntimeError("brak sieci")
-        s.rpc = zly
-        KontrolaMixin._save_daily(w, res, ["Latex Wrocław"])   # błąd zapisu → tylko linia w Szczegółach
-        assert "nie zapisano (brak sieci)" in w.lines[-1]
-    finally:
-        history.SESSION = stara
-    assert history.save_visit_stats("Latex Wrocław", res["daily"]) is None   # bez sesji – nic
-
-
 def test_daily_stats_tylko_dni_z_raportu_crm():
     from datetime import date
     from kontrola import analyze
@@ -231,7 +205,7 @@ def test_kolo_postepu_kroki():
     from kontrola import postep
     linie = ["PDF z Integry…", "  3: A, B, C", "  zakres raportu: 13.10 – 13.10",
              "Raport z CRM (plik), oddziały: Latex Wrocław", "  2: A, B", "Porównuję", "⚠ coś",
-             "Historia", "Statystyki: zapisano", "Przygotowuję e-mail", "Gotowe"]
+             "Historia", "Przygotowuję e-mail", "Gotowe"]
     cur, seen = 0.0, []
     for ln in linie:
         cur = postep.postep(ln, cur)

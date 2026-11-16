@@ -98,3 +98,8 @@ def update_source(cfg: dict) -> str:
     if "drive.google.com" in src:   # stare źródło (Dysk Google) – od 0.8.3 aktualizacje są na GitHubie
         src = ""
     return src or DEFAULT_UPDATE_SOURCE
+
+
+# SERWIS QR wygaszony w programie (decyzja właściciela 2026-11-16): zakładka, kafel DZIŚ i pomoc ukryte;
+# strona dla klientów z kodów QR (gh-pages) działa dalej. Włączenie z powrotem: False.
+SERWIS_WYGASZONY = True

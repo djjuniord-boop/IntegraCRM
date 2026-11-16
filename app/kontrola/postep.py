@@ -8,7 +8,6 @@ KROKI = (
     ("Porównuję", 0.65),
     ("⚠", 0.70),
     ("Historia", 0.80),
-    ("Statystyki", 0.88),
     ("Przygotowuję e-mail", 0.95),
     ("Gotowe", 1.0),
 )
