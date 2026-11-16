@@ -41,6 +41,8 @@ body.hidebuy .buy{display:none}
 .st{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:9px;background:#EEF3FF;color:#1d4f9c}.st.s5{background:#fde8e8;color:#b00012}.st.s6{background:#e9f5ec;color:#145a26}
 button.zt.on{background:var(--navy);color:#fff;border-color:var(--navy)}.fr{cursor:pointer}.fr:hover td{background:#fafafa}
 input:disabled,select:disabled,textarea:disabled{background:#eee;color:#888;cursor:not-allowed}
+.tgl{display:inline-flex;border:1px solid #ccc;border-radius:9px;overflow:hidden}.tgl button{border:0;border-radius:0;background:#fff;color:#141414;font-weight:600;padding:8px 14px}.tgl button.on{background:#141414;color:#fff}
+.alt{font-size:12px;color:#555;cursor:pointer;text-decoration:underline dotted}.alt:hover{color:var(--red)}
 .uwbox{margin:6px 0 12px;padding:10px 12px;border-radius:10px;background:#fffdf5;border:1px solid #f0d27a}.uwbox textarea{min-height:0;margin-top:6px}
 .uwh{display:inline-block;background:#fff8e1;border:1px solid #f0d27a;color:#6b4e00;border-radius:7px;padding:2px 8px;font-size:12px;margin-top:4px;max-width:420px;white-space:pre-wrap}
 .tog{cursor:pointer;user-select:none}.tog .chev{float:right;font-size:13px;font-weight:600;color:#555;border:1px solid #ccc;border-radius:8px;padding:3px 10px}
@@ -108,6 +110,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Szukaj w wynikach<input id="f_txt" placeholder="model, indeks xPartner…" oninput="PAGE={};render()" style="width:160px"></label>
 <button class="sec" onclick="resetF()" style="align-self:flex-end">Wyczyść filtry</button>
 </div>
+<div id="samoBox" style="display:none;margin:10px 0 4px"><span class="tgl"><button id="samo0" onclick="samoUstaw(false)">Każdy rozmiar osobno</button><button id="samo1" onclick="samoUstaw(true)">🔗 Ten sam model na wszystkich rozmiarach</button></span><div class="muted" style="font-size:12px;margin-top:4px">Pokazuje tylko modele dostępne we wszystkich rozmiarach w potrzebnej ilości. W szybkim poleceniu: „… ten sam model”.</div></div>
 <div id="res"></div>
 <div class="row" style="margin-top:12px"><button class="red" onclick="offer()" id="bO">📄 Generuj ofertę (odświeża ceny i stany)</button></div><div id="oMsg"></div></div>
 <div class="card" id="outCard" style="display:none"><h2><span class="n">4</span>Oferta</h2>
@@ -213,7 +216,7 @@ async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/
  $('#veh tbody').innerHTML='';j.pojazdy.forEach(addRow);
  document.querySelectorAll('.sez').forEach(c=>c.checked=j.sezony.includes(c.value));
  document.querySelectorAll('.kl').forEach(c=>c.checked=j.klasy.includes(c.value));
- $('#std').checked=j.runflat;setProd(j.producenci,false);$('#f_demo').value=j.demo||'';QIDX={li:j.nosnosc?'='+j.nosnosc:'',sp:j.predkosc?'='+j.predkosc:''};msg('#qMsg','');await search();
+ SAMO=!!j.ten_sam;$('#std').checked=j.runflat;setProd(j.producenci,false);$('#f_demo').value=j.demo||'';QIDX={li:j.nosnosc?'='+j.nosnosc:'',sp:j.predkosc?'='+j.predkosc:''};msg('#qMsg','');await search();
 }catch(e){msg('#qMsg',e.message,1)}b.disabled=false}
 function addRow(v={}){v=Object.assign({rej:'',pojazd:'',rozmiar:'',ilosc:4,wymiana:false,typ:'osobowy',tpms:0,przech:''},v);const tr=document.createElement('tr');const o=(a,b,c)=>`<option value="${a}" ${c===a?'selected':''}>${b}</option>`;tr.innerHTML=`<td><input class="rej" value="${esc(v.rej)}"></td><td><input class="poj" value="${esc(v.pojazd)}"></td><td><select class="typ">${o('osobowy','osobowy',v.typ)}${o('suv','SUV / 4x4',v.typ)}${o('dostawczy','dostawczy',v.typ)}</select></td><td><input class="roz" value="${esc(v.rozmiar)}" placeholder="205/60 R16"></td><td><input class="il" type="number" value="${v.ilosc??4}" min="0" style="width:64px" title="0 = bez nowych opon"></td><td><input type="checkbox" class="wym" ${v.wymiana?'checked':''} style="width:auto"></td><td><input class="tp" type="number" min="0" max="8" value="${v.tpms||0}" style="width:60px"></td><td><select class="pr">${o('','—',v.przech)}${o('opony','opony',v.przech)}${o('kola','koła (z felgami)',v.przech)}</select></td><td><button class="sec" onclick="this.closest('tr').remove()">✕</button></td>`;$('#veh tbody').append(tr)}
 function vehicles(){return[...document.querySelectorAll('#veh tbody tr')].map(t=>({rej:t.querySelector('.rej').value.trim(),pojazd:t.querySelector('.poj').value.trim(),rozmiar:t.querySelector('.roz').value.trim(),ilosc:+t.querySelector('.il').value||0,nowe:(+t.querySelector('.il').value||0)>0,wymiana:t.querySelector('.wym').checked,typ:t.querySelector('.typ').value,tpms:+t.querySelector('.tp').value||0,przech:t.querySelector('.pr').value})).filter(v=>v.rozmiar)}
@@ -231,14 +234,14 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
+ RES=await api('/api/search',req);SEL=new Set();SAMOSEL=new Set();SAMOW={};PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
  // bez automatycznego zaznaczania – opony wybiera użytkownik (decyzja właściciela 2026-11-16)
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();SAMO=false;SAMOSEL=new Set();SAMOW={};PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null,UWZM=false;
@@ -301,7 +304,7 @@ function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs'
  <td style="white-space:nowrap">${h.owner===ME?`<select data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
  ${h.oddzwon?'<div class="sx" style="background:#fff3cd;color:#7a5900;margin-top:4px">📞 oddzwoń – brak odpowiedzi 2 dni</div>':''}</td>
  <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
-async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};
+async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();SAMO=false;const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
@@ -350,7 +353,7 @@ function fillHom(){const have=new Set(),sps=new Set(),lis=new Set();for(const g 
  $('#f_spd').innerHTML='<option value="">dowolna</option>'+[...sps].sort((a,b)=>spdI(a)-spdI(b)).map(x=>`<option value="=${esc(x)}" ${cs==='='+x?'selected':''}>${esc(x)}</option><option value="${esc(x)}" ${cs===x?'selected':''}>${esc(x)} i wyżej</option>`).join('');
  $('#f_li').innerHTML='<option value="">dowolna</option>'+[...lis].sort((a,b)=>a-b).map(x=>`<option value="=${x}" ${cl==='='+x?'selected':''}>${x}</option><option value="${x}" ${cl==String(x)?'selected':''}>${x} i wyżej</option>`).join('');
  const cur=$('#f_hom').value;$('#f_hom').innerHTML='<option value="">dowolna</option>'+[...have].map(h=>`<option value="${esc(h)}" ${cur===h?'selected':''}>${esc(HOM[h]||h)}</option>`).join('')}
-function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;const l=sorted(filt(all));
+function render(){fillHom();const wiele=Object.keys(RES.wyniki).length>1;$('#samoBox').style.display=wiele?'':'none';$('#samo0').classList.toggle('on',!(SAMO&&wiele));$('#samo1').classList.toggle('on',!!(SAMO&&wiele));if(SAMO&&wiele)return renderSamo();let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;const l=sorted(filt(all));
  const pages=Math.max(1,Math.ceil(l.length/PER));let pg=Math.min(PAGE[g]||0,pages-1);PAGE[g]=pg;
  const nav=pages>1?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="sec" ${pg?'':'disabled'} onclick="go(${g},-1)">◀</button><span style="font-size:12px">strona ${pg+1} / ${pages}</span><button class="sec" ${pg<pages-1?'':'disabled'} onclick="go(${g},1)">▶</button></span>`:'';
  h+=`<h3 id="g_${g}" style="display:flex;align-items:center;gap:6px">${esc(s)} · ${esc(sez)} <span class="tag">potrzeba ${RES.potrzeba[s]} szt.</span> <span class="tag">${l.length}${l.length!==all.length?' z '+all.length:''} pozycji</span>${nav}</h3>`;
@@ -358,6 +361,37 @@ function render(){fillHom();let h='',gi=0;for(const[s,bySez]of Object.entries(RE
  h+='<table><tr><th></th>'+th('id','Indeks')+th('producent','Producent')+th('model','Model')+th('sezon','Sezon')+th('indeks','Nośn./prędk.')+th('klasa','Klasa')+th('dot','DOT')+th('mokra','Mokra')+th('opory','Opory')+th('halas','Hałas')+'<th>Homol.</th>'+th('stan','Stan','num')+th('zakup','Zakup brutto','num buy')+th('cena','Oferta brutto/szt.','num')+(CFG.zamawianie?'<th></th>':'')+'</tr>';
  for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id;h+=`<tr class="${p.ok_stan?'':'bad'}"><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.za_malo?'warn':p.ok_stan?'ok':''}" style="white-space:nowrap">${p.za_malo?`<b title="Za mało na potrzebę (${RES.potrzeba[s]} szt.)">⚠ tylko ${p.ilosc} szt.</b>`:p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td>${CFG.zamawianie?`<td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner (${RES.potrzeba[s]} szt.)" onclick='kDodaj(${p.id},${RES.potrzeba[s]},${esc(JSON.stringify(p.nazwa||p.model))})'>🛒</button></td>`:''}</tr>`}
  h+='</table>';if(pages>1)h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">${nav}</div>`}}$('#res').innerHTML=h;updCnt()}
+// ---------------------------------------------------------------- TEN SAM MODEL na wszystkich rozmiarach (2026-11-16)
+let SAMO=false,SAMOW={},SAMOSEL=new Set();
+const mkey=p=>(p.producent+' '+p.model).toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g,'');
+function samoUstaw(on){SAMO=on;SEL=new Set();SAMOSEL=new Set();SAMOW={};PAGE={};render()}
+function samoDane(){const roz=Object.keys(RES.wyniki),po={};
+ for(const s of roz){const m={};for(const[sez,all]of Object.entries(RES.wyniki[s]))for(const p of filt(all)){const k=mkey(p);(m[k]=m[k]||{});if(!m[k][p.id])m[k][p.id]={p,sez}}po[s]=m}
+ const klucze=new Set(roz.flatMap(s=>Object.keys(po[s]))),ok=[],zle=[];
+ for(const k of klucze){const wier={k,roz:{},brak:[]};let nazwa='';
+  for(const s of roz){const opc=Object.values(po[s][k]||{}).sort((a,b)=>a.p.cena_brutto-b.p.cena_brutto);if(opc.length)nazwa=nazwa||(opc[0].p.producent+' '+opc[0].p.model);
+   const dosc=opc.filter(o=>o.p.ilosc>=RES.potrzeba[s]);
+   if(!opc.length)wier.brak.push('brak '+s);else if(!dosc.length)wier.brak.push(s+' ⚠ tylko '+Math.max(...opc.map(o=>o.p.ilosc))+' szt.');
+   wier.roz[s]=dosc}
+  wier.nazwa=nazwa;(wier.brak.length?zle:ok).push(wier)}
+ return{roz,ok,zle}}
+function samoWyb(w,s){const id=(SAMOW[w.k]||{})[s];return w.roz[s].find(o=>o.p.id===id)||w.roz[s][0]}
+function samoSuma(w,roz){return roz.reduce((a,s)=>a+samoWyb(w,s).p.cena_brutto*RES.potrzeba[s],0)}
+function samoSel(){SEL=new Set();const{roz,ok}=samoDane();for(const w of ok)if(SAMOSEL.has(w.k))for(const s of roz){const o=samoWyb(w,s);SEL.add(s+'|'+o.sez+'|'+o.p.id)}updCnt()}
+function samoTog(k,on){on?SAMOSEL.add(k):SAMOSEL.delete(k);samoSel()}
+function samoAlt(k,s,id){(SAMOW[k]=SAMOW[k]||{})[s]=id;samoSel();render()}
+function renderSamo(){const{roz,ok,zle}=samoDane();ok.sort((a,b)=>samoSuma(a,roz)-samoSuma(b,roz));
+ let h=`<h3 style="display:flex;align-items:center;gap:6px">Ten sam model · ${roz.map(esc).join(' + ')} <span class="tag">potrzeba ${roz.map(s=>RES.potrzeba[s]).join(' + ')} szt.</span> <span class="tag">${ok.length} ${ok.length===1?'model':'modeli'}</span></h3>`;
+ if(!ok.length)h+='<p class="warn">Żaden model nie jest dostępny we wszystkich rozmiarach w potrzebnej ilości.</p>';
+ else{h+='<table><tr><th></th><th>Producent / model</th><th>Klasa</th>'+roz.map(s=>`<th>${esc(s)}</th>`).join('')+`<th class="num">Komplet ${roz.map(s=>RES.potrzeba[s]).join('+')} brutto</th></tr>`;
+  for(const w of ok){const wyb=roz.map(s=>samoWyb(w,s)),p0=wyb[0].p,doty=new Set(wyb.map(o=>o.p.dot||'–'));
+   h+=`<tr><td><input type="checkbox" ${SAMOSEL.has(w.k)?'checked':''} onchange="samoTog('${w.k}',this.checked)"></td><td><b>${esc(w.nazwa)}</b><div class="muted" style="font-size:12px">Mokra ${esc(p0.mokra||'–')} · Opory ${esc(p0.opory||'–')}${p0.halas?' · '+p0.halas+' dB':''}${doty.size>1?' · <b class="warn">⚠ różne roczniki</b>':''}</div></td><td>${esc(p0.klasa)}</td>`;
+   roz.forEach((s,i)=>{const o=wyb[i];h+=`<td><b>${zl(o.p.cena_brutto)}</b>/szt.<div style="font-size:12px;color:#555">${o.p.id} · ${esc(o.p.indeks)} · DOT ${esc(o.p.dot||'–')} · stan <span class="ok">${o.p.ilosc}</span></div>`+
+    w.roz[s].filter(x=>x.p.id!==o.p.id).map(x=>`<div class="alt" onclick="samoAlt('${w.k}','${esc(s)}',${x.p.id})">lub ${x.p.id} (DOT ${esc(x.p.dot||'–')}) · ${zl(x.p.cena_brutto)} · stan ${x.p.ilosc}</div>`).join('')+'</td>'});
+   h+=`<td class="num"><b style="font-size:15px">${zl(samoSuma(w,roz))}</b></td></tr>`}
+  h+='</table>'}
+ if(zle.length)h+=`<div class="muted" style="font-size:12px;margin-top:8px"><b>Nie pasują</b> (model nie jest dostępny we wszystkich rozmiarach w potrzebnej ilości): ${zle.slice(0,25).map(w=>esc(w.nazwa)+' – '+w.brak.map(esc).join(', ')).join(' · ')}${zle.length>25?' …':''}</div>`;
+ $('#res').innerHTML=h;updCnt()}
 let OMARZA='',ORABAT='',CENY={},ULS=[],OSOBNO=null,ORABW='',CENYW={},WYMS=[];
 function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;else if(k==='w')ORABW=v;reoffer()}
 function setW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete CENYW[k];else CENYW[k]=Math.ceil(+v);reoffer()}

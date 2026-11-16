@@ -552,7 +552,8 @@ def parse_quick(txt):
     demo = "bez" if re.search(r"bez\s+demo", t) else "tylko" if re.search(r"\bdemo\b", t) else ""
     nosnosc, predkosc = indeks_z_tekstu(t)
     return {"demo": demo, "pojazdy": pojazdy, "sezony": sezony, "klasy": klasy, "runflat": runflat, "producenci": ", ".join(dict.fromkeys(marki)),
-            "nosnosc": nosnosc, "predkosc": predkosc}
+            "nosnosc": nosnosc, "predkosc": predkosc,
+            "ten_sam": bool(re.search(r"\bt(en|e)\s+sam[ea]?\s+model", t))}   # „ten sam model” – ten sam model na wszystkich rozmiarach
 
 
 INDEKS_Q = re.compile(r"(?<![\d/.,])(\d{2,3})(?:/\d{2,3})?\s?([lmnpqrstuhvwyz])(?![a-ząćęłńóśźż0-9])")
