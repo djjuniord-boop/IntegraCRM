@@ -11,8 +11,8 @@ def test_kafle_wg_uprawnien():
     from dzis.zakladka import kafle_konta
     assert kafle_konta(lambda m: m in ("crm", "historia")) == ["kontrola"]          # 1 kafel – bez zakładki DZIŚ
     assert kafle_konta(lambda m: m == "wyniki") == ["wyniki"]
-    assert kafle_konta(lambda m: m in ("marza", "serwis")) == ["marza", "wyniki", "serwis"]
-    assert kafle_konta(lambda m: True) == ["kontrola", "marza", "wyniki", "oferty", "serwis"]
+    assert kafle_konta(lambda m: m in ("marza", "serwis")) == ["marza", "wyniki"]   # SERWIS QR wygaszony
+    assert kafle_konta(lambda m: True) == ["kontrola", "marza", "wyniki", "oferty"]
 
 
 def test_teksty_kontroli_i_marzy():

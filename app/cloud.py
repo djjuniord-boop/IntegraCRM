@@ -16,7 +16,7 @@ ANON_KEY = ("eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZi
 TIMEOUT = 20
 SESSION_FILE = paths.DATA_DIR / "sesja.json"
 
-MODULES = [("crm", "Kontrola CRM"), ("historia", "Historia"), ("statystyki", "Statystyki"), ("marza", "MARŻA"),
+MODULES = [("crm", "Kontrola CRM"), ("historia", "Historia"), ("marza", "MARŻA"),
            ("wyniki", "Wyniki"), ("serwis", "SERWIS QR"), ("oferty", "Oferty opon"),
            ("zamowienia", "Zamówienia xPartner (z Ofertami opon)"),
            ("zamawianie", "Zamawianie w xPartner (koszyk)")]

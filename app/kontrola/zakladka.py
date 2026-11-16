@@ -552,8 +552,6 @@ class KontrolaMixin:
             except Exception as e:
                 self.say(f"Historia: nie zapisano ({e})")
             self.ui(self.check_wheel_line, "Historia")
-            self._save_daily(res, src.get("branches", []))
-            self.ui(self.check_wheel_line, "Statystyki")
             self.ui(self.set_chips, missing, uncertain)
             wtxt = ("\n⚠  " + "\n⚠  ".join(warn)) if warn else ""
             if not missing and not uncertain:
@@ -608,27 +606,6 @@ class KontrolaMixin:
         finally:
             self.ui(self.btn_check.set_enabled, True, "SPRAWDŹ")
             self.ui(self.check_wheel_done, kind)
-
-    def _save_daily(self, res, branches):
-        """Liczniki dzienne do STATYSTYK (w wątku roboczym). Błąd zapisu nie psuje sprawdzenia."""
-        daily = res.get("daily") or []
-        if history is None or history.SESSION is None or not daily:
-            return
-        if len(branches) != 1:
-            self.say("Statystyki: nie zapisano – zaznaczono kilka serwisów, a raport z Integry dotyczy jednego. "
-                     "Aby zapisać statystyki, zaznacz tylko jeden serwis.")
-            return
-        if res.get("no_overlap"):
-            self.say("Statystyki: nie zapisano – dane z CRM nie pasują do raportu z Integry.")
-            return
-        try:
-            idx = self.hist_index if isinstance(self.hist_index, int) else None
-            n = history.save_visit_stats(branches[0], daily, idx)
-            self.say(f"Statystyki: zapisano {n} {odmiana(n, 'dzień', 'dni', 'dni')} dla {branches[0]} ("
-                     + ", ".join(f"{d['day']}: wizyty {d['visits']}, listy {d['lists']}, braki {d['missing']}"
-                                 for d in daily) + ")")
-        except Exception as e:
-            self.say(f"Statystyki: nie zapisano ({e})")
 
     def send_mail(self):
         if not self.result or not (self.result[0] or self.result[1]):

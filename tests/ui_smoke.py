@@ -144,7 +144,6 @@ class FakeSession(cloud.Session):
 SCENARIOS = [
     ("admin", FakeSession("admin", [], [])),
     ("kontrola_opole", FakeSession("user", ["crm", "historia"], ["Latex Opole"])),
-    ("statystyki_wroclaw", FakeSession("user", ["statystyki"], ["Latex Wrocław"])),
     ("marza_serwis", FakeSession("user", ["marza", "serwis"], ["Latex Wrocław"])),
     ("handlowiec_wroclaw", FakeSession("user", ["wyniki"], ["Latex Wrocław"])),
     ("handlowiec_stangum", FakeSession("user", ["wyniki"], ["Stangum Opole"])),
@@ -269,10 +268,6 @@ def run_scenario(label, sess):
             info["users_rows"] = len(app.users_tv.get_children())
         if "hist" in app.pages:
             info["history_rows"] = len(app.hist_tree.get_children())
-        if "stat" in app.pages:
-            info["stat_oddzialy"] = sorted({r["branch"] for r in app.st_rows})
-            info["stat_miesiace"] = len(app.st_tree.get_children())
-            info["stat_prognoza"] = app.st_wynik.cget("text")
         if "wyniki" in app.pages:
             info["wyniki_oddzialy"] = list(app.wyn_branches)
             info["wyniki_dane"] = sorted(app.wyn_data)
@@ -368,7 +363,8 @@ def main():
         all_shots += d["shots"]
     checks = {
         "admin_ma_wszystkie_zakladki": all(t in result.get("admin", {}).get("tabs", []) for t in
-                                           ("main", "hist", "stat", "marza", "wyniki", "serwis", "users", "help")),
+                                           ("main", "hist", "marza", "wyniki", "users", "help")),
+        "bez_statystyk_i_serwisu": not ({"stat", "serwis"} & set(result.get("admin", {}).get("tabs", []))),
         "admin_lista_uzytkownikow": result.get("admin", {}).get("users_rows") == 2,
         "okno_logowania": result.get("logowanie", {}).get("shown") is True,
         "historia_z_bazy": result.get("admin", {}).get("history_rows") == 2,
@@ -377,11 +373,6 @@ def main():
         "opole_tylko_swoj_oddzial": result.get("kontrola_opole", {}).get("branches_crm") == ["Latex Opole"],
         "marza_serwis_bez_kontroli": "main" not in result.get("marza_serwis", {}).get("tabs", ["main"]),
         "marza_ma_wyniki": "wyniki" in result.get("marza_serwis", {}).get("tabs", []),
-        "admin_statystyki_oba": result.get("admin", {}).get("stat_oddzialy") == ["Latex Opole", "Latex Wrocław"],
-        "statystyki_tylko_swoje": (result.get("statystyki_wroclaw", {}).get("tabs") == ["stat", "help"]
-                                   and result.get("statystyki_wroclaw", {}).get("stat_oddzialy") == ["Latex Wrocław"]
-                                   and result.get("statystyki_wroclaw", {}).get("stat_miesiace") == 3),
-        "statystyki_prognoza": "list kontrolnych" in result.get("statystyki_wroclaw", {}).get("stat_prognoza", ""),
         "admin_wyniki_oba_oddzialy": result.get("admin", {}).get("wyniki_dane") == ["opole", "wroclaw"],
         "handlowiec_tylko_wyniki": result.get("handlowiec_wroclaw", {}).get("tabs") == ["wyniki", "help"],
         "handlowiec_tylko_wroclaw": (result.get("handlowiec_wroclaw", {}).get("wyniki_oddzialy") == ["wroclaw"]

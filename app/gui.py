@@ -15,7 +15,7 @@ import czuwanie
 import updater
 from version import CHANGELOG, RELEASED, VERSION
 from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, LINE, MUTED, RED, SURFACE, card, esc_zamyka, set_icon, step_badge, opis_bledu
-from konfig import COMPANY, load_config, migrate_config, save_config, update_source
+from konfig import COMPANY, SERWIS_WYGASZONY, load_config, migrate_config, save_config, update_source
 from ustawienia import SettingsDialog
 from logowanie import login_flow
 try:
@@ -38,7 +38,6 @@ from oferty.zakladka import OfertyMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
 from dzis.zakladka import DzisMixin, kafle_konta
-from statystyki.zakladka import StatystykiMixin
 
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -68,12 +67,6 @@ HELP_MODULES = [
         ("Zakładka HISTORIA", "Lista wszystkich sprawdzeń Twoich oddziałów: kto i kiedy sprawdzał, ile zleceń, "
                               "czego brakowało i do kogo poszedł e-mail. „Otwórz w Excelu” zapisuje całość do pliku."),
     ]),
-    ("statystyki", "Statystyki", [
-        ("Zakładka STATYSTYKI", "Ile list kontrolnych w CRM przypada na 10 zleceń z Integry – w ostatnich 90 dniach "
-                                "i w każdym miesiącu. Dane zbierają się przy sprawdzeniach w KONTROLI."),
-        ("Prognoza", "Wpisz liczbę zleceń (np. 1000) – program pokaże, ilu list kontrolnych należy się spodziewać, "
-                     "z widełkami od najsłabszego do najlepszego miesiąca."),
-    ]),
     ("wyniki", "Wyniki marży", [
         ("Zakładka WYNIKI", "Pokazuje wynik marży Twojego oddziału w bieżącym miesiącu: zrobione, cel, % realizacji "
                             "celu i ile trzeba robić dziennie do końca miesiąca."),
@@ -102,7 +95,7 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
+class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
           tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
@@ -350,13 +343,11 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
             tab_list.append(("main", "KONTROLA"))
         if can("historia"):
             tab_list.append(("hist", "HISTORIA"))
-        if can("statystyki"):
-            tab_list.append(("stat", "STATYSTYKI"))
         if can("marza"):
             tab_list.append(("marza", "MARŻA"))
         if can("wyniki") or can("marza"):   # baza też daje wyniki kontom z MARŻĄ
             tab_list.append(("wyniki", "WYNIKI"))
-        if can("serwis"):
+        if can("serwis") and not SERWIS_WYGASZONY:
             tab_list.append(("serwis", "SERWIS QR  β"))
         if can("oferty"):
             tab_list.append(("oferty", "OFERTY OPON  β"))
@@ -376,8 +367,6 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
         # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
         self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
         self._build_history(self.pages["hist"] if "hist" in self.pages else tk.Frame(self))
-        if "stat" in self.pages:
-            self._build_statystyki(self.pages["stat"])
         self._build_help(self.pages["help"])
         if "dzis" in self.pages:
             try:   # błąd ekranu startowego nie może zablokować programu
@@ -525,7 +514,8 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, StatystykiMixin, MarzaMixin, 
         how = card(page, padx=18, pady=14)
         how.pack(fill="x", pady=12)
         tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 4))
-        mods = [(k, n, st) for k, n, st in HELP_MODULES if self.session is None or self.session.can(k)]
+        mods = [(k, n, st) for k, n, st in HELP_MODULES if (self.session is None or self.session.can(k))
+                and not (k == "serwis" and SERWIS_WYGASZONY)]
         steps_box = tk.Frame(how, bg=SURFACE)
         btns = {}
 

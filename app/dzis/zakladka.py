@@ -22,9 +22,17 @@ def kafle_konta(can) -> list:
         out.append("wyniki")
     if can("oferty"):
         out.append("oferty")
-    if can("serwis"):
+    if can("serwis") and not _serwis_wygaszony():
         out.append("serwis")
     return out
+
+
+def _serwis_wygaszony():
+    try:
+        import konfig
+        return bool(getattr(konfig, "SERWIS_WYGASZONY", False))
+    except Exception:
+        return False
 
 
 def _czas(iso):
