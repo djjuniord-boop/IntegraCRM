@@ -1,4 +1,4 @@
-"""Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → e-mail (+ liczniki dzienne)."""
+"""Zakładka KONTROLA: PDF z Integry + raport .xlsx z CRM → braki → e-mail."""
 import os
 import threading
 import tkinter as tk

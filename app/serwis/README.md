@@ -1,5 +1,9 @@
 # Moduł SERWIS QR
 
+> **Wygaszony w programie (2026-11-16)**: `konfig.SERWIS_WYGASZONY = True` ukrywa zakładkę, kafel DZIŚ i pomoc; strona
+> dla klientów z kodów QR (gh-pages) działa. **Nie usuwaj folderu** – OFERTY OPON używają `embed_win.py`,
+> `serwis_window.is_available` i `serwis_qr.write_token`.
+
 **Co robi:** historia wymian oleju i innych prac + naklejka z kodem QR pod maskę. Klient skanuje QR i widzi
 historię auta na stronie (GitHub Pages), bez logowania. Pracownicy pracują w panelu w zakładce programu.
 Uprawnienie: moduł `serwis` + oddziały (pracownik widzi auta swoich oddziałów).

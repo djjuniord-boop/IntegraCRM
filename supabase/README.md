@@ -14,7 +14,7 @@ Projekt `latex-serwis-qr` (id `nlrwulrtaocuemfmlfav`, Frankfurt, plan darmowy). 
 | `reported` | Kontrola | moduł `crm` (odczyt); zapis przez `report_plates()` |
 | `marza_results` | MARŻA, WYNIKI | odczyt: `can_see_marza(branch)` (moduł `marza` – oba oddziały; moduł `wyniki` – tylko swój oddział); zapis: moduł `marza`, tylko jako siebie |
 | `marza_months` | MARŻA, WYNIKI | cel / wykonanie / święta na oddział i miesiąc (klucz `branch, year, month`). Odczyt jak `marza_results`; dodanie i zmiana (upsert): moduł `marza`; usuwanie: nikt (brak prawa DELETE); anon: brak prawa do tabeli. `updated_by`/`updated_at` ustawia wyzwalacz `stamp` przy każdym zapisie |
-| `visit_stats` | Kontrola (zapis), STATYSTYKI | licznik dzienny na oddział (klucz `branch, day`; `branch` = `Latex Wrocław` / `Latex Opole` / `Stangum Opole`): `visits` (zlecenia z pojazdem w Integrze), `lists` (wiersze list kontrolnych z CRM), `missing`, `check_id` → `checks`, `updated_at`/`updated_by` (wyzwalacz `stamp`). Odczyt: aktywne konto z modułem `statystyki` + oddział (admin wszystko). Zapis: **`rpc/save_visit_stats`** (moduł `crm` + oddział; kolejny zapis tego dnia nadpisuje). Usuwanie: nikt; anon: brak prawa |
+| ~~`visit_stats`~~ (usunięta 2026-11-16, `porzadki_2026-11-16.sql`) | dawniej Kontrola, STATYSTYKI | licznik dzienny na oddział (klucz `branch, day`; `branch` = `Latex Wrocław` / `Latex Opole` / `Stangum Opole`): `visits` (zlecenia z pojazdem w Integrze), `lists` (wiersze list kontrolnych z CRM), `missing`, `check_id` → `checks`, `updated_at`/`updated_by` (wyzwalacz `stamp`). Odczyt: aktywne konto z modułem `statystyki` + oddział (admin wszystko). Zapis: **`rpc/save_visit_stats`** (moduł `crm` + oddział; kolejny zapis tego dnia nadpisuje). Usuwanie: nikt; anon: brak prawa |
 | `cars`, `services` | SERWIS QR | moduł `serwis` + oddział auta (`cars.branch`) |
 | `oferty_konta` | OFERTY OPON | login/hasło API xPartner i ustawienia ofert: odczyt swój wiersz albo admin; zapis tylko `oferty_admin_set_konto` (admin) i `oferty_zapisz_ustawienia` (właściciel, moduł `oferty`) |
 | `oferty` | OFERTY OPON | historia ofert – odczyt: swoje (moduł `oferty`) albo admin wszystkie; zapis/zmiana/usuwanie: tylko swoje (`oferty_admin_2026-11-05.sql`) |
@@ -25,7 +25,7 @@ Projekt `latex-serwis-qr` (id `nlrwulrtaocuemfmlfav`, Frankfurt, plan darmowy). 
 
 `me`, `is_admin`, `has_module`, `has_branch`, `can_see_marza` (uprawnienia) · `app_login` (profil + ostatnie
 logowanie) · `admin_set_user` · `report_plates` · `log_event` · `get_car` (strona klienta, anon) ·
-`save_visit_stats` · `audit_trg`, `marza_months_stamp`, `visit_stats_stamp` (wyzwalacze).
+~~`save_visit_stats`~~ (usunięta 2026-11-16) · `audit_trg`, `marza_months_stamp`, `visit_stats_stamp` (wyzwalacze; `visit_stats_stamp` do usunięcia – `porzadki_2_2026-11-16.sql`).
 
 - `can_see_marza(b)` – `b` = `'wroclaw'` / `'opole'`: moduł `marza` ALBO (moduł `wyniki` I oddział
   `Latex Wrocław` / `Latex Opole` na koncie). Admin – zawsze; zablokowane i obce konta – nigdy. Wywołanie
@@ -34,7 +34,7 @@ logowanie) · `admin_set_user` · `report_plates` · `log_event` · `get_car` (s
   od 0.21.0 osobno, każde konto z `crm` dostało `historia`), `statystyki` (odczyt `visit_stats` swoich
   oddziałów), `marza`, `serwis`, `wyniki` (handlowcy – wyniki marży swojego oddziału, tylko odczyt).
   `reported` nadal czyta tylko `crm`.
-- `save_visit_stats(p_branch, p_day, p_visits, p_lists, p_missing, p_check_id default null)` – zapis/nadpisanie
+- (usunięta 2026-11-16) `save_visit_stats(p_branch, p_day, p_visits, p_lists, p_missing, p_check_id default null)` – zapis/nadpisanie
   dnia: `POST /rest/v1/rpc/save_visit_stats`. Dlaczego funkcja, nie upsert na tabeli: `INSERT … ON CONFLICT DO
   UPDATE` wymaga, by istniejący wiersz przechodził zasadę SELECT, a konto `crm` bez `statystyki` go nie czyta
   (drugi zapis tego dnia → błąd RLS; sprawdzone). Funkcja sprawdza aktywne konto, `crm` i oddział (inaczej 42501).

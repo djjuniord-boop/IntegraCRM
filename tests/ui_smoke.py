@@ -111,13 +111,6 @@ class FakeSession(cloud.Session):
                     {"created_at": "2026-10-13T11:00:00Z", "pdf_name": "opole.pdf", "n_integra": 5, "n_crm": 5,
                      "missing": [], "uncertain": [], "user_email": "opole@example.com", "branches": ["Latex Opole"]}]
             return [r for r in rows if self.is_admin or set(r["branches"]) & set(self.profile["branches"])]
-        if "visit_stats" in path and method == "GET":   # jak zasada stats_read: moduł statystyki + oddział
-            if not (self.is_admin or "statystyki" in self.profile["modules"]):
-                return []
-            rows = [{"branch": b, "day": f"2026-{m:02d}-{d:02d}", "visits": v, "lists": l_, "missing": v - l_}
-                    for b, k in (("Latex Wrocław", 1), ("Latex Opole", 2))
-                    for m in (8, 9, 10) for d, v, l_ in ((6, 40 * k, 36 * k - m + 8), (7, 35 * k, 30 * k))]
-            return [r for r in rows if self.is_admin or r["branch"] in self.profile["branches"]]
         if "audit_log" in path:
             return [{"at": "2026-10-13T15:40:00Z", "email": "test@example.com", "action": "mail",
                      "entity": "sprawdzenie", "label": "test.pdf", "detail": {"do": "a@example.com"}}]

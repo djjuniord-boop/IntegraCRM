@@ -47,7 +47,7 @@ STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikato
 
 # po zalogowaniu statystyki nie idą do arkusza – zdarzenia i błędy zapisuje dziennik firmy (stats.SESSION)
 DZIENNIK_INFO = ("Program zapisuje w dzienniku firmy: logowania (z wersją programu), sprawdzenia, wysłane e-maile, "
-                 "zmiany w SERWIS QR, aktualizacje MARŻY, zmiany uprawnień i ustawień oraz błędy programu. "
+                 "aktualizacje MARŻY, zamówienia w xPartner, zmiany uprawnień i ustawień oraz błędy programu. "
                  "Dziennik widzi tylko administrator.")
 
 HELP_STEPS = [
@@ -523,8 +523,8 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
         how = card(page, padx=18, pady=14)
         how.pack(fill="x", pady=12)
         tk.Label(how, text="Jak używać", bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(0, 4))
-        mods = [(k, n, st) for k, n, st in HELP_MODULES if (self.session is None or self.session.can(k))
-                and not (k == "serwis" and SERWIS_WYGASZONY)]
+        strona = {"crm": "main", "historia": "hist"}   # pomoc tylko do zakładek, które konto naprawdę ma
+        mods = [(k, n, st) for k, n, st in HELP_MODULES if strona.get(k, k) in self.pages]
         steps_box = tk.Frame(how, bg=SURFACE)
         btns = {}
 

@@ -34,6 +34,12 @@ shutil.copy2(SRC / "supabase.min.js", OUT / "supabase.min.js")
 (OUT / "config.js").write_text("window.SERWIS_CFG = " + json.dumps({"url": url, "key": key, "base": BASE}, indent=2)
                                + ";\n", encoding="utf-8")
 (OUT / ".nojekyll").write_text("", encoding="utf-8")
-# OFERTY OPON: logo do stron PDF
+# OFERTY OPON: logo do stron PDF; dawny link dla klienta (oferta.html, usunięty 2026-11-16) – krótka informacja
+(OUT / "oferta.html").write_text(
+    '<!doctype html><html lang="pl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    '<meta name="robots" content="noindex"><title>Oferta Latex Serwis</title></head>'
+    '<body style="font:17px/1.5 Segoe UI,Arial,sans-serif;max-width:520px;margin:40px auto;padding:0 16px;color:#141414">'
+    '<img src="logo.png" alt="Latex" style="height:44px"><h1 style="font-size:22px">Ta oferta jest już nieaktualna</h1>'
+    '<p>Zadzwoń do nas – przygotujemy aktualną ofertę na opony.</p></body></html>', encoding="utf-8")
 shutil.copy2(ROOT / "app" / "assets" / "logo.png", OUT / "logo.png")
 print(f"Strona zbudowana w {OUT}")

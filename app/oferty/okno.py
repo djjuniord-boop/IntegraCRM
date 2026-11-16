@@ -1,4 +1,4 @@
-"""OFERTY OPON (beta): okno modułu (Edge WebView2 przez pywebview) – osobny proces jak panel SERWIS QR.
+"""OFERTY OPON: okno modułu (Edge WebView2 przez pywebview) – osobny proces jak panel SERWIS QR.
 
 Uruchamiane:  IntegraCRM.exe --oferty   (albo: python app/start.py --oferty)
 Strona: oferty/index.html; polecenia strony -> Api.call -> silnik.handle.
@@ -21,7 +21,7 @@ from pathlib import Path
 import paths
 
 HTML = Path(__file__).resolve().parent / "index.html"
-TITLE = "Latex Serwis – oferty opon (beta)"
+TITLE = "Latex Serwis – oferty opon"
 STATUS = paths.DATA_DIR / "oferty_status.json"
 LOG = paths.DATA_DIR / "oferty.log"
 STORAGE = paths.DATA_DIR / "oferty_webview"
@@ -91,12 +91,12 @@ class Historia:
             w = urllib.parse.quote("*" + q + "*")
             flt = f"&or=(szukaj.ilike.{w},owner.ilike.{w})"
             flt_u = f"&or=(szukaj.ilike.{w},owner.ilike.{w},uwagi.ilike.{w})"
-        try:   # uwagi (od 0.27.8), status i link (od 0.25); bez tych kolumn w bazie – starsza lista
-            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp,uwagi,uwagi_at,uwagi_kto"
+        try:   # uwagi (od 0.27.8), status (od 0.25); bez tych kolumn w bazie – starsza lista
+            rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,uwagi,uwagi_at,uwagi_kto"
                               "&order=updated_at.desc&limit=1000" + flt_u) or []
         except Exception:
             try:
-                rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at,link_at,link_otwarta,klient_odp"
+                rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane,status,status_at"
                                   "&order=updated_at.desc&limit=1000" + flt) or []
             except Exception:
                 rows = _db("GET", "/rest/v1/oferty?select=id,owner,dane&order=updated_at.desc&limit=1000" + flt) or []

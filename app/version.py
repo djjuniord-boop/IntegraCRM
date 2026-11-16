@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "0.27.11"
-RELEASED = "2026-11-11"
+VERSION = "1.0.0"
+RELEASED = "2026-11-16"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.0.0",
+        "date": "2026-11-16",
+        "changes": [
+            "Wersja 1.0 – Panel Latex Serwis jest gotowy do codziennej pracy: KONTROLA, HISTORIA, MARŻA, WYNIKI i OFERTY OPON z koszykiem i zamówieniami xPartner",
+            "Uporządkowane opisy i pomoc; pomoc pokazuje instrukcje do zakładek, które masz na swoim koncie",
+            "Usunięte nieużywane rzeczy (statystyki, link dla klienta, treść e-maila); SERWIS QR wygaszony – strona dla klientów z naklejek QR działa",
+        ],
+    },
     {
         "version": "0.27.11",
         "date": "2026-11-16",

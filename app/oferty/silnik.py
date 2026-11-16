@@ -837,8 +837,7 @@ def list_hist(q=""):
                     "warianty": [{"wariant": w["wariant"], "modele": ", ".join(w["modele"]), "razem": w["razem"]} for w in r.get("warianty", [])],
                     "razem": max([w.get("razem", 0) for w in r.get("warianty", [])] or [0]),
                     "plik_ok": os.path.exists(r.get("plik") or ""),
-                    "status": row.get("status") or "nowa", "status_at": row.get("status_at") or "", "link": bool(row.get("link_at")),
-                    "otwarta": row.get("link_otwarta") or "", "odp": row.get("klient_odp") or None,
+                    "status": row.get("status") or "nowa", "status_at": row.get("status_at") or "",
                     "oddzwon": do_oddzwonienia(row.get("status"), row.get("status_at")),
                     "uwagi": row.get("uwagi") or "", "uwagi_at": row.get("uwagi_at") or "", "uwagi_kto": row.get("uwagi_kto") or ""})
     return out

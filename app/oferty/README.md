@@ -1,8 +1,8 @@
-# Moduł OFERTY OPON (beta)
+# Moduł OFERTY OPON
 
 **Co robi:** wyszukuje opony w hurtowni xPartner (Latex) na żywo przez XML API (`productsList`) i robi ofertę dla
-klienta: karty wariantów, e-mail do skopiowania, plik XLSX (Dokumenty\Oferty opon), ulotki PDF z xPartner,
-historię ofert. Uprawnienie: moduł `oferty`. Każdy użytkownik ma **własne** konto API xPartner – login i hasło
+klienta: karty wariantów, PDF oferty (pojedynczy i porównanie), uwagi wewnętrzne, historię ofert, koszyk xPartner
+(zamawianie, `koszyk.py`) i zamówienia/faktury. Treść e-maila, arkusz XLSX i link dla klienta usunięte (2026-11). Uprawnienie: moduł `oferty`. Każdy użytkownik ma **własne** konto API xPartner – login i hasło
 wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 
 ## Pliki
@@ -37,7 +37,7 @@ wpisuje administrator w oknie użytkownika (UŻYTKOWNICY).
 - Wzór wspólny z aplikacją Android: po zmianie `pdf_wzor.html` uruchom `python3 mobile/zrob_wzor.py` (test zgodności tego pilnuje).
 - Test na prawdziwym Windows/Edge: `tests/pdf_edge.py` (krok CI).
 
-## Zamówienia xPartner (beta)
+## Zamówienia xPartner
 
 `zamowienia.py` (aplikacja: `mobile/www/zamowienia.js`, zgodność: `mobile/test/zamowienia_zgodnosc.py`) – tylko odczyt
 z konta xPartner pracownika: `getOpenOrders` (zamówione opony), `getInvoices`/`getInvoice` (faktury KSeF, od 2026-02-01).
@@ -63,11 +63,10 @@ to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi w
 - Pozycje z ceną 0 w xPartner (niedostępne dla konta) są pomijane.
 - Testy: `tests/test_oferty.py` (bez sieci; API xPartner podstawiane).
 
-## Statusy, link dla klienta, porównanie (0.25 beta)
+## Statusy, porównanie (0.25; link dla klienta usunięty 2026-11-16)
 
   (supabase/oferty_status_link_2026-11-08.sql). Bez nich program działa jak wcześniej (lista bez statusów).
-- Status zmienia właściciel (`oferty_status`); link (`oferty_link`) ustawia „wysłana”. „📞 oddzwoń” = wysłana ≥ 2 dni bez odpowiedzi.
-- Link dla klienta: `oferta.html#<uuid>` na GitHub Pages (z `app/oferty/klient.html`, tools/build_pages.py). Klient (anon) widzi tylko
+- Status zmienia właściciel (`oferty_status`). „📞 oddzwoń” = wysłana ≥ 2 dni bez odpowiedzi.
 - Oferta z historii: `snap` (cena i stan opon przy zapisie) → `/api/offer` z `porownaj` zwraca `zmiany`.
 - PDF „Porównanie” (`pdf_porownanie.html`, `porownanie_dane`): 2–3 modele od najtańszego; plusy z etykiety UE orientacyjnie:
   ok. 4,5 m krótsza droga hamowania z 80 km/h na klasę mokrej (A→E do 18 m, Hankook), ok. 37 l/40 000 km na klasę oporów (A→E ok. 150 l, Michelin).
@@ -75,3 +74,9 @@ to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi w
 
 
 Link dla klienta (strona oferta.html) usunięty 2026-11-16 – funkcje w bazie skasowane (supabase/porzadki_2026-11-16.sql).
+
+## Znane ograniczenie (zaakceptowane przez właściciela 2026-11-16)
+
+Zamówienia i faktury xPartner innych oddziałów filtruje program, nie serwer (funkcja `xpartner`). Konto z modułem
+`zamowienia`/`zamawianie` mogłoby poza programem pobrać dane całej firmy. Decyzja: zostaje tak w 1.0; ewentualne
+przeniesienie filtra na serwer – osobna zmiana.

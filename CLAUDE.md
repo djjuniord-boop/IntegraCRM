@@ -1,7 +1,8 @@
 # IntegraCRM – mapa programu i zasady pracy
 
 Program desktopowy (Windows, Python + Tkinter) dla Latex Serwis: kontrola eksportu zleceń Integra 7 → CRM,
-kalkulator MARŻY, SERWIS QR (historia serwisowa z naklejkami QR), konta i uprawnienia. Dane wspólne
+kalkulator MARŻY i WYNIKI, OFERTY OPON z xPartner (oferty, koszyk, zamówienia), konta i uprawnienia; SERWIS QR
+(historia serwisowa z naklejkami QR) – wygaszony w programie, strona z kodów QR działa. Dane wspólne
 w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel i administrator: Daniel
 (djjuniord@gmail.com). Interfejs i komunikaty: **po polsku**, prostym językiem dla pracowników serwisu.
 
@@ -13,14 +14,14 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | Wygląd | `app/ui.py` | kolory Latex, czcionki, `FlatButton`, `card` – wspólne dla modułów |
 | Ustawienia | `app/konfig.py`, `app/ustawienia.py` | lokalne `data/config.json` + firmowe z bazy (`COMPANY`) |
 | Logowanie | `app/logowanie.py`, `app/cloud.py` | Supabase Auth przez `urllib` (bez dodatkowych bibliotek), profil, uprawnienia |
-| Aktualizacje | `app/updater.py`, `app/version.py` | paczka `app/` z GitHub Releases (kanał `kanal-beta`) |
+| Aktualizacje | `app/updater.py`, `app/version.py` | paczka `app/` z GitHub Releases (oficjalnie: najnowsze wydanie z `main`; testowo: `kanal-beta`); zapas: funkcja `aktualizacja` w Supabase |
 | **DZIŚ** | `app/dzis/` | → [`app/dzis/README.md`](app/dzis/README.md) – ekran startowy z kaflami modułów |
 | **Kontrola CRM** | `app/kontrola/` | → [`app/kontrola/README.md`](app/kontrola/README.md) |
 | **MARŻA** | `app/marza/` | → [`app/marza/README.md`](app/marza/README.md) |
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
 | **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) – **wygaszony w programie** (`konfig.SERWIS_WYGASZONY`, decyzja 2026-11-16); strona z kodów QR działa |
-| **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner (beta) |
-| **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – oferty opon i wyniki marży na telefonie
+| **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner, koszyk i zamówienia |
+| **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – oferty opon i wyniki marży na telefonie – **zawieszona** |
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
 | Baza i serwer | `supabase/` | → [`supabase/README.md`](supabase/README.md) |
 | Testy | `tests/`, `app/selftest.py` | → sekcja „Sprawdzanie” niżej |
@@ -106,10 +107,11 @@ apt-get install -y python3-tk             # raz
 python3.12 -m venv /tmp/venv && /tmp/venv/bin/pip install pdfplumber pytesseract Pillow openpyxl pypdf matplotlib pyflakes reportlab
 /tmp/venv/bin/python -m pyflakes app                      # brakujące nazwy, literówki
 /tmp/venv/bin/python tests/check_imports.py               # każdy import wskazuje istniejący moduł
-/tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|serwis|rdzen]   # testy modułów (bez okna)
+xvfb-run -a /tmp/venv/bin/python tests/run_tests.py [kontrola|marza|wyniki|oferty|koszyk|zamowienia|dzis|serwis|rdzen]   # testy modułów (część WYNIKÓW potrzebuje ekranu – xvfb)
 /tmp/venv/bin/python tools/make_fixtures.py /tmp/fx      # dane testowe (bez prawdziwych danych firmy)
 INTEGRA_SELFTEST=/tmp/fx xvfb-run -a /tmp/venv/bin/python app/start.py   # ścieżka PDF→OCR→porównanie→mail
 xvfb-run -a -s "-screen 0 1600x1000x24" /tmp/venv/bin/python tests/ui_smoke.py . /tmp/zrzuty  # okno jak nowy użytkownik
+python3 tests/test_oferty_js.py                           # panel OFERT: każde okno bez błędów JS (systemowy Python z Playwright)
 ```
 
 `selftest` na Linuksie: `serwis_window: false` jest oczekiwane (okno panelu działa tylko na Windows).
@@ -119,7 +121,8 @@ Zmiany w bazie: testuj zasady dostępu w transakcji z `set local role authentica
 
 ## Repozytorium i wydania
 
-- `beta` – kanał testowy (właściciel tu pracuje); `main` – stabilny (stara wersja 0.13). Gałąź `gh-pages` –
+- `beta` – kanał testowy (wydanie `kanal-beta`); `main` – **kanał oficjalny** (od 1.0.0 normalne wydania dla wszystkich;
+  każde podnosi `min_version`, zasada 6). Gałąź `gh-pages` –
   strona dla klientów z kodów QR, **budowana automatycznie** z `app/serwis/` (`tools/build_pages.py`).
 - Repozytorium jest **publiczne** (aktualizacje pobierają się bez logowania): żadnych haseł, adresów e-mail
   pracowników ani danych klientów w kodzie. Klucz „anon” Supabase w `cloud.py` jest publiczny z założenia.

@@ -196,7 +196,7 @@ jobs:
           if (Test-Path shots/dnd.txt) { Get-Content shots/dnd.txt }
           $log = "pkg/IntegraCRM/data/error.log"; if (Test-Path $log) { Get-Content $log }
 
-      - name: Zrzuty OFERTY OPON w Edge (zamówienia, historia, porównanie PDF, strona klienta)
+      - name: Zrzuty OFERTY OPON w Edge (zamówienia, historia, porównanie PDF)
         continue-on-error: true
         env:
           PYTHONIOENCODING: utf-8

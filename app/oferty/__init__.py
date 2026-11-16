@@ -1,1 +1,1 @@
-"""OFERTY OPON – oferty na opony z xPartner (beta)."""
+"""OFERTY OPON – oferty na opony z xPartner."""
