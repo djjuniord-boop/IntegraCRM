@@ -41,6 +41,9 @@ body.hidebuy .buy{display:none}
 .zk td,.zk th{padding:4px 6px;border-bottom:1px solid #eee;text-align:left}.zk .n{text-align:right;white-space:nowrap}
 .st{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:9px;background:#EEF3FF;color:#1d4f9c}.st.s5{background:#fde8e8;color:#b00012}.st.s6{background:#e9f5ec;color:#145a26}
 button.zt.on{background:var(--navy);color:#fff;border-color:var(--navy)}.fr{cursor:pointer}.fr:hover td{background:#fafafa}
+.uwbox{margin:6px 0 12px;padding:10px 12px;border-radius:10px;background:#fffdf5;border:1px solid #f0d27a}.uwbox textarea{min-height:0;margin-top:6px}
+.uwh{display:inline-block;background:#fff8e1;border:1px solid #f0d27a;color:#6b4e00;border-radius:7px;padding:2px 8px;font-size:12px;margin-top:4px;max-width:420px;white-space:pre-wrap}
+.tog{cursor:pointer;user-select:none}.tog .chev{float:right;font-size:13px;font-weight:600;color:#555;border:1px solid #ccc;border-radius:8px;padding:3px 10px}
 .kz{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:10px 0;padding:10px 12px;border-radius:10px;background:#fff7f7;border:1px solid #f3c6c9}
 .kcols{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px}.kbox{border:1px solid var(--line);border-radius:10px;padding:10px 14px}.kbox h4{margin:0 0 8px;font-size:12px;text-transform:uppercase;color:var(--muted);letter-spacing:.04em}
 .kbox label{display:block;margin:6px 0;font-size:13px}.kbox input:not([type]),.kbox textarea{width:100%;box-sizing:border-box}.kadr{border:1px solid var(--line);border-radius:8px;padding:7px 10px;margin:4px 0;cursor:pointer;display:flex;gap:8px;align-items:flex-start}
@@ -68,7 +71,8 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
 <div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button></div>
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: rozmiar(y) w dowolnym zapisie (205/55 R16, 205/55 16, 2055516), ilość („8 szt”), sezon (zimowe / całoroczne / letnie), klasy (premium / średnia / budżet, bez podania = wszystkie), marki, „runflat”, „suv”, „dostawczy”, „z wymianą”, „4 czujniki”, „przechowalnia opon/kół”.</div><div id="qMsg"></div></div>
-<div class="card"><h2><span class="n">1</span>Zapytanie klienta</h2>
+<div class="card"><h2 class="tog" onclick="zapTog()"><span class="n">1</span>Zapytanie klienta <span class="muted" style="font-size:13px;font-weight:400">· pojazdy, rozmiary, usługi – ręcznie</span><span class="chev" id="zapChev">▸ Rozwiń</span></h2>
+<div id="zapBody" style="display:none">
 <div class="row" style="margin-bottom:8px"><label>Klient (opcjonalnie – trafia do oferty, e-maila i historii)<input id="klient" placeholder="np. Firma XYZ" size="40"></label></div>
 <textarea id="paste" placeholder="Wpisz lub wklej pojazdy – każdy w osobnej linii, w dowolnej kolejności, np.:
 skoda octavia 2055516 dw5444lw
@@ -77,7 +81,9 @@ DX3985C octavia 205/60 16 tylko wymiana
 (albo wklej tabelę z maila, albo przeciągnij tu plik Excel z szablonu)" onkeydown="if(event.key==='Enter'&&event.ctrlKey)parsePaste()"></textarea>
 <div class="row" style="margin:8px 0"><button onclick="parsePaste()">Wczytaj pojazdy</button><button class="sec" onclick="api('/api/szablon',{}).catch(e=>alert(e.message))" title="Pobiera pusty arkusz Excel do wypełnienia (rejestracja, marka, model, rozmiar…)">📥 Szablon Excel</button><label class="sec xbtn" title="Wczytuje wypełniony szablon Excel">📤 Wczytaj z Excela<input type="file" accept=".xlsx,.xlsm" style="display:none" onchange="loadXlsx(this.files[0]);this.value=''"></label><button class="sec" onclick="clearAll()">🧹 Wyczyść wszystko</button><span style="font-size:12px;color:var(--muted);align-self:center">Ctrl+Enter</span><button class="sec" onclick="addRow()">+ Dodaj pojazd</button></div>
 <table id="veh"><thead><tr><th>Rejestracja</th><th>Pojazd</th><th>Typ</th><th>Rozmiar</th><th>Ilość opon</th><th>Wymiana</th><th>Czujniki TPMS</th><th>Przechowalnia</th><th></th></tr></thead><tbody></tbody></table>
-</div>
+</div></div>
+<script>function zapTog(on){const b=$('#zapBody');if(on===undefined)on=b.style.display==='none';b.style.display=on?'':'none';$('#zapChev').textContent=on?'▾ Zwiń':'▸ Rozwiń';try{localStorage.setItem('oferty_zapytanie',on?'1':'0')}catch(e){}}
+try{if(localStorage.getItem('oferty_zapytanie')==='1')document.addEventListener('DOMContentLoaded',()=>zapTog(true))}catch(e){}</script>
 <div class="card" id="krytCard"><h2><span class="n">2</span>Kryteria</h2>
 <div class="row">
 <label>Sezon (puste = wszystkie)<span class="row chips"><label><input type="checkbox" class="sez" value="Zimowa">zimowe</label><label><input type="checkbox" class="sez" value="Całoroczna">całoroczne</label><label><input type="checkbox" class="sez" value="Letnia">letnie</label></span></label>
@@ -105,10 +111,12 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div id="res"></div>
 <div class="row" style="margin-top:12px"><button class="red" onclick="offer()" id="bO">📄 Generuj ofertę (odświeża ceny i stany)</button></div><div id="oMsg"></div></div>
 <div class="card" id="outCard" style="display:none"><h2><span class="n">4</span>Oferta</h2>
+<div class="uwbox"><b>📝 Uwagi do oferty</b> <span class="muted" style="font-size:12px">– tylko dla nas, nie trafiają do PDF ani do klienta</span> <span id="uwInfo" class="muted" style="font-size:12px"></span>
+<textarea id="ouw" rows="2" maxlength="1000" placeholder="np. dla kogo zamówienie, termin odbioru, ustalenia z klientem" oninput="UWZM=true" onchange="zapiszUw()"></textarea>
+<div class="row" style="margin-top:4px;justify-content:flex-end;align-items:center;gap:10px"><span id="uwMsg" class="muted" style="font-size:12px"></span><button class="sec" onclick="zapiszUw()">Zapisz uwagi</button></div></div>
 <div id="zmBox"></div><div id="edit" class="edit"></div><div id="sum"></div>
 <div id="ul" style="margin:10px 0"></div><div id="kz" class="kz" style="display:none"></div>
-<div class="row" style="margin:8px 0"><button class="sec" onclick="copyMail()">📋 Kopiuj treść e-maila</button><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button></div>
-<textarea id="email"></textarea></div>
+<div class="row" style="margin:8px 0"><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button></div></div>
 </main>
 <dialog id="hdlg" style="max-width:1100px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
@@ -224,7 +232,7 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';
+ RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
  const filt=req.sezony.length||req.klasy.length||req.producenci.trim();
  if(filt){const n=1;for(const[s,g]of Object.entries(RES.wyniki))for(const[z,l]of Object.entries(g))l.filter(p=>p.ok_stan).slice(0,n).forEach(p=>SEL.add(s+'|'+z+'|'+p.id))}
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
@@ -232,10 +240,13 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
-let OID=null;
+let OID=null,UWZM=false;
+function uwUstaw(t,info){$('#ouw').value=t||'';$('#uwInfo').textContent=info||'';$('#uwMsg').textContent='';UWZM=!!t}
+async function zapiszUw(){if(!OID)return;const m=$('#uwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:OID,uwagi:$('#ouw').value});UWZM=false;m.textContent='✔ zapisane';$('#uwInfo').textContent=''}catch(e){m.textContent='';alert(e.message)}}
+function uwPoOfercie(){if(UWZM&&$('#ouw').value.trim())zapiszUw()}
 const newOid=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
 // ------------------------------------------------ ZAMÓWIENIA xPartner (podgląd)
 let ZAM=null,FAK=null,ZAMK=null,ZT='z';
@@ -288,16 +299,16 @@ async function setStatus(oid,st,sel){sel.disabled=true;try{await api('/api/statu
 function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs').value:'';const L=HL.filter(h=>(!k||h.kto===k)&&(!st||(st==='oddzwon'?h.oddzwon:h.status===st)));
  let sum='';{const by={};for(const h of L){const o=by[h.kto]??={n:0,kl:new Set(),wart:0,mod:{},wys:0,prz:0};o.n++;if(h.status!=='nowa')o.wys++;if(h.status==='przyjeta'||h.status==='zamowiona')o.prz++;if(h.klient)o.kl.add(h.klient);o.wart+=h.razem||0;for(const w of h.warianty)for(const m of(w.modele||'').split(', ').filter(Boolean))o.mod[m]=(o.mod[m]||0)+1}
   sum='<div class="t" style="margin:4px 0">Podsumowanie (wg aktualnego wyszukiwania)</div><table style="margin-bottom:14px"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Klientów</th><th class="num">Wartość ofert</th><th class="num" title="przyjęte + zamówione / wysłane (wszystkie poza „Nowa”)">Przyjęte</th><th>Najczęściej proponowane</th></tr>'+Object.entries(by).sort((a,b)=>b[1].n-a[1].n).map(([o,v])=>`<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${v.kl.size}</td><td class="num">${zl(v.wart)}</td><td class="num">${v.wys?`<b>${Math.round(100*v.prz/v.wys)}%</b> (${v.prz}/${v.wys})`:'—'}</td><td>${esc(Object.entries(v.mod).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', '))}</td></tr>`).join('')+'</table>'}
- $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(HADM?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${HADM?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}</td>
+ $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(HADM?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${HADM?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}${h.uwagi?`<br><span class="uwh" title="${esc(h.uwagi)}">📝 ${esc(h.uwagi.length>90?h.uwagi.slice(0,90)+'…':h.uwagi)}</span>`:''}</td>
  <td style="white-space:nowrap">${h.owner===ME?`<select data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
  ${h.oddzwon?'<div class="sx" style="background:#fff3cd;color:#7a5900;margin-top:4px">📞 oddzwoń – brak odpowiedzi 2 dni</div>':''}${h.link?`<div style="font-size:11px;color:var(--muted);margin-top:3px">🔗 link${h.otwarta?' · 👁 klient otworzył':' · nieotwarty'}</div>`:''}
  ${h.odp?`<div class="odp">✅ <b>${esc(h.odp.wybor)}</b>${h.odp.tel?` · ☎ ${esc(h.odp.tel)}`:''}${h.odp.uwagi?`<br>„${esc(h.odp.uwagi)}”`:''}</div>`:''}</td>
  <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
-async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();
+async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
- OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=newOid();$('#outCard').style.display='none';await offer()}
+ OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=newOid();$('#outCard').style.display='none';uwUstaw(hh.uwagi||'',hh.uwagi_at?'· ostatnia zmiana: '+((hh.uwagi_kto||'')===hh.owner?hh.kto:(hh.uwagi_kto||''))+', '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');await offer()}
 let PSEL=new Set(),PMORE={};
 const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGET','budzet','#111']];
 const bk=x=>String(x||'').toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g,'');
@@ -378,7 +389,7 @@ async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświ
  msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+(j.plik?'Zapisano: '+j.plik:'Oferta zapisana w historii.'),j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
  ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();drawKz();
- $('#email').value=j.email;drawEdit();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
+ drawEdit();uwPoOfercie();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 let OODD=(()=>{try{return localStorage.getItem('oferty_oddzial')||''}catch(e){return ''}})(),HSNAP=null,HDATA='';
 function setOdd(v){OODD=v;try{localStorage.setItem('oferty_oddzial',v)}catch(e){}}
@@ -408,7 +419,6 @@ function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG
 async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o[i.dataset.o]??={})[i.dataset.k]=i.value.trim()});
  for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
  try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
-function copyMail(){navigator.clipboard.writeText($('#email').value)}
 async function loadCfg(){CFG=await api('/api/cfg');$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 setTimeout(badgeStart,1500);
 let WT={},WCUR='wymiana_kolo';

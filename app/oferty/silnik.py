@@ -839,7 +839,8 @@ def list_hist(q=""):
                     "plik_ok": os.path.exists(r.get("plik") or ""),
                     "status": row.get("status") or "nowa", "status_at": row.get("status_at") or "", "link": bool(row.get("link_at")),
                     "otwarta": row.get("link_otwarta") or "", "odp": row.get("klient_odp") or None,
-                    "oddzwon": do_oddzwonienia(row.get("status"), row.get("status_at"))})
+                    "oddzwon": do_oddzwonienia(row.get("status"), row.get("status_at")),
+                    "uwagi": row.get("uwagi") or "", "uwagi_at": row.get("uwagi_at") or "", "uwagi_kto": row.get("uwagi_kto") or ""})
     return out
 
 
@@ -1442,6 +1443,15 @@ def handle(path, body=None, open_path=None):
                 HIST.status(safe_oid(body.get("oid")), st)
             except Exception:
                 return 500, {"error": "Nie udało się zmienić statusu – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."}
+            return 200, {"ok": True}
+        if route == "/api/uwagi":   # wewnętrzne uwagi do oferty – nie trafiają do PDF ani do klienta
+            if not HIST or not hasattr(HIST, "uwagi"):
+                return 400, {"error": "Historia ofert niedostępna"}
+            try:
+                HIST.uwagi(str(body.get("uwagi") or "")[:1000], rid=body.get("id") or None, oid=safe_oid(body.get("oid") or ""))
+            except Exception:
+                return 500, {"error": "Nie udało się zapisać uwag – jeśli to pierwszy raz, administrator musi wkleić plik SQL "
+                                      "(supabase/oferty_uwagi_2026-11-16.sql)."}
             return 200, {"ok": True}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))

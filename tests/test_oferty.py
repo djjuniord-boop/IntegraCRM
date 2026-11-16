@@ -524,3 +524,21 @@ def test_marza_wspolna_wroclaw_ustala_admin():
         assert S.load_cfg()["marza_proc"] == 30.0 and S.handle("/api/cfg")[1]["ceny_edycja"] is True
     finally:
         S.KONTO.clear(); S.KONTO.update(stare)
+
+
+def test_uwagi_do_oferty_zapis():
+    """Uwagi wewnętrzne: zapis przez Historia.uwagi (oid albo id), brak historii = 400."""
+    stary = S.HIST
+    zap = []
+
+    class H:
+        def uwagi(self, txt, rid=None, oid=None):
+            zap.append((txt, rid, oid))
+    try:
+        S.HIST = H()
+        code, _ = S.handle("/api/uwagi", {"oid": "20261116_082600", "uwagi": "Dla p. Kowalskiego" + "x" * 2000})
+        assert code == 200 and zap[0][2] == "20261116_082600" and len(zap[0][0]) == 1000
+        S.HIST = None
+        assert S.handle("/api/uwagi", {"oid": "x", "uwagi": "a"})[0] == 400
+    finally:
+        S.HIST = stary
