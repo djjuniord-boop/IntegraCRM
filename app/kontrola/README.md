@@ -1,8 +1,7 @@
 # Moduł KONTROLA CRM (+ HISTORIA)
 
 **Co robi:** porównuje zakończone zlecenia z raportu Integry 7 (PDF) z raportem z CRM (`.xlsx/.csv` z „Listy
-kontrolne”) po numerach rejestracyjnych, pokazuje braki i przygotowuje mail do handlowców. Każde sprawdzenie
-(zakładka STATYSTYKI). Od 0.21.0 **bez wycinka ekranu (OCR)** – upuszczony obraz → komunikat „pobierz .xlsx”.
+kontrolne”) po numerach rejestracyjnych, pokazuje braki i przygotowuje mail do handlowców. Każde sprawdzenie trafia do HISTORII. Od 0.21.0 **bez wycinka ekranu (OCR)** – upuszczony obraz → komunikat „pobierz .xlsx”.
 OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `crm` + oddziały.
 
 ## Pliki

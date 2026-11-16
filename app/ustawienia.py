@@ -9,7 +9,7 @@ from konfig import COMPANY, load_config, save_config
 
 # ---------- ustawienia ----------
 class SettingsDialog(tk.Toplevel):
-    """Pracownik: podgląd odbiorców, kopia do mnie, statystyki. Administrator: nadawca i odbiorcy firmy (baza),
+    """Pracownik: podgląd odbiorców, kopia do mnie. Administrator: nadawca i odbiorcy firmy (baza),
     Tesseract i źródło aktualizacji (ten komputer). Gmail na komputerze nie jest już używany."""
 
     def __init__(self, parent):
@@ -90,10 +90,7 @@ class SettingsDialog(tk.Toplevel):
         ttk.Checkbutton(body, text="Wysyłaj kopię (DW) do mnie", variable=self.v_cc
                         ).grid(row=r[0], column=1, sticky="w", padx=12)
         r[0] += 1
-        self.v_stats = tk.BooleanVar(value=bool(cfg.get("stats_enabled", True)))
-        ttk.Checkbutton(body, text="Wysyłaj anonimowe statystyki użycia (tylko liczby)", variable=self.v_stats
-                        ).grid(row=r[0], column=1, sticky="w", padx=12, pady=(6, 0))
-        r[0] += 1
+        self.v_stats = tk.BooleanVar(value=bool(cfg.get("stats_enabled", True)))   # bez pola – po zalogowaniu zdarzenia zapisuje dziennik firmy
         self.v_marza = tk.BooleanVar(value=bool(cfg.get("marza_enabled", False)))
         self.v_serwis = tk.BooleanVar(value=bool(cfg.get("serwis_enabled", False)))
         if admin:

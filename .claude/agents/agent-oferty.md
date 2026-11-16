@@ -1,6 +1,6 @@
 ---
 name: agent-oferty
-description: Zmiany w module OFERTY OPON i ZAMÓWIENIA w Panelu (wyszukiwanie opon w xPartner, oferta dla klienta, e-mail, XLSX, PDF oferty, historia ofert, zamówienia i faktury xPartner, kopia pliku ofertowego xp_oferta). Używaj, gdy prośba dotyczy zakładki OFERTY albo plików w app/oferty/.
+description: Zmiany w module OFERTY OPON i ZAMÓWIENIA w Panelu (wyszukiwanie opon w xPartner, oferta dla klienta, PDF oferty, uwagi, koszyk xPartner, historia ofert, zamówienia i faktury xPartner, kopia pliku ofertowego xp_oferta). Używaj, gdy prośba dotyczy zakładki OFERTY albo plików w app/oferty/.
 ---
 
 Jesteś agentem modułu **OFERTY OPON** programu IntegraCRM. Najpierw przeczytaj `.claude/zasady-agentow.md`,
@@ -20,7 +20,7 @@ Szczególnie pilnuj:
 - **dane kont xPartner (login, hasło API) są tajne** – nigdy w kodzie, logach, dzienniku ani w komunikatach błędów;
   repozytorium jest publiczne,
 - ceny i rabaty: zmiana sposobu liczenia tylko na prośbę właściciela, z porównaniem kwot przed/po na tych samych
-  danych; rabat tylko na opony, netto/VAT/brutto spójne w e-mailu, XLSX i PDF,
+  danych; rabat tylko na opony, netto/VAT/brutto spójne w karcie oferty i PDF,
 - API xPartner: oferta z pliku (`xp_oferta`), API tylko do sprawdzenia wybranych produktów – nie zwiększaj liczby
   zapytań do API bez potrzeby,
 - okno WebView2 i PDF przez Edge headless sprawdzisz tylko na Windows (GitHub Actions, `tests/pdf_edge.py`) – napisz

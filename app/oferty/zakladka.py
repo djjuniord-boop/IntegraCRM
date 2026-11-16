@@ -1,7 +1,7 @@
 """Zakładka OFERTY OPON: okno modułu (osobny proces WebView2) osadzone w zakładce – jak panel SERWIS QR."""
 import time
 import tkinter as tk
-from ui import BLACK, FlatButton, LINE, MUTED, OK, RED, SURFACE, WARN, WARN_BG
+from ui import BLACK, FlatButton, LINE, MUTED, OK, RED, SURFACE, WARN
 
 
 class OfertyMixin:
@@ -16,7 +16,6 @@ class OfertyMixin:
         bar = tk.Frame(page, bg=SURFACE, padx=16, pady=6, highlightthickness=1, highlightbackground=LINE)
         bar.pack(fill="x")
         tk.Label(bar, text="Oferty opon (xPartner)", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
-        tk.Label(bar, text=" BETA ", bg=WARN_BG, fg=WARN, font=f.small).pack(side="left", padx=8)
         self.of_banner = tk.Label(bar, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w")
         self.of_banner.pack(side="left", padx=(8, 0), fill="x", expand=True)
         FlatButton(bar, "Uruchom ponownie", self.oferty_restart, "ghost", f.small, 10, 3).pack(side="right")
