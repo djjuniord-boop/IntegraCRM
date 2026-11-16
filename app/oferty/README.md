@@ -74,3 +74,9 @@ to filtr w programie, nie w xPartner – login xPartner pracownika i tak widzi w
 
 
 Link dla klienta (strona oferta.html) usunięty 2026-11-16 – funkcje w bazie skasowane (supabase/porzadki_2026-11-16.sql).
+
+## Znane ograniczenie (zaakceptowane przez właściciela 2026-11-16)
+
+Zamówienia i faktury xPartner innych oddziałów filtruje program, nie serwer (funkcja `xpartner`). Konto z modułem
+`zamowienia`/`zamawianie` mogłoby poza programem pobrać dane całej firmy. Decyzja: zostaje tak w 1.0; ewentualne
+przeniesienie filtra na serwer – osobna zmiana.
