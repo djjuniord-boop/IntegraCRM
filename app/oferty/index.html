@@ -110,7 +110,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Szukaj w wynikach<input id="f_txt" placeholder="model, indeks xPartner…" oninput="PAGE={};render()" style="width:160px"></label>
 <button class="sec" onclick="resetF()" style="align-self:flex-end">Wyczyść filtry</button>
 </div>
-<div id="samoBox" style="display:none;margin:10px 0 4px"><span class="tgl"><button id="samo0" onclick="samoUstaw(false)">Każdy rozmiar osobno</button><button id="samo1" onclick="samoUstaw(true)">🔗 Ten sam model na wszystkich rozmiarach</button></span><div class="muted" style="font-size:12px;margin-top:4px">Pokazuje tylko modele dostępne we wszystkich rozmiarach w potrzebnej ilości. W szybkim poleceniu: „… ten sam model”.</div></div>
+<div id="samoBox" style="display:none;margin:10px 0 4px"><span class="tgl"><button id="samo0" onclick="samoUstaw(false)">Każdy rozmiar osobno</button><button id="samo1" onclick="samoUstaw(true)">🔗 Tylko modele we wszystkich rozmiarach</button></span><div class="muted" style="font-size:12px;margin-top:4px">Te same tabele co zwykle – ukryte są modele, których nie ma we wszystkich rozmiarach w potrzebnej ilości; wiersze ułożone wg modelu. W szybkim poleceniu: „… ten sam model”.</div></div>
 <div id="res"></div>
 <div class="row" style="margin-top:12px"><button class="red" onclick="offer()" id="bO">📄 Generuj ofertę (odświeża ceny i stany)</button></div><div id="oMsg"></div></div>
 <div class="card" id="outCard" style="display:none"><h2><span class="n">4</span>Oferta</h2>
@@ -234,14 +234,14 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();SAMOSEL=new Set();SAMOW={};PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
+ RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
  // bez automatycznego zaznaczania – opony wybiera użytkownik (decyzja właściciela 2026-11-16)
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();SAMO=false;SAMOSEL=new Set();SAMOW={};PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();SAMO=false;PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null,UWZM=false;
@@ -353,45 +353,26 @@ function fillHom(){const have=new Set(),sps=new Set(),lis=new Set();for(const g 
  $('#f_spd').innerHTML='<option value="">dowolna</option>'+[...sps].sort((a,b)=>spdI(a)-spdI(b)).map(x=>`<option value="=${esc(x)}" ${cs==='='+x?'selected':''}>${esc(x)}</option><option value="${esc(x)}" ${cs===x?'selected':''}>${esc(x)} i wyżej</option>`).join('');
  $('#f_li').innerHTML='<option value="">dowolna</option>'+[...lis].sort((a,b)=>a-b).map(x=>`<option value="=${x}" ${cl==='='+x?'selected':''}>${x}</option><option value="${x}" ${cl==String(x)?'selected':''}>${x} i wyżej</option>`).join('');
  const cur=$('#f_hom').value;$('#f_hom').innerHTML='<option value="">dowolna</option>'+[...have].map(h=>`<option value="${esc(h)}" ${cur===h?'selected':''}>${esc(HOM[h]||h)}</option>`).join('')}
-function render(){fillHom();const wiele=Object.keys(RES.wyniki).length>1;$('#samoBox').style.display=wiele?'':'none';$('#samo0').classList.toggle('on',!(SAMO&&wiele));$('#samo1').classList.toggle('on',!!(SAMO&&wiele));if(SAMO&&wiele)return renderSamo();let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;const l=sorted(filt(all));
+function render(){fillHom();const wiele=Object.keys(RES.wyniki).length>1;$('#samoBox').style.display=wiele?'':'none';$('#samo0').classList.toggle('on',!(SAMO&&wiele));$('#samo1').classList.toggle('on',!!(SAMO&&wiele));const sm=SAMO&&wiele?samoModele():null;let h='',gi=0;for(const[s,bySez]of Object.entries(RES.wyniki)){for(const[sez,all]of Object.entries(bySez)){const g=gi++;let l=sorted(filt(all));if(sm){l=l.filter(p=>sm.ok.has(mkey(p))&&p.ilosc>=RES.potrzeba[s]);if(!SORT.k)l.sort((a,b)=>mkey(a)<mkey(b)?-1:mkey(a)>mkey(b)?1:a.cena_brutto-b.cena_brutto)}
  const pages=Math.max(1,Math.ceil(l.length/PER));let pg=Math.min(PAGE[g]||0,pages-1);PAGE[g]=pg;
  const nav=pages>1?`<span style="margin-left:auto;display:flex;gap:6px;align-items:center"><button class="sec" ${pg?'':'disabled'} onclick="go(${g},-1)">◀</button><span style="font-size:12px">strona ${pg+1} / ${pages}</span><button class="sec" ${pg<pages-1?'':'disabled'} onclick="go(${g},1)">▶</button></span>`:'';
  h+=`<h3 id="g_${g}" style="display:flex;align-items:center;gap:6px">${esc(s)} · ${esc(sez)} <span class="tag">potrzeba ${RES.potrzeba[s]} szt.</span> <span class="tag">${l.length}${l.length!==all.length?' z '+all.length:''} pozycji</span>${nav}</h3>`;
  if(!l.length){h+='<p class="warn">Brak opon spełniających kryteria.</p>';continue}
  h+='<table><tr><th></th>'+th('id','Indeks')+th('producent','Producent')+th('model','Model')+th('sezon','Sezon')+th('indeks','Nośn./prędk.')+th('klasa','Klasa')+th('dot','DOT')+th('mokra','Mokra')+th('opory','Opory')+th('halas','Hałas')+'<th>Homol.</th>'+th('stan','Stan','num')+th('zakup','Zakup brutto','num buy')+th('cena','Oferta brutto/szt.','num')+(CFG.zamawianie?'<th></th>':'')+'</tr>';
- for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id;h+=`<tr class="${p.ok_stan?'':'bad'}"><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.za_malo?'warn':p.ok_stan?'ok':''}" style="white-space:nowrap">${p.za_malo?`<b title="Za mało na potrzebę (${RES.potrzeba[s]} szt.)">⚠ tylko ${p.ilosc} szt.</b>`:p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td>${CFG.zamawianie?`<td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner (${RES.potrzeba[s]} szt.)" onclick='kDodaj(${p.id},${RES.potrzeba[s]},${esc(JSON.stringify(p.nazwa||p.model))})'>🛒</button></td>`:''}</tr>`}
- h+='</table>';if(pages>1)h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">${nav}</div>`}}$('#res').innerHTML=h;updCnt()}
-// ---------------------------------------------------------------- TEN SAM MODEL na wszystkich rozmiarach (2026-11-16)
-let SAMO=false,SAMOW={},SAMOSEL=new Set();
-const mkey=p=>(p.producent+' '+p.model).toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g,'');
-function samoUstaw(on){SAMO=on;SEL=new Set();SAMOSEL=new Set();SAMOW={};PAGE={};render()}
-function samoDane(){const roz=Object.keys(RES.wyniki),po={};
- for(const s of roz){const m={};for(const[sez,all]of Object.entries(RES.wyniki[s]))for(const p of filt(all)){const k=mkey(p);(m[k]=m[k]||{});if(!m[k][p.id])m[k][p.id]={p,sez}}po[s]=m}
- const klucze=new Set(roz.flatMap(s=>Object.keys(po[s]))),ok=[],zle=[];
- for(const k of klucze){const wier={k,roz:{},brak:[]};let nazwa='';
-  for(const s of roz){const opc=Object.values(po[s][k]||{}).sort((a,b)=>a.p.cena_brutto-b.p.cena_brutto);if(opc.length)nazwa=nazwa||(opc[0].p.producent+' '+opc[0].p.model);
-   const dosc=opc.filter(o=>o.p.ilosc>=RES.potrzeba[s]);
-   if(!opc.length)wier.brak.push('brak '+s);else if(!dosc.length)wier.brak.push(s+' ⚠ tylko '+Math.max(...opc.map(o=>o.p.ilosc))+' szt.');
-   wier.roz[s]=dosc}
-  wier.nazwa=nazwa;(wier.brak.length?zle:ok).push(wier)}
- return{roz,ok,zle}}
-function samoWyb(w,s){const id=(SAMOW[w.k]||{})[s];return w.roz[s].find(o=>o.p.id===id)||w.roz[s][0]}
-function samoSuma(w,roz){return roz.reduce((a,s)=>a+samoWyb(w,s).p.cena_brutto*RES.potrzeba[s],0)}
-function samoSel(){SEL=new Set();const{roz,ok}=samoDane();for(const w of ok)if(SAMOSEL.has(w.k))for(const s of roz){const o=samoWyb(w,s);SEL.add(s+'|'+o.sez+'|'+o.p.id)}updCnt()}
-function samoTog(k,on){on?SAMOSEL.add(k):SAMOSEL.delete(k);samoSel()}
-function samoAlt(k,s,id){(SAMOW[k]=SAMOW[k]||{})[s]=id;samoSel();render()}
-function renderSamo(){const{roz,ok,zle}=samoDane();ok.sort((a,b)=>samoSuma(a,roz)-samoSuma(b,roz));
- let h=`<h3 style="display:flex;align-items:center;gap:6px">Ten sam model · ${roz.map(esc).join(' + ')} <span class="tag">potrzeba ${roz.map(s=>RES.potrzeba[s]).join(' + ')} szt.</span> <span class="tag">${ok.length} ${ok.length===1?'model':'modeli'}</span></h3>`;
- if(!ok.length)h+='<p class="warn">Żaden model nie jest dostępny we wszystkich rozmiarach w potrzebnej ilości.</p>';
- else{h+='<table><tr><th></th><th>Producent / model</th><th>Klasa</th>'+roz.map(s=>`<th>${esc(s)}</th>`).join('')+`<th class="num">Komplet ${roz.map(s=>RES.potrzeba[s]).join('+')} brutto</th></tr>`;
-  for(const w of ok){const wyb=roz.map(s=>samoWyb(w,s)),p0=wyb[0].p,doty=new Set(wyb.map(o=>o.p.dot||'–'));
-   h+=`<tr><td><input type="checkbox" ${SAMOSEL.has(w.k)?'checked':''} onchange="samoTog('${w.k}',this.checked)"></td><td><b>${esc(w.nazwa)}</b><div class="muted" style="font-size:12px">Mokra ${esc(p0.mokra||'–')} · Opory ${esc(p0.opory||'–')}${p0.halas?' · '+p0.halas+' dB':''}${doty.size>1?' · <b class="warn">⚠ różne roczniki</b>':''}</div></td><td>${esc(p0.klasa)}</td>`;
-   roz.forEach((s,i)=>{const o=wyb[i];h+=`<td><b>${zl(o.p.cena_brutto)}</b>/szt.<div style="font-size:12px;color:#555">${o.p.id} · ${esc(o.p.indeks)} · DOT ${esc(o.p.dot||'–')} · stan <span class="ok">${o.p.ilosc}</span></div>`+
-    w.roz[s].filter(x=>x.p.id!==o.p.id).map(x=>`<div class="alt" onclick="samoAlt('${w.k}','${esc(s)}',${x.p.id})">lub ${x.p.id} (DOT ${esc(x.p.dot||'–')}) · ${zl(x.p.cena_brutto)} · stan ${x.p.ilosc}</div>`).join('')+'</td>'});
-   h+=`<td class="num"><b style="font-size:15px">${zl(samoSuma(w,roz))}</b></td></tr>`}
-  h+='</table>'}
- if(zle.length)h+=`<div class="muted" style="font-size:12px;margin-top:8px"><b>Nie pasują</b> (model nie jest dostępny we wszystkich rozmiarach w potrzebnej ilości): ${zle.slice(0,25).map(w=>esc(w.nazwa)+' – '+w.brak.map(esc).join(', ')).join(' · ')}${zle.length>25?' …':''}</div>`;
+ let pm='';for(const p of l.slice(pg*PER,pg*PER+PER)){const key=s+'|'+sez+'|'+p.id,nm=sm&&pm&&mkey(p)!==pm;pm=mkey(p);h+=`<tr class="${p.ok_stan?'':'bad'}"${nm?' style="border-top:2px solid #bbb"':''}><td><input type="checkbox" class="pick" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key)?'checked':''}></td><td style="font-variant-numeric:tabular-nums">${p.id}</td><td>${esc(p.producent)}</td><td title="${esc(p.nazwa)}">${esc(p.model)}${p.demo?' <span class="demo" title="Opona z demontażu (DEMO)">DEMO</span>':''}</td><td>${esc(p.sezon)}</td><td>${esc(p.indeks)}</td><td>${esc(p.klasa)}</td><td>${esc(p.dot)}</td><td>${esc(p.mokra||'–')}</td><td>${esc(p.opory||'–')}</td><td>${p.halas?p.halas+' dB':'–'}</td><td>${esc(p.homol.filter(x=>x!=='FR').join(' '))}</td><td class="num ${p.za_malo?'warn':p.ok_stan?'ok':''}" style="white-space:nowrap">${p.za_malo?`<b title="Za mało na potrzebę (${RES.potrzeba[s]} szt.)">⚠ tylko ${p.ilosc} szt.</b>`:p.ilosc}</td><td class="num buy">${zl(p.brutto_zak)}</td><td class="num"><b>${zl(p.cena_brutto)}</b></td>${CFG.zamawianie?`<td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner (${RES.potrzeba[s]} szt.)" onclick='kDodaj(${p.id},${RES.potrzeba[s]},${esc(JSON.stringify(p.nazwa||p.model))})'>🛒</button></td>`:''}</tr>`}
+ h+='</table>';if(pages>1)h+=`<div style="display:flex;justify-content:flex-end;margin-top:6px">${nav}</div>`}}
+ if(sm&&sm.ukryte.length)h+=`<div class="muted" style="font-size:12px;margin-top:10px"><b>Ukryte</b>, bo nie ma ich we wszystkich rozmiarach w potrzebnej ilości: ${sm.ukryte.slice(0,30).map(esc).join(' · ')}${sm.ukryte.length>30?' …':''}</div>`;
  $('#res').innerHTML=h;updCnt()}
+// ---------------------------------------------------------------- TYLKO MODELE WE WSZYSTKICH ROZMIARACH (filtr, 2026-11-16)
+let SAMO=false;
+const mkey=p=>(p.producent+' '+p.model).toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g,'');
+function samoUstaw(on){SAMO=on;PAGE={};render()}
+function samoModele(){const roz=Object.keys(RES.wyniki),po={},nazwy={};
+ for(const s of roz){po[s]={};for(const all of Object.values(RES.wyniki[s]))for(const p of filt(all)){const k=mkey(p);nazwy[k]=nazwy[k]||(p.producent+' '+p.model);
+  po[s][k]=Math.max(po[s][k]||0,p.ilosc>=RES.potrzeba[s]?2:1)}}
+ const ok=new Set(),ukryte=[];
+ for(const k of Object.keys(nazwy)){const brak=roz.filter(s=>po[s][k]!==2).map(s=>po[s][k]?s+' ⚠ za mało sztuk':'brak '+s);brak.length?ukryte.push(nazwy[k]+' – '+brak.join(', ')):ok.add(k)}
+ return{ok,ukryte}}
 let OMARZA='',ORABAT='',CENY={},ULS=[],OSOBNO=null,ORABW='',CENYW={},WYMS=[];
 function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;else if(k==='w')ORABW=v;reoffer()}
 function setW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete CENYW[k];else CENYW[k]=Math.ceil(+v);reoffer()}
