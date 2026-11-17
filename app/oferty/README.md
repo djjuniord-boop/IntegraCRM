@@ -86,3 +86,6 @@ przeniesienie filtra na serwer – osobna zmiana.
 Handlowcy z tym samym oddziałem (`app_users.branches`) widzą i współdzielą oferty: podgląd, status (`oferty_status_o`),
 uwagi (`oferty_uwagi`), „Otwórz i odśwież” aktualizuje wpis autora (PATCH). Usuwa tylko autor. Zasady w bazie:
 `supabase/oferty_oddzial_2026-11-17.sql` (`oferty_wspolna(owner)`). Historia: „moje” / „cały oddział”.
+
+Blokada w bazie (`supabase/oferty_blokada_wlasciciela_2026-11-17.sql`, wyzwalacz `oferty_straz`): zwykłe konto nie zmieni
+`owner`/`oid`/`id`/`created_at`, a w ofercie kolegi – statusu i uwag poza funkcjami `oferty_status_o`/`oferty_uwagi`.
