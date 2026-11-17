@@ -170,6 +170,11 @@ def wczytaj_konto():
     silnik.KONTO.update(katalog=k, katalog_info=k.info, katalog_cechy=k.cechy)
 
 
+# kopia obejmuje cały plik xPartner (opony, felgi, koła, TPMS…) – wyszukiwanie opon tylko w asortymencie OPONY
+TYLKO_OPONY = "dane->attrs->>Asortyment=eq.OPONY"
+TPMS_ASORT = "CZUJNIKI CIŚNIENIA TPMS"
+
+
 class Katalog:
     """Wyszukiwanie w kopii pliku ofertowego xPartner (tabela xp_oferta). None = użyj API (kopia pusta/nieaktualna/błąd)."""
     MAKS_WIEK = 3 * 3600
@@ -202,7 +207,7 @@ class Katalog:
             self.uzyty = False
             return None
         w, p, r = m.groups()
-        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&szer=eq.%s&profil=eq.%s&sred=eq.%s&limit=5000" % (w, p, r)) or []
+        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&szer=eq.%s&profil=eq.%s&sred=eq.%s&%s&limit=5000" % (w, p, r, TYLKO_OPONY)) or []
         self.uzyty = True
         return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
 
@@ -214,7 +219,7 @@ class Katalog:
         if not m or not self.swiezy(self.MAKS_WIEK_WZORCA):
             return None
         w, p, r, _c = m.groups()
-        q = ["select=dane", "order=ilosc.desc", "limit=%d" % silnik.WZOR_POBIERZ]
+        q = ["select=dane", TYLKO_OPONY, "order=ilosc.desc", "limit=%d" % silnik.WZOR_POBIERZ]
         for kol, v in (("szer", w), ("profil", p), ("sred", r)):
             if v != "*":
                 q.append("%s=eq.%s" % (kol, v))
@@ -228,6 +233,15 @@ class Katalog:
         if warunki:
             q.append("and=" + urllib.parse.quote("(" + ",".join(warunki) + ")", safe="(),.*>-"))
         rows = _db("GET", "/rest/v1/xp_oferta?" + "&".join(q)) or []
+        self.uzyty = True
+        return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
+
+    def tpms(self):
+        """Czujniki TPMS i akcesoria z kopii pliku (ok. 240 pozycji – całość, filtruje silnik). None = kopia niedostępna."""
+        if not self.swiezy(self.MAKS_WIEK_WZORCA):
+            return None
+        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->attrs->>Asortyment=eq."
+                   + urllib.parse.quote(TPMS_ASORT) + "&limit=3000") or []
         self.uzyty = True
         return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
 

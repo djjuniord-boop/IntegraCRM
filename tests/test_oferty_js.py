@@ -19,7 +19,7 @@ def test_okna_ofert_bez_bledow_js():
            "oddzialy_dane": {"Latex Wrocław": {"nazwa": "Latex", "adres": "x", "tel": "1"}}, "ceny_oddzial": "Latex Wrocław",
            "ceny_edycja": False}
     odp = {"/api/cfg": cfg, "/api/history": {"lista": [], "admin": True, "me": "a@b.pl"}, "/api/koszyk/adresy": {"adresy": []},
-           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}}
+           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""}}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
             "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
     html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
@@ -34,7 +34,7 @@ def test_okna_ofert_bez_bledow_js():
             pg.goto(p.as_uri())
             pg.wait_for_timeout(600)
             for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
-                       "zapTog()", "zapTog()"):
+                       "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')", "widok('o')"):
                 try:
                     pg.evaluate(js)
                 except Exception as e:

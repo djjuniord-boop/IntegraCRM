@@ -87,6 +87,9 @@ HELP_MODULES = [
                               "„⚠ tylko N szt.”. Można też wpisać niepełny rozmiar („20555”, „R20”) albo samą markę "
                               "i sezon („zima pirelli”) – nad wynikami pojawi się pasek rozmiarów do filtrowania "
                               "(najwyżej 1000 opon). „Zapytanie klienta” rozwiniesz kliknięciem w nagłówek."),
+        ("Czujniki TPMS", "Przełącznik „📡 Czujniki TPMS” w nagłówku Ofert: szybkie polecenie (np. „kia sportage 4 szt”, numer OE "
+                          "ze starego czujnika, „uniwersalny srebrny”), filtry i dodawanie do koszyka. Koszyk jest wspólny z oponami – "
+                          "opony i czujniki zamówisz jednym zamówieniem. Bez tworzenia ofert."),
         ("Oferta i PDF", "Zaznacz opony i kliknij „Generuj ofertę” – ceny i stany odświeżą się na żywo. PDF dla klienta "
                          "z danymi Twojego oddziału; rabat wpisujesz w „Warunkach tej oferty”. W „📝 Uwagi do oferty” "
                          "zapisz informacje tylko dla nas (nie trafiają do PDF)."),
