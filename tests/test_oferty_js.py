@@ -46,6 +46,77 @@ def test_okna_ofert_bez_bledow_js():
     assert not bledy, bledy
 
 
+def test_niepelny_rozmiar_w_oknie():
+    """Szybkie polecenie „zima r16” na prawdziwym silniku: pasek rozmiarów filtruje, oferta z opon dwóch rozmiarów
+    trafia do silnika jako osobne pozycje z prawdziwymi rozmiarami (bez gwiazdek)."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    sys.path.insert(0, str(ROOT / "tests"))
+    import test_oferty as T
+    from oferty import silnik as S
+    T._setup()
+    db = T.DB + [T._p(7, "DĘBICA Z195/65 R16 FRIGO 2 92H", 40, 200.0, "DĘBICA", "FRIGO 2", "ZIMOWA", "BUDGET")]
+
+    class Kat:
+        def __call__(self, s):
+            return None
+
+        def wzorzec(self, wz, marki, sezony):
+            return [dict(p) for p in db]
+    stare = dict(S.KONTO)
+    S.KONTO.update(katalog=Kat(), katalog_info=lambda: "z pliku", oddzialy=["Latex Wrocław"], oddzialy_dane=T.ODDZ, kto="T")
+    oferty = []
+
+    def handle(path, body):
+        if path == "/api/offer":
+            oferty.append(body)
+        c, r = S.handle(path, body)
+        return [c, r]
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace(
+        "<head>", "<head><script>window.alert=window.confirm=()=>true;window.pywebview={api:{call:async(p,b)=>{const r=await window.pyCall(p,b||null);"
+        "return{code:r[0],body:r[1]}}}};</script>", 1)
+    p = ROOT / "app/oferty/_test_js2.html"
+    p.write_text(html, encoding="utf-8")
+    bledy = []
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.expose_function("pyCall", handle)
+            pg.on("pageerror", lambda e: bledy.append(str(e)))
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(800)
+            pg.fill("#quick", "zima r16")
+            pg.evaluate("quick()")
+            pg.wait_for_timeout(1200)
+            chips = pg.evaluate("[...document.querySelectorAll('#res .rozf button')].map(b=>b.textContent.trim())")
+            assert len(chips) == 2 and any(c.startswith("205/55 R16") for c in chips), chips
+            assert "R16 – wszystkie rozmiary" in pg.inner_text("#res")
+            pg.evaluate("document.querySelector('#res .rozf button').click()")   # filtr: jeden rozmiar
+            pg.wait_for_timeout(200)
+            widoczne = pg.evaluate("new Set([...document.querySelectorAll('#res tr td:nth-child(3) b')].map(x=>x.textContent)).size")
+            assert widoczne == 1, widoczne
+            pg.evaluate("document.querySelector('#res .rozf button.on').click()")   # zdjęcie filtra
+            pg.wait_for_timeout(200)
+            pg.evaluate("""(()=>{const ks=[...document.querySelectorAll('#res .pick')];const roz=new Set();for(const k of ks){
+                const r=k.closest('tr').children[2].textContent;if(!roz.has(r)){roz.add(r);k.click()}}})()""")
+            pg.evaluate("offer()")
+            pg.wait_for_timeout(1500)
+            b.close()
+    finally:
+        p.unlink()
+        S.KONTO.clear(); S.KONTO.update(stare)
+    assert not bledy, bledy
+    assert oferty, "brak wywołania oferty"
+    o = oferty[-1]
+    assert sorted(v["rozmiar"] for v in o["pojazdy"]) == ["195/65 R16", "205/55 R16"], o["pojazdy"]
+    assert sorted(o["wybor"]) == ["195/65 R16", "205/55 R16"] and all("*" not in k for k in o["sel"]), o
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
+    test_niepelny_rozmiar_w_oknie()
     print("Okna Ofert bez błędów JS")

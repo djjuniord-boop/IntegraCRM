@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.0.7",
+        "date": "2026-11-17",
+        "changes": [
+            "Oferty opon: w szybkim poleceniu można wpisać niepełny rozmiar („20555”, „R20”, „205 R16”) albo samą markę i sezon („zima pirelli”, „firestone”) – wyniki mają kolumnę Rozmiar, a nad tabelą pasek rozmiarów do filtrowania (najwyżej 1000 opon, od największego stanu)",
+        ],
+    },
     {
         "version": "1.0.6",
         "date": "2026-11-17",

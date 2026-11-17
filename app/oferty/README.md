@@ -86,3 +86,12 @@ przeniesienie filtra na serwer – osobna zmiana.
 Handlowcy z tym samym oddziałem (`app_users.branches`) widzą i współdzielą oferty: podgląd, status (`oferty_status_o`),
 uwagi (`oferty_uwagi`), „Otwórz i odśwież” aktualizuje wpis autora (PATCH). Usuwa tylko autor. Zasady w bazie:
 `supabase/oferty_oddzial_2026-11-17.sql` (`oferty_wspolna(owner)`). Historia: „moje” / „cały oddział”.
+
+Blokada w bazie (`supabase/oferty_blokada_wlasciciela_2026-11-17.sql`, wyzwalacz `oferty_straz`): zwykłe konto nie zmieni
+`owner`/`oid`/`id`/`created_at`, a w ofercie kolegi – statusu i uwag poza funkcjami `oferty_status_o`/`oferty_uwagi`.
+
+Niepełny rozmiar w szybkim poleceniu (2026-11-17): „20555”, „205/55”, „R20”, „205 R16”, „r17c”, sama marka / sezon / klasa →
+klucz wzorca (`*/* R20`, `205/55 R*` … – `silnik.wzorzec_z_tekstu`), szukany tylko w kopii pliku (`Katalog.wzorzec`, marka
+i sezon zawężają w bazie, od największego stanu, max 5000), pokazujemy max 1000 (`WZOR_LIMIT`). Dostawcze (C) i połówki
+tylko, gdy wpisane. W oknie: kolumna Rozmiar + pasek rozmiarów (filtr). Przy ofercie `wzRozwin()` zamienia grupę wzorca na
+osobne pozycje z prawdziwymi rozmiarami zaznaczonych opon (dalej wszystko jak przy pełnym rozmiarze).

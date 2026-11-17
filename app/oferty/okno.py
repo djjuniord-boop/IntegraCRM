@@ -205,6 +205,31 @@ class Katalog:
         self.uzyty = True
         return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
 
+    def wzorzec(self, wz, marki=(), sezony=()):
+        """Niepełny rozmiar („205/55 R*”, „*/* R20”…) – opony z kopii pliku, od największego stanu (najwyżej
+        silnik.WZOR_POBIERZ). Marka i sezon zawężają już w bazie. None = kopia niedostępna/nieaktualna."""
+        from oferty import silnik
+        m = silnik.WZOR_RE.match(wz or "")
+        if not m or not self.swiezy():
+            return None
+        w, p, r, _c = m.groups()
+        q = ["select=dane", "order=ilosc.desc", "limit=%d" % silnik.WZOR_POBIERZ]
+        for kol, v in (("szer", w), ("profil", p), ("sred", r)):
+            if v != "*":
+                q.append("%s=eq.%s" % (kol, v))
+        warunki = []
+        sz = {"Zimowa": "ZIM*", "Całoroczna": "CA*", "Letnia": "LET*"}
+        if sezony:
+            warunki.append("or(" + ",".join("dane->attrs->>Sezon.ilike.%s" % sz[x] for x in sezony if x in sz) + ")")
+        if marki:   # „VKTYRE” -> „V*K*T*Y*R*E*” (pasuje też „VK TYRE”, „GOOD-YEAR”); dokładnie zawęża silnik
+            warunki.append("or(" + ",".join("dane->attrs->>Producent.ilike.%s*" % "*".join(x) for x in marki if x) + ")")
+        warunki = [x for x in warunki if x not in ("or()",)]
+        if warunki:
+            q.append("and=" + urllib.parse.quote("(" + ",".join(warunki) + ")", safe="(),.*>-"))
+        rows = _db("GET", "/rest/v1/xp_oferta?" + "&".join(q)) or []
+        self.uzyty = True
+        return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
+
     def cechy(self, pid):
         """Cechy z pliku (EPREL, śnieg, lód) dla oferty otwartej bez wyszukiwania (np. z historii)."""
         rows = _db("GET", "/rest/v1/xp_oferta?select=dane&id=eq.%d" % int(pid)) or []

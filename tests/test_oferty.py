@@ -524,3 +524,59 @@ def test_szybkie_ten_sam_model():
     q = S.parse_quick("2754020 3153520 wielosezonowe 2 szt ten sam model")
     assert q["ten_sam"] is True and len(q["pojazdy"]) == 2
     assert S.parse_quick("2754020 3153520 2 szt")["ten_sam"] is False
+
+
+def test_niepelny_rozmiar_rozpoznanie():
+    """Niepełny rozmiar w szybkim poleceniu (decyzja właściciela 2026-11-17): 20555, R20, 205 R16, sama marka / sezon."""
+    przyp = {"zima pirelli": "*/* R*", "zima pirelli r20": "*/* R20", "zima pirelli 20555": "205/55 R*", "firestone": "*/* R*",
+             "R20": "*/* R20", "205/55 zimowe 4 szt": "205/55 R*", "205 r16": "205/* R16", "r17c": "*/* R17C",
+             "michelin 18 cali": "*/* R18", "bmw 320 r18": "*/* R18", "2055516": "205/55 R16", "205/55 R16 91V": "205/55 R16"}
+    for t, oczek in przyp.items():
+        assert [v["rozmiar"] for v in S.parse_quick(t)["pojazdy"]] == [oczek], t
+    assert S.parse_quick("8 szt")["pojazdy"] == []
+    q = S.parse_quick("zima pirelli r20")
+    assert q["producenci"] == "PIRELLI" and q["sezony"] == ["Zimowa"]
+    assert S.pasuje_wzorzec("*/* R20", "245/45 R20") and not S.pasuje_wzorzec("*/* R17", "215/60 R17C")
+    assert S.pasuje_wzorzec("*/* R17C", "215/60 R17C") and not S.pasuje_wzorzec("205/55 R*", "205/55 R17.5")
+    assert S.opis_wzorca("205/55 R*") == "205/55 – każda średnica" and S.opis_wzorca("*/* R20") == "R20 – wszystkie rozmiary"
+
+
+def test_niepelny_rozmiar_wyszukiwanie_i_limit():
+    """Wzorzec szuka w kopii pliku (marka/sezon przekazane do bazy), każda opona ma swój rozmiar, limit 1000."""
+    _setup()
+    wolania = []
+
+    class Kat:
+        def __call__(self, s):
+            return None
+
+        def wzorzec(self, wz, marki, sezony):
+            wolania.append((wz, list(marki), list(sezony)))
+            return [dict(p) for p in DB]
+    stare = dict(S.KONTO)
+    try:
+        S.KONTO.update(katalog=Kat(), katalog_info=lambda: "z pliku")
+        c, r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "*/* R*", "ilosc": 4, "nowe": True}], "producenci": "PIRELLI, BARUM",
+                                        "sezony": ["Zimowa", "Całoroczna"]})
+        assert c == 200, r
+        assert wolania == [("*/* R*", ["PIRELLI", "BARUM"], ["Zimowa", "Całoroczna"])]
+        lista = [p for g in r["wyniki"]["*/* R*"].values() for p in g]
+        assert sorted((p["id"], p["rozmiar"]) for p in lista) == [(2, "205/55 R16"), (4, "215/55 R17")]
+        assert r["czesc"]["*/* R*"]["opis"] == "wszystkie rozmiary" and r["czesc"]["*/* R*"]["wszystkie"] == 2
+        r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "*/* R16", "ilosc": 4, "nowe": True}]})[1]
+        assert {p["rozmiar"] for g in r["wyniki"]["*/* R16"].values() for p in g} == {"205/55 R16"}
+        stary = S.WZOR_LIMIT
+        S.WZOR_LIMIT = 1
+        try:
+            r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "*/* R*", "ilosc": 4, "nowe": True}]})[1]
+            cz = r["czesc"]["*/* R*"]
+            assert cz["pokazano"] == 1 and cz["wszystkie"] == 4   # cena 0 (Nokian) odpada
+            assert [p["id"] for g in r["wyniki"]["*/* R*"].values() for p in g] == [2]   # największy stan
+        finally:
+            S.WZOR_LIMIT = stary
+        # kopia niedostępna -> jasny komunikat (API wymaga pełnego rozmiaru)
+        Kat.wzorzec = lambda self, *a: None
+        c, r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/55 R*", "ilosc": 4, "nowe": True}]})
+        assert c == 502 and "pełny rozmiar" in r["error"]
+    finally:
+        S.KONTO.clear(); S.KONTO.update(stare)
