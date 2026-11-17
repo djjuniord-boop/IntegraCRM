@@ -308,7 +308,8 @@ async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.clo
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
- OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=newOid();$('#outCard').style.display='none';uwUstaw(hh.uwagi||'',hh.uwagi_at?'· ostatnia zmiana: '+((hh.uwagi_kto||'')===hh.owner?hh.kto:(hh.uwagi_kto||''))+', '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');await offer()}
+ OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=(hh.oid&&hh.owner&&hh.owner===ME)?hh.oid:newOid();   /* własna oferta – aktualizujemy ten sam wpis (bez duplikatu w historii); cudza – kopia na Twoim koncie */
+ $('#outCard').style.display='none';uwUstaw(hh.uwagi||'',hh.uwagi_at?'· ostatnia zmiana: '+((hh.uwagi_kto||'')===hh.owner?hh.kto:(hh.uwagi_kto||''))+', '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');await offer()}
 let PSEL=new Set(),PMORE={};
 const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGET','budzet','#111']];
 const bk=x=>String(x||'').toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g,'');
