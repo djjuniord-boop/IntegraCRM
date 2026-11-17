@@ -65,20 +65,28 @@ class Historia:
         rows = _db("GET", "/rest/v1/oferty?select=dane&id=eq." + str(int(rid))) or []
         return rows[0]["dane"] if rows else None
 
-    def save(self, oid, klient, dane, szukaj):
+    def save(self, oid, klient, dane, szukaj, owner=""):
+        teraz = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        if owner and owner != _email(_token()):   # oferta kolegi z oddziału – aktualizacja jego wpisu (pozwala baza)
+            _db("PATCH", "/rest/v1/oferty?owner=eq." + urllib.parse.quote(owner) + "&oid=eq." + urllib.parse.quote(oid),
+                {"klient": klient or "", "dane": dane, "szukaj": szukaj[:2000], "updated_at": teraz}, prefer="return=minimal")
+            return
         _db("POST", "/rest/v1/oferty?on_conflict=owner,oid",
             {"oid": oid, "klient": klient or "", "dane": dane, "szukaj": szukaj[:2000],
              "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
             prefer="resolution=merge-duplicates,return=minimal")
 
-    def status(self, oid, status):
+    def status(self, oid, status, owner=""):
+        if owner and owner != _email(_token()):   # oferta kolegi z oddziału (funkcja z 2026-11-17)
+            _db("POST", "/rest/v1/rpc/oferty_status_o", {"p_owner": owner, "p_oid": oid, "p_status": status}, prefer="return=minimal")
+            return
         _db("POST", "/rest/v1/rpc/oferty_status", {"p_oid": oid, "p_status": status}, prefer="return=minimal")
 
-    def uwagi(self, txt, rid=None, oid=None):
+    def uwagi(self, txt, rid=None, oid=None, owner=""):
         """Wewnętrzne uwagi do oferty (autor albo administrator – sprawdza baza)."""
         if not rid:
             rows = _db("GET", "/rest/v1/oferty?select=id&oid=eq." + urllib.parse.quote(oid)
-                       + "&owner=eq." + urllib.parse.quote(_email(_token()))) or []
+                       + "&owner=eq." + urllib.parse.quote(owner or _email(_token()))) or []
             if not rows:
                 return
             rid = rows[0]["id"]

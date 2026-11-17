@@ -820,7 +820,7 @@ def save_hist(req, summ, path, rows=None):
            "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or "", "snap": snap_ofert(rows or [])}
     hay = (rec["klient"] + " " + " ".join(v.get("rej", "") + " " + v.get("pojazd", "") + " " + v.get("rozmiar", "") for v in rec["pojazdy"])
            + " " + " ".join(m for w in summ for m in w.get("modele", []))).lower()
-    HIST.save(oid, rec["klient"], rec, hay)
+    HIST.save(oid, rec["klient"], rec, hay, owner=str(req.get("owner") or "").lower())   # oferta kolegi z oddziału – ten sam wpis
 
 def list_hist(q=""):
     out = []
@@ -1353,15 +1353,16 @@ def handle(path, body=None, open_path=None):
             if st not in STATUSY_OFERT or not HIST or not hasattr(HIST, "status"):
                 return 400, {"error": "Zły status"}
             try:
-                HIST.status(safe_oid(body.get("oid")), st)
+                HIST.status(safe_oid(body.get("oid")), st, owner=str(body.get("owner") or "").lower())
             except Exception:
-                return 500, {"error": "Nie udało się zmienić statusu – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."}
+                return 500, {"error": "Nie udało się zmienić statusu – jeśli to oferta kolegi, administrator musi wkleić plik SQL (supabase/oferty_oddzial_2026-11-17.sql)."}
             return 200, {"ok": True}
         if route == "/api/uwagi":   # wewnętrzne uwagi do oferty – nie trafiają do PDF ani do klienta
             if not HIST or not hasattr(HIST, "uwagi"):
                 return 400, {"error": "Historia ofert niedostępna"}
             try:
-                HIST.uwagi(str(body.get("uwagi") or "")[:1000], rid=body.get("id") or None, oid=safe_oid(body.get("oid") or ""))
+                HIST.uwagi(str(body.get("uwagi") or "")[:1000], rid=body.get("id") or None, oid=safe_oid(body.get("oid") or ""),
+                           owner=str(body.get("owner") or "").lower())
             except Exception:
                 return 500, {"error": "Nie udało się zapisać uwag – jeśli to pierwszy raz, administrator musi wkleić plik SQL "
                                       "(supabase/oferty_uwagi_2026-11-16.sql)."}

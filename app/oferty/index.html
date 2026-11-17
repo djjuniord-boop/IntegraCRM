@@ -234,19 +234,19 @@ async function parsePaste(){const j=await api('/api/parse',{text:$('#paste').val
 async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…');try{
  const req={pojazdy:vehicles(),sezony:[...document.querySelectorAll('.sez:checked')].map(x=>x.value),klasy:[...document.querySelectorAll('.kl:checked')].map(x=>x.value),producenci:$('#prod').value,min_stan:+$('#minstan').value,tylko_runflat:$('#std').checked};
  if(!req.pojazdy.some(v=>v.nowe))throw new Error('Brak pojazdów wymagających nowych opon.');
- RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
+ RES=await api('/api/search',req);SEL=new Set();PAGE={};OID=newOid();HOWNER='';OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');
  // bez automatycznego zaznaczania – opony wybiera użytkownik (decyzja właściciela 2026-11-16)
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
 function clearAll(){if(SEL.size&&!confirmClear())return;
  for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
  document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();SAMO=false;PAGE={};OID=null;OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ RES=null;SEL=new Set();SAMO=false;PAGE={};OID=null;HOWNER='';OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
  ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null,UWZM=false;
 function uwUstaw(t,info){$('#ouw').value=t||'';$('#uwInfo').textContent=info||'';$('#uwMsg').textContent='';UWZM=!!t}
-async function zapiszUw(){if(!OID)return;const m=$('#uwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:OID,uwagi:$('#ouw').value});UWZM=false;m.textContent='✔ zapisane';$('#uwInfo').textContent=''}catch(e){m.textContent='';alert(e.message)}}
+async function zapiszUw(){if(!OID)return;const m=$('#uwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:OID,owner:HOWNER,uwagi:$('#ouw').value});UWZM=false;m.textContent='✔ zapisane';$('#uwInfo').textContent=''}catch(e){m.textContent='';alert(e.message)}}
 function uwPoOfercie(){if(UWZM&&$('#ouw').value.trim())zapiszUw()}
 const newOid=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`};
 // ------------------------------------------------ ZAMÓWIENIA xPartner (podgląd)
@@ -288,27 +288,27 @@ async function fakSzcz(tr){const box=tr.nextElementSibling,td=box.firstElementCh
 function openHist(){$('#hq').value='';loadHist();hdlg.showModal()}
 let HL=[],HADM=false;
 async function loadHist(){const j=await api('/api/history?q='+encodeURIComponent($('#hq').value));HL=j.lista;HADM=j.admin;ME=j.me||ME;
- const osoby=[...new Set(HL.map(h=>h.kto))].sort();const cur=$('#hk')?$('#hk').value:'';
- const cs=$('#hs')?$('#hs').value:'';const nOd=HL.filter(h=>h.oddzwon&&(!HADM||h.owner===ME)).length,nOdp=0;
- $('#hfil').innerHTML=(HADM?`<label style="font-size:12px;color:var(--muted)">Osoba <select id="hk" onchange="drawHist()"><option value="">wszyscy (${HL.length})</option>${osoby.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label> `:'')+
+ const osoby=[...new Set(HL.map(h=>h.kto))].sort();const cur=$('#hk')?$('#hk').value:(HADM?'':'__me');const wielu=HADM||new Set(HL.map(h=>h.owner)).size>1;
+ const cs=$('#hs')?$('#hs').value:'';const nOd=HL.filter(h=>h.oddzwon&&h.owner===ME).length,nOdp=0;
+ $('#hfil').innerHTML=(wielu?`<label style="font-size:12px;color:var(--muted)">Pokaż <select id="hk" onchange="drawHist()"><option value="__me" ${cur==='__me'?'selected':''}>moje (${HL.filter(h=>h.owner===ME).length})</option><option value="" ${cur===''?'selected':''}>${HADM?'wszyscy':'cały oddział'} (${HL.length})</option>${osoby.map(o=>`<option ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select></label> `:'')+
  `<label style="font-size:12px;color:var(--muted)">Status <select id="hs" onchange="drawHist()"><option value="">wszystkie</option><option value="oddzwon" ${cs==='oddzwon'?'selected':''}>📞 do oddzwonienia (${nOd})</option>${Object.entries(STATUSY).map(([k,v])=>`<option value="${k}" ${cs===k?'selected':''}>${v}</option>`).join('')}</select></label>`;
  badge(nOd+nOdp);drawHist()}
 const STATUSY={nowa:'Nowa',wyslana:'Wysłana',przyjeta:'Przyjęta',odrzucona:'Odrzucona',zamowiona:'Zamówiona'};let ME='';
 function badge(n){const b=$('#hBadge');if(!b)return;b.style.display=n?'':'none';b.textContent=n;b.title=n+' ofert do oddzwonienia'}
 async function badgeStart(){try{const j=await api('/api/history?q=');ME=j.me||'';badge(j.lista.filter(h=>h.oddzwon&&(!j.admin||h.owner===ME)).length)}catch(e){}}
-async function setStatus(oid,st,sel){sel.disabled=true;try{await api('/api/status',{oid,status:st});const h=HL.find(x=>x.oid===oid&&x.owner===ME);if(h){h.status=st;h.oddzwon=false}loadHist()}catch(e){alert(e.message);sel.disabled=false}}
-function drawHist(){const k=HADM&&$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs').value:'';const L=HL.filter(h=>(!k||h.kto===k)&&(!st||(st==='oddzwon'?h.oddzwon:h.status===st)));
+async function setStatus(oid,st,sel,owner){sel.disabled=true;try{await api('/api/status',{oid,status:st,owner:owner||ME});const h=HL.find(x=>x.oid===oid&&x.owner===(owner||ME));if(h){h.status=st;h.oddzwon=false}loadHist()}catch(e){alert(e.message);sel.disabled=false}}
+function drawHist(){const k=$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs').value:'',wielu=HADM||new Set(HL.map(h=>h.owner)).size>1;const L=HL.filter(h=>(!k||(k==='__me'?h.owner===ME:h.kto===k))&&(!st||(st==='oddzwon'?h.oddzwon:h.status===st)));
  let sum='';{const by={};for(const h of L){const o=by[h.kto]??={n:0,kl:new Set(),wart:0,mod:{},wys:0,prz:0};o.n++;if(h.status!=='nowa')o.wys++;if(h.status==='przyjeta'||h.status==='zamowiona')o.prz++;if(h.klient)o.kl.add(h.klient);o.wart+=h.razem||0;for(const w of h.warianty)for(const m of(w.modele||'').split(', ').filter(Boolean))o.mod[m]=(o.mod[m]||0)+1}
   sum='<div class="t" style="margin:4px 0">Podsumowanie (wg aktualnego wyszukiwania)</div><table style="margin-bottom:14px"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Klientów</th><th class="num">Wartość ofert</th><th class="num" title="przyjęte + zamówione / wysłane (wszystkie poza „Nowa”)">Przyjęte</th><th>Najczęściej proponowane</th></tr>'+Object.entries(by).sort((a,b)=>b[1].n-a[1].n).map(([o,v])=>`<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${v.kl.size}</td><td class="num">${zl(v.wart)}</td><td class="num">${v.wys?`<b>${Math.round(100*v.prz/v.wys)}%</b> (${v.prz}/${v.wys})`:'—'}</td><td>${esc(Object.entries(v.mod).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', '))}</td></tr>`).join('')+'</table>'}
- $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(HADM?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${HADM?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}${h.uwagi?`<br><span class="uwh" title="${esc(h.uwagi)}">📝 ${esc(h.uwagi.length>90?h.uwagi.slice(0,90)+'…':h.uwagi)}</span>`:''}</td>
- <td style="white-space:nowrap">${h.owner===ME?`<select data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
+ $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(wielu?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${wielu?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}${h.uwagi?`<br><span class="uwh" title="${esc(h.uwagi)}">📝 ${esc(h.uwagi.length>90?h.uwagi.slice(0,90)+'…':h.uwagi)}</span>`:''}</td>
+ <td style="white-space:nowrap">${true?`<select data-oid="${esc(h.oid)}" data-own="${esc(h.owner)}" onchange="setStatus(this.dataset.oid,this.value,this,this.dataset.own)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
  ${h.oddzwon?'<div class="sx" style="background:#fff3cd;color:#7a5900;margin-top:4px">📞 oddzwoń – brak odpowiedzi 2 dni</div>':''}</td>
  <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} ${h.plik_ok?`<button class="sec" onclick="api('/api/openfile?id=${h.id}').catch(e=>alert(e.message))">XLSX</button>`:''}</td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
 async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();SAMO=false;const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
- OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=(hh.oid&&hh.owner&&hh.owner===ME)?hh.oid:newOid();   /* własna oferta – aktualizujemy ten sam wpis (bez duplikatu w historii); cudza – kopia na Twoim koncie */
+ OMARZA=r.marza??'';ORABAT=r.rabat??'';ORABW=r.rabat_wym??'';CENYW=r.ceny_wym||{};if(r.oddzial)OODD=r.oddzial;CENY=r.ceny||{};OSOBNO=r.osobno??null;HSNAP=r.snap&&r.snap.length?r.snap:null;HDATA=r.data||'';OID=hh.oid||newOid();HOWNER=hh.owner||'';   /* ta sama oferta (także kolegi z oddziału) – aktualizujemy ten sam wpis, bez duplikatu */
  $('#outCard').style.display='none';uwUstaw(hh.uwagi||'',hh.uwagi_at?'· ostatnia zmiana: '+((hh.uwagi_kto||'')===hh.owner?hh.kto:(hh.uwagi_kto||''))+', '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'');await offer()}
 let PSEL=new Set(),PMORE={};
 const PG=[['PREMIUM','premium','#0B5ED7'],['MIDDLE','srednie','#F5A000'],['BUDGET','budzet','#111']];
@@ -365,7 +365,7 @@ function render(){fillHom();const wiele=Object.keys(RES.wyniki).length>1;$('#sam
  if(sm&&sm.ukryte.length)h+=`<div class="muted" style="font-size:12px;margin-top:10px"><b>Ukryte</b>, bo nie ma ich we wszystkich rozmiarach w potrzebnej ilości: ${sm.ukryte.slice(0,30).map(esc).join(' · ')}${sm.ukryte.length>30?' …':''}</div>`;
  $('#res').innerHTML=h;updCnt()}
 // ---------------------------------------------------------------- TYLKO MODELE WE WSZYSTKICH ROZMIARACH (filtr, 2026-11-16)
-let SAMO=false;
+let SAMO=false,HOWNER='';
 const mkey=p=>(p.producent+' '+p.model).toLowerCase().replace(/[^a-z0-9ąćęłńóśźż]+/g,'');
 function samoUstaw(on){SAMO=on;PAGE={};render()}
 function samoModele(){const roz=Object.keys(RES.wyniki),po={},nazwy={};
@@ -397,7 +397,7 @@ function reoffer(){if($('#outCard').style.display==='none'||!SEL.size)return;cle
 document.addEventListener('change',e=>{if(e.target.closest('#veh')||e.target.id==='klient')reoffer()});
 async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświeżam ceny i stany w xPartner, generuję ofertę…');try{
  const wybor={};SEL.forEach(k=>{const[s,z,id]=k.split('|');((wybor[s]??={})[z]??=[]).push(+id)});
- if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY,rabat_wym:ORABW,ceny_wym:CENYW,porownaj:HSNAP||undefined});ULS=j.ulotki;
+ if(!OID)OID=newOid();if(OSOBNO===null){const V=vehicles().filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,owner:HOWNER,sel:[...SEL],klient:$('#klient').value,pojazdy:vehicles(),wybor,marza:'',rabat:ORABAT,ceny:CENY,rabat_wym:ORABW,ceny_wym:CENYW,porownaj:HSNAP||undefined});ULS=j.ulotki;
  $('#zmBox').innerHTML=(j.zmiany&&j.zmiany.length)?`<div class="msg w"><b>⚠ Od zapisania tej oferty (${esc(HDATA)}) zmieniło się w xPartner:</b><ul style="margin:6px 0 0 18px;padding:0">${j.zmiany.map(z=>`<li>${esc(z.nazwa)}: <b style="color:${z.w_gore?'var(--red)':'#1b7a33'}">${esc(z.co)}</b></li>`).join('')}</ul><div style="font-size:12px;margin-top:4px">Oferta poniżej ma już aktualne ceny i stany – sprawdź przed wysłaniem klientowi.</div></div>`:'';
  msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+(j.plik?'Zapisano: '+j.plik:'Oferta zapisana w historii.'),j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
