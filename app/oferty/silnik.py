@@ -1486,6 +1486,19 @@ def handle(path, body=None, open_path=None):
                 return 500, {"error": "Nie udało się zapisać uwag – jeśli to pierwszy raz, administrator musi wkleić plik SQL "
                                       "(supabase/oferty_uwagi_2026-11-16.sql)."}
             return 200, {"ok": True}
+        if route == "/api/tpms":   # zakładka „Czujniki TPMS”: samo wyszukiwanie w kopii pliku + wspólny koszyk (2026-11-17)
+            from oferty import tpms as TP
+            kat = KONTO.get("katalog")
+            items = kat.tpms() if kat and hasattr(kat, "tpms") else None
+            if items is None:
+                raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
+            if not items:
+                raise ApiError("W kopii oferty xPartner nie ma jeszcze czujników TPMS – kopia obejmuje na razie tylko opony "
+                               "(administrator musi zmienić link do pliku ofertowego na cały asortyment).")
+            lista, q = TP.szukaj(items, body.get("q") or "")
+            info = KONTO.get("katalog_info")
+            return 200, {"lista": lista, "q": q, "rodzaje": TP.RODZAJE,
+                         "zrodlo": (info() if info else "").replace("w ofercie – na żywo", "w koszyku – na żywo")}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
         if route == "/api/szablon":

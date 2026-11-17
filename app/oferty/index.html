@@ -21,6 +21,10 @@ button.sec{background:#fff;color:#111;border-color:#cfcfcf;font-weight:500}butto
 .kin{background:#15803d!important;border-color:#15803d!important;color:#fff!important;font-weight:600}tr.wk td{background:#f0fdf4}
 #kFab{position:fixed;top:14px;right:18px;z-index:50;background:#E30613;color:#fff;border:0;border-radius:22px;padding:9px 16px;font-weight:700;box-shadow:0 6px 18px #e3061355;cursor:pointer}
 #kToast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);z-index:60;background:#111;color:#fff;border-radius:10px;padding:10px 16px;font-size:13px;box-shadow:0 6px 20px #0004;display:none;gap:14px;align-items:center}#kToast b{color:#86efac}#kToast a{color:#fff;text-decoration:underline;cursor:pointer}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-left:12px}.seg button{border:0;border-radius:0;background:#fff;color:#111;padding:7px 14px;font-weight:600}.seg button.on{background:var(--red);color:#fff}
+.tf{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}.tf label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:#666}.tf select,.tf input{width:auto}
+.tg{display:inline-block;font-size:11px;padding:2px 7px;border-radius:10px;font-weight:600;white-space:nowrap}.tg.oe{background:#eef2ff;color:#3730a3}.tg.zam{background:#fff7ed;color:#9a3412}.tg.uni{background:#ecfdf5;color:#047857}.tg.nar{background:#f4f4f5;color:#52525b}.tg.demo{background:#fef3c7;color:#92400e}
+tr.tgr td{background:#fafafa;font-weight:600;font-size:12px;color:#555}
 .rozf{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 8px}.rozf button.sec{padding:3px 9px;font-size:12px}.rozf button.sec.on{background:#E30613;color:#fff;border-color:#E30613}.rozf button.sec.on .muted{color:#fff}
 button.red{background:var(--red);border-color:var(--red)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--red)}input[type=checkbox]{accent-color:var(--red)}
@@ -71,9 +75,9 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 .ulk:hover{background:#fff1f1;border-color:var(--red)}.ulk span{color:var(--red)}
 #outCard h2{font-size:20px}#outCard button{font-size:15px;padding:9px 16px}
 </style></head><body><button id="kFab" onclick="openKosz()" style="display:none"></button><div id="kToast"></div>
-<header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><span class="sp"></span>
+<header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button></div><span class="sp"></span>
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
-<main>
+<main id="mainO">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
 <div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button><button class="sec" onclick="clearAll()" title="Czyści polecenie, zapytanie klienta, wyniki, zaznaczenia i ofertę">🧹 Wyczyść wszystko</button></div>
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: rozmiar(y) w dowolnym zapisie (205/55 R16, 205/55 16, 2055516), też niepełny („20555”, „R20”) albo samą markę / sezon („zima pirelli”), ilość („8 szt”), sezon (zimowe / całoroczne / letnie), klasy (premium / średnia / budżet, bez podania = wszystkie), marki, „runflat”, „suv”, „dostawczy”, „z wymianą”, „4 czujniki”, „przechowalnia opon/kół”.</div><div id="qMsg"></div></div>
@@ -124,6 +128,20 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div id="zmBox"></div><div id="edit" class="edit"></div><div id="sum"></div>
 <div id="ul" style="margin:10px 0"></div><div id="kz" class="kz" style="display:none"></div>
 <div class="row" style="margin:8px 0"><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button></div></div>
+</main>
+<main id="mainT" style="display:none">
+<div class="card"><h2><span class="n">⚡</span>Szybkie polecenie – czujniki TPMS</h2>
+<div style="display:flex;gap:10px"><input id="tq" placeholder="np. kia sportage 4 szt · 52933D4100 · opel s016 · uniwersalny srebrny" onkeydown="if(event.key==='Enter')tSzukaj()" style="flex:1"><button id="tB" onclick="tSzukaj()">🔎 Szukaj</button><button class="sec" onclick="$('#tq').value='';tSzukaj()">Wszystkie czujniki</button></div>
+<div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: markę i model auta („kia sportage”, „opel insignia”), numer OE ze starego czujnika („52933D4100”), oznaczenie zamiennika („s016”), rodzaj („oryginał”, „zamiennik”, „uniwersalny”, „bez demo”), producenta („t-pro”, „cub”, „schrader”), zawór („srebrny”, „czarny”, „gumowy”), akcesoria („zestaw naprawczy”, „zawór”, „nakrętka”, „programator”) i ilość („4 szt”). Przy szukaniu po aucie na końcu są też czujniki uniwersalne (do zaprogramowania).</div><div id="tMsg"></div></div>
+<div class="card" id="tFilt" style="display:none"><h2><span class="n">⚙</span>Filtry</h2>
+<div class="tf"><label>Rodzaj<select id="tf_r" onchange="tRender()"><option value="">wszystkie</option><option value="oe">oryginał OE</option><option value="zam">zamiennik pod markę</option><option value="uni">uniwersalny</option><option value="nar">akcesoria / narzędzia</option></select></label>
+<label>DEMO (z demontażu)<select id="tf_d" onchange="tRender()"><option value="">wszystkie</option><option value="bez">bez DEMO</option><option value="tylko">tylko DEMO</option></select></label>
+<label>Marka auta<select id="tf_m" onchange="tRender()"></select></label><label>Producent czujnika<select id="tf_p" onchange="tRender()"></select></label>
+<label>Zawór<select id="tf_z" onchange="tRender()"><option value="">dowolny</option><option>srebrny</option><option>czarny</option><option>gumowy</option></select></label>
+<label>Magazyn<select id="tf_g" onchange="tRender()"></select></label><label>Min. stan<input id="tf_s" type="number" min="0" style="width:70px" oninput="tRender()"></label>
+<label>Cena zakupu brutto do<input id="tf_c" type="number" min="0" style="width:90px" placeholder="zł" oninput="tRender()"></label>
+<label>Szukaj w wynikach<input id="tf_t" oninput="tRender()" placeholder="nazwa, indeks…"></label><button class="sec" onclick="tWyczysc()">Wyczyść filtry</button></div></div>
+<div class="card" id="tCard" style="display:none"><h2><span class="n">📡</span>Wyniki <span id="tIle" class="muted" style="font-size:13px;font-weight:400"></span></h2><div id="tRes"></div></div>
 </main>
 <dialog id="hdlg" style="max-width:1100px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
@@ -464,13 +482,13 @@ async function testApi(){await saveCfg();msg('#cMsg','Łączę…');try{const j=
 // ---------------------------------------------------------------- KOSZYK xPartner (zamawianie; uprawnienie „Zamawianie w xPartner”)
 const KN='oferty_koszyk_niepewne',KK='oferty_koszyk',KA='oferty_adresy_jedn';let KOSZ=[],KDANE={},KADR=null,KWYB='',KSENT=false;
 function kLs(k,d){try{return JSON.parse(localStorage.getItem(k))||d}catch(e){return d}}
-function kSave(){try{localStorage.setItem(KK,JSON.stringify(KOSZ))}catch(e){}kBadge();if(RES&&$('#res'))render()}
+function kSave(){try{localStorage.setItem(KK,JSON.stringify(KOSZ))}catch(e){}kBadge();if(RES&&$('#res'))render();if(TL.length)tRender()}
 function kBadge(){KOSZ=kLs(KK,[]);const n=KOSZ.reduce((a,x)=>a+x.ilosc,0),b=$('#kBadge');if(b){b.textContent=n;b.style.display=n?'':'none'}const f=$('#kFab');if(f){f.textContent='🛒 Koszyk · '+KOSZ.length+' poz. · '+n+' szt.';f.dataset.n=n&&CFG.zamawianie?1:'';kFabPokaz()}}
 /* pływający koszyk tylko po przewinięciu – u góry jest zwykły przycisk „Koszyk” w nagłówku */
 function kFabPokaz(){const f=$('#kFab');if(f)f.style.display=f.dataset.n&&window.scrollY>140?'':'none'}window.addEventListener('scroll',kFabPokaz,{passive:true});
 function kDodaj(id,il,nazwa){KOSZ=kLs(KK,[]);const x=KOSZ.find(k=>k.id===id);if(x)x.ilosc=il;else KOSZ.push({id,ilosc:il,nazwa});kSave();kToast(nazwa,il)}
 let KTT=0;function kToast(nazwa,il){const t=$('#kToast');if(!t)return;t.innerHTML=`<span>✓ Dodano: <b>${esc(nazwa)} × ${il}</b></span><a onclick="$('#kToast').style.display='none';openKosz()">Otwórz koszyk</a>`;t.style.display='flex';clearTimeout(KTT);KTT=setTimeout(()=>t.style.display='none',3000)}
-function kWyczysc(){if(!confirm('Usunąć wszystkie opony z koszyka?'))return;KOSZ=[];kSave();kDraw()}
+function kWyczysc(){if(!confirm('Usunąć wszystko z koszyka?'))return;KOSZ=[];kSave();kDraw()}
 async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.showModal();kDraw();kAdresy();kOdswiez()}
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
@@ -478,8 +496,8 @@ async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent
 function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
 function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
 function kSumy(){let n=0,net=0,br=0,kat=0;for(const k of KOSZ){const d=KDANE[k.id];n+=k.ilosc;if(d&&d.netto){net+=d.netto*k.ilosc;br+=d.brutto*k.ilosc;kat+=(d.netto_kat>d.netto?d.netto_kat:d.netto)*k.ilosc}}return{n,net,br,rab:kat-net}}
-function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
- let h='<table><tr><th>Opona</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
+function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony albo czujniki TPMS przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
+ let h='<table><tr><th>Pozycja</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
  for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+v+' szt.').join(', '):'';
   const rab=d.netto_kat>d.netto?`<div class="muted" style="font-size:11px"><s>${zl(d.netto_kat)}</s> −${((1-d.netto/d.netto_kat)*100).toFixed(2).replace('.',',')}%</div>`:'';
   h+=`<tr class="${d.id&&!d.ok?'kbad':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}</td>
@@ -529,5 +547,26 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
   $('#kpF').innerHTML='<button style="margin-left:auto" onclick="kpdlg.close();kdlg.close()">Zamknij</button>'}
  catch(e){const nie=/sprawdź w|Nieprawidłowa odpowiedź/i.test(e.message);if(nie)try{localStorage.setItem(KN,JSON.stringify({czas:new Date().toLocaleString('pl-PL'),numer:d.numer}))}catch(x){}b.disabled=nie;b.textContent=nie?'Najpierw sprawdź „📦 Zamówienia”':'✔ Spróbuj ponownie';$('#kpB').insertAdjacentHTML('afterbegin',`<div class="msg e">${esc(e.message)}</div>`);if(/stany/.test(e.message)){kpdlg.close();kOdswiez()}}}
 
-loadCfg();addRow();
+// ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
+let TL=[],TQ={ilosc:4},TROD={};
+function widok(v){$('#mainO').style.display=v==='t'?'none':'';$('#mainT').style.display=v==='t'?'':'none';$('#segO').classList.toggle('on',v!=='t');$('#segT').classList.toggle('on',v==='t');try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
+async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
+ const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};
+ opt('#tf_m',[...new Set(TL.flatMap(x=>x.marki))].sort(),'wszystkie');opt('#tf_p',[...new Set(TL.map(x=>x.producent))].sort(),'wszyscy');opt('#tf_g',[...new Set(TL.flatMap(x=>Object.keys(x.magazyny||{})))].sort(),'wszystkie');
+ $('#tf_r').value=TQ.rodzaje&&TQ.rodzaje.length===1?TQ.rodzaje[0]:'';$('#tf_d').value=TQ.demo||'';$('#tf_z').value=TQ.zawor||'';$('#tf_s').value='';$('#tf_c').value='';$('#tf_t').value='';
+ msg('#tMsg',r.zrodlo||'');$('#tFilt').style.display='';$('#tCard').style.display='';tRender()}catch(e){msg('#tMsg',e.message,1)}b.disabled=false}
+function tWyczysc(){for(const k of['r','d','m','p','z','g','s','c','t'])$('#tf_'+k).value='';tRender()}
+function tRender(){const f=k=>$('#tf_'+k).value,mag=f('g'),ms=+f('s')||0,cm=+f('c')||0,tx=f('t').trim().toUpperCase(),KM=new Map(kLs(KK,[]).map(k=>[k.id,k.ilosc]));
+ const st=x=>mag?(x.magazyny||{})[mag]||0:x.stan;
+ const L=TL.filter(x=>(!f('r')||x.rodzaj===f('r'))&&(!f('d')||(f('d')==='bez'?!x.demo:x.demo))&&(!f('m')||x.marki.includes(f('m')))&&(!f('p')||x.producent===f('p'))&&(!f('z')||!x.zawor||x.zawor===f('z'))&&st(x)>=ms&&st(x)>0&&(!cm||x.brutto_zak<=cm)&&(!tx||(x.nazwa+' '+x.id).toUpperCase().includes(tx)));
+ $('#tIle').textContent='· '+L.length+(L.length!==TL.length?' z '+TL.length:'')+' pozycji (bez pozycji ze stanem 0'+(f('z')?'; zawór „'+f('z')+'” albo bez podanego koloru':'')+')';
+ if(!L.length){$('#tRes').innerHTML='<p class="warn">Brak pozycji spełniających kryteria. Spróbuj samej marki auta, wyczyść filtry albo kliknij „Wszystkie czujniki”.</p>';return}
+ const GR={1:TQ.marki&&TQ.marki.length?'Pasują do: '+TQ.marki.join(', ')+(TQ.slowa&&TQ.slowa.length?' '+TQ.slowa.join(' '):''):'',2:'Ta sama marka (lub grupa, np. VW–Audi–Skoda–Seat) – sprawdź model / rocznik',3:'Uniwersalne – do zaprogramowania pod auto'};
+ let h='<table><tr><th>Indeks</th><th>Nazwa</th><th>Rodzaj</th><th>Pasuje do</th><th>Producent</th><th class="num">Stan</th><th class="num">Zakup netto</th><th class="num">Zakup brutto</th>'+(CFG.zamawianie?'<th class="num">Ilość</th><th></th>':'')+'</tr>',g0=0;
+ for(const x of L){if(x.grupa!==g0&&GR[x.grupa]&&new Set(L.map(y=>y.grupa)).size>1)h+=`<tr class="tgr"><td colspan="10">${esc(GR[x.grupa])}</td></tr>`;g0=x.grupa;
+  const wk=KM.get(x.id),s=st(x),mags=Object.entries(x.magazyny||{}).filter(([,v])=>v).map(([m,v])=>m+': '+v).join(', ');
+  h+=`<tr class="${wk?'wk':''}"><td style="font-variant-numeric:tabular-nums">${x.id}</td><td>${esc(x.nazwa)}</td><td><span class="tg ${x.rodzaj}">${esc(TROD[x.rodzaj]||x.rodzaj)}</span>${x.demo?' <span class="tg demo" title="z demontażu">DEMO</span>':''}</td><td>${esc(x.marki.join(', ')||(x.rodzaj==='uni'?'wiele marek':'–'))}</td><td>${esc(x.producent)}</td><td class="num ${s<(TQ.ilosc||1)?'warn':'ok'}" title="${esc(mags)}">${s<(TQ.ilosc||1)?'⚠ tylko '+s:s}</td><td class="num">${zl(x.netto)}</td><td class="num"><b>${zl(x.brutto_zak)}</b></td>`
+   +(CFG.zamawianie?(wk?`<td class="num">${wk}</td><td><button class="sec kin" style="padding:2px 8px;white-space:nowrap" title="W koszyku – kliknij, żeby otworzyć koszyk" onclick="openKosz()">✓ ${wk} szt.</button></td>`:`<td class="num"><input id="ti_${x.id}" type="number" min="1" max="200" value="${Math.min(TQ.ilosc||4,200)}" style="width:58px"></td><td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner" onclick='kDodaj(${x.id},Math.max(1,Math.min(200,+$("#ti_${x.id}").value||1)),${esc(JSON.stringify(x.nazwa))})'>🛒</button></td>`):'')+'</tr>'}
+ $('#tRes').innerHTML=h+'</table>'+(CFG.zamawianie?'':'<p class="muted" style="font-size:12px">Zamawianie wymaga uprawnienia „Zamawianie w xPartner”.</p>')}
+addRow();loadCfg().catch(()=>{}).then(()=>{try{if(localStorage.getItem('oferty_widok')==='t')widok('t')}catch(e){}});
 </script></body></html>

@@ -2,7 +2,7 @@
 
 Uruchamia GitHub Actions (.github/workflows/xp_oferta.yml) co 30 min w godzinach pracy.
 Zmienne środowiska (sekrety repozytorium – nigdy w kodzie ani w logach):
-  XPARTNER_OFERTA_URL        link z xPartner (Pobierz → Pobieranie oferty; CSV, UTF-8, OPONY, wszystkie kolumny)
+  XPARTNER_OFERTA_URL        link z xPartner (Pobierz → Pobieranie oferty; CSV, UTF-8, cały asortyment (opony, TPMS, felgi…), wszystkie kolumny)
   SUPABASE_SERVICE_ROLE_KEY  klucz serwisowy (zapis do tabeli; zwykłe konta mogą ją tylko czytać)
 Repozytorium jest publiczne – skrypt wypisuje wyłącznie liczby, nigdy linku, nazw ani cen.
 
@@ -146,7 +146,7 @@ def main():
     try:
         dane = open(a.plik, "rb").read() if a.plik else pobierz_plik(os.environ.get("XPARTNER_OFERTA_URL", "").strip())
         rows = czytaj_csv(dane)
-        print("Plik: %d opon z ceną" % len(rows))
+        print("Plik: %d pozycji z ceną" % len(rows))
         if a.tylko_odczyt:
             return 0
         key = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "").strip()

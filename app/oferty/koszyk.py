@@ -82,13 +82,13 @@ def odswiez(cfg, pozycje, get_product):
         except Exception as e:
             return {"id": pid, "ilosc": il, "ok": False, "blad": "Brak odpowiedzi xPartner (%s)" % e.__class__.__name__}
         if not p or float(p.get("netto") or 0) <= 0:
-            return {"id": pid, "ilosc": il, "ok": False, "blad": "Opona niedostępna do zamówienia w xPartner"}
+            return {"id": pid, "ilosc": il, "ok": False, "blad": "Pozycja niedostępna do zamówienia w xPartner"}
         stan = int(p.get("ilosc") or 0)
         mag = {k: v for k, v in (p.get("magazyny") or {}).items() if v}
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
                 "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,
-                "blad": "Maks. %d szt. jednej opony" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
+                "blad": "Maks. %d szt. jednej pozycji" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 
@@ -124,7 +124,7 @@ def order_xml(d):
         raise Blad("Wybierz adres dostawy.")
     poz = [(int(p["id"]), int(p["ilosc"])) for p in d.get("pozycje") or []]
     if not poz or any(pid < 1 or not 1 <= il <= MAX_SZT for pid, il in poz):
-        raise Blad("Koszyk jest pusty albo ma złą ilość (1–%d szt. jednej opony)." % MAX_SZT)
+        raise Blad("Koszyk jest pusty albo ma złą ilość (1–%d szt. jednej pozycji)." % MAX_SZT)
     comment = re.sub(r"\s+", " ", str(d.get("uwagi") or "")).strip()
     if len(comment) > 255:
         raise Blad("Uwagi są za długie (maks. 255 znaków).")

@@ -100,3 +100,9 @@ Podział zamówienia (2026-11-17): w koszyku do 200 szt. jednej opony (`koszyk.M
 jednej opony (`CZESC_SZT`, jak na stronie xPartner; limit API nieznany – dokumentacja podaje tylko ≥1). Część 1 = wszystkie opony,
 kolejne – reszta dużych ilości (`koszyk.czesci`). Błąd w części >1: odpowiedź 200 z numerami wysłanych części, `niewyslane`
 (zostają w koszyku) i `blad_czesci`; niepewny błąd blokuje ponowne wysłanie jak zwykle.
+
+Czujniki TPMS (2026-11-17, `tpms.py`, trasa `/api/tpms`, widok `#mainT` przełączany w nagłówku): samo wyszukiwanie w kopii
+pliku (asortyment „CZUJNIKI CIŚNIENIA TPMS”, `Katalog.tpms()`), bez ofert; koszyk wspólny z oponami. Rodzaj (OE / zamiennik /
+uniwersalny / akcesoria), DEMO, zawór i marki aut – z nazwy czujnika (xPartner nie podaje listy aut). Grupy wyników: 1 dokładne,
+2 ta sama marka, 3 uniwersalne (przy szukaniu po aucie). Kopia musi obejmować cały asortyment (link w sekrecie XPARTNER_OFERTA_URL);
+wyszukiwanie opon ogranicza się do `Asortyment=OPONY` (`okno.TYLKO_OPONY`).

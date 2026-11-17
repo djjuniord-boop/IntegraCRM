@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.0.11"
+VERSION = "1.1.0"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.0",
+        "date": "2026-11-17",
+        "changes": [
+            "Oferty opon: nowy przełącznik „📡 Czujniki TPMS” w nagłówku – wyszukiwanie czujników z xPartner szybkim poleceniem (marka i model auta, numer OE ze starego czujnika, „uniwersalny”, „bez demo”, kolor zaworu, akcesoria) i filtrami; bez ofert",
+            "Koszyk jest wspólny dla opon i czujników – całość zamówisz jednym zamówieniem w xPartner",
+        ],
+    },
     {
         "version": "1.0.11",
         "date": "2026-11-17",

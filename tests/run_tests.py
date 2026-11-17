@@ -2,6 +2,7 @@
 
 Każdy plik tests/test_*.py, każda funkcja test_*. Kod wyjścia 0 = wszystkie przeszły.
 """
+import gc
 import importlib
 import sys
 import traceback
@@ -24,6 +25,7 @@ for f in sorted(HERE.glob("test_*.py")):
     for name in sorted(n for n in dir(mod) if n.startswith("test_")):
         try:
             getattr(mod, name)()
+            gc.collect()   # sprzątanie obiektów Tk w głównym wątku (inaczej GC w wątku tła kończy proces: Tcl_AsyncDelete)
             ok += 1
             print(f"  OK    {f.stem}.{name}")
         except Exception:
