@@ -218,10 +218,12 @@ jobs:
         with:
           name: zrzuty
           path: shots/*
+          retention-days: 14
 
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with:
           name: IntegraCRM-${{ steps.ver.outputs.version }}
+          retention-days: 14
           path: |
             IntegraCRM-*-exe.zip
             IntegraCRM-setup.exe
@@ -292,11 +294,11 @@ jobs:
             $id, $name = $a -split " ", 2
             if ($keep -notcontains $name) { gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/assets/$id"; Write-Host "usunięto: $name" }
           }
-          # stare wydania stabilne sprzed 0.13.0 (v0.13.0 zostaje do przywrócenia poprzedniej wersji); tagi zostają
+          # wydania stabilne: zostają 3 najnowsze (do przywrócenia poprzedniej wersji), starsze usuwane; tagi zostają
           $rels = gh api "repos/$env:GITHUB_REPOSITORY/releases?per_page=100" --jq '.[] | select(.tag_name | startswith("v")) | "\(.id) \(.tag_name)"'
-          foreach ($r in $rels) {
-            $id, $tag = $r -split " ", 2
-            if ([version]$tag.TrimStart("v") -lt [version]"0.13.0") { gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/$id"; Write-Host "usunięto wydanie: $tag" }
+          $lista = foreach ($r in $rels) { $id, $tag = $r -split " ", 2; [pscustomobject]@{ id = $id; tag = $tag; ver = [version]$tag.TrimStart("v") } }
+          foreach ($r in ($lista | Sort-Object ver -Descending | Select-Object -Skip 3)) {
+            gh api -X DELETE "repos/$env:GITHUB_REPOSITORY/releases/$($r.id)"; Write-Host "usunięto wydanie: $($r.tag)"
           }
 
       - name: Strona SERWIS QR (GitHub Pages) – budowana z app/serwis
