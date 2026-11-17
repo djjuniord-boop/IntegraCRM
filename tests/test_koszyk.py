@@ -228,9 +228,47 @@ def test_posrednik_xpartner_bez_hasla_w_programie():
         okno.urllib.request.urlopen, okno._token = stare
 
 
-def test_limit_50_sztuk_jak_na_stronie_xpartner():
-    """xPartner przyjmuje maks. 50 szt. jednej opony w zamówieniu (jak na stronie) – 51 blokuje już program."""
-    assert K.MAX_SZT == 50
-    prod = {"id": 7, "nazwa": "X", "ilosc": 500, "netto": 100.0, "brutto_zak": 123.0, "netto_kat": 100.0, "attrs": {}, "magazyny": {}}
-    ok, za_duzo = K.odswiez({}, [{"id": 7, "ilosc": 50}, {"id": 7, "ilosc": 51}], lambda cfg, pid: dict(prod))
-    assert ok["ok"] is True and za_duzo["ok"] is False and "maks. 50" in za_duzo["blad"]
+def test_podzial_na_czesci_po_50_szt():
+    """Decyzja właściciela 2026-11-17: 100 szt. jednej opony = 2 zamówienia po 50 (jak na stronie xPartner); inne opony w części 1."""
+    assert K.CZESC_SZT == 50 and K.MAX_SZT == 200
+    assert K.czesci([{"id": 1, "ilosc": 100}, {"id": 2, "ilosc": 4}]) == [[{"id": 1, "ilosc": 50}, {"id": 2, "ilosc": 4}], [{"id": 1, "ilosc": 50}]]
+    assert K.czesci([{"id": 1, "ilosc": 120}]) == [[{"id": 1, "ilosc": 50}], [{"id": 1, "ilosc": 50}], [{"id": 1, "ilosc": 20}]]
+    assert K.czesci([{"id": 1, "ilosc": 4}]) == [[{"id": 1, "ilosc": 4}]]
+
+
+def test_zamow_100_szt_w_dwoch_czesciach_i_czesciowy_blad():
+    xmle = []
+    stare = (K.wyslij, S.get_product, dict(S.KONTO))
+    blad_w = {"n": 0}
+
+    def _wyslij(cfg, x, dziennik=None):
+        xmle.append((x, dziennik))
+        if blad_w["n"] and len(xmle) == blad_w["n"]:
+            raise K.Blad("Brak odpowiedzi xPartner (502) – sprawdź w xPartner („📦 Zamówienia”), czy zamówienie powstało")
+        return b"<response><success>true</success><orders><order><orderXP>XP/%d</orderXP></order></orders></response>" % len(xmle)
+    K.wyslij = _wyslij
+    S.get_product = lambda cfg, pid: {"netto": 10.0, "ilosc": 500, "nazwa": "X"}
+    S.KONTO.update(admin=True)
+    zam = dict(_zam(), pozycje=[{"id": 270722, "ilosc": 100}, {"id": 5, "ilosc": 4}])
+    try:
+        code, r = S.handle("/api/koszyk/zamow", zam)
+        assert code == 200 and r["czesci"] == 2 and [z["nr"] for z in r["zamowienia"]] == ["XP/1", "XP/2"], r
+        assert "<productId>270722</productId><quantity>50</quantity>" in xmle[0][0] and "<productId>5</productId>" in xmle[0][0]
+        assert "<quantity>50</quantity>" in xmle[1][0] and "<productId>5</productId>" not in xmle[1][0]
+        assert xmle[0][1]["czesc"] == "1/2" and xmle[1][1]["czesc"] == "2/2"
+        # druga część nie przeszła: numer pierwszej + to, czego nie wysłano
+        xmle.clear(); blad_w["n"] = 2
+        code, r = S.handle("/api/koszyk/zamow", zam)
+        assert code == 200 and [z["nr"] for z in r["zamowienia"]] == ["XP/1"] and r["wyslane_czesci"] == 1
+        assert r["niewyslane"] == [{"id": 270722, "ilosc": 50}] and "Część 2 z 2" in r["blad_czesci"]
+        # pierwsza część nie przeszła: zwykły błąd (nic nie powstało po naszej stronie)
+        xmle.clear(); blad_w["n"] = 1
+        code, r = S.handle("/api/koszyk/zamow", zam)
+        assert code == 400 and len(xmle) == 1
+        # ponad 200 szt. jednej opony – blokada przed wysłaniem
+        xmle.clear(); blad_w["n"] = 0
+        code, r = S.handle("/api/koszyk/zamow", dict(_zam(), pozycje=[{"id": 1, "ilosc": 201}]))
+        assert code == 400 and not xmle
+    finally:
+        K.wyslij, S.get_product = stare[0], stare[1]
+        S.KONTO.clear(); S.KONTO.update(stare[2])

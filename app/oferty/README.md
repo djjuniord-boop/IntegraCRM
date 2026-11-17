@@ -95,3 +95,8 @@ klucz wzorca (`*/* R20`, `205/55 R*` … – `silnik.wzorzec_z_tekstu`), szukany
 i sezon zawężają w bazie, od największego stanu, max 5000), pokazujemy max 1000 (`WZOR_LIMIT`). Dostawcze (C) i połówki
 tylko, gdy wpisane. W oknie: kolumna Rozmiar + pasek rozmiarów (filtr). Przy ofercie `wzRozwin()` zamienia grupę wzorca na
 osobne pozycje z prawdziwymi rozmiarami zaznaczonych opon (dalej wszystko jak przy pełnym rozmiarze).
+
+Podział zamówienia (2026-11-17): w koszyku do 200 szt. jednej opony (`koszyk.MAX_SZT`), wysyłane w częściach po maks. 50 szt.
+jednej opony (`CZESC_SZT`, jak na stronie xPartner; limit API nieznany – dokumentacja podaje tylko ≥1). Część 1 = wszystkie opony,
+kolejne – reszta dużych ilości (`koszyk.czesci`). Błąd w części >1: odpowiedź 200 z numerami wysłanych części, `niewyslane`
+(zostają w koszyku) i `blad_czesci`; niepewny błąd blokuje ponowne wysłanie jak zwykle.

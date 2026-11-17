@@ -24,7 +24,8 @@ WZOR_OPIS = re.compile(r"^[a-zA-Z0-9 \-/]*$")
 LIMITY_ADRESU = {"name": (1, 76), "street": (1, 35), "zipCode": (1, 6), "city": (1, 25), "country": (2, 2),
                  "vatin": (0, 13), "email": (0, 40), "phone": (0, 25), "receivingPerson": (0, 76)}
 PL = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻäöüÄÖÜéÉ", "acelnoszzACELNOSZZaouAOUeE")
-MAX_SZT = 50    # tyle przyjmuje xPartner na jedną pozycję (jak na stronie xPartner); więcej = osobne zamówienie
+MAX_SZT = 200   # bezpiecznik: więcej sztuk jednej opony w koszyku = pomyłka w ilości
+CZESC_SZT = 50  # tyle sztuk jednej opony w jednym zamówieniu (jak na stronie xPartner) – więcej = kolejne części
 
 
 class Blad(Exception):
@@ -87,7 +88,7 @@ def odswiez(cfg, pozycje, get_product):
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
                 "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,
-                "blad": "xPartner przyjmuje maks. %d szt. jednej opony w zamówieniu – resztę zamów osobno" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
+                "blad": "Maks. %d szt. jednej opony" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 
@@ -136,6 +137,19 @@ def order_xml(d):
     x.append("<products>" + "".join("<product>%s%s</product>" % (_el("productId", pid), _el("quantity", il)) for pid, il in poz) + "</products>")
     x.append("</order>")
     return "".join(x)
+
+
+def czesci(pozycje):
+    """Podział koszyka na zamówienia po najwyżej CZESC_SZT szt. jednej opony (decyzja właściciela 2026-11-17).
+    Część 1 = wszystkie opony (do 50 szt. każdej), kolejne – tylko reszta dużych ilości. [{id, ilosc}] -> [[{id, ilosc}], …]"""
+    zostalo = [{"id": int(p["id"]), "ilosc": int(p["ilosc"])} for p in pozycje or []]
+    out = []
+    while any(p["ilosc"] > 0 for p in zostalo):
+        cz = [{"id": p["id"], "ilosc": min(p["ilosc"], CZESC_SZT)} for p in zostalo if p["ilosc"] > 0]
+        for p in zostalo:
+            p["ilosc"] -= min(p["ilosc"], CZESC_SZT)
+        out.append(cz)
+    return out
 
 
 def czytaj_wynik(dane):

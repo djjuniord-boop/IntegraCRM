@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.0.10"
+VERSION = "1.0.11"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.0.11",
+        "date": "2026-11-17",
+        "changes": [
+            "Koszyk xPartner: można zamówić więcej niż 50 sztuk jednej opony (do 200) – program sam wysyła zamówienie w częściach po 50 szt. (tak jak przyjmuje strona xPartner); w potwierdzeniu widać podział, a na koniec numery wszystkich części",
+        ],
+    },
     {
         "version": "1.0.10",
         "date": "2026-11-17",

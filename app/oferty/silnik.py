@@ -1353,16 +1353,36 @@ def koszyk_route(route, body, cfg):
             if not ZAMAWIAM.acquire(blocking=False):
                 return 409, {"error": "Zamówienie jest właśnie wysyłane – poczekaj na wynik."}
             try:
-                xml_txt = K.order_xml(body)
+                K.order_xml(body)   # sprawdzenie całego koszyka (adres, ilości 1–MAX_SZT, uwagi) przed wysłaniem czegokolwiek
                 spr = [p for p in K.odswiez(cfg, body.get("pozycje") or [], get_product) if not p["ok"]]
                 if spr:   # zalecenie xPartner: stany sprawdzone tuż przed zamówieniem
                     return 409, {"error": "Zmieniły się stany w xPartner – popraw koszyk.", "pozycje_zle": spr}
-                # wpis w Dzienniku zmian robi serwer (numery zamówień + te szczegóły) – nie da się go podrobić z programu
-                szczegoly = {"dostawa": body.get("adres_opis") or ""}   # pozycje i numer serwer czyta z XML
-                zam, uwagi = K.czytaj_wynik(K.wyslij(cfg, xml_txt, dziennik=szczegoly))
+                czesci = K.czesci(body.get("pozycje"))   # po maks. 50 szt. jednej opony (jak na stronie xPartner)
+                zam, uwagi = [], []
+                for i, cz in enumerate(czesci):
+                    # wpis w Dzienniku zmian robi serwer (numery zamówień + te szczegóły) – nie da się go podrobić z programu
+                    szczegoly = {"dostawa": body.get("adres_opis") or ""}
+                    if len(czesci) > 1:
+                        szczegoly["czesc"] = "%d/%d" % (i + 1, len(czesci))
+                    try:
+                        z, u = K.czytaj_wynik(K.wyslij(cfg, K.order_xml(dict(body, pozycje=cz)), dziennik=szczegoly))
+                    except Exception as e:
+                        if not zam:
+                            raise
+                        # część zamówień już powstała – pokazujemy numery i to, czego nie wysłano (reszta zostaje w koszyku)
+                        reszta = {}
+                        for c in czesci[i:]:
+                            for p in c:
+                                reszta[p["id"]] = reszta.get(p["id"], 0) + p["ilosc"]
+                        blad = str(e) if e.__class__.__name__ == "Blad" else "Brak odpowiedzi xPartner (%s)" % e.__class__.__name__
+                        return 200, {"zamowienia": zam, "uwagi": uwagi, "czesci": len(czesci), "wyslane_czesci": i,
+                                     "niewyslane": [{"id": k, "ilosc": v} for k, v in reszta.items()],
+                                     "blad_czesci": "Część %d z %d: %s" % (i + 1, len(czesci), blad)}
+                    zam += z
+                    uwagi += u
             finally:
                 ZAMAWIAM.release()
-            return 200, {"zamowienia": zam, "uwagi": uwagi}
+            return 200, {"zamowienia": zam, "uwagi": uwagi, "czesci": len(czesci)}
     except K.Blad as e:
         return 400, {"error": str(e)}
     except Exception as e:   # błąd xPartner (zamowienia.Blad) – bez treści innych błędów (adres z loginem)
