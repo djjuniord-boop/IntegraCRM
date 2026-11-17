@@ -475,7 +475,7 @@ async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.sho
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
  catch(e){$('#kCzas').textContent='';msg('#kMsg',e.message,1)}kDraw()}
-function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
+function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan&&v<=50;d.blad=v>50?'xPartner przyjmuje maks. 50 szt. jednej opony w zamówieniu – resztę zamów osobno':d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
 function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
 function kSumy(){let n=0,net=0,br=0,kat=0;for(const k of KOSZ){const d=KDANE[k.id];n+=k.ilosc;if(d&&d.netto){net+=d.netto*k.ilosc;br+=d.brutto*k.ilosc;kat+=(d.netto_kat>d.netto?d.netto_kat:d.netto)*k.ilosc}}return{n,net,br,rab:kat-net}}
 function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
