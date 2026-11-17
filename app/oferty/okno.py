@@ -236,14 +236,19 @@ class Katalog:
         self.uzyty = True
         return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
 
+    _tpms, _tpms_t = None, 0.0
+
     def tpms(self):
-        """Czujniki TPMS i akcesoria z kopii pliku (ok. 240 pozycji – całość, filtruje silnik). None = kopia niedostępna."""
+        """Czujniki TPMS i akcesoria z kopii pliku (ok. 240 pozycji – całość, filtruje silnik); pamiętane 5 min
+        (kopia odświeża się co 30 min, a pierwsze zapytanie w bazie bywa wolne). None = kopia niedostępna."""
         if not self.swiezy(self.MAKS_WIEK_WZORCA):
             return None
-        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->attrs->>Asortyment=eq."
-                   + urllib.parse.quote(TPMS_ASORT) + "&limit=3000") or []
+        if self._tpms is None or time.time() - self._tpms_t > 300:
+            rows = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->attrs->>Asortyment=eq."
+                       + urllib.parse.quote(TPMS_ASORT) + "&limit=3000") or []
+            self._tpms, self._tpms_t = [x["dane"] for x in rows if isinstance(x.get("dane"), dict)], time.time()
         self.uzyty = True
-        return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
+        return [dict(x) for x in self._tpms]
 
     def cechy(self, pid):
         """Cechy z pliku (EPREL, śnieg, lód) dla oferty otwartej bez wyszukiwania (np. z historii)."""

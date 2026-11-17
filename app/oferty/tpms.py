@@ -4,44 +4,68 @@ import re
 
 # marki aut w nazwach czujników (nazwa w wynikach -> warianty zapisu)
 MARKI_AUT = {
-    "Alfa Romeo": ["ALFA"], "Audi": ["AUDI"], "BMW": ["BMW"], "Chevrolet": ["CHEVROLET"], "Chrysler": ["CHRYSLER"],
+    "Alfa Romeo": ["ALFA ROMEO", "ALFA"], "Audi": ["AUDI"], "BMW": ["BMW"], "Chevrolet": ["CHEVROLET"], "Chrysler": ["CHRYSLER"],
     "Citroën": ["CITROEN", "CITROËN"], "Dacia": ["DACIA"], "Dodge": ["DODGE"], "Fiat": ["FIAT"], "Ford": ["FORD"],
-    "Honda": ["HONDA"], "Hyundai": ["HYUNDAI"], "Infiniti": ["INFINITI"], "Jaguar": ["JAGUAR"], "Jeep": ["JEEP"],
+    "Honda": ["HONDA"], "Hyundai": ["HYUNDAI", "HYUNDAY"], "Infiniti": ["INFINITI"], "Jaguar": ["JAGUAR"], "Jeep": ["JEEP"],
     "KIA": ["KIA"], "Land Rover": ["LAND ROVER", "LANDROVER", "RANGE ROVER"], "Lexus": ["LEXUS"], "Mazda": ["MAZDA"],
     "Mercedes": ["MERCEDES", "MB"], "Mini": ["MINI"], "Mitsubishi": ["MITSUBISHI"], "Nissan": ["NISSAN"], "Opel": ["OPEL"],
     "Peugeot": ["PEUGEOT"], "Porsche": ["PORSCHE"], "Renault": ["RENAULT"], "Seat": ["SEAT", "CUPRA"], "Skoda": ["SKODA", "ŠKODA"],
     "Subaru": ["SUBARU"], "Suzuki": ["SUZUKI"], "Tesla": ["TESLA"], "Toyota": ["TOYOTA"], "Volvo": ["VOLVO"],
-    "VW": ["VW", "VOLKSWAGEN"],
+    "VW": ["VW", "VOLKSWAGEN"], "MG": ["MG"], "SsangYong": ["SSANGYONG", "SSANG YONG"], "BYD": ["BYD"], "Chery": ["CHERY"],
+    "Isuzu": ["ISUZU"], "BAIC": ["BAIC"], "Omoda": ["OMODA"], "Saab": ["SAAB"], "Lotus": ["LOTUS"], "DS": ["DS"],
+    "Cadillac": ["CADILLAC"], "Smart": ["SMART"], "Polestar": ["POLESTAR"],
 }
-# rodzina marek: czujnik „pod VW” pasuje zwykle też do Audi/Skody/Seata (pokazujemy w grupie „marka”)
+# grupy marek: czujnik jednej marki często pasuje do pozostałych (pokazujemy w grupie 2 – „sprawdź model”)
+RODZINY = [{"VW", "Audi", "Skoda", "Seat"}, {"Hyundai", "KIA"}, {"Peugeot", "Citroën", "DS"}, {"Renault", "Dacia"},
+           {"Chrysler", "Dodge", "Jeep"}, {"Jaguar", "Land Rover"}]
 ZAWORY = {"srebrny": "SREBRNY", "czarny": "CZARNY", "gumowy": "GUMOWY"}
-AKCESORIA_SLOWA = ("ZESTAW", "ZAWÓR", "ZAWOR", "NAKRĘTKA", "NAKRETKA", "PROGRAMATOR", "MODUŁ", "MODUL", "NARZĘDZIE", "WENTYL", "USZCZELK")
+AKCESORIA_SLOWA = ("ZESTAW", "NAKRĘTKA", "NAKRETKA", "PROGRAMATOR", "MODUŁ", "MODUL", "NARZĘDZIE", "WENTYL", "USZCZELK")
 RODZAJE = {"oe": "oryginał OE", "zam": "zamiennik pod markę", "uni": "uniwersalny", "nar": "akcesoria / narzędzia"}
 
 
+_ZN = str.maketrans("ŠËÉÁÍÜÖ", "SEEAIUO")
+
+
+def _up(x):
+    return (x or "").upper().translate(_ZN)
+
+
 def _k(x):
-    """Do porównań: wielkie litery, same litery i cyfry (52933-D4100 == 52933D4100)."""
-    return re.sub(r"[^A-Z0-9ĄĆĘŁŃÓŚŹŻ]", "", (x or "").upper())
+    """Do porównań: wielkie litery, same litery i cyfry (52933-D4100 == 52933D4100, Škoda == SKODA)."""
+    return re.sub(r"[^A-Z0-9ĄĆĘŁŃÓŚŹŻ]", "", _up(x))
 
 
 def _slowa(nazwa):
-    return re.findall(r"[A-Z0-9ĄĆĘŁŃÓŚŹŻË]+", (nazwa or "").upper())
+    return re.findall(r"[A-Z0-9ĄĆĘŁŃÓŚŹŻ]+", _up(nazwa))
+
+
+def rodzina(marki):
+    out = set(marki)
+    for r in RODZINY:
+        if out & r:
+            out |= r
+    return out
 
 
 def marki_z_nazwy(nazwa):
     n = " " + " ".join(_slowa(nazwa)) + " "
-    return [m for m, warianty in MARKI_AUT.items() if any(" %s " % w in n or ("/%s" % w) in (nazwa or "").upper() for w in warianty)]
+    return [m for m, warianty in MARKI_AUT.items() if any(" %s " % _up(w) in n for w in warianty)]
 
 
 def rodzaj_z(p):
-    n = (p.get("nazwa") or "").upper()
+    n = _up(p.get("nazwa"))
     a = p.get("attrs") or {}
-    if "CZUJNIK" not in n or "NARZĘDZIA" in (a.get("Rodzaj") or "").upper() or any(s in n for s in ("PROGRAMATOR", "ZESTAW NAPRAWCZY")):
+    rodz = (a.get("Rodzaj") or "").upper()
+    czujnik = "CZUJNIK" in n or rodz == "CZUJNIKI"
+    if not czujnik or "NARZĘDZIA" in rodz or any(s in n for s in ("PROGRAMATOR", "ZESTAW NAPRAWCZY")):
         return "nar"
     if re.search(r"\bUNI\b|UNIWERSAL|\bHYB|PROGRAMOW|MULTI|EZ-SENSOR|\bREDI\b", n):
         return "uni"
     if re.search(r"\bOEM?\b(?!-)", n) or (a.get("Producent") or "").upper() == "ORYGINAŁ":
         return "oe"
+    # bez marki auta w nazwie, a z częstotliwością / „blank” / „MX” / „UVS” – czujnik do zaprogramowania (uniwersalny)
+    if not marki_z_nazwy(n) and re.search(r"\b(433|315)\s?MHZ|\bMX\b|BLANK|\bUVS|SENSOR\b", n):
+        return "uni"
     return "zam"
 
 
@@ -67,7 +91,7 @@ def zapytanie(txt, producenci=()):
     if re.search(r"bez\s+demo", t):
         q["demo"] = "bez"
         t = re.sub(r"bez\s+demo", " ", t)
-    elif re.search(r"\bdemo\b|demont", t):
+    elif re.search(r"\bdemo\b|demont", t):   # „z demontażu” = DEMO
         q["demo"] = "tylko"
     for wz, r in ((r"orygina|\boem?\b(?!-)", "oe"), (r"zamienn", "zam"), (r"uniwersal|programowal|\buni\b|hybryd|hybrid", "uni")):
         if re.search(wz, t):
@@ -75,21 +99,29 @@ def zapytanie(txt, producenci=()):
     for k in ZAWORY:
         if k in t:
             q["zawor"] = k
-    T = t.upper()
-    if any(s in T for s in AKCESORIA_SLOWA):
+    T = _up(t)
+    # „zawór” bez koloru = akcesorium (zawór do czujnika); z kolorem („zawór gumowy”) = rodzaj zaworu czujnika
+    if any(s in T for s in AKCESORIA_SLOWA) or (re.search(r"ZAW[OÓ]R", T) and not q["zawor"] and "CZUJNIK" not in T):
         q["akcesoria"] = True
-    pk = {_k(x): x for x in producenci if x and x != "–"}
-    for x in sorted(producenci, key=len, reverse=True):   # producent z kilku słów / z kreską („T-PRO”)
-        if x and x != "–" and len(_k(x)) >= 3 and re.search(r"(?<![A-Z0-9])" + r"[\s\-]*".join(map(re.escape, _slowa(x))) + r"(?![A-Z0-9])", T):
+    for mk, war in MARKI_AUT.items():   # marki z dwóch słów najpierw („land rover”, „alfa romeo”, „ssang yong”)
+        for w in war:
+            if " " in w and re.search(r"(?<![A-Z0-9])" + re.escape(_up(w)) + r"(?![A-Z0-9])", T):
+                if mk not in q["marki"]:
+                    q["marki"].append(mk)
+                T = re.sub(r"(?<![A-Z0-9])" + re.escape(_up(w)) + r"(?![A-Z0-9])", " ", T)
+    pk = {_k(x): x for x in producenci if x and x != "–" and _k(x) != "ORYGINAŁ"}
+    for x in sorted(producenci, key=len, reverse=True):   # producent z kilku słów / z kreską („T-PRO”); „oryginał” to rodzaj
+        if x and x != "–" and _k(x) != "ORYGINAŁ" and len(_k(x)) >= 3 and re.search(r"(?<![A-Z0-9])" + r"[\s\-]*".join(map(re.escape, _slowa(x))) + r"(?![A-Z0-9])", T):
             q["producent"] = x
             T = re.sub(r"(?<![A-Z0-9])" + r"[\s\-]*".join(map(re.escape, _slowa(x))) + r"(?![A-Z0-9])", " ", T)
             break
     for w in _slowa(T):
         if w in ("TPMS", "CZUJNIK", "CZUJNIKI", "CZUJNIKA", "SZT", "BEZ", "DEMO", "DO", "POD", "I", "Z", "W", "NA") or w in ZAWORY.values():
             continue
-        if re.match(r"^(ORYGINA|OEM?$|ZAMIENN|UNIWERSAL|PROGRAMOWAL|UNI$|HYBRYD|SREBRN|CZARN|GUMOW)", w):
+        if re.match(r"^(ORYGINA|OEM?$|ZAMIENN|UNIWERSAL|PROGRAMOWAL|UNI$|HYBRYD|SREBRN|CZARN|GUMOW|DEMONT|ZAW[OÓ]R|AUTO$|SAMOCH)", w) and \
+                not (q["akcesoria"] and re.match(r"^ZAW[OÓ]R", w)):
             continue
-        marka = next((mk for mk, war in MARKI_AUT.items() if w in [x.replace(" ", "") for x in war]), None)
+        marka = next((mk for mk, war in MARKI_AUT.items() if w in [_up(x).replace(" ", "") for x in war]), None)
         if marka:
             if marka not in q["marki"]:
                 q["marki"].append(marka)
@@ -99,11 +131,6 @@ def zapytanie(txt, producenci=()):
             continue
         if len(_k(w)) >= 2:
             q["slowa"].append(_k(w))
-    # „land rover”, „alfa romeo” – dwa słowa
-    for mk in ("Land Rover", "Alfa Romeo"):
-        if mk.upper() in T and mk not in q["marki"]:
-            q["marki"].append(mk)
-            q["slowa"] = [s for s in q["slowa"] if s not in ("LAND", "ROVER", "ALFA", "ROMEO")]
     return q
 
 
@@ -116,7 +143,7 @@ def szukaj(produkty, txt):
     for x in lista:
         if (x["rodzaj"] == "nar") != q["akcesoria"]:
             continue
-        if q["rodzaje"] and x["rodzaj"] not in q["rodzaje"] and not (x["rodzaj"] == "uni" and q["marki"] and not q["rodzaje"]):
+        if q["rodzaje"] and x["rodzaj"] not in q["rodzaje"]:
             continue
         if q["demo"] == "bez" and x["demo"] or q["demo"] == "tylko" and not x["demo"]:
             continue
@@ -129,7 +156,7 @@ def szukaj(produkty, txt):
         if q["marki"]:
             if marka_ok and slowa_ok:
                 g = 1
-            elif marka_ok:
+            elif marka_ok or rodzina(q["marki"]) & set(x["marki"]):
                 g = 2
             elif x["rodzaj"] == "uni" and (not q["rodzaje"] or "uni" in q["rodzaje"]):
                 g = 3

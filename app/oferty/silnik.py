@@ -1491,13 +1491,14 @@ def handle(path, body=None, open_path=None):
             kat = KONTO.get("katalog")
             items = kat.tpms() if kat and hasattr(kat, "tpms") else None
             if items is None:
-                raise ApiError("Czujniki TPMS szukam w kopii oferty xPartner, a ta jest teraz niedostępna – spróbuj za chwilę.")
+                raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
             if not items:
                 raise ApiError("W kopii oferty xPartner nie ma jeszcze czujników TPMS – kopia obejmuje na razie tylko opony "
                                "(administrator musi zmienić link do pliku ofertowego na cały asortyment).")
             lista, q = TP.szukaj(items, body.get("q") or "")
             info = KONTO.get("katalog_info")
-            return 200, {"lista": lista, "q": q, "rodzaje": TP.RODZAJE, "zrodlo": (info() if info else "")}
+            return 200, {"lista": lista, "q": q, "rodzaje": TP.RODZAJE,
+                         "zrodlo": (info() if info else "").replace("w ofercie – na żywo", "w koszyku – na żywo")}
         if route == "/api/quick":
             return 200, parse_quick(body.get("text", ""))
         if route == "/api/szablon":

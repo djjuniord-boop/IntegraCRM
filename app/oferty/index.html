@@ -135,7 +135,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: markę i model auta („kia sportage”, „opel insignia”), numer OE ze starego czujnika („52933D4100”), oznaczenie zamiennika („s016”), rodzaj („oryginał”, „zamiennik”, „uniwersalny”, „bez demo”), producenta („t-pro”, „cub”, „schrader”), zawór („srebrny”, „czarny”, „gumowy”), akcesoria („zestaw naprawczy”, „zawór”, „nakrętka”, „programator”) i ilość („4 szt”). Przy szukaniu po aucie na końcu są też czujniki uniwersalne (do zaprogramowania).</div><div id="tMsg"></div></div>
 <div class="card" id="tFilt" style="display:none"><h2><span class="n">⚙</span>Filtry</h2>
 <div class="tf"><label>Rodzaj<select id="tf_r" onchange="tRender()"><option value="">wszystkie</option><option value="oe">oryginał OE</option><option value="zam">zamiennik pod markę</option><option value="uni">uniwersalny</option><option value="nar">akcesoria / narzędzia</option></select></label>
-<label>DEMO (z demontażu)<select id="tf_d" onchange="tRender()"><option value="">z DEMO</option><option value="bez">bez DEMO</option><option value="tylko">tylko DEMO</option></select></label>
+<label>DEMO (z demontażu)<select id="tf_d" onchange="tRender()"><option value="">wszystkie</option><option value="bez">bez DEMO</option><option value="tylko">tylko DEMO</option></select></label>
 <label>Marka auta<select id="tf_m" onchange="tRender()"></select></label><label>Producent czujnika<select id="tf_p" onchange="tRender()"></select></label>
 <label>Zawór<select id="tf_z" onchange="tRender()"><option value="">dowolny</option><option>srebrny</option><option>czarny</option><option>gumowy</option></select></label>
 <label>Magazyn<select id="tf_g" onchange="tRender()"></select></label><label>Min. stan<input id="tf_s" type="number" min="0" style="width:70px" oninput="tRender()"></label>
@@ -488,7 +488,7 @@ function kBadge(){KOSZ=kLs(KK,[]);const n=KOSZ.reduce((a,x)=>a+x.ilosc,0),b=$('#
 function kFabPokaz(){const f=$('#kFab');if(f)f.style.display=f.dataset.n&&window.scrollY>140?'':'none'}window.addEventListener('scroll',kFabPokaz,{passive:true});
 function kDodaj(id,il,nazwa){KOSZ=kLs(KK,[]);const x=KOSZ.find(k=>k.id===id);if(x)x.ilosc=il;else KOSZ.push({id,ilosc:il,nazwa});kSave();kToast(nazwa,il)}
 let KTT=0;function kToast(nazwa,il){const t=$('#kToast');if(!t)return;t.innerHTML=`<span>✓ Dodano: <b>${esc(nazwa)} × ${il}</b></span><a onclick="$('#kToast').style.display='none';openKosz()">Otwórz koszyk</a>`;t.style.display='flex';clearTimeout(KTT);KTT=setTimeout(()=>t.style.display='none',3000)}
-function kWyczysc(){if(!confirm('Usunąć wszystkie opony z koszyka?'))return;KOSZ=[];kSave();kDraw()}
+function kWyczysc(){if(!confirm('Usunąć wszystko z koszyka?'))return;KOSZ=[];kSave();kDraw()}
 async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.showModal();kDraw();kAdresy();kOdswiez()}
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
@@ -496,8 +496,8 @@ async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent
 function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
 function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
 function kSumy(){let n=0,net=0,br=0,kat=0;for(const k of KOSZ){const d=KDANE[k.id];n+=k.ilosc;if(d&&d.netto){net+=d.netto*k.ilosc;br+=d.brutto*k.ilosc;kat+=(d.netto_kat>d.netto?d.netto_kat:d.netto)*k.ilosc}}return{n,net,br,rab:kat-net}}
-function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
- let h='<table><tr><th>Opona</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
+function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony albo czujniki TPMS przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
+ let h='<table><tr><th>Pozycja</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
  for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+v+' szt.').join(', '):'';
   const rab=d.netto_kat>d.netto?`<div class="muted" style="font-size:11px"><s>${zl(d.netto_kat)}</s> −${((1-d.netto/d.netto_kat)*100).toFixed(2).replace('.',',')}%</div>`:'';
   h+=`<tr class="${d.id&&!d.ok?'kbad':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}</td>
@@ -558,10 +558,10 @@ async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…
 function tWyczysc(){for(const k of['r','d','m','p','z','g','s','c','t'])$('#tf_'+k).value='';tRender()}
 function tRender(){const f=k=>$('#tf_'+k).value,mag=f('g'),ms=+f('s')||0,cm=+f('c')||0,tx=f('t').trim().toUpperCase(),KM=new Map(kLs(KK,[]).map(k=>[k.id,k.ilosc]));
  const st=x=>mag?(x.magazyny||{})[mag]||0:x.stan;
- const L=TL.filter(x=>(!f('r')||x.rodzaj===f('r'))&&(!f('d')||(f('d')==='bez'?!x.demo:x.demo))&&(!f('m')||x.marki.includes(f('m')))&&(!f('p')||x.producent===f('p'))&&(!f('z')||x.zawor===f('z'))&&st(x)>=ms&&st(x)>0&&(!cm||x.brutto_zak<=cm)&&(!tx||(x.nazwa+' '+x.id).toUpperCase().includes(tx)));
- $('#tIle').textContent='· '+L.length+(L.length!==TL.length?' z '+TL.length:'')+' pozycji';
- if(!L.length){$('#tRes').innerHTML='<p class="warn">Brak pozycji spełniających kryteria.</p>';return}
- const GR={1:TQ.marki&&TQ.marki.length?'Pasują do: '+TQ.marki.join(', ')+(TQ.slowa&&TQ.slowa.length?' '+TQ.slowa.join(' '):''):'',2:'Ta sama marka auta – sprawdź model / rocznik',3:'Uniwersalne – do zaprogramowania pod auto'};
+ const L=TL.filter(x=>(!f('r')||x.rodzaj===f('r'))&&(!f('d')||(f('d')==='bez'?!x.demo:x.demo))&&(!f('m')||x.marki.includes(f('m')))&&(!f('p')||x.producent===f('p'))&&(!f('z')||!x.zawor||x.zawor===f('z'))&&st(x)>=ms&&st(x)>0&&(!cm||x.brutto_zak<=cm)&&(!tx||(x.nazwa+' '+x.id).toUpperCase().includes(tx)));
+ $('#tIle').textContent='· '+L.length+(L.length!==TL.length?' z '+TL.length:'')+' pozycji (bez pozycji ze stanem 0'+(f('z')?'; zawór „'+f('z')+'” albo bez podanego koloru':'')+')';
+ if(!L.length){$('#tRes').innerHTML='<p class="warn">Brak pozycji spełniających kryteria. Spróbuj samej marki auta, wyczyść filtry albo kliknij „Wszystkie czujniki”.</p>';return}
+ const GR={1:TQ.marki&&TQ.marki.length?'Pasują do: '+TQ.marki.join(', ')+(TQ.slowa&&TQ.slowa.length?' '+TQ.slowa.join(' '):''):'',2:'Ta sama marka (lub grupa, np. VW–Audi–Skoda–Seat) – sprawdź model / rocznik',3:'Uniwersalne – do zaprogramowania pod auto'};
  let h='<table><tr><th>Indeks</th><th>Nazwa</th><th>Rodzaj</th><th>Pasuje do</th><th>Producent</th><th class="num">Stan</th><th class="num">Zakup netto</th><th class="num">Zakup brutto</th>'+(CFG.zamawianie?'<th class="num">Ilość</th><th></th>':'')+'</tr>',g0=0;
  for(const x of L){if(x.grupa!==g0&&GR[x.grupa]&&new Set(L.map(y=>y.grupa)).size>1)h+=`<tr class="tgr"><td colspan="10">${esc(GR[x.grupa])}</td></tr>`;g0=x.grupa;
   const wk=KM.get(x.id),s=st(x),mags=Object.entries(x.magazyny||{}).filter(([,v])=>v).map(([m,v])=>m+': '+v).join(', ');

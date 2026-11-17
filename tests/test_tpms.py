@@ -41,7 +41,7 @@ def test_szybkie_polecenie_tpms():
 
 def test_grupy_wynikow():
     # po aucie: dokładne, potem ta sama marka, na końcu uniwersalne; bez akcesoriów i bez ceny 0
-    assert _ids("kia sportage") == [(1, 1), (2, 2), (4, 3), (9, 3)]
+    assert _ids("kia sportage") == [(1, 1), (2, 2), (3, 2), (4, 3), (9, 3)]   # Hyundai = ta sama grupa co KIA
     assert _ids("52933-D4100") == [(2, 1)]                     # numer OE z kreską
     assert _ids("opel s016") == [(5, 1), (4, 3), (9, 3)]
     assert _ids("oryginał mercedes bez demo") == []
@@ -64,3 +64,40 @@ def test_trasa_api_tpms():
         assert c == 502 and "tylko opony" in r["error"]
     finally:
         S.KONTO.clear(); S.KONTO.update(stare)
+
+
+DB2 = [_t(20, "TPMS CZUJNIK AUTEL MX ONE SENSOR 433MHZ SREBRNY", "AUTEL"), _t(21, "TPMS CZUJNIK NOVOSENSOR 433 MHZ", "NOVOSENSOR"),
+       _t(22, "TPMS CZUJNIK OE-R BLANK 3200 433MHZ", "T-PRO"), _t(23, "TPMS CZUJNIK OEM VW AUDI 5Q0907275", "ORYGINAŁ"),
+       _t(24, "TPMS CZUJNIK MG OE-R S513", "T-PRO"), _t(25, "TPMS CZUJNIK LAND ROVER HUF-RDE003", "HUF"),
+       _t(26, "TPMS CZUJNIK OEM CITROEN/PEUGEOT 9811536380 DEMO", "SCHRADER"), _t(27, "TPMS CZUJNIK KIA GUMOWY", "CUB"),
+       _t(28, "ZESTAW NAPRAWCZY T-PRO ZAWÓR V077", "T-PRO", rodzaj="NARZĘDZIA AKCESORIA"), _t(29, "TPMS S3A101", "T-PRO")]
+
+
+def test_poprawki_recenzenta():
+    """Uniwersalne bez „UNI” w nazwie, „zawór gumowy”, „z demontażu”, marki z 2 słów / Škoda / MG, grupa VW, „oryginał”."""
+    r = {p["id"]: T.rodzaj_z(p) for p in DB2}
+    assert (r[20], r[21], r[22], r[29]) == ("uni", "uni", "uni", "zam")
+    ids = lambda q: [(x["id"], x["grupa"]) for x in T.szukaj(DB2, q)[0]]  # noqa: E731
+    assert (27, 1) in ids("kia zawór gumowy") and (27, 1) in ids("czujnik z zaworem gumowym kia")
+    assert ids("z demontażu") == [(26, 1)]
+    assert ids("zawór") == [(28, 1)]
+    assert (25, 1) in ids("range rover") and (24, 2) in ids("mg zs")
+    assert (23, 2) in ids("škoda octavia") and (23, 2) in ids("seat leon")      # czujnik VW/Audi w grupie marek
+    assert ids("oryginał citroen") == [(26, 1)]                                # „oryginał” to rodzaj, nie producent
+    assert {i for i, g in ids("mg zs") if g == 3} == {20, 21, 22}               # uniwersalne na końcu
+
+
+def test_wyszukiwanie_opon_tylko_asortyment_opony():
+    """Kopia obejmuje cały plik xPartner – zapytania o opony muszą mieć filtr Asortyment=OPONY (koła kompletne mają rozmiar opony)."""
+    from oferty import okno
+    zap = []
+    stary = okno._db
+    okno._db = lambda m, path, *a, **k: zap.append(path) or []
+    try:
+        kat = okno.Katalog()
+        kat.swiezy = lambda maks=None: True
+        kat("205/55 R16")
+        kat.wzorzec("*/* R20", ["PIRELLI"], ["Zimowa"])
+        assert len(zap) == 2 and all(okno.TYLKO_OPONY in p for p in zap), zap
+    finally:
+        okno._db = stary
