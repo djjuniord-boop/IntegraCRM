@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.0.8",
+        "date": "2026-11-17",
+        "changes": [
+            "Oferty opon: szukanie po niepełnym rozmiarze, marce lub sezonie działa także wtedy, gdy kopia oferty xPartner jest sprzed kilku godzin (pod wynikami widać, z kiedy jest kopia; ceny i stany w ofercie odświeżają się na żywo)",
+        ],
+    },
     {
         "version": "1.0.7",
         "date": "2026-11-17",

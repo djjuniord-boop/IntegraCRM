@@ -173,6 +173,7 @@ def wczytaj_konto():
 class Katalog:
     """Wyszukiwanie w kopii pliku ofertowego xPartner (tabela xp_oferta). None = użyj API (kopia pusta/nieaktualna/błąd)."""
     MAKS_WIEK = 3 * 3600
+    MAKS_WIEK_WZORCA = 72 * 3600   # niepełny rozmiar działa tylko na kopii – starsza kopia lepsza niż brak wyników (ceny w ofercie i tak na żywo)
 
     def __init__(self):
         self.stan, self.stan_t, self.uzyty = None, 0.0, None
@@ -187,11 +188,11 @@ class Katalog:
             self.stan_t = time.time()
         return self.stan
 
-    def swiezy(self):
+    def swiezy(self, maks=None):
         s = self._stan()
         try:
             t = datetime.datetime.fromisoformat(str(s["czas"]).replace("Z", "+00:00"))
-            return (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() < self.MAKS_WIEK and int(s.get("ile") or 0) > 0
+            return (datetime.datetime.now(datetime.timezone.utc) - t).total_seconds() < (maks or self.MAKS_WIEK) and int(s.get("ile") or 0) > 0
         except Exception:
             return False
 
@@ -210,7 +211,7 @@ class Katalog:
         silnik.WZOR_POBIERZ). Marka i sezon zawężają już w bazie. None = kopia niedostępna/nieaktualna."""
         from oferty import silnik
         m = silnik.WZOR_RE.match(wz or "")
-        if not m or not self.swiezy():
+        if not m or not self.swiezy(self.MAKS_WIEK_WZORCA):
             return None
         w, p, r, _c = m.groups()
         q = ["select=dane", "order=ilosc.desc", "limit=%d" % silnik.WZOR_POBIERZ]
@@ -239,7 +240,8 @@ class Katalog:
         if not self.uzyty:
             return ""
         t = datetime.datetime.fromisoformat(str(self.stan["czas"]).replace("Z", "+00:00")).astimezone()
-        return "Oferta xPartner z godz. %s (kopia odświeżana co 30 min; ceny i stany w ofercie – na żywo)" % t.strftime("%H:%M")
+        kiedy = ("z godz. %s" % t.strftime("%H:%M")) if t.date() == datetime.date.today() else t.strftime("z %d.%m, godz. %H:%M")
+        return "Kopia oferty xPartner %s (ceny i stany w ofercie – na żywo)" % kiedy
 
 
 def wczytaj_oddzialy(admin=False):
