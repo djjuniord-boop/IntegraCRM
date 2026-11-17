@@ -226,3 +226,11 @@ def test_posrednik_xpartner_bez_hasla_w_programie():
             assert "nie jest jeszcze uruchomiony" in str(e)
     finally:
         okno.urllib.request.urlopen, okno._token = stare
+
+
+def test_limit_50_sztuk_jak_na_stronie_xpartner():
+    """xPartner przyjmuje maks. 50 szt. jednej opony w zamówieniu (jak na stronie) – 51 blokuje już program."""
+    assert K.MAX_SZT == 50
+    prod = {"id": 7, "nazwa": "X", "ilosc": 500, "netto": 100.0, "brutto_zak": 123.0, "netto_kat": 100.0, "attrs": {}, "magazyny": {}}
+    ok, za_duzo = K.odswiez({}, [{"id": 7, "ilosc": 50}, {"id": 7, "ilosc": 51}], lambda cfg, pid: dict(prod))
+    assert ok["ok"] is True and za_duzo["ok"] is False and "maks. 50" in za_duzo["blad"]

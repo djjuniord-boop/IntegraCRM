@@ -24,7 +24,7 @@ WZOR_OPIS = re.compile(r"^[a-zA-Z0-9 \-/]*$")
 LIMITY_ADRESU = {"name": (1, 76), "street": (1, 35), "zipCode": (1, 6), "city": (1, 25), "country": (2, 2),
                  "vatin": (0, 13), "email": (0, 40), "phone": (0, 25), "receivingPerson": (0, 76)}
 PL = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻäöüÄÖÜéÉ", "acelnoszzACELNOSZZaouAOUeE")
-MAX_SZT = 200   # bezpiecznik: więcej sztuk jednej opony = pomyłka w ilości
+MAX_SZT = 50    # tyle przyjmuje xPartner na jedną pozycję (jak na stronie xPartner); więcej = osobne zamówienie
 
 
 class Blad(Exception):
@@ -87,7 +87,7 @@ def odswiez(cfg, pozycje, get_product):
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
                 "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,
-                "blad": "Maks. %d szt. jednej opony" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
+                "blad": "xPartner przyjmuje maks. %d szt. jednej opony w zamówieniu – resztę zamów osobno" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 
