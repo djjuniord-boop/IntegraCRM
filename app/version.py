@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.0.9",
+        "date": "2026-11-17",
+        "changes": [
+            "Oferty opon: opony w koszyku są od razu widoczne w wynikach – zielony przycisk „✓ 4 szt.” i zielony wiersz (klik otwiera koszyk); po dodaniu krótki komunikat na dole, a przy przewijaniu w rogu przycisk koszyka z liczbą pozycji i sztuk",
+        ],
+    },
     {
         "version": "1.0.8",
         "date": "2026-11-17",
