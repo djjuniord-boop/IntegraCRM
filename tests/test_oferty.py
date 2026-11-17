@@ -39,7 +39,7 @@ class _Hist:
     def get(self, oid):
         return self.d.get(oid)
 
-    def save(self, oid, klient, dane, szukaj):
+    def save(self, oid, klient, dane, szukaj, owner=""):
         self.d[oid] = dane
 
     def get_id(self, rid):
@@ -508,7 +508,7 @@ def test_uwagi_do_oferty_zapis():
     zap = []
 
     class H:
-        def uwagi(self, txt, rid=None, oid=None):
+        def uwagi(self, txt, rid=None, oid=None, owner=""):
             zap.append((txt, rid, oid))
     try:
         S.HIST = H()

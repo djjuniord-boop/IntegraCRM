@@ -80,3 +80,9 @@ Link dla klienta (strona oferta.html) usunięty 2026-11-16 – funkcje w bazie s
 Zamówienia i faktury xPartner innych oddziałów filtruje program, nie serwer (funkcja `xpartner`). Konto z modułem
 `zamowienia`/`zamawianie` mogłoby poza programem pobrać dane całej firmy. Decyzja: zostaje tak w 1.0; ewentualne
 przeniesienie filtra na serwer – osobna zmiana.
+
+## Oferty wspólne w oddziale (2026-11-17)
+
+Handlowcy z tym samym oddziałem (`app_users.branches`) widzą i współdzielą oferty: podgląd, status (`oferty_status_o`),
+uwagi (`oferty_uwagi`), „Otwórz i odśwież” aktualizuje wpis autora (PATCH). Usuwa tylko autor. Zasady w bazie:
+`supabase/oferty_oddzial_2026-11-17.sql` (`oferty_wspolna(owner)`). Historia: „moje” / „cały oddział”.
