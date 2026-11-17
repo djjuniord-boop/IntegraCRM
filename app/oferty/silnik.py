@@ -215,6 +215,77 @@ def norm_size(s):
     f = find_sizes(s)
     return f[0] if f else None
 
+# ---- niepełny rozmiar (decyzja właściciela 2026-11-17): „20555”, „205/55”, „R20”, „205 R16”, sama marka / sezon
+# Klucz wzorca: „205/55 R*”, „*/* R20”, „205/* R16”, „*/* R17C”, „*/* R*” (* = dowolne). Szukany tylko w kopii pliku ofertowego.
+WZOR_RE = re.compile(r"^(\d{3}|\*)/(\d{2}|\*) R(\d{2}(?:\.5)?|\*)(C?)$")
+WZOR_LIMIT = 1000      # tyle opon pokazujemy (więcej spowalnia okno)
+WZOR_POBIERZ = 5000    # tyle najwyżej pobieramy z kopii (od największego stanu)
+_R_RE = re.compile(r"(?<![\d/])z?r\s?(\d{2})([.,]5)?(c)?(?![0-9a-ząćęłńóśźż])|(?<![\d/.,])(\d{2})\s?(?:cal[ie]?|\")", re.I)
+_WP_RE = re.compile(r"(?<![\d/.,])(\d{3})\s?[/\\\- ]?\s?(\d{2})(?![\d.,a-z])", re.I)
+_W_RE = re.compile(r"(?<![\d/.,])(\d{3})(?![\d/.,a-z])", re.I)
+
+
+def czy_wzorzec(s):
+    return bool(WZOR_RE.match(s or "")) and "*" in (s or "")
+
+
+def wzorzec_z_tekstu(txt):
+    """Niepełny rozmiar z tekstu (gdy pełnego brak) – klucz wzorca albo None."""
+    t = txt or ""
+    w = p = r = None
+    c = ""
+    m = _R_RE.search(t)
+    if m:
+        rr = int(m.group(1) or m.group(4))
+        if 12 <= rr <= 24:
+            r = "%d%s" % (rr, ".5" if m.group(2) else "")
+            c = "C" if m.group(3) else ""
+            t = t[:m.start()] + " " + t[m.end():]
+    m = _WP_RE.search(t)
+    if m and 125 <= int(m.group(1)) <= 355 and int(m.group(1)) % 10 == 5 and 25 <= int(m.group(2)) <= 85 and int(m.group(2)) % 5 == 0:
+        w, p = m.group(1), m.group(2)
+    else:
+        m = _W_RE.search(t)
+        if m and 125 <= int(m.group(1)) <= 355 and int(m.group(1)) % 10 == 5:   # szerokości osobowych kończą się na 5 („BMW 320” to nie rozmiar)
+            w = m.group(1)
+    if not (w or r):
+        return None
+    return "%s/%s R%s%s" % (w or "*", p or "*", r or "*", c)
+
+
+def pasuje_wzorzec(wz, size):
+    """Czy pełny rozmiar (np. „205/55 R16”) pasuje do wzorca. Dostawcze (C) i połówki (17.5) tylko, gdy wpisane."""
+    m, n = WZOR_RE.match(wz or ""), re.match(r"^(\d{3})/(\d{2}) R(\d{2}(?:\.5)?)(C?)$", size or "")
+    if not m or not n:
+        return False
+    for a, b in zip(m.groups()[:3], n.groups()[:3]):
+        if a != "*" and a != b:
+            return False
+    if m.group(4) != n.group(4):
+        return False
+    return not (m.group(3) == "*" and ".5" in n.group(3))
+
+
+def opis_wzorca(wz):
+    """„*/* R20” -> „R20 – wszystkie rozmiary”, „205/55 R*” -> „205/55 – każda średnica”."""
+    m = WZOR_RE.match(wz or "")
+    if not m:
+        return wz
+    w, p, r, c = m.groups()
+    if w == "*" and r == "*":
+        return "wszystkie rozmiary"
+    a = (w if w != "*" else "") + ("/" + p if p != "*" else "")
+    b = ("R" + r + c) if r != "*" else ""
+    if a and b:
+        return "%s %s – wszystkie profile" % (a, b)
+    if a:
+        return "%s – każda średnica" % a
+    return "%s – wszystkie rozmiary" % b
+
+
+def klucz_rozmiaru(s):
+    return norm_size(s) or (s.strip() if czy_wzorzec((s or "").strip()) else None)
+
 def season_of(p):
     s = (p["attrs"].get("Sezon", "") or "").upper()
     if "ZIM" in s: return "Zimowa"
@@ -524,7 +595,7 @@ def parse_quick(txt):
     if re.search(r"[śs]redni|middle|medium", t): klasy.append("MIDDLE")
     if re.search(r"bud[żz]et|budget|ekonom|tani", t): klasy.append("BUDGET")
     marki = []
-    slowa = [w for w in re.findall(r"[a-ząćęłńóśźż][a-ząćęłńóśźż0-9\-.]*", t) if not SIZE_LOOSE.search(w)]
+    slowa = [w for w in re.findall(r"[a-ząćęłńóśźż][a-ząćęłńóśźż0-9\-.]*", t) if not SIZE_LOOSE.search(w) and not re.match(r"^z?r\d{2}", w)]
     i = 0
     while i < len(slowa):   # najpierw dwa słowa razem („ling long”, „gt radial”, „vk tyre”)
         b2 = brand_of_word(slowa[i] + slowa[i + 1]) if i + 1 < len(slowa) else ""
@@ -537,8 +608,12 @@ def parse_quick(txt):
     ex = extras(t)
     wymiana = ex["wymiana"]
     runflat = bool(re.search(r"run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b", t))
+    if not sizes:   # niepełny rozmiar albo sama marka / sezon / klasa – szukanie w kopii pliku ofertowego
+        wz = wzorzec_z_tekstu(t) or ("*/* R*" if (marki or sezony or klasy) else None)
+        if wz:
+            sizes = [wz]
     pojazdy = [{"rej": "", "pojazd": "", "rozmiar": s, "ilosc": ilosc, "nowe": True, "wymiana": wymiana, "typ": ex["typ"], "tpms": ex["tpms"], "przech": ex["przech"]} for s in sizes]
-    if len(pojazdy) == 1:   # jedno auto: rejestracja i model jak w polu „Zapytanie klienta”
+    if len(pojazdy) == 1 and not czy_wzorzec(pojazdy[0]["rozmiar"]):   # jedno auto: rejestracja i model jak w polu „Zapytanie klienta”
         try:
             fl = parse_free_line(txt) or {}
         except Exception:
@@ -567,7 +642,7 @@ def indeks_z_tekstu(t):
     return int(m.group(1)), m.group(2).upper()
 
 def do_search(cfg, req):
-    sizes = sorted({norm_size(v["rozmiar"]) for v in req["pojazdy"] if v.get("nowe") and norm_size(v["rozmiar"])})
+    sizes = sorted({klucz_rozmiaru(v["rozmiar"]) for v in req["pojazdy"] if v.get("nowe") and klucz_rozmiaru(v["rozmiar"])})
     sezony = req.get("sezony") or [""]
     prod_f = [bkey(x) for x in (req.get("producenci") or "").split(",") if x.strip()]
     klasy = req.get("klasy") or [req.get("klasa", "")]
@@ -575,12 +650,36 @@ def do_search(cfg, req):
     need = {}
     for v in req["pojazdy"]:
         if v.get("nowe"):
-            s = norm_size(v["rozmiar"]); need[s] = need.get(s, 0) + int(v.get("ilosc") or 4)
+            s = klucz_rozmiaru(v["rozmiar"])
+            if s: need[s] = need.get(s, 0) + int(v.get("ilosc") or 4)
+    sezony_f = [x for x in sezony if x]
+
+    def szukaj(s):
+        if not czy_wzorzec(s):
+            return search_size(cfg, s)
+        kat = KONTO.get("katalog")
+        items = kat.wzorzec(s, prod_f, sezony_f) if kat and hasattr(kat, "wzorzec") else None
+        if items is None:
+            raise ApiError("Niepełny rozmiar (%s) szukam tylko w kopii oferty xPartner, a ta jest teraz niedostępna – wpisz pełny rozmiar, np. 205/55 R16." % opis_wzorca(s))
+        for it in items:
+            zapamietaj_cechy(it)
+        return items
     with ThreadPoolExecutor(4) as ex:
-        found = dict(zip(sizes, ex.map(lambda s: search_size(cfg, s), sizes)))
-    res = {}
+        found = dict(zip(sizes, ex.map(szukaj, sizes)))
+    res, czesc = {}, {}
     for s in sizes:
-        items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) == s and p["netto"] > 0]
+        if czy_wzorzec(s):
+            items = [enrich(cfg, p) for p in found[s] if pasuje_wzorzec(s, norm_size(p["nazwa"])) and p["netto"] > 0]
+            if prod_f: items = [p for p in items if any(bkey(p["producent"]).startswith(x) for x in prod_f)]
+            if sezony_f: items = [p for p in items if p["sezon"] in sezony_f]
+            items.sort(key=lambda p: -p["ilosc"])
+            czesc[s] = {"opis": opis_wzorca(s), "wszystkie": len(items), "pokazano": min(len(items), WZOR_LIMIT),
+                        "wiecej": len(found[s]) >= WZOR_POBIERZ}
+            items = items[:WZOR_LIMIT]
+        else:
+            items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) == s and p["netto"] > 0]
+        for p in items:
+            p["rozmiar"] = norm_size(p["nazwa"]) or s
         ucz_marki(nazwy=[p["producent"] for p in items])  # cena 0 = niedostępne do zamówienia
         res[s] = {}
         for sez in sezony:
@@ -597,7 +696,7 @@ def do_search(cfg, req):
             grp = " · ".join(x for x in (sez, KLASY.get(klasa, klasa)) if x) or "wszystkie"
             res[s][grp] = lst
     info = KONTO.get("katalog_info")
-    return {"wyniki": res, "potrzeba": need, "zrodlo": (info() if info else "") or "xPartner na żywo (API)"}
+    return {"wyniki": res, "potrzeba": need, "czesc": czesc, "zrodlo": (info() if info else "") or "xPartner na żywo (API)"}
 
 # ---------------------------------------------------------------- oferta
 TYPY = {"osobowy": "osobowy", "suv": "SUV/4x4", "dostawczy": "dostawczy"}

@@ -84,7 +84,9 @@ HELP_MODULES = [
     ("oferty", "OFERTY OPON", [
         ("Szybkie polecenie", "Wpisz np. „2055516 zimowe premium 4 szt” albo „2156017c” (dostawcze) i kliknij "
                               "„Zrób ofertę”. Opony z mniejszym stanem niż potrzeba są na końcu listy z dopiskiem "
-                              "„⚠ tylko N szt.”. „Zapytanie klienta” rozwiniesz kliknięciem w nagłówek."),
+                              "„⚠ tylko N szt.”. Można też wpisać niepełny rozmiar („20555”, „R20”) albo samą markę "
+                              "i sezon („zima pirelli”) – nad wynikami pojawi się pasek rozmiarów do filtrowania "
+                              "(najwyżej 1000 opon). „Zapytanie klienta” rozwiniesz kliknięciem w nagłówek."),
         ("Oferta i PDF", "Zaznacz opony i kliknij „Generuj ofertę” – ceny i stany odświeżą się na żywo. PDF dla klienta "
                          "z danymi Twojego oddziału; rabat wpisujesz w „Warunkach tej oferty”. W „📝 Uwagi do oferty” "
                          "zapisz informacje tylko dla nas (nie trafiają do PDF)."),
