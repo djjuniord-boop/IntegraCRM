@@ -123,7 +123,48 @@ def test_niepelny_rozmiar_w_oknie():
     assert sorted(o["wybor"]) == ["195/65 R16", "205/55 R16"] and all("*" not in k for k in o["sel"]), o
 
 
+
+
+def test_szukanie_zamowienia_po_fakturze():
+    """2026-11-18: w „Zrealizowanych” wyszukiwarka znajduje zamówienie po numerze faktury i numerze obcym."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    z = {"nr": "25354046318", "nr_erp": "000734816/26", "nr_zew": "zamowienie jakubczyk", "status": 6, "status_txt": "Zrealizowane",
+         "data": "2026-11-17", "kto": "Detal Wrocław", "zamowil": "", "magazyn": "Ruda Śląska", "odbiorca": "", "dostawa": {},
+         "komentarz": "", "pozycje": [], "faktury": ["CH0461690/26"], "netto": 1108.8, "szt": 4, "do_wydania": 0}
+    odp = {"/api/cfg": {"zamowienia": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
+           "/api/zamkniete": {"zamowienia": [z], "faktur": 1, "od": "2026-11-16", "do": "2026-11-18", "czas": "10:00"},
+           "/api/zamowienia": {"zamowienia": [], "czas": "10:00"}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js2.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(500)
+            pg.evaluate("openZam()")
+            pg.wait_for_timeout(300)
+            pg.evaluate("zTab(document.querySelector('.zt[data-t=h]'))")
+            pg.wait_for_timeout(500)
+            wyn = {}
+            for q in ("CH0461690/26", "ch0461690", "jakubczyk", "000734816"):
+                pg.evaluate("q=>{$('#zq').value=q;zDraw()}", q)
+                wyn[q] = pg.evaluate("document.querySelectorAll('#zL .zk').length")
+            b.close()
+    finally:
+        p.unlink()
+    assert all(v == 1 for v in wyn.values()), wyn
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
+    test_szukanie_zamowienia_po_fakturze()
     print("Okna Ofert bez błędów JS")
