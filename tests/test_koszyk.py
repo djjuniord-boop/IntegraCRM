@@ -272,3 +272,16 @@ def test_zamow_100_szt_w_dwoch_czesciach_i_czesciowy_blad():
     finally:
         K.wyslij, S.get_product = stare[0], stare[1]
         S.KONTO.clear(); S.KONTO.update(stare[2])
+
+
+def test_stan_suma_magazynow_przy_obcieciu_do_50():
+    """2026-11-18: xPartner podaje maks. 50 (łącznie i w magazynie) – 50 + 50 w dwóch magazynach = 100, nie „tylko 50”."""
+    p = {"id": 267527, "nazwa": "FIRESTONE", "ilosc": 50, "netto": 307.52, "brutto_zak": 378.25, "netto_kat": 587.0, "attrs": {},
+         "magazyny": {"Bydgoszcz": 50, "Czechowice-Dziedzice": 50, "Opole": 0}}
+    (x,) = K.odswiez({}, [{"id": 267527, "ilosc": 80}], lambda cfg, pid: dict(p))
+    assert x["stan"] == 100 and x["ok"] is True and x["blad"] == ""
+    from oferty import silnik as S
+    xml = (b"<response><success>true</success><productsCount>1</productsCount><products><product><productId>1</productId>"
+           b"<name>X</name><quantity>50</quantity><netDiscountPrice>10</netDiscountPrice><stock><item><warehouseName>A</warehouseName>"
+           b"<quantity>50</quantity></item><item><warehouseName>B</warehouseName><quantity>50</quantity></item></stock></product></products></response>")
+    assert S.parse_products(xml)[1][0]["ilosc"] == 100
