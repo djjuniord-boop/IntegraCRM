@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.1",
+        "date": "2026-11-18",
+        "changes": [
+            "Zamówienia xPartner: przy każdym zamówieniu widać, kto je złożył przez Panel (albo „strona xPartner”, gdy zamówiono bezpośrednio na stronie); filtr „Pokaż: wszyscy / moje / osoba” i podsumowanie „Kto ile zamówił” – tylko osoby z Twojego oddziału",
+        ],
+    },
     {
         "version": "1.1.0",
         "date": "2026-11-17",

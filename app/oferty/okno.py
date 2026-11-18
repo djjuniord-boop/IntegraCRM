@@ -158,6 +158,9 @@ def wczytaj_konto():
     silnik.KONTO.update(login=r.get("xp_login") or "", password="",
                         ustawienia=r.get("ustawienia") or {},
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
+    from oferty import zamowienia as _zam   # „kto zamówił” – z Dziennika zmian, tylko oddział (funkcja w bazie)
+    _zam.KTO = lambda nry: _db("POST", "/rest/v1/rpc/zamowienia_kto", {"p_nry": list(nry)})
+    _zam.JA = lambda: _email(_token())
     h = Historia()
     try:
         prof = _db("POST", "/rest/v1/rpc/is_admin", {})

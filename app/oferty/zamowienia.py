@@ -275,12 +275,44 @@ def tylko_oddzialy(lista, oddzialy):
     return [z for z in lista if _norm(z.get("kto")) in nazwy]
 
 
+# Kto zamówił (2026-11-17): numer zamówienia -> osoba z Panelu, z Dziennika zmian (funkcja w bazie zamowienia_kto,
+# tylko osoby z oddziału pytającego). Ustawia okno: KTO(nry) -> [{nr, email, kto}], JA() -> e-mail zalogowanego.
+KTO = None
+JA = None
+
+
+def dopisz_kto(zam):
+    """Każdemu zamówieniu: zamowil (imię i nazwisko) i zamowil_email – puste = złożone poza Panelem (strona xPartner)."""
+    for z in zam:
+        z.setdefault("zamowil", ""), z.setdefault("zamowil_email", "")
+    nry = sorted({n for z in zam for n in (z.get("nr"), z.get("nr_zew")) if n})
+    if not KTO:
+        return False
+    if not nry:
+        return True
+    try:
+        mapa = {r["nr"]: r for r in (KTO(nry[:2000]) or []) if r.get("nr")}
+    except Exception:
+        return False   # bez informacji „kto” (np. funkcji jeszcze nie ma w bazie) lista działa jak dotąd
+    for z in zam:
+        r = mapa.get(z.get("nr")) or mapa.get(z.get("nr_zew"))
+        if r:
+            z["zamowil"], z["zamowil_email"] = r.get("kto") or r.get("email") or "", (r.get("email") or "").lower()
+    return True
+
+
 def handle(route, q, cfg, admin=False, oddzialy=None):
     """Administrator widzi wszystko; pracownik – zamówienia swoich oddziałów (oddzialy z konta)."""
     k, w = _handle(route, q, cfg, admin)
     if k == 200 and not admin and isinstance(w, dict) and "zamowienia" in w:
         widoczne = tylko_oddzialy(w["zamowienia"], oddzialy)
         w = dict(w, zamowienia=widoczne, ukryte=len(w["zamowienia"]) - len(widoczne), oddzialy=list(oddzialy or []))
+    if k == 200 and isinstance(w, dict) and "zamowienia" in w:
+        w["kto_ok"] = dopisz_kto(w["zamowienia"])
+        try:
+            w["ja"] = (JA() if JA else "") or ""
+        except Exception:
+            w["ja"] = ""
     return k, w
 
 
