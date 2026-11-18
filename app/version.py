@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.3",
+        "date": "2026-11-18",
+        "changes": [
+            "Oferty opon: przycisk „📱 Wyślij przez WhatsApp” – kopiuje PDF oferty do schowka i otwiera WhatsApp; wybierz klienta i wklej Ctrl+V (bez wcześniejszego PDF program sam robi „Wszystkie w jednym”); oferta dostaje status „wysłana”",
+        ],
+    },
     {
         "version": "1.1.2",
         "date": "2026-11-18",

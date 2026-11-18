@@ -439,8 +439,14 @@ class Api:
                 plik = zrob_pdf(res["html"], (body or {}).get("nazwa") or "oferta")
             except Exception as e:
                 return {"code": 500, "body": {"error": f"Nie udało się zapisać PDF: {e}"}}
-            _open_path(plik)
+            if not (body or {}).get("bez_otwierania"):
+                _open_path(plik)
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        if path == "/api/whatsapp":   # PDF do schowka + otwarcie WhatsApp (decyzja właściciela 2026-11-18)
+            try:
+                return {"code": 200, "body": whatsapp_pdf((body or {}).get("plik") or "")}
+            except Exception as e:
+                return {"code": 400, "body": {"error": str(e)}}
         code, res = silnik.handle(path, body, open_path=_open_path)
         return {"code": code, "body": res}
 
@@ -450,6 +456,31 @@ class Api:
             return False
         _open_path(u)
         return True
+
+
+def whatsapp_pdf(plik):
+    """Kopiuje PDF oferty do schowka Windows (jak „Kopiuj” w Eksploratorze) i otwiera aplikację WhatsApp.
+    Pracownik wybiera klienta w WhatsApp i wkleja Ctrl+V. Tylko pliki PDF z folderu ofert."""
+    import subprocess
+    from oferty import silnik
+    p = os.path.realpath(plik)
+    folder = os.path.realpath(silnik.OUT_DIR)
+    if not (p.lower().endswith(".pdf") and os.path.isfile(p) and os.path.dirname(p) == folder):
+        raise ValueError("Najpierw utwórz PDF oferty (plik z folderu ofert).")
+    if os.name != "nt":   # pragma: no cover – Linux (testy)
+        return {"schowek": False, "whatsapp": False, "plik": p}
+    lit = p.replace("'", "''")
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", "Set-Clipboard -LiteralPath '%s'" % lit],
+                       timeout=20, capture_output=True, creationflags=0x08000000)
+    schowek = r.returncode == 0
+    try:
+        os.startfile("whatsapp:")   # aplikacja WhatsApp na komputerze
+        wa = True
+    except OSError:
+        import webbrowser
+        webbrowser.open("https://web.whatsapp.com/")   # brak aplikacji – WhatsApp Web
+        wa = False
+    return {"schowek": schowek, "whatsapp": wa, "plik": p}
 
 
 def _open_path(p):
