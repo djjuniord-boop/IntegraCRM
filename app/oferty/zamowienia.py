@@ -261,6 +261,18 @@ def zamkniete(cfg, od, do, rownolegle=5):
                 wyn[n] = fu.result()
             except Exception as e:
                 bez_szczegolow[n] = str(e) if isinstance(e, Blad) else e.__class__.__name__
+    # faktura bez numeru zamówienia (zakup telefoniczny / w hurtowni / korekta) – też na liście, żeby lista
+    # zgadzała się z fakturami z e-maili (decyzja właściciela 2026-11-18)
+    mag_faktury = {f["nr"]: f.get("magazyn") or "" for f in fak}
+    bez_zam = [nr for nr, ile in ile_zam.items() if not ile]
+    for nr in bez_zam:
+        poz = poz_faktur.get(nr, [])
+        wyn["F:" + nr] = {"nr": "", "nr_erp": "", "nr_zew": "", "status": 0, "status_txt": "faktura bez zamówienia",
+                          "data": data_faktury.get(nr, ""), "kto": "", "wazne_do": "", "magazyn": mag_faktury.get(nr, ""),
+                          "odbiorca": "", "dostawa": {}, "komentarz": "", "pozycje": poz, "faktury": [nr],
+                          "netto": round(sum(p["ilosc"] * p["cena"] for p in poz), 2), "szt": sum(p["ilosc"] for p in poz),
+                          "do_wydania": 0, "z_faktury": True, "bez_zamowienia": True,
+                          "powod": "na fakturze nie ma numeru zamówienia z xPartner (np. zakup telefoniczny, w hurtowni albo korekta)"}
     for n, powod in bez_szczegolow.items():   # zamówienie znane tylko z faktury – pokazujemy je i tak
         fk = sorted(set(faktury_zam.get(n, [])))
         poz = [p for x in fk for p in poz_faktur.get(x, [])]
@@ -276,7 +288,7 @@ def zamkniete(cfg, od, do, rownolegle=5):
         if klucz in byly:
             continue
         byly.add(klucz)
-        fk = sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})
+        fk = z.get("faktury") if z.get("bez_zamowienia") else sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})
         z = dict(z, faktury=fk)
         if not z["pozycje"] and not z.get("z_faktury"):   # xPartner nie podaje pozycji zamówień zamkniętych – bierzemy je z faktury
             z["pozycje"] = [p for x in fk for p in poz_faktur.get(x, [])]
@@ -286,7 +298,7 @@ def zamkniete(cfg, od, do, rownolegle=5):
     out.sort(key=lambda z: z["data"], reverse=True)
     _pamiec_zapisz()
     return {"zamowienia": out, "faktur": len(fak), "bledy": bledy, "blad_opis": opis[0][:200] if opis else "",
-            "bez_szczegolow": len(bez_szczegolow)}
+            "bez_szczegolow": len(bez_szczegolow), "bez_zamowienia": len(bez_zam)}
 
 
 def okres(od, do, dzis=None):

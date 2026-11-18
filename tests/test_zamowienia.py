@@ -152,9 +152,11 @@ def test_nietypowa_faktura_nie_psuje_historii():
     Z._PAMIEC.clear()
     try:
         w = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
-        assert w["zamowienia"] == [] and w["faktur"] == 2
+        # 2026-11-18: faktury bez numeru zamówienia też na liście (bez pozycji, gdy faktura nietypowa)
+        assert [z["faktury"] for z in w["zamowienia"]] == [["FV0000002/26"], ["FV0000001/26"]] and w["faktur"] == 2
+        assert all(z["bez_zamowienia"] and z["pozycje"] == [] for z in w["zamowienia"])
         k, j = Z.handle("/api/zamkniete", {"od": "2026-10-01", "do": "2026-10-31"}, {"login": "t"}, admin=False, oddzialy=["Latex Opole"])
-        assert k == 200 and j["oddzialy"] == ["Latex Opole"] and j["ukryte"] == 0
+        assert k == 200 and j["oddzialy"] == ["Latex Opole"] and j["ukryte"] == 0 and len(j["zamowienia"]) == 2
     finally:
         Z.api_xml = stare
 
@@ -196,3 +198,21 @@ def test_pamiec_zamowien_na_dysku():
     finally:
         Z.PLIK_PAMIECI, Z.api_xml = stare
         Z._PAMIEC.clear(); Z._wczytana[0] = False
+
+
+def test_faktura_bez_numeru_zamowienia_na_liscie():
+    """2026-11-18: faktura bez numeru zamówienia (zakup telefoniczny / w hurtowni) też jest w „Zrealizowanych”."""
+    fa = XML_FAKTURA if isinstance(XML_FAKTURA, bytes) else XML_FAKTURA.encode()
+    odp = {"getInvoices": XML_FAKTURY, "getInvoice": fa}
+    stare = Z.api_xml
+    Z.api_xml = lambda cfg, m, **p: Z.parsuj(odp[m])
+    Z._PAMIEC.clear()
+    try:
+        w = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
+        fk = sorted(z["faktury"][0] for z in w["zamowienia"] if z.get("bez_zamowienia"))
+        assert w["bez_zamowienia"] == 2 and fk == ["FV0000001/26", "FV0000002/26"], w
+        z1 = next(z for z in w["zamowienia"] if z["faktury"] == ["FV0000001/26"])
+        assert z1["magazyn"] == "A" and z1["szt"] == 4 and Z.tylko_oddzialy([z1], ["Latex Wrocław"]) == [z1]
+    finally:
+        Z.api_xml = stare
+        Z._PAMIEC.clear()
