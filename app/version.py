@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.3"
+VERSION = "1.1.4"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.4",
+        "date": "2026-11-18",
+        "changes": [
+            "Zamówienia zrealizowane: na liście są też faktury bez numeru zamówienia z xPartner (zakup telefoniczny, w hurtowni, korekta) – oznaczone „faktura bez zamówienia”, z pozycjami i magazynem; lista zgadza się z fakturami z e-maili",
+        ],
+    },
     {
         "version": "1.1.3",
         "date": "2026-11-18",
