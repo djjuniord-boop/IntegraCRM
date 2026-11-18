@@ -161,6 +161,11 @@ def wczytaj_konto():
     from oferty import zamowienia as _zam   # „kto zamówił” – z Dziennika zmian, tylko oddział (funkcja w bazie)
     _zam.KTO = lambda nry: _db("POST", "/rest/v1/rpc/zamowienia_kto", {"p_nry": list(nry)})
     _zam.JA = lambda: _email(_token())
+    try:   # faktury i zamówienia zrealizowane z poprzednich uruchomień (szybsze „Zrealizowane”)
+        import paths as _p
+        _zam.PLIK_PAMIECI = str(_p.DATA_DIR / "zamowienia_pamiec.json")
+    except Exception:
+        pass
     h = Historia()
     try:
         prof = _db("POST", "/rest/v1/rpc/is_admin", {})

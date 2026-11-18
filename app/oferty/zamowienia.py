@@ -142,6 +142,41 @@ def czytaj_fakture(root):
 ZAM_XP = re.compile(r"^\d{11}$")
 ZAM_ERP = re.compile(r"^\d{9}/\d{2}$")
 _PAMIEC = {}   # (login, faktura) -> numery zamówień; (login, zamówienie) -> zamówienie zrealizowane (już się nie zmienia)
+# Pamięć na dysku (2026-11-18): faktury i zamówienia zrealizowane się nie zmieniają – po ponownym uruchomieniu programu
+# pobieramy z xPartner tylko nowe. Ścieżkę ustawia okno (data/zamowienia_pamiec.json); None = tylko w pamięci.
+PLIK_PAMIECI = None
+_PAMIEC_MAX = 6000
+_wczytana = [False]
+
+
+def _pamiec_wczytaj():
+    if _wczytana[0] or not PLIK_PAMIECI:
+        return
+    _wczytana[0] = True
+    try:
+        import json
+        with open(PLIK_PAMIECI, encoding="utf-8") as f:
+            for k, v in (json.load(f) or {}).items():
+                t = tuple(k.split("|", 2))
+                if len(t) == 3 and t not in _PAMIEC:
+                    _PAMIEC[t] = tuple(v) if t[1] == "F" else v
+    except Exception:
+        pass   # brak pliku / uszkodzony – pobierzemy od nowa
+
+
+def _pamiec_zapisz():
+    if not PLIK_PAMIECI:
+        return
+    try:
+        import json
+        import os
+        wpisy = list(_PAMIEC.items())[-_PAMIEC_MAX:]
+        tmp = str(PLIK_PAMIECI) + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"|".join(k): (list(v) if k[1] == "F" else v) for k, v in wpisy}, f, ensure_ascii=False)
+        os.replace(tmp, PLIK_PAMIECI)   # zapis atomowy
+    except Exception:
+        pass
 
 
 def numery_zamowien(root):
@@ -172,10 +207,12 @@ def _pozycje_faktury(root):
              "zostalo": 0, "dostepne": 0, "cena": p["cena"]} for p in f["pozycje"]]
 
 
-def zamkniete(cfg, od, do, rownolegle=3):
-    """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder."""
+def zamkniete(cfg, od, do, rownolegle=5):
+    """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder.
+    Gdy xPartner nie odda zamówienia z faktury, pokazujemy je z danych faktury (nic nie znika z listy)."""
     import concurrent.futures as cf
     login = cfg.get("login", "")
+    _pamiec_wczytaj()
     fak = czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do))
 
     def z_ponowieniem(metoda, **p):   # xPartner bywa przeciążony – jedna ponowna próba po chwili
@@ -205,13 +242,15 @@ def zamkniete(cfg, od, do, rownolegle=3):
         return z
 
     faktury_zam, poz_faktur, ile_zam, bledy, opis = {}, {}, {}, 0, []
+    data_faktury = {f["nr"]: f["data"] for f in fak}
+    bez_szczegolow = {}   # numer zamówienia -> powód (xPartner nie oddał zamówienia z faktury)
     with cf.ThreadPoolExecutor(rownolegle) as ex:
         for fu in [ex.submit(nr_z_faktury, f) for f in fak]:
             try:
                 f, (nry, poz) = fu.result()
             except Exception as e:   # jedna nietypowa faktura nie może wyłączyć całej listy
                 bledy += 1
-                opis.append(str(e) if isinstance(e, Blad) else e.__class__.__name__)
+                opis.append("faktura: " + (str(e) if isinstance(e, Blad) else e.__class__.__name__))
                 continue
             poz_faktur[f["nr"]], ile_zam[f["nr"]] = poz, len(nry)
             for n in nry:
@@ -221,22 +260,33 @@ def zamkniete(cfg, od, do, rownolegle=3):
             try:
                 wyn[n] = fu.result()
             except Exception as e:
-                bledy += 1
-                opis.append(str(e) if isinstance(e, Blad) else e.__class__.__name__)
+                bez_szczegolow[n] = str(e) if isinstance(e, Blad) else e.__class__.__name__
+    for n, powod in bez_szczegolow.items():   # zamówienie znane tylko z faktury – pokazujemy je i tak
+        fk = sorted(set(faktury_zam.get(n, [])))
+        poz = [p for x in fk for p in poz_faktur.get(x, [])]
+        wyn[n] = {"nr": n if ZAM_XP.match(n) else "", "nr_erp": n if ZAM_ERP.match(n) else "", "nr_zew": "", "status": 0,
+                  "status_txt": "tylko z faktury", "data": min((data_faktury.get(x, "") for x in fk), default=""), "kto": "",
+                  "wazne_do": "", "magazyn": "", "odbiorca": "", "dostawa": {}, "komentarz": "", "pozycje": poz,
+                  "netto": round(sum(p["ilosc"] * p["cena"] for p in poz), 2), "szt": sum(p["ilosc"] for p in poz),
+                  "do_wydania": 0, "z_faktury": True, "powod": "xPartner: " + powod,
+                  "poz_z_faktury": "wspolna" if any(ile_zam.get(x, 0) > 1 for x in fk) else "tak"}
     out, byly = [], set()
     for n, z in wyn.items():
-        if z["nr"] in byly:
+        klucz = z["nr"] or z.get("nr_erp") or n
+        if klucz in byly:
             continue
-        byly.add(z["nr"])
+        byly.add(klucz)
         fk = sorted({x for m in (z["nr"], z["nr_erp"], n) for x in faktury_zam.get(m, [])})
         z = dict(z, faktury=fk)
-        if not z["pozycje"]:   # xPartner nie podaje pozycji zamówień zamkniętych – bierzemy je z faktury
+        if not z["pozycje"] and not z.get("z_faktury"):   # xPartner nie podaje pozycji zamówień zamkniętych – bierzemy je z faktury
             z["pozycje"] = [p for x in fk for p in poz_faktur.get(x, [])]
             z["szt"] = sum(p["ilosc"] for p in z["pozycje"])
             z["poz_z_faktury"] = "wspolna" if any(ile_zam.get(x, 0) > 1 for x in fk) else "tak"
         out.append(z)
     out.sort(key=lambda z: z["data"], reverse=True)
-    return {"zamowienia": out, "faktur": len(fak), "bledy": bledy, "blad_opis": opis[0][:200] if opis else ""}
+    _pamiec_zapisz()
+    return {"zamowienia": out, "faktur": len(fak), "bledy": bledy, "blad_opis": opis[0][:200] if opis else "",
+            "bez_szczegolow": len(bez_szczegolow)}
 
 
 def okres(od, do, dzis=None):
@@ -272,7 +322,8 @@ def tylko_oddzialy(lista, oddzialy):
             nazwy.add("detal " + n[6:])
         elif n:
             nazwy.add(n)
-    return [z for z in lista if _norm(z.get("kto")) in nazwy]
+    # zamówienie znane tylko z faktury nie ma subkonta – to faktura z konta xPartner tego pracownika, więc jest widoczne
+    return [z for z in lista if _norm(z.get("kto")) in nazwy or z.get("z_faktury")]
 
 
 # Kto zamówił (2026-11-17): numer zamówienia -> osoba z Panelu, z Dziennika zmian (funkcja w bazie zamowienia_kto,

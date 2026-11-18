@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.2",
+        "date": "2026-11-18",
+        "changes": [
+            "Zamówienia zrealizowane ładują się szybciej: program pamięta już pobrane faktury i zamówienia (także po ponownym uruchomieniu) i pyta xPartner tylko o nowe",
+            "Zamówienia, których xPartner nie oddaje (komunikat „Brak zamówienia o podanym numerze”), nie znikają – są pokazane z danymi z faktury i oznaczone „tylko z faktury”",
+        ],
+    },
     {
         "version": "1.1.1",
         "date": "2026-11-18",
