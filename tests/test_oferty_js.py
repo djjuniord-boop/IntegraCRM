@@ -105,12 +105,19 @@ def test_niepelny_rozmiar_w_oknie():
                 const r=k.closest('tr').children[2].textContent;if(!roz.has(r)){roz.add(r);k.click()}}})()""")
             pg.evaluate("offer()")
             pg.wait_for_timeout(1500)
+            oferta_byla = pg.evaluate("$('#outCard').style.display!=='none'")
+            stary_oid = pg.evaluate("OID")
+            pg.fill("#quick", "zima r16")   # nowe szybkie polecenie czyści poprzednią ofertę (2026-11-18)
+            pg.evaluate("quick()")
+            pg.wait_for_timeout(1200)
+            po = pg.evaluate("[$('#outCard').style.display, SEL.size, OID, $('#quick').value]")
             b.close()
     finally:
         p.unlink()
         S.KONTO.clear(); S.KONTO.update(stare)
     assert not bledy, bledy
     assert oferty, "brak wywołania oferty"
+    assert oferta_byla and po[:2] == ["none", 0] and po[2] != stary_oid and po[3] == "zima r16", po
     o = oferty[-1]
     assert sorted(v["rozmiar"] for v in o["pojazdy"]) == ["195/65 R16", "205/55 R16"], o["pojazdy"]
     assert sorted(o["wybor"]) == ["195/65 R16", "205/55 R16"] and all("*" not in k for k in o["sel"]), o

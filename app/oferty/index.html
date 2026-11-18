@@ -236,6 +236,7 @@ function openUrl(u){if(window.pywebview&&window.pywebview.api)window.pywebview.a
 function msg(el,t,e){$(el).innerHTML=t?`<div class="msg ${e?'e':'i'}">${esc(t)}</div>`:''}
 async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/api/quick',{text:$('#quick').value});
  if(!j.pojazdy.length)throw new Error('Nie rozpoznałem rozmiaru, marki ani sezonu – wpisz np. 205/55 R16, 20555, R20 albo „zima pirelli”.');
+ resetOferty(1);   // każde nowe szybkie polecenie = nowa oferta (poprzednia zostaje w Historii ofert) – decyzja właściciela 2026-11-18
  $('#veh tbody').innerHTML='';j.pojazdy.forEach(addRow);
  document.querySelectorAll('.sez').forEach(c=>c.checked=j.sezony.includes(c.value));
  document.querySelectorAll('.kl').forEach(c=>c.checked=j.klasy.includes(c.value));
@@ -261,11 +262,12 @@ async function search(){const b=$('#bS');b.disabled=true;msg('#sMsg','Szukam…'
  // bez automatycznego zaznaczania – opony wybiera użytkownik (decyzja właściciela 2026-11-16)
  render();msg('#sMsg',RES.zrodlo||'');$('#resCard').style.display='';$('#resCard').scrollIntoView({behavior:'smooth'})
 }catch(e){msg('#sMsg',e.message,1)}b.disabled=false}
-function clearAll(){if(SEL.size&&!confirmClear())return;
- for(const id of['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
- document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;
- RES=null;SEL=new Set();SAMO=false;PAGE={};OID=null;HOWNER='';OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
- ['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''));window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
+/* stan bieżącej oferty do zera (zapisana oferta jest w Historii); zostawia treść szybkiego polecenia, gdy zostaw=1 */
+function resetOferty(zostaw){for(const id of zostaw?['#klient','#paste']:['#klient','#paste','#quick'])$(id).value='';$('#veh tbody').innerHTML='';addRow();
+ document.querySelectorAll('.sez,.kl').forEach(c=>c.checked=false);$('#std').checked=false;setProd('',false);$('#minstan').value=CFG.min_stan;$('#f_demo').value='';QIDX=null;
+ RES=null;SEL=new Set();SAMO=false;PAGE={};ROZF={};OID=null;HOWNER='';OMARZA='';ORABAT='';CENY={};ORABW='';CENYW={};OSOBNO=null;HSNAP=null;HDATA='';OPDF='';uwUstaw('');$('#res').innerHTML='';$('#resCard').style.display='none';$('#outCard').style.display='none';
+ if($('#waInfo'))$('#waInfo').textContent='';if($('#kz'))$('#kz').style.display='none';['#sMsg','#oMsg','#qMsg'].forEach(x=>msg(x,''))}
+function clearAll(){if(SEL.size&&!confirmClear())return;resetOferty(0);window.scrollTo({top:0,behavior:'smooth'});$('#quick').focus()}
 function confirmClear(){return window.confirm('Wyczyścić bieżącą ofertę? (zapisana jest w Historii ofert)')}
 let OID=null,UWZM=false;
 function uwUstaw(t,info){$('#ouw').value=t||'';$('#uwInfo').textContent=info||'';$('#uwMsg').textContent='';UWZM=!!t}
