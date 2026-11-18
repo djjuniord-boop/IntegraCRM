@@ -106,3 +106,7 @@ pliku (asortyment „CZUJNIKI CIŚNIENIA TPMS”, `Katalog.tpms()`), bez ofert; 
 uniwersalny / akcesoria), DEMO, zawór i marki aut – z nazwy czujnika (xPartner nie podaje listy aut). Grupy wyników: 1 dokładne,
 2 ta sama marka, 3 uniwersalne (przy szukaniu po aucie). Kopia musi obejmować cały asortyment (link w sekrecie XPARTNER_OFERTA_URL);
 wyszukiwanie opon ogranicza się do `Asortyment=OPONY` (`okno.TYLKO_OPONY`).
+
+Kto zamówił (2026-11-18): `zamowienia.dopisz_kto` – numer zamówienia -> osoba z Dziennika zmian (funkcja w bazie
+`zamowienia_kto`, `supabase/zamowienia_kto_2026-11-18.sql`; tylko oddział jak przy ofertach – `oferty_wspolna`). Bez funkcji
+w bazie (`kto_ok=false`) okno działa jak dawniej, bez znaczków i filtra osób.

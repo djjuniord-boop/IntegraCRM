@@ -132,7 +132,7 @@ def test_pracownik_widzi_swoj_oddzial():
     Z._handle = lambda *a: (200, {"zamowienia": lista, "czas": "x"})
     try:
         assert len(Z.handle("/api/zamowienia", {}, {}, admin=True, oddzialy=[])[1]["zamowienia"]) == 4
-        assert Z.handle("/api/zamowienia", {}, {}, admin=False, oddzialy=["Latex Opole"])[1]["zamowienia"] == [{"kto": "Detal Opole"}]
+        assert [z["kto"] for z in Z.handle("/api/zamowienia", {}, {}, admin=False, oddzialy=["Latex Opole"])[1]["zamowienia"]] == ["Detal Opole"]
     finally:
         Z._handle = stare
 
@@ -153,3 +153,22 @@ def test_nietypowa_faktura_nie_psuje_historii():
         assert k == 200 and j["oddzialy"] == ["Latex Opole"] and j["ukryte"] == 0
     finally:
         Z.api_xml = stare
+
+
+def test_kto_zamowil_z_dziennika():
+    """2026-11-18: przy zamówieniu imię i nazwisko osoby z Panelu (funkcja w bazie zamowienia_kto); brak funkcji = jak dotąd."""
+    from oferty import zamowienia as Z
+    stare = (Z.KTO, Z.JA)
+    try:
+        Z.KTO = lambda nry: [{"nr": "25354046318", "email": "RKolano@x.pl", "kto": "Rafał Kolano"}] if "25354046318" in nry else []
+        Z.JA = lambda: "rkolano@x.pl"
+        zam = [{"nr": "25354046318", "nr_zew": ""}, {"nr": "1", "nr_zew": ""}]
+        assert Z.dopisz_kto(zam) is True
+        assert (zam[0]["zamowil"], zam[0]["zamowil_email"], zam[1]["zamowil"]) == ("Rafał Kolano", "rkolano@x.pl", "")
+        def zle(nry):
+            raise RuntimeError("404 – brak funkcji")
+        Z.KTO = zle
+        zam = [{"nr": "25354046318", "nr_zew": ""}]
+        assert Z.dopisz_kto(zam) is False and zam[0]["zamowil"] == ""
+    finally:
+        Z.KTO, Z.JA = stare
