@@ -470,16 +470,41 @@ def whatsapp_pdf(plik):
     if os.name != "nt":   # pragma: no cover – Linux (testy)
         return {"schowek": False, "whatsapp": False, "plik": p}
     lit = p.replace("'", "''")
-    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", "Set-Clipboard -LiteralPath '%s'" % lit],
-                       timeout=20, capture_output=True, creationflags=0x08000000)
-    schowek = r.returncode == 0
+    # jedno wywołanie PowerShell: PDF do schowka + gdzie jest WhatsApp (link „whatsapp:”, aplikacja ze Sklepu, stara wersja .exe)
+    skrypt = ("$ErrorActionPreference='SilentlyContinue'; Set-Clipboard -LiteralPath '%s'; if($?){'SCHOWEK'};"
+              "if(Test-Path 'Registry::HKEY_CLASSES_ROOT\\whatsapp'){'LINK'};"
+              "$a=Get-AppxPackage -Name '*WhatsApp*' | Select-Object -First 1; if($a){'APPX:'+$a.PackageFamilyName};"
+              "$e=Join-Path $env:LOCALAPPDATA 'WhatsApp\\WhatsApp.exe'; if(Test-Path $e){'EXE:'+$e};"
+              # skrót w menu Start (np. WhatsApp zainstalowany jako aplikacja z Edge/Chrome)
+              "$l=Get-ChildItem (Join-Path $env:APPDATA 'Microsoft\\Windows\\Start Menu\\Programs'),"
+              "(Join-Path $env:ProgramData 'Microsoft\\Windows\\Start Menu\\Programs') -Recurse -Filter 'WhatsApp*.lnk' | "
+              "Select-Object -First 1; if($l){'LNK:'+$l.FullName}") % lit
+    r = subprocess.run(["powershell", "-NoProfile", "-NonInteractive", "-Command", skrypt],
+                       timeout=30, capture_output=True, text=True, creationflags=0x08000000)
+    wyj = [x.strip() for x in (r.stdout or "").splitlines() if x.strip()]
+    schowek = "SCHOWEK" in wyj
+    appx = next((x[5:] for x in wyj if x.startswith("APPX:")), "")
+    exe = next((x[4:] for x in wyj if x.startswith("EXE:")), "")
+    lnk = next((x[4:] for x in wyj if x.startswith("LNK:")), "")
+    wa = "web"
     try:
-        os.startfile("whatsapp:")   # aplikacja WhatsApp na komputerze
-        wa = True
+        if "LINK" in wyj:
+            os.startfile("whatsapp:")
+            wa = "aplikacja"
+        elif appx:   # aplikacja ze Sklepu Microsoft bez linku „whatsapp:”
+            subprocess.Popen(["explorer.exe", "shell:AppsFolder\\%s!App" % appx], creationflags=0x08000000)
+            wa = "aplikacja"
+        elif exe:
+            subprocess.Popen([exe], creationflags=0x08000000)
+            wa = "aplikacja"
+        elif lnk:
+            os.startfile(lnk)
+            wa = "aplikacja"
     except OSError:
+        wa = "web"
+    if wa == "web":   # brak aplikacji – WhatsApp Web w przeglądarce
         import webbrowser
-        webbrowser.open("https://web.whatsapp.com/")   # brak aplikacji – WhatsApp Web
-        wa = False
+        webbrowser.open("https://web.whatsapp.com/")
     return {"schowek": schowek, "whatsapp": wa, "plik": p}
 
 
