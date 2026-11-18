@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.6"
+VERSION = "1.1.7"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.7",
+        "date": "2026-11-18",
+        "changes": [
+            "Oferty opon: każde nowe szybkie polecenie zaczyna nową ofertę – czyści poprzednie wyniki, zaznaczenia, ofertę, PDF do WhatsApp i komunikaty (poprzednia oferta zostaje w Historii ofert)",
+        ],
+    },
     {
         "version": "1.1.6",
         "date": "2026-11-18",
