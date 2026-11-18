@@ -83,8 +83,8 @@ def odswiez(cfg, pozycje, get_product):
             return {"id": pid, "ilosc": il, "ok": False, "blad": "Brak odpowiedzi xPartner (%s)" % e.__class__.__name__}
         if not p or float(p.get("netto") or 0) <= 0:
             return {"id": pid, "ilosc": il, "ok": False, "blad": "Pozycja niedostępna do zamówienia w xPartner"}
-        stan = int(p.get("ilosc") or 0)
         mag = {k: v for k, v in (p.get("magazyny") or {}).items() if v}
+        stan = max(int(p.get("ilosc") or 0), sum(mag.values()))   # xPartner obcina stany do 50 – suma magazynów
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
                 "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,

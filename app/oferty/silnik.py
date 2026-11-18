@@ -135,7 +135,8 @@ def parse_products(xml_bytes):
             "kod": _txt(p, "manufacturerCode"), "ean": _txt(p, "ean"), "foto": _foto(p, attrs),
             "pola": sorted({c.tag for c in p}),
             "nazwa": _txt(p, "name"),
-            "ilosc": int(_txt(p, "quantity") or 0),
+            # xPartner obcina stany do 50 (łącznie i w każdym magazynie) – 50 + 50 w dwóch magazynach to co najmniej 100
+            "ilosc": max(int(_txt(p, "quantity") or 0), sum(stock.values())),
             "netto": num("netDiscountPrice"), "brutto_zak": num("grossDiscountPrice"),
             "netto_kat": num("netListPrice"),
             "attrs": attrs, "magazyny": stock,

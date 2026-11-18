@@ -73,6 +73,7 @@ def czytaj_csv(dane: bytes):
             "netto": netto, "brutto_zak": _num(w.get("Cena zakupu brutto[pln]")), "netto_kat": _num(w.get("Cena katalogowa netto[pln]")),
             "attrs": attrs, "magazyny": {k[6:]: _int(w.get(k)) for k in magazyny},
         }
+        p["ilosc"] = max(p["ilosc"], sum(p["magazyny"].values()))   # xPartner obcina stany do 50 – liczy się suma magazynów
         out.append({"id": pid, "szer": _int(w.get("Szerokość")) or None, "profil": _rozmiar(w.get("Profil")),
                     "sred": _rozmiar(w.get("Średnica")), "ilosc": p["ilosc"], "dane": p,
                     "h": hashlib.sha1(json.dumps(p, sort_keys=True, ensure_ascii=False).encode()).hexdigest()[:16]})

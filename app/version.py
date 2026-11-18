@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.5",
+        "date": "2026-11-18",
+        "changes": [
+            "Koszyk i wyszukiwanie: stan liczony jako suma magazynów – xPartner podaje najwyżej 50 szt. (np. 50 w Bydgoszczy + 50 w Czechowicach to co najmniej 100, a nie „tylko 50”); w koszyku pełny magazyn widać jako „50+”",
+        ],
+    },
     {
         "version": "1.1.4",
         "date": "2026-11-18",

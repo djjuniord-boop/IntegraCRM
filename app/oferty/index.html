@@ -512,7 +512,7 @@ function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw
 function kSumy(){let n=0,net=0,br=0,kat=0;for(const k of KOSZ){const d=KDANE[k.id];n+=k.ilosc;if(d&&d.netto){net+=d.netto*k.ilosc;br+=d.brutto*k.ilosc;kat+=(d.netto_kat>d.netto?d.netto_kat:d.netto)*k.ilosc}}return{n,net,br,rab:kat-net}}
 function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk jest pusty. Dodaj opony albo czujniki TPMS przyciskiem 🛒 w wynikach wyszukiwania.</p>';$('#kSum').innerHTML='';$('#kDalej').textContent='Dalej: potwierdź zamówienie →';return}
  let h='<table><tr><th>Pozycja</th><th>Indeks</th><th>Magazyn / stan</th><th>Ilość</th><th class="num">Cena zakupu netto</th><th class="num">Brutto</th><th class="num">Wartość netto</th><th></th></tr>';
- for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+v+' szt.').join(', '):'';
+ for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+(v>=50?'50+':v)+' szt.').join(', '):'';
   const rab=d.netto_kat>d.netto?`<div class="muted" style="font-size:11px"><s>${zl(d.netto_kat)}</s> −${((1-d.netto/d.netto_kat)*100).toFixed(2).replace('.',',')}%</div>`:'';
   h+=`<tr class="${d.id&&!d.ok?'kbad':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}</td>
   <td><span class="kq"><button onclick="kIl(${k.id},${k.ilosc-1})">−</button><input value="${k.ilosc}" onchange="kIl(${k.id},this.value)"><button onclick="kIl(${k.id},${k.ilosc+1})">+</button></span></td>
