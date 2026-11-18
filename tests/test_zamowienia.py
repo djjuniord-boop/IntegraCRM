@@ -96,8 +96,12 @@ def test_zamkniete_z_faktur():
     Z._PAMIEC.clear()
     try:
         w = Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
-        assert [z["nr"] for z in w["zamowienia"]] == ["11111111111"] and w["bledy"] == 1 and w["faktur"] == 2
-        assert w["zamowienia"][0]["faktury"] == ["FV0000001/26", "FV0000002/26"]
+        # 2026-11-18: zamówienie, którego xPartner nie oddał, zostaje na liście z danymi z faktury (nic nie znika)
+        nry = {z["nr"]: z for z in w["zamowienia"]}
+        assert set(nry) == {"11111111111", "22222222222"} and w["bledy"] == 0 and w["bez_szczegolow"] == 1 and w["faktur"] == 2
+        assert nry["11111111111"]["faktury"] == ["FV0000001/26", "FV0000002/26"]
+        assert nry["22222222222"]["z_faktury"] is True and nry["22222222222"]["faktury"] == ["FV0000002/26"]
+        assert Z.tylko_oddzialy([nry["22222222222"]], ["Latex Wrocław"]) == [nry["22222222222"]]   # z faktury konta pracownika
         n = len(wywolania)
         Z.zamkniete({"login": "t"}, "2026-10-01", "2026-10-31")
         assert ("getOrder", "11111111111") not in wywolania[n:]          # zrealizowane – z pamięci
@@ -172,3 +176,23 @@ def test_kto_zamowil_z_dziennika():
         assert Z.dopisz_kto(zam) is False and zam[0]["zamowil"] == ""
     finally:
         Z.KTO, Z.JA = stare
+
+
+def test_pamiec_zamowien_na_dysku():
+    """Faktury i zamówienia zrealizowane zapisane w data/ – po ponownym uruchomieniu nie pytamy o nie xPartner."""
+    import tempfile, os
+    d = tempfile.mkdtemp()
+    stare = (Z.PLIK_PAMIECI, Z.api_xml)
+    try:
+        Z.PLIK_PAMIECI = os.path.join(d, "zamowienia_pamiec.json")
+        Z._PAMIEC.clear(); Z._PAMIEC[("t", "F", "FV0000001/26")] = (["11111111111"], [{"id": 1}])
+        Z._PAMIEC[("t", "Z", "11111111111")] = {"nr": "11111111111", "status": 6}
+        Z._pamiec_zapisz()
+        Z._PAMIEC.clear(); Z._wczytana[0] = False
+        Z._pamiec_wczytaj()
+        assert Z._PAMIEC[("t", "F", "FV0000001/26")] == (["11111111111"], [{"id": 1}])
+        assert Z._PAMIEC[("t", "Z", "11111111111")]["status"] == 6
+        assert not os.path.exists(Z.PLIK_PAMIECI + ".tmp")
+    finally:
+        Z.PLIK_PAMIECI, Z.api_xml = stare
+        Z._PAMIEC.clear(); Z._wczytana[0] = False
