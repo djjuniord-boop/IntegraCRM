@@ -207,13 +207,39 @@ def _pozycje_faktury(root):
              "zostalo": 0, "dostepne": 0, "cena": p["cena"]} for p in f["pozycje"]]
 
 
+OKNO_FAKTUR = 40   # xPartner getInvoices: maks. 40 dni na jedno zapytanie (dłuższy zakres jest po cichu ucinany)
+
+
+def okna_dat(od, do, dni=OKNO_FAKTUR):
+    """Zakres [od, do] pocięty na kawałki po maks. `dni` dni (włącznie), od najnowszego."""
+    d1, d2 = datetime.date.fromisoformat(od), datetime.date.fromisoformat(do)
+    out = []
+    while d2 >= d1:
+        p = max(d1, d2 - datetime.timedelta(days=dni - 1))
+        out.append((p.isoformat(), d2.isoformat()))
+        d2 = p - datetime.timedelta(days=1)
+    return out
+
+
+def faktury_okresu(cfg, od, do):
+    """Faktury z całego zakresu – przy zakresie dłuższym niż 40 dni kilka zapytań (bez dubli)."""
+    out, byly = [], set()
+    for a, b in okna_dat(od, do):
+        for f in czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=a, documentDateTo=b)):
+            if f["nr"] not in byly:
+                byly.add(f["nr"])
+                out.append(f)
+    out.sort(key=lambda f: (f["data"], f["nr"]), reverse=True)
+    return out
+
+
 def zamkniete(cfg, od, do, rownolegle=5):
     """Zamówienia z faktur z okresu (xPartner nie ma listy zamówień zamkniętych): faktura -> numer -> getOrder.
     Gdy xPartner nie odda zamówienia z faktury, pokazujemy je z danych faktury (nic nie znika z listy)."""
     import concurrent.futures as cf
     login = cfg.get("login", "")
     _pamiec_wczytaj()
-    fak = czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do))
+    fak = faktury_okresu(cfg, od, do)
 
     def z_ponowieniem(metoda, **p):   # xPartner bywa przeciążony – jedna ponowna próba po chwili
         try:
@@ -389,7 +415,7 @@ def _handle(route, q, cfg, admin=False):
             return 403, {"error": "Faktury widzi administrator."}
         if route == "/api/faktury":
             od, do = okres(q.get("od", ""), q.get("do", ""))
-            return 200, {"faktury": czytaj_faktury(api_xml(cfg, "getInvoices", documentDateFrom=od, documentDateTo=do)), "od": od, "do": do}
+            return 200, {"faktury": faktury_okresu(cfg, od, do), "od": od, "do": do}
         if route == "/api/zamkniete":
             od, do = okres(q.get("od", ""), q.get("do", ""))
             w = zamkniete(cfg, od, do)

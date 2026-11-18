@@ -216,3 +216,24 @@ def test_faktura_bez_numeru_zamowienia_na_liscie():
     finally:
         Z.api_xml = stare
         Z._PAMIEC.clear()
+
+
+def test_dlugi_zakres_faktur_w_oknach_40_dni():
+    """xPartner getInvoices oddaje maks. 40 dni – dłuższy zakres pobieramy w kilku zapytaniach, bez dubli."""
+    assert Z.okna_dat("2026-10-01", "2026-11-09") == [("2026-10-01", "2026-11-09")]
+    okna = Z.okna_dat("2026-08-01", "2026-11-18")
+    assert okna[0] == ("2026-10-10", "2026-11-18") and okna[-1][0] == "2026-08-01", okna
+    for a, b in okna:
+        assert (datetime.date.fromisoformat(b) - datetime.date.fromisoformat(a)).days <= 39
+    pytania = []
+    stare = Z.api_xml
+
+    def api(cfg, m, **p):
+        pytania.append(p)
+        return Z.parsuj(XML_FAKTURY)   # ta sama faktura w każdym oknie – ma być raz
+    Z.api_xml = api
+    try:
+        f = Z.faktury_okresu({}, "2026-08-01", "2026-11-18")
+    finally:
+        Z.api_xml = stare
+    assert len(pytania) == len(okna) == 3 and [x["nr"] for x in f] == ["FV0000002/26", "FV0000001/26"], (pytania, f)

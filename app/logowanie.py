@@ -4,7 +4,7 @@ import tkinter as tk
 from tkinter import messagebox
 import cloud
 import updater
-from version import VERSION
+from version import DEFAULT_UPDATE_SOURCE, VERSION
 from ui import ASSETS, BG, BLACK, FlatButton, Fonts, INK, MUTED, RED, SURFACE, card, set_icon
 from konfig import load_config, update_source
 
@@ -28,6 +28,12 @@ def _force_update(root, need=""):
     inaczej komunikat i koniec."""
     try:
         m, newer = updater.check(update_source(load_config()), wymagana=need)
+        if not newer or (need and updater._ver(m["version"]) < updater._ver(need)):
+            # kanał testowy (beta) może zostać w tyle za oficjalnym (np. nieudana budowa bety) – wtedy
+            # bierzemy wersję oficjalną, inaczej program nie wystartowałby wcale
+            m2, newer2 = updater.check(DEFAULT_UPDATE_SOURCE, wymagana=need)
+            if newer2 and (not newer or updater._ver(m2["version"]) > updater._ver(m["version"])):
+                m, newer = m2, newer2
         if newer:
             messagebox.showinfo("Aktualizacja", f"Wymagana nowsza wersja programu. Instaluję {m['version']}…",
                                 parent=root)
