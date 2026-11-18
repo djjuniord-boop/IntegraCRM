@@ -45,7 +45,15 @@ jobs:
         run: python tests/pdf_edge.py
 
       - name: Tesseract OCR
-        run: choco install tesseract --version 5.5.3.20260724 -y --no-progress   # przypięta wersja (powtarzalna paczka .exe)
+        shell: pwsh
+        run: |
+          # przypięta wersja (powtarzalna paczka .exe); serwer Chocolatey bywa przeciążony (503/504) – do 5 prób co minutę
+          for ($i = 1; $i -le 5; $i++) {
+            choco install tesseract --version 5.5.3.20260724 -y --no-progress
+            if ($LASTEXITCODE -eq 0) { exit 0 }
+            Write-Host "Chocolatey nie odpowiada (próba $i/5) – czekam 60 s"; Start-Sleep -Seconds 60
+          }
+          exit 1
 
       - name: Wersja
         id: ver
