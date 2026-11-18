@@ -580,3 +580,26 @@ def test_niepelny_rozmiar_wyszukiwanie_i_limit():
         assert c == 502 and "pełny rozmiar" in r["error"]
     finally:
         S.KONTO.clear(); S.KONTO.update(stare)
+
+
+def test_whatsapp_tylko_pdf_z_folderu_ofert():
+    """2026-11-18: „Wyślij przez WhatsApp” kopiuje do schowka tylko PDF z folderu ofert (nic innego z dysku)."""
+    import tempfile, os
+    from oferty import okno
+    stary = S.OUT_DIR
+    d = tempfile.mkdtemp()
+    try:
+        S.OUT_DIR = d
+        pdf = os.path.join(d, "Oferta_1.pdf")
+        open(pdf, "wb").write(b"%PDF-1.4 test")
+        assert okno.whatsapp_pdf(pdf)["plik"] == os.path.realpath(pdf)
+        inny = os.path.join(tempfile.mkdtemp(), "x.pdf")
+        open(inny, "wb").write(b"%PDF")
+        for zly in (inny, os.path.join(d, "brak.pdf"), os.path.join(d, "..", "x.pdf"), ""):
+            try:
+                okno.whatsapp_pdf(zly)
+                assert False, zly
+            except ValueError:
+                pass
+    finally:
+        S.OUT_DIR = stary

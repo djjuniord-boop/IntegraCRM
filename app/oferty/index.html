@@ -128,7 +128,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div class="row" style="margin-top:4px;justify-content:flex-end;align-items:center;gap:10px"><span id="uwMsg" class="muted" style="font-size:12px"></span><button class="sec" onclick="zapiszUw()">Zapisz uwagi</button></div></div>
 <div id="zmBox"></div><div id="edit" class="edit"></div><div id="sum"></div>
 <div id="ul" style="margin:10px 0"></div><div id="kz" class="kz" style="display:none"></div>
-<div class="row" style="margin:8px 0"><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button></div></div>
+<div class="row" style="margin:8px 0"><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button><button id="bWa" onclick="waWyslij(this)" style="background:#25D366;border-color:#25D366;color:#fff" title="Kopiuje PDF oferty do schowka i otwiera WhatsApp – wybierz klienta i wklej Ctrl+V">📱 Wyślij przez WhatsApp</button><span id="waInfo" class="muted" style="font-size:12px"></span></div></div>
 </main>
 <main id="mainT" style="display:none">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie – czujniki TPMS</h2>
@@ -433,7 +433,7 @@ let RT=null;
 function setV(i,c,v){const t=[...document.querySelectorAll('#veh tbody tr')].filter(t=>t.querySelector('.roz').value.trim())[i];const el=t.querySelector(c);if(el.type=='checkbox')el.checked=v;else el.value=v;reoffer()}
 function reoffer(){if($('#outCard').style.display==='none'||!SEL.size)return;clearTimeout(RT);RT=setTimeout(()=>offer(true),350)}
 document.addEventListener('change',e=>{if(e.target.closest('#veh')||e.target.id==='klient')reoffer()});
-async function offer(quiet){const b=$('#bO');b.disabled=true;msg('#oMsg','Odświeżam ceny i stany w xPartner, generuję ofertę…');try{
+async function offer(quiet){const b=$('#bO');b.disabled=true;OPDF='';if($('#waInfo'))$('#waInfo').textContent='';msg('#oMsg','Odświeżam ceny i stany w xPartner, generuję ofertę…');try{
  const WR=wzRozwin(),wybor={};WR.sel.forEach(k=>{const[s,z,id]=k.split('|');((wybor[s]??={})[z]??=[]).push(+id)});
  if(!OID)OID=newOid();if(OSOBNO===null){const V=WR.poj.filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,owner:HOWNER,sel:WR.sel,klient:$('#klient').value,pojazdy:WR.poj,wybor,marza:'',rabat:ORABAT,ceny:CENY,rabat_wym:ORABW,ceny_wym:CENYW,porownaj:HSNAP||undefined});ULS=j.ulotki;
  $('#zmBox').innerHTML=(j.zmiany&&j.zmiany.length)?`<div class="msg w"><b>⚠ Od zapisania tej oferty (${esc(HDATA)}) zmieniło się w xPartner:</b><ul style="margin:6px 0 0 18px;padding:0">${j.zmiany.map(z=>`<li>${esc(z.nazwa)}: <b style="color:${z.w_gore?'var(--red)':'#1b7a33'}">${esc(z.co)}</b></li>`).join('')}</ul><div style="font-size:12px;margin-top:4px">Oferta poniżej ma już aktualne ceny i stany – sprawdź przed wysłaniem klientowi.</div></div>`:'';
@@ -455,8 +455,14 @@ function drawUl(){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||''
 
  (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')+
 ''}
+let OPDF='';
+/* WhatsApp (2026-11-18): ostatnio utworzony PDF (albo „Wszystkie w jednym”) do schowka + otwarcie WhatsApp; klient i Ctrl+V – ręcznie */
+async function waWyslij(b){b.disabled=true;try{if(!OPDF){msg('#oMsg','Tworzę PDF wszystkich opon…');const j=await api('/api/pdf',{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length,bez_otwierania:1});if(!j.pdf)throw new Error('Nie udało się utworzyć PDF (brak Edge) – utwórz PDF przyciskiem wyżej.');OPDF=j.plik}
+ const r=await api('/api/whatsapp',{plik:OPDF});const nz=OPDF.split(/[\\/]/).pop();
+ msg('#oMsg',r.schowek?`📱 PDF „${nz}” jest w schowku. W WhatsApp wybierz klienta i naciśnij Ctrl+V, potem Enter.`:`Otworzyłem WhatsApp – przeciągnij plik „${nz}” z folderu ofert do czatu.`);
+ if(OID)try{await api('/api/status',{oid:OID,status:'wyslana',owner:HOWNER})}catch(e){}}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 async function pdfOferta(b,wszystkie){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',wszystkie===2?{ids:ULS.map(u=>u.id),porownanie:1,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' porownanie'}:wszystkie?{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length}:{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
- msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
+ if(j.pdf)OPDF=j.plik;$('#waInfo').textContent=j.pdf?'WhatsApp wyśle: '+j.plik.split(/[\\/]/).pop():'';msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['kom','Komórki (po przecinku)'],['www','Strona www'],['email','E-mail']];
 function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
  $('#oddzBox').innerHTML='<h3 style="margin:14px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
