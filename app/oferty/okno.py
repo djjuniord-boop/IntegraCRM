@@ -236,7 +236,10 @@ class Katalog:
         if sezony:
             warunki.append("or(" + ",".join("dane->attrs->>Sezon.ilike.%s" % sz[x] for x in sezony if x in sz) + ")")
         if marki:   # „VKTYRE” -> „V*K*T*Y*R*E*” (pasuje też „VK TYRE”, „GOOD-YEAR”); dokładnie zawęża silnik
-            warunki.append("or(" + ",".join("dane->attrs->>Producent.ilike.%s*" % "*".join(x) for x in marki if x) + ")")
+            # do wzorca trafiają tylko znaki alfanumeryczne marki – inne (przecinek, nawias) mogłyby rozbić strukturę filtra
+            czyste = [c for c in ("*".join(re.sub(r"[^0-9A-Za-z]", "", x or "")) for x in marki) if c]
+            if czyste:
+                warunki.append("or(" + ",".join("dane->attrs->>Producent.ilike.%s*" % c for c in czyste) + ")")
         warunki = [x for x in warunki if x not in ("or()",)]
         if warunki:
             q.append("and=" + urllib.parse.quote("(" + ",".join(warunki) + ")", safe="(),.*>-"))
