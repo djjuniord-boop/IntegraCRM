@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.9"
+VERSION = "1.1.10"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.10",
+        "date": "2026-11-19",
+        "changes": [
+            "Oferty opon (bezpieczeństwo): przy wyszukiwaniu niepełnego rozmiaru do filtra marki trafiają już tylko znaki liter/cyfr – domknięcie teoretycznej możliwości zaburzenia zapytania dziwnymi znakami w nazwie marki (bez wpływu na wyniki)",
+        ],
+    },
     {
         "version": "1.1.9",
         "date": "2026-11-18",

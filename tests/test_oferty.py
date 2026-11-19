@@ -603,3 +603,27 @@ def test_whatsapp_tylko_pdf_z_folderu_ofert():
                 pass
     finally:
         S.OUT_DIR = stary
+
+
+def test_wzorzec_odkaza_marke_bez_wstrzykniecia_do_filtra():
+    """Marka z przecinkiem/nawiasem nie może rozbić filtra PostgREST and=(...) – do wzorca idą tylko znaki alfanumeryczne."""
+    import datetime
+    import time as _t
+    import urllib.parse
+    from oferty import okno
+    zlapane = []
+    stare = okno._db
+    okno._db = lambda method, path, *a, **k: (zlapane.append(path), [])[1]
+    try:
+        kat = okno.Katalog()
+        kat.stan = {"czas": datetime.datetime.now(datetime.timezone.utc).isoformat(), "ile": 9}
+        kat.stan_t = _t.time()
+        kat.wzorzec("205/55 R16", marki=["x),or(yy", "PIRELLI"], sezony=["Zimowa"])
+    finally:
+        okno._db = stare
+    assert zlapane, "wzorzec nie zbudował zapytania"
+    unq = urllib.parse.unquote(zlapane[-1])
+    assert "x*o*r*y*y" in unq, unq            # przecinek i nawiasy wycięte, znaki połączone gwiazdką
+    assert "x),or(yy" not in unq, unq         # surowa marka nie trafia do filtra
+    assert "P*I*R*E*L*L*I" in unq, unq        # zwykła marka działa jak dotąd
+    assert unq.count("(") == unq.count(")"), unq   # struktura and=(...) się nie rozjechała
