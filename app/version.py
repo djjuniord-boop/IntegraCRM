@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.14"
+VERSION = "1.1.15"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.15",
+        "date": "2026-11-20",
+        "changes": [
+            "Zrealizowane: pod wybranym subkontem/oddziałem pokazują się tylko zamówienia potwierdzone przez xPartner dla tego oddziału; faktury bez przypisanego oddziału (xPartner nie oddaje jeszcze zamówienia – „tylko z faktury”/„bez zamówienia”) nie zaśmiecają już listy innego oddziału. Widać je pod „wszystkie subkonta”, a gdy xPartner udostępni zamówienie (zwykle po dobie), same trafiają do właściwego oddziału",
+        ],
+    },
     {
         "version": "1.1.14",
         "date": "2026-11-20",
