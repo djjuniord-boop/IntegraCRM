@@ -206,23 +206,27 @@ def test_pamiec_pol_numery_uwagi():
 
 
 def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
-    """2026-11-20: zamówienie znane tylko z faktury (bez rozpoznanego subkonta) nie znika przy wybranym subkoncie."""
+    """2026-11-20: pod wybranym subkontem „tylko z faktury” (realne zamówienie) jest widoczne,
+    a „faktura bez zamówienia” (bez oddziału, np. z Opola) – nie; widać ją dopiero pod „wszystkie subkonta”."""
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
         print("  (pominięty – brak Playwright)")
         return
-    def zam(nr, nr_erp, kto, faktura, netto, zfakt=False, status=6, txt="Zrealizowane"):
+    def zam(nr, nr_erp, kto, faktura, netto, zfakt=False, bez=False, status=6, txt="Zrealizowane", mag=""):
         z = {"nr": nr, "nr_erp": nr_erp, "nr_zew": "", "status": status, "status_txt": txt, "data": "2026-11-20",
-             "kto": kto, "zamowil": "", "magazyn": "", "odbiorca": "", "dostawa": {}, "komentarz": "",
+             "kto": kto, "zamowil": "", "magazyn": mag, "odbiorca": "", "dostawa": {}, "komentarz": "",
              "pozycje": [], "faktury": [faktura], "netto": netto, "szt": 4, "do_wydania": 0}
         if zfakt:
             z["z_faktury"] = True
+        if bez:
+            z["bez_zamowienia"] = True
         return z
     z_wroc = zam("25354046400", "000740000/26", "Detal Wrocław", "CH0460000/26", 100)
-    z_fakt = zam("", "000747670/26", "", "CH0469205/26", 1778.68, zfakt=True, status=0, txt="tylko z faktury")
+    z_tylko = zam("", "000747670/26", "", "CH0469205/26", 1778.68, zfakt=True, status=0, txt="tylko z faktury")   # realne zamówienie
+    z_bez = zam("", "", "", "CH0470167/26", 999, zfakt=True, bez=True, status=0, txt="faktura bez zamówienia", mag="Opole")  # bez zamówienia (Opole)
     odp = {"/api/cfg": {"zamawianie": True, "oferty": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
-           "/api/zamkniete": {"zamowienia": [z_wroc, z_fakt], "faktur": 2, "od": "2026-11-18", "do": "2026-11-20", "czas": "12:00"},
+           "/api/zamkniete": {"zamowienia": [z_wroc, z_tylko, z_bez], "faktur": 3, "od": "2026-11-18", "do": "2026-11-20", "czas": "12:00"},
            "/api/zamowienia": {"zamowienia": [], "czas": "12:00"}}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
             "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
@@ -239,12 +243,18 @@ def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
             pg.wait_for_timeout(200)
             pg.evaluate("zTab(document.querySelector('.zt[data-t=h]'))")
             pg.wait_for_timeout(500)
+            def tekst():
+                return " || ".join(pg.eval_on_selector_all("#zL .zk .h", "els=>els.map(e=>e.textContent)"))
             pg.select_option("#zkto", label="Detal Wrocław")
             pg.wait_for_timeout(150)
-            widoczne = pg.eval_on_selector_all("#zL .zk .h", "els=>els.map(e=>e.textContent)")
-            tekst = " || ".join(widoczne)
-            assert "000747670/26" in tekst, ("brak faktury-only przy filtrze oddzialu", tekst)
-            assert "000740000/26" in tekst, tekst
+            t = tekst()
+            assert "000747670/26" in t, ("tylko z faktury powinno być widoczne pod Wrocławiem", t)   # realne zamówienie
+            assert "000740000/26" in t, t                                                            # zwykłe zamówienie Wrocław
+            assert "CH0470167/26" not in t, ("faktura bez zamówienia (Opole) NIE powinna być pod Wrocławiem", t)
+            pg.select_option("#zkto", value="")   # wszystkie subkonta
+            pg.wait_for_timeout(150)
+            t2 = tekst()
+            assert "CH0470167/26" in t2, ("faktura bez zamówienia powinna być widoczna pod „wszystkie subkonta”", t2)
             b.close()
     finally:
         p.unlink()
