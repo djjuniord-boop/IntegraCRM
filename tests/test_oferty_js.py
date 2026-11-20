@@ -205,9 +205,55 @@ def test_pamiec_pol_numery_uwagi():
         p.unlink()
 
 
+def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
+    """2026-11-20: zamówienie znane tylko z faktury (bez rozpoznanego subkonta) nie znika przy wybranym subkoncie."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    def zam(nr, nr_erp, kto, faktura, netto, zfakt=False, status=6, txt="Zrealizowane"):
+        z = {"nr": nr, "nr_erp": nr_erp, "nr_zew": "", "status": status, "status_txt": txt, "data": "2026-11-20",
+             "kto": kto, "zamowil": "", "magazyn": "", "odbiorca": "", "dostawa": {}, "komentarz": "",
+             "pozycje": [], "faktury": [faktura], "netto": netto, "szt": 4, "do_wydania": 0}
+        if zfakt:
+            z["z_faktury"] = True
+        return z
+    z_wroc = zam("25354046400", "000740000/26", "Detal Wrocław", "CH0460000/26", 100)
+    z_fakt = zam("", "000747670/26", "", "CH0469205/26", 1778.68, zfakt=True, status=0, txt="tylko z faktury")
+    odp = {"/api/cfg": {"zamawianie": True, "oferty": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
+           "/api/zamkniete": {"zamowienia": [z_wroc, z_fakt], "faktur": 2, "od": "2026-11-18", "do": "2026-11-20", "czas": "12:00"},
+           "/api/zamowienia": {"zamowienia": [], "czas": "12:00"}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js4.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(400)
+            pg.evaluate("openZam()")
+            pg.wait_for_timeout(200)
+            pg.evaluate("zTab(document.querySelector('.zt[data-t=h]'))")
+            pg.wait_for_timeout(500)
+            pg.select_option("#zkto", label="Detal Wrocław")
+            pg.wait_for_timeout(150)
+            widoczne = pg.eval_on_selector_all("#zL .zk .h", "els=>els.map(e=>e.textContent)")
+            tekst = " || ".join(widoczne)
+            assert "000747670/26" in tekst, ("brak faktury-only przy filtrze oddzialu", tekst)
+            assert "000740000/26" in tekst, tekst
+            b.close()
+    finally:
+        p.unlink()
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
     test_szukanie_zamowienia_po_fakturze()
     test_pamiec_pol_numery_uwagi()
+    test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu()
     print("Okna Ofert bez błędów JS")
