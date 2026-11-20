@@ -206,8 +206,8 @@ def test_pamiec_pol_numery_uwagi():
 
 
 def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
-    """2026-11-20: pod wybranym subkontem „tylko z faktury” (realne zamówienie) jest widoczne,
-    a „faktura bez zamówienia” (bez oddziału, np. z Opola) – nie; widać ją dopiero pod „wszystkie subkonta”."""
+    """2026-11-20: faktury bez przypisanego oddziału (tylko z faktury / bez zamówienia) nie trafiają pod wybrany
+    oddział (xPartner nie oddaje kodu odbiorcy przez API) – widać je dopiero pod „wszystkie subkonta”."""
     try:
         from playwright.sync_api import sync_playwright
     except Exception:
@@ -222,9 +222,9 @@ def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
         if bez:
             z["bez_zamowienia"] = True
         return z
-    z_wroc = zam("25354046400", "000740000/26", "Detal Wrocław", "CH0460000/26", 100)
-    z_tylko = zam("", "000747670/26", "", "CH0469205/26", 1778.68, zfakt=True, status=0, txt="tylko z faktury")   # realne zamówienie
-    z_bez = zam("", "", "", "CH0470167/26", 999, zfakt=True, bez=True, status=0, txt="faktura bez zamówienia", mag="Opole")  # bez zamówienia (Opole)
+    z_wroc = zam("25354046400", "000740000/26", "Detal Wrocław", "CH0460000/26", 100)          # potwierdzony Wrocław
+    z_tylko = zam("", "000747670/26", "", "CH0469205/26", 1778.68, zfakt=True, status=0, txt="tylko z faktury")
+    z_bez = zam("", "", "", "CH0470167/26", 999, zfakt=True, bez=True, status=0, txt="faktura bez zamówienia", mag="Opole")
     odp = {"/api/cfg": {"zamawianie": True, "oferty": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
            "/api/zamkniete": {"zamowienia": [z_wroc, z_tylko, z_bez], "faktur": 3, "od": "2026-11-18", "do": "2026-11-20", "czas": "12:00"},
            "/api/zamowienia": {"zamowienia": [], "czas": "12:00"}}
@@ -248,13 +248,13 @@ def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
             pg.select_option("#zkto", label="Detal Wrocław")
             pg.wait_for_timeout(150)
             t = tekst()
-            assert "000747670/26" in t, ("tylko z faktury powinno być widoczne pod Wrocławiem", t)   # realne zamówienie
-            assert "000740000/26" in t, t                                                            # zwykłe zamówienie Wrocław
-            assert "CH0470167/26" not in t, ("faktura bez zamówienia (Opole) NIE powinna być pod Wrocławiem", t)
+            assert "000740000/26" in t, t                                       # potwierdzony Wrocław widoczny
+            assert "000747670/26" not in t, ("faktura bez oddzialu nie pod Wroclawiem", t)
+            assert "CH0470167/26" not in t, ("faktura bez zamowienia (Opole) nie pod Wroclawiem", t)
             pg.select_option("#zkto", value="")   # wszystkie subkonta
             pg.wait_for_timeout(150)
             t2 = tekst()
-            assert "CH0470167/26" in t2, ("faktura bez zamówienia powinna być widoczna pod „wszystkie subkonta”", t2)
+            assert "000747670/26" in t2 and "CH0470167/26" in t2, ("nieprzypisane faktury widoczne pod wszystkie subkonta", t2)
             b.close()
     finally:
         p.unlink()
