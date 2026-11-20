@@ -163,8 +163,51 @@ def test_szukanie_zamowienia_po_fakturze():
     assert all(v == 1 for v in wyn.values()), wyn
 
 
+def test_pamiec_pol_numery_uwagi():
+    """2026-11-20: pola „Numery i uwagi” podpowiadają z historii i zapamiętują po udanym zamówieniu (localStorage)."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    odp = {"/api/cfg": {"zamawianie": True, "oferty": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
+           "/api/koszyk/adresy": {"adresy": []}, "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js3.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(400)
+            pg.evaluate("openKosz()")
+            pg.wait_for_timeout(200)
+            # historia w pamięci -> podpowiedź po wpisaniu fragmentu
+            pg.evaluate("localStorage.setItem('oferty_pola_hist',JSON.stringify({opis:['DW 912AC','DW 7KT55'],nr:[],uw:[]}))")
+            pg.fill("#kOpis", "912")
+            pg.wait_for_timeout(150)
+            podp = pg.eval_on_selector_all("#kNumUw .khac.on .it .t", "els=>els.map(e=>e.textContent)")
+            assert podp == ["DW 912AC"], podp
+            # klik w podpowiedź wypełnia pole
+            pg.eval_on_selector("#kNumUw .khac.on .it .t", "e=>e.dispatchEvent(new MouseEvent('mousedown',{bubbles:true}))")
+            assert pg.input_value("#kOpis") == "DW 912AC"
+            # zapamiętywanie: dedup (bez względu na wielkość liter), najnowsze na górze, limit 20
+            wynik = pg.evaluate("""()=>{localStorage.removeItem('oferty_pola_hist');
+              for(let i=0;i<25;i++)khRemember('nr','NR'+i);
+              khRemember('nr','nr3');            // duplikat (inna wielkość liter) -> na górę, bez powtórki
+              const a=khLoad().nr;return [a.length,a[0],a.filter(x=>x.toUpperCase()==='NR3').length]}""")
+            assert wynik == [20, "nr3", 1], wynik
+            b.close()
+    finally:
+        p.unlink()
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
     test_szukanie_zamowienia_po_fakturze()
+    test_pamiec_pol_numery_uwagi()
     print("Okna Ofert bez błędów JS")
