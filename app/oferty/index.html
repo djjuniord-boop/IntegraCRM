@@ -75,6 +75,17 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 .ulk{display:inline-flex;align-items:center;gap:8px;margin:6px 8px 0 0;padding:10px 14px;border:1px solid #cfcfcf;border-radius:8px;text-decoration:none;color:#111;font-size:15px;font-weight:600;background:#fff}
 .ulk:hover{background:#fff1f1;border-color:var(--red)}.ulk span{color:var(--red)}
 #outCard h2{font-size:20px}#outCard button{font-size:15px;padding:9px 16px}
+.khac{position:absolute;z-index:60;left:0;right:0;top:100%;margin-top:2px;background:#fff;border:1px solid #d4d4d8;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.14);max-height:230px;overflow:auto;display:none}
+.khac.on{display:block}
+#kNumUw label{position:relative}
+.khac .it{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:14px;cursor:pointer}
+.khac .it:hover,.khac .it.sel{background:#fdeaea}
+.khac .it .t{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.khac .it .t b{color:var(--red);font-style:normal}
+.khac .it .x{color:#9ca3af;border:none;background:none;font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
+.khac .it .x:hover{color:var(--red)}
+.khac .hdr{padding:6px 10px;font-size:11px;color:var(--muted);border-bottom:1px solid var(--line);background:#fafafa;display:flex;justify-content:space-between;gap:10px}
+.khac .hdr a{color:var(--muted);cursor:pointer;text-decoration:underline;white-space:nowrap}
 </style></head><body><button id="kFab" onclick="openKosz()" style="display:none"></button><div id="kToast"></div>
 <header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button></div><span class="sp"></span>
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
@@ -169,7 +180,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div style="display:grid;grid-template-columns:90px 1fr;gap:6px"><input id="na_zipCode" maxlength="6" placeholder="Kod *"><input id="na_city" maxlength="25" placeholder="Miasto *"></div><input id="na_receivingPerson" maxlength="76" placeholder="Osoba odbierająca"></div>
 <label style="font-size:12px"><input type="checkbox" id="naZap" checked> zapisz na liście adresów</label></div>
 <div class="muted" style="font-size:12px;margin-top:10px">Dokument: <b>Faktura VAT</b> · płatność: <b>przelew</b> (stałe)</div></div>
-<div class="kbox"><h4>Numery i uwagi</h4><label>Numer własny zamówienia <span class="muted">(na fakturze, maks. 35 znaków, bez polskich liter)</span><input id="kNr" maxlength="35"></label>
+<div class="kbox" id="kNumUw"><h4>Numery i uwagi</h4><label>Numer własny zamówienia <span class="muted">(na fakturze, maks. 35 znaków, bez polskich liter)</span><input id="kNr" maxlength="35"></label>
 <label>Na fakturze, WZ i liście przewozowym (np. nr rej., VIN) <span class="muted">– bez polskich liter, maks. 100</span><input id="kOpis" maxlength="100"></label>
 <label>Uwagi dla operatora xPartner <span class="muted">(maks. 255)</span><textarea id="kUw" rows="3" maxlength="255" placeholder="tylko gdy naprawdę potrzebne"></textarea></label>
 <div class="warn" style="font-size:12px;padding:6px 8px;border-radius:6px;background:#fff3cd;color:#7a5900">⚠ Uwagi sprawdza człowiek w xPartner – wydłużają realizację zamówienia. Wpisuj tylko w uzasadnionych przypadkach.</div></div></div></div>
@@ -532,6 +543,38 @@ function kWyb(w){KWYB=w;document.querySelectorAll('#kdlg .kadr').forEach(e=>{con
 function kUsunAdr(i){const j=kLs(KA,[]);if(!confirm('Usunąć adres „'+j[i].name+'” z listy?'))return;j.splice(i,1);try{localStorage.setItem(KA,JSON.stringify(j))}catch(e){}if(KWYB[0]==='j')KWYB='';kAdresy()}
 const NA=['name','vatin','street','phone','zipCode','city','receivingPerson'];
 function kAscii(t){return String(t||'').replace(/[ąćęłńóśźżĄĆĘŁŃÓŚŹŻ]/g,c=>'acelnoszzACELNOSZZ'['ąćęłńóśźżĄĆĘŁŃÓŚŹŻ'.indexOf(c)]).replace(/[^a-zA-Z0-9 \-\/]+/g,' ').replace(/\s+/g,' ').trim()}
+/* Pamięć pól „Numery i uwagi” – podpowiedzi jak w przeglądarce, lokalnie na tym komputerze, do 20 wpisów na pole.
+   Zapis dopiero po udanym zamówieniu (khRemember w kZamow), żeby nie zbierać porzuconych wpisów. */
+const KH='oferty_pola_hist';
+function khLoad(){try{const o=JSON.parse(localStorage.getItem(KH));return o&&typeof o==='object'?o:{}}catch(e){return {}}}
+function khRemember(key,val){val=String(val||'').trim();if(!val)return;const o=khLoad();let a=Array.isArray(o[key])?o[key]:[];
+ a=a.filter(x=>x.toUpperCase()!==val.toUpperCase());a.unshift(val);o[key]=a.slice(0,20);try{localStorage.setItem(KH,JSON.stringify(o))}catch(e){}}
+function khAttach(el,key){
+ if(!el||el._kh)return;el._kh=1;el.setAttribute('autocomplete','off');
+ const box=document.createElement('div');box.className='khac';el.parentNode.appendChild(box);let sel=-1,items=[];
+ const close=()=>{box.classList.remove('on');sel=-1};
+ function draw(){
+  const q=el.value.trim().toUpperCase();items=(khLoad()[key]||[]).filter(v=>!q||v.toUpperCase().includes(q));
+  if(q&&items.length===1&&items[0].toUpperCase()===q)items=[];
+  if(!items.length){close();return}
+  box.innerHTML='<div class="hdr"><span>Z pamięci tego pola</span><a data-clear>wyczyść historię tego pola</a></div>'+
+   items.map((v,i)=>{let t=esc(v);if(q){const x=v.toUpperCase().indexOf(q);if(x>=0)t=esc(v.slice(0,x))+'<b>'+esc(v.slice(x,x+q.length))+'</b>'+esc(v.slice(x+q.length))}
+    return `<div class="it" data-i="${i}"><span class="t">${t}</span><button type="button" class="x" data-del="${i}" title="Usuń z pamięci">×</button></div>`}).join('');
+  box.classList.add('on');sel=-1;
+  box.querySelector('[data-clear]').onmousedown=e=>{e.preventDefault();if(confirm('Wyczyścić historię tego pola?')){const o=khLoad();o[key]=[];try{localStorage.setItem(KH,JSON.stringify(o))}catch(x){}close()}};
+  box.querySelectorAll('.it').forEach(it=>{
+   it.querySelector('.t').onmousedown=e=>{e.preventDefault();el.value=items[+it.dataset.i];close();el.focus()};
+   it.querySelector('[data-del]').onmousedown=e=>{e.preventDefault();e.stopPropagation();const o=khLoad();(o[key]||[]).splice(+it.dataset.del,1);try{localStorage.setItem(KH,JSON.stringify(o))}catch(x){}draw()};});
+ }
+ el.addEventListener('input',draw);el.addEventListener('focus',draw);el.addEventListener('blur',()=>setTimeout(close,120));
+ el.addEventListener('keydown',e=>{if(!box.classList.contains('on'))return;const n=box.querySelectorAll('.it');
+  if(e.key==='ArrowDown'){e.preventDefault();sel=Math.min(sel+1,n.length-1)}
+  else if(e.key==='ArrowUp'){e.preventDefault();sel=Math.max(sel-1,0)}
+  else if(e.key==='Enter'&&sel>=0){e.preventDefault();el.value=items[sel];close();return}
+  else if(e.key==='Escape'){close();return}else return;
+  n.forEach((x,i)=>x.classList.toggle('sel',i===sel));});
+}
+(()=>{for(const [id,k] of [['kNr','nr'],['kOpis','opis'],['kUw','uw']]){const e=document.getElementById(id);if(e)khAttach(e,k)}})();
 function kDane(){if(!KADR||!KADR.length)throw new Error('Brak adresu z konta xPartner – nie można zamówić.');
  const baza=KADR[KWYB[0]==='x'?+KWYB.slice(1):0],d={recipientId:baza.recipientId,deliveryPlaceId:baza.deliveryPlaceId,numer:kAscii($('#kNr').value).slice(0,35),opis:kAscii($('#kOpis').value).slice(0,100),uwagi:$('#kUw').value.trim(),
   pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc})),adres_opis:''};let a=null;
@@ -552,6 +595,7 @@ function kPotw(){msg('#kMsg','');const ni=kNiep();if(ni){$('#kMsg').innerHTML=`<
  $('#kpF').innerHTML='<button class="sec" onclick="kpdlg.close()">← Popraw</button><button id="kZam" style="margin-left:auto" onclick="kZamow()"></button>';const b=$('#kZam');b.disabled=false;b.textContent='✔ Zamawiam ('+zl(s.br)+')';kpdlg.showModal()}catch(e){msg('#kMsg',e.message,1)}}
 async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disabled=true;b.textContent='Wysyłam do xPartner…';const d=window._kD;
  try{const r=await api('/api/koszyk/zamow',d);KSENT=true;
+  khRemember('nr',$('#kNr').value);khRemember('opis',$('#kOpis').value);khRemember('uw',$('#kUw').value);   /* udane zamówienie – zapamiętaj wpisane numery i uwagi */
   if(KWYB==='nowy'&&$('#naZap').checked){const j=kLs(KA,[]);j.unshift(d.nowy_adres);try{localStorage.setItem(KA,JSON.stringify(j.slice(0,30)))}catch(e){}for(const k of NA)$('#na_'+k).value=''}
   if(r.niewyslane){/* część zamówień powstała, reszta nie – w koszyku zostaje tylko to, czego nie wysłano */
    const nie=/sprawdź w|Nieprawidłowa odpowiedź|Brak odpowiedzi/i.test(r.blad_czesci||'');if(nie)try{localStorage.setItem(KN,JSON.stringify({czas:new Date().toLocaleString('pl-PL'),numer:d.numer}))}catch(x){}

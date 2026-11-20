@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.10"
+VERSION = "1.1.11"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.11",
+        "date": "2026-11-20",
+        "changes": [
+            "Koszyk: pola „Numer własny”, „Na fakturze/WZ (nr rej., VIN)” i „Uwagi” podpowiadają teraz wcześniej wpisane wartości, jak w przeglądarce – wybór strzałkami/Enter albo myszką, krzyżyk usuwa wpis z pamięci. Zapis po udanym zamówieniu, do 20 wartości na pole, tylko na tym komputerze",
+        ],
+    },
     {
         "version": "1.1.10",
         "date": "2026-11-19",
