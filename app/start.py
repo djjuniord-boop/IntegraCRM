@@ -43,6 +43,14 @@ def main():
                 pass
             sys.exit(3)
     try:
+        import instancja
+        if not instancja.tylko_jedna("--po-restarcie" in sys.argv):
+            sys.exit(0)   # program jest już otwarty – podnieśliśmy istniejące okno
+    except SystemExit:
+        raise
+    except Exception:
+        pass   # blokada drugiej instancji nie może zablokować startu
+    try:
         import gui
         gui.main()
     except Exception as exc:

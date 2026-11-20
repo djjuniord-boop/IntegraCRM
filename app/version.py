@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.11"
+VERSION = "1.1.12"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.12",
+        "date": "2026-11-20",
+        "changes": [
+            "Program nie da się już otworzyć kilka razy naraz – druga próba uruchomienia nie tworzy kolejnego okna, tylko przywraca to już otwarte (Windows). Aktualizacja restartuje program normalnie",
+        ],
+    },
     {
         "version": "1.1.11",
         "date": "2026-11-20",
