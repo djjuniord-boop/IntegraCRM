@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.13"
+VERSION = "1.1.14"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.14",
+        "date": "2026-11-20",
+        "changes": [
+            "Zrealizowane – filtr subkonta: „tylko z faktury” (realne zamówienie, którego xPartner chwilowo nie oddaje) jest widoczne przy wybranym oddziale, ale „faktura bez zamówienia” (zakup telefoniczny/w hurtowni/korekta – bez rozpoznanego oddziału) już nie zaśmieca listy innego oddziału; widać ją pod „wszystkie subkonta”",
+        ],
+    },
     {
         "version": "1.1.13",
         "date": "2026-11-20",
