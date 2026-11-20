@@ -315,3 +315,17 @@ def test_przycisk_z_klawiatury_i_esc_w_oknie():
         assert zamkniete == [1]                 # Esc = ten sam kod co krzyżyk (np. pytanie o zapis)
     finally:
         root.destroy()
+
+
+def test_pojedyncza_instancja():
+    """Blokada drugiego uruchomienia: rozpoznanie głównego okna i brak blokady poza Windows (testy)."""
+    import sys
+    import instancja
+    assert instancja._czy_glowne("Panel Latex Serwis  v1.1.11")
+    assert instancja._czy_glowne("Latex Serwis – logowanie  v1.1.11")
+    assert not instancja._czy_glowne("Latex Serwis – oferty opon")          # okno-dziecko OFERT
+    assert not instancja._czy_glowne("Latex Serwis – historia serwisowa (beta)")  # okno-dziecko SERWIS
+    assert not instancja._czy_glowne("")
+    if sys.platform != "win32":     # na Linuksie/macOS nic nie blokuje – program zawsze startuje
+        assert instancja.tylko_jedna() is True
+        assert instancja.tylko_jedna(czekaj=True) is True

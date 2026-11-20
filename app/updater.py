@@ -200,7 +200,7 @@ def rollback(pin: bool = True) -> None:
 
 def restart() -> None:
     if getattr(sys, "frozen", False):          # wersja IntegraCRM.exe
-        subprocess.Popen([sys.executable], cwd=str(paths.ROOT))
+        subprocess.Popen([sys.executable, "--po-restarcie"], cwd=str(paths.ROOT))
     else:
-        subprocess.Popen([sys.executable, str(paths.APP_DIR / "start.py")], cwd=str(paths.ROOT))
+        subprocess.Popen([sys.executable, str(paths.APP_DIR / "start.py"), "--po-restarcie"], cwd=str(paths.ROOT))
     os._exit(0)
