@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.15"
+VERSION = "1.1.16"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.16",
+        "date": "2026-11-21",
+        "changes": [
+            "Koszyk: opony z magazynu Bydgoszcz (dostawa ok. 48 h) są wyróżnione – „⏱ ok. 48 h”, gdy tylko tam jest wystarczająca ilość, albo „może Bydgoszcz”, gdy są też w bliższych magazynach; ostrzeżenie także w podsumowaniu przed wysłaniem",
+            "Po zamówieniu i w „Zamówienia → Otwarte” widać, które zamówienie idzie z Bydgoszczy",
+        ],
+    },
     {
         "version": "1.1.15",
         "date": "2026-11-20",
