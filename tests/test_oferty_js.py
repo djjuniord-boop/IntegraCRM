@@ -260,10 +260,53 @@ def test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu():
         p.unlink()
 
 
+def test_bydgoszcz_48h_w_koszyku_i_zamowieniach():
+    """2026-11-21: koszyk prognozuje dostawę z Bydgoszczy (pewne/może), potwierdzenie i otwarte zamówienia pokazują 48 h."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    otw = {"nr": "25354046500", "nr_erp": "000750000/26", "nr_zew": "", "status": 3, "status_txt": "W realizacji", "data": "2026-11-21",
+           "kto": "Detal Wrocław", "zamowil": "", "magazyn": "Bydgoszcz", "odbiorca": "", "dostawa": {}, "komentarz": "",
+           "pozycje": [], "faktury": [], "netto": 100, "szt": 4, "do_wydania": 4}
+    odp = {"/api/cfg": {"zamawianie": True, "oferty": True, "admin": True, "oddzialy": [], "oddzialy_dane": {}, "premium": [], "progi": []},
+           "/api/zamowienia": {"zamowienia": [otw], "czas": "08:00"}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js5.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(400)
+            w = pg.evaluate("""()=>[JSON.stringify(kDal({'Bydgoszcz':12},4)),JSON.stringify(kDal({'Bydgoszcz':50,'Czechowice-Dziedzice':50},4)),
+               JSON.stringify(kDal({'Opole':50},4)),JSON.stringify(kDal({'Bydgoszcz':50,'Opole':2},4))]""")
+            assert '"pewne":true' in w[0] and '"pewne":false' in w[1] and w[2] == "null" and '"pewne":true' in w[3], w
+            pg.evaluate("""()=>{KOSZ=[{id:1,nazwa:'A',ilosc:4},{id:2,nazwa:'B',ilosc:4},{id:3,nazwa:'C',ilosc:4}];
+               const d=(id,m)=>({id,ok:true,nazwa:'Opona '+id,netto:100,brutto:123,netto_kat:100,stan:50,magazyny:m});
+               KDANE={1:d(1,{'Bydgoszcz':12}),2:d(2,{'Bydgoszcz':50,'Czechowice-Dziedzice':50}),3:d(3,{'Opole':50})};kDraw()}""")
+            kl = pg.inner_text("#kL")
+            assert "1 pozycja (4 szt.) pojedzie z magazynu Bydgoszcz" in kl and "może pójść z Bydgoszczy" in kl, kl
+            assert pg.eval_on_selector_all("#kL tr.k48", "e=>e.length") == 1
+            assert pg.eval_on_selector_all("#kL .bdg48", "e=>e.length") == 2   # znaczki w wierszach 1 (pewne) i 2 (może)
+            pg.evaluate("openZam()")
+            pg.wait_for_timeout(500)
+            zl = pg.inner_text("#zL")
+            assert "ok. 48 h" in zl, zl
+            b.close()
+    finally:
+        p.unlink()
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
     test_szukanie_zamowienia_po_fakturze()
     test_pamiec_pol_numery_uwagi()
     test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu()
+    test_bydgoszcz_48h_w_koszyku_i_zamowieniach()
     print("Okna Ofert bez błędów JS")
