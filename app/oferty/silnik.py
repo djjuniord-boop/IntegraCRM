@@ -37,6 +37,7 @@ DEFAULT_CFG = {
     "wymiana_suv": {"15": 55, "16": 55, "17": 60, "18": 65, "19": 70, "20": 80, "21": 90, "22": 100},
     "wymiana_dost": {"14": 55, "15": 60, "16": 65, "17": 70},
     "tpms_cena": 150,
+    "bydgoszcz_dostawa": "ok. 48 h",   # czas dostawy z dalekiego magazynu (koszyk, zamówienia)
     "przech_opony_do19": 120, "przech_opony_pow19": 160,
     "przech_kola_do19": 150, "przech_kola_pow19": 200,
     "kola_na_auto": 4,

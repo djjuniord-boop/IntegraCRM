@@ -286,11 +286,16 @@ def test_bydgoszcz_48h_w_koszyku_i_zamowieniach():
             w = pg.evaluate("""()=>[JSON.stringify(kDal({'Bydgoszcz':12},4)),JSON.stringify(kDal({'Bydgoszcz':50,'Czechowice-Dziedzice':50},4)),
                JSON.stringify(kDal({'Opole':50},4)),JSON.stringify(kDal({'Bydgoszcz':50,'Opole':2},4))]""")
             assert '"pewne":true' in w[0] and '"pewne":false' in w[1] and w[2] == "null" and '"pewne":true' in w[3], w
+            # 50 = „50+”: przy 60 szt. nie wiemy, czy Czechowice wystarczą – tylko „może”; 49 to dokładna liczba
+            w2 = pg.evaluate("""()=>[kDal({'Czechowice-Dziedzice':50,'Bydgoszcz':50},60).pewne,kDal({'Czechowice-Dziedzice':49,'Bydgoszcz':50},60).pewne,
+               (CFG.bydgoszcz_dostawa='2 dni robocze',kDal({'Bydgoszcz':5},4).czas+'|'+dal48('Bydgoszcz'))]""")
+            assert w2[0] is False and w2[1] is True and w2[2] == "2 dni robocze|2 dni robocze", w2
+            pg.evaluate("delete CFG.bydgoszcz_dostawa")
             pg.evaluate("""()=>{KOSZ=[{id:1,nazwa:'A',ilosc:4},{id:2,nazwa:'B',ilosc:4},{id:3,nazwa:'C',ilosc:4}];
                const d=(id,m)=>({id,ok:true,nazwa:'Opona '+id,netto:100,brutto:123,netto_kat:100,stan:50,magazyny:m});
                KDANE={1:d(1,{'Bydgoszcz':12}),2:d(2,{'Bydgoszcz':50,'Czechowice-Dziedzice':50}),3:d(3,{'Opole':50})};kDraw()}""")
             kl = pg.inner_text("#kL")
-            assert "1 pozycja (4 szt.) pojedzie z magazynu Bydgoszcz" in kl and "może pójść z Bydgoszczy" in kl, kl
+            assert "1 pozycja (4 szt.) pojedzie co najmniej częściowo z magazynu Bydgoszcz" in kl and "może pójść z Bydgoszczy" in kl, kl
             assert pg.eval_on_selector_all("#kL tr.k48", "e=>e.length") == 1
             assert pg.eval_on_selector_all("#kL .bdg48", "e=>e.length") == 2   # znaczki w wierszach 1 (pewne) i 2 (może)
             pg.evaluate("openZam()")
