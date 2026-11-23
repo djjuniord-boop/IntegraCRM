@@ -85,10 +85,11 @@ def odswiez(cfg, pozycje, get_product):
             return {"id": pid, "ilosc": il, "ok": False, "blad": "Pozycja niedostępna do zamówienia w xPartner"}
         mag = {k: v for k, v in (p.get("magazyny") or {}).items() if v}
         stan = max(int(p.get("ilosc") or 0), sum(mag.values()))   # xPartner obcina stany do 50 – suma magazynów
+        obc = any(v >= 50 for v in mag.values()) or (not mag and int(p.get("ilosc") or 0) >= 50)   # „50+” – prawdziwa ilość nieznana
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
-                "stan": stan, "magazyny": mag, "ok": 1 <= il <= stan and il <= MAX_SZT,
-                "blad": "Maks. %d szt. jednej pozycji" % MAX_SZT if il > MAX_SZT else ("" if il <= stan else "W xPartner jest tylko %d szt." % stan)}
+                "stan": stan, "magazyny": mag, "obciete": obc, "ok": 1 <= il <= MAX_SZT and (il <= stan or obc),
+                "blad": "Maks. %d szt. jednej pozycji" % MAX_SZT if il > MAX_SZT else ("" if il <= stan or obc else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 

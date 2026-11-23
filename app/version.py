@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.17"
+VERSION = "1.1.18"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.18",
+        "date": "2026-11-23",
+        "changes": [
+            "Koszyk: gdy xPartner pokazuje „50+”, można zamówić więcej niż 50 szt. – program nie blokuje już pozycji komunikatem „W xPartner jest tylko 50 szt.”; ile faktycznie przyjęto, widać w odpowiedzi xPartner po zamówieniu",
+        ],
+    },
     {
         "version": "1.1.17",
         "date": "2026-11-21",
