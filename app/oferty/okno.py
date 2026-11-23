@@ -261,6 +261,18 @@ class Katalog:
         self.uzyty = True
         return [dict(x) for x in self._tpms]
 
+    def produkt(self, kod):
+        """Opona po indeksie xPartner (id), kodzie producenta albo EAN – szybkie polecenie. [] = brak / kopia niedostępna."""
+        k = re.sub(r"[^0-9A-Za-z\-./]", "", kod or "")[:30]
+        if not k or not self.swiezy(self.MAKS_WIEK_WZORCA):
+            return []
+        q = urllib.parse.quote(k, safe="")
+        w = ["dane->>kod.eq." + q, "dane->>ean.eq." + q] + (["id.eq." + k] if k.isdigit() and len(k) <= 9 else [])
+        rows = _db("GET", "/rest/v1/xp_oferta?select=dane&or=(%s)&limit=10" % ",".join(w)) or []
+        if not rows and k.upper() != k:
+            rows = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->>kod=eq.%s&limit=10" % urllib.parse.quote(k.upper(), safe="")) or []
+        return [x["dane"] for x in rows if isinstance(x.get("dane"), dict)]
+
     def cechy(self, pid):
         """Cechy z pliku (EPREL, śnieg, lód) dla oferty otwartej bez wyszukiwania (np. z historii)."""
         rows = _db("GET", "/rest/v1/xp_oferta?select=dane&id=eq.%d" % int(pid)) or []

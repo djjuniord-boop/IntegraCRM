@@ -582,6 +582,32 @@ def brand_of_word(w):
     return ""
 
 
+KOD_RE = re.compile(r"^[0-9A-Za-z][0-9A-Za-z\-./]{2,29}$")
+
+
+def szukaj_kodu(cfg, txt):
+    """Szybkie polecenie z samym indeksem xPartner / kodem producenta / EAN (np. „258797”, „3940900”):
+    rozmiar, marka i sezon tej opony – wyszukiwanie pokaże ją wśród ofert, podświetloną."""
+    t = (txt or "").strip()
+    kat = KONTO.get("katalog")
+    if not KOD_RE.match(t) or not re.search(r"\d", t) or not kat or not hasattr(kat, "produkt"):
+        return {}
+    try:
+        lista = kat.produkt(t)
+    except Exception:
+        return {}
+    for d in lista:
+        p = enrich(cfg, d)
+        roz = norm_size(p["nazwa"])
+        if not roz:
+            continue
+        return {"pojazdy": [{"rej": "", "pojazd": "", "rozmiar": roz, "ilosc": 4, "nowe": True, "wymiana": False,
+                             "typ": "osobowy", "tpms": 0, "przech": ""}],
+                "sezony": [p["sezon"]] if p["sezon"] else [], "producenci": p["producent"], "klasy": [],
+                "szukany": {"id": p["id"], "nazwa": p["nazwa"]}}
+    return {}
+
+
 def parse_quick(txt):
     """Szybkie polecenie, np. '205/55 r16 3 oferty premium średnia budżet zimowe 4 szt'."""
     t = txt.lower()
@@ -1502,7 +1528,10 @@ def handle(path, body=None, open_path=None):
             return 200, {"lista": lista, "q": q, "rodzaje": TP.RODZAJE,
                          "zrodlo": (info() if info else "").replace("w ofercie – na żywo", "w koszyku – na żywo")}
         if route == "/api/quick":
-            return 200, parse_quick(body.get("text", ""))
+            q = parse_quick(body.get("text", ""))
+            if not q["pojazdy"]:
+                q.update(szukaj_kodu(cfg, body.get("text", "")))
+            return 200, q
         if route == "/api/szablon":
             path_s = szablon_xlsx()
             if open_path:
