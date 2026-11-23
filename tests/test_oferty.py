@@ -107,6 +107,18 @@ def test_szybkie_po_indeksie_i_kodzie_producenta():
         S.KONTO["katalog"] = stary
 
 
+def test_homologacja_z_cechy_xpartner():
+    """2026-11-23: Pirelli 258847 „… RG NC0” (cecha NC0_PORSCHE) była bez homologacji – filtr Porsche jej nie pokazywał."""
+    def p(n, h=""):
+        return {"nazwa": n, "attrs": {"Homologacja": h} if h else {}}
+    assert S.homol_of(p("PIRELLI Z285/45 R21 SCORPION WINTER 2 113V XL RG NC0 DOT2026", "NC0_PORSCHE")) == ["N", "FR"]
+    assert S.homol_cecha(p("X", "NC0_PORSCHE")) == ("NC0", ["N"])
+    assert S.homol_of(p("PIRELLI Z285/45 R21 SCORPION WINTER 2 113V XL RG NC0")) == ["N", "FR"]   # bez cechy – z nazwy
+    assert S.homol_cecha(p("X", "MOBMW_MERCEDES/BMW/MINI"))[1] == ["MO", "*"]
+    assert S.homol_cecha(p("X", "MGT_MASERATI"))[1] == ["Maserati"]
+    assert S.homol_of(p("OPONA 205/55 R16 91V")) == []
+
+
 def test_wyszukiwanie_pomija_cene_zero():
     _setup()
     r = S.do_search(S.load_cfg(), {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": [], "klasy": []})
