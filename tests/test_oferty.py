@@ -107,6 +107,17 @@ def test_szybkie_po_indeksie_i_kodzie_producenta():
         S.KONTO["katalog"] = stary
 
 
+def test_run_flat_oznaczony():
+    """2026-11-23: run flat (cecha „Struktura” albo RFT/R/F w nazwie) – znaczek RFT w wynikach i „RUN FLAT” w PDF."""
+    rf = {"nazwa": "PIRELLI Z285/45 R21 SCORPION WINTER 113V XL R/F * RG", "attrs": {"Struktura": "RUN FLAT"}}
+    assert S.is_standard(rf) is False
+    assert S.is_standard({"nazwa": "BRIDGESTONE Z285/45 R21 BLIZZAK LM001 113V XL * RFT RG", "attrs": {}}) is False
+    assert S.is_standard({"nazwa": "PIRELLI Z285/45 R21 SCORPION WINTER 2 113V XL", "attrs": {"Struktura": "STANDARD"}}) is True
+    src = (Path(S.__file__).parent / "index.html").read_text(encoding="utf-8")
+    assert "p.standard===false?' <span class=\"rft\"" in src
+    assert '" · RUN FLAT" if p.get("standard") is False' in Path(S.__file__).read_text(encoding="utf-8")
+
+
 def test_homologacja_z_cechy_xpartner():
     """2026-11-23: Pirelli 258847 „… RG NC0” (cecha NC0_PORSCHE) była bez homologacji – filtr Porsche jej nie pokazywał."""
     def p(n, h=""):
