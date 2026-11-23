@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.19"
+VERSION = "1.1.20"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.20",
+        "date": "2026-11-23",
+        "changes": [
+            "Homologacja opon brana z danych xPartner – np. Pirelli z oznaczeniem NC0 jest teraz widoczna jako Porsche (wcześniej bez homologacji); w kolumnie „Homol.” widać dokładny kod (NC0, MO1, AO…), a filtr zna też inne marki (Maserati, Alfa Romeo, Ferrari…)",
+        ],
+    },
     {
         "version": "1.1.19",
         "date": "2026-11-23",

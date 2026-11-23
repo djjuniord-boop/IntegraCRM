@@ -400,7 +400,7 @@ def enrich(cfg, p):
     nz = re.search(r"(\d{2})", p["attrs"].get("Poziom hałasu", "") or "")
     p.update(mokra=(p["attrs"].get("Przyczepność na mokrej nawierzchni") or "").strip()[:1].upper(),
              opory=(p["attrs"].get("Opory toczenia") or "").strip()[:1].upper(),
-             halas=int(nz.group(1)) if nz else 0, homol=homol_of(p), demo=is_demo(p))
+             halas=int(nz.group(1)) if nz else 0, homol=homol_of(p), homol_kod=homol_cecha(p)[0], demo=is_demo(p))
     mi = re.match(r"(\d{2,3})(?:/\d{2,3})?([A-Z]{1,2}\d?)", p["indeks"] or "")
     p.update(nosnosc=int(mi.group(1)) if mi else 0, predkosc=mi.group(2) if mi else "",
              rant=bool((p["attrs"].get("Rant ochronny") or "").strip()) or bool(re.search(r"\b(FR|MFS|FSL|RPB|MFS)\b", p["nazwa"].upper())))
@@ -408,7 +408,7 @@ def enrich(cfg, p):
     return p
 
 HOMOL = [("MO", r"\bMOE?\b|\bMO1\b|\bMO-S\b", "Mercedes (MO)"), ("AO", r"\bAOE?\b|\bRO[12]\b|\bA8A\b", "Audi (AO/RO)"), ("*", r"\*|\bBMW\b", "BMW (*)"),
-         ("N", r"\bN[0-9]\b", "Porsche (N0–N9)"), ("VOL", r"\bVOL\b", "Volvo (VOL)"), ("T0", r"\bT[0O][0-9]?\b", "Tesla (T0)"),
+         ("N", r"\bN[A-G]?[0-9]\b", "Porsche (N0–N9)"), ("VOL", r"\bVOL\b", "Volvo (VOL)"), ("T0", r"\bT[0O][0-9]?\b", "Tesla (T0)"),
          ("J", r"\bJLR\b|\bJ\b", "Jaguar (J)"), ("LR", r"\bLR\b", "Land Rover (LR)"), ("VW", r"\bVW\b", "VW"), ("FR", r"\b(FR|MFS|FP|RG)\b", "rant ochronny felgi")]
 
 def is_demo(p):
@@ -418,10 +418,32 @@ def is_demo(p):
     return any("demont" in (k + " " + str(v)).lower() and str(v).strip().upper() not in ("", "NIE", "0", "FALSE")
                for k, v in p["attrs"].items())
 
+# cecha „Homologacja” z pliku xPartner: „KOD_MARKA[/MARKA…]”, np. „NC0_PORSCHE”, „MOBMW_MERCEDES/BMW/MINI”
+HOMOL_MARKA = {"MERCEDES": "MO", "AUDI": "AO", "BMW": "*", "MINI": "*", "PORSCHE": "N", "VOLVO": "VOL", "TESLA": "T0",
+               "JAGUAR": "J", "LAND ROVER": "LR", "VOLKSWAGEN": "VW", "SKODA": "VW", "CUPRA": "VW"}
+
+
+def homol_cecha(p):
+    """(kod, [klucze filtra]) z cechy „Homologacja” – pewniejsza niż nazwa (np. „NC0” Porsche nie ma wzorca N0–N9)."""
+    h = (p["attrs"].get("Homologacja") or "").strip().upper()
+    if "_" not in h:
+        return "", []
+    kod, marki = h.split("_", 1)
+    klucze = []
+    for m in (x.strip() for x in marki.split("/")):
+        k = HOMOL_MARKA.get(m) or (m.title() if m else "")
+        if k and k not in klucze:
+            klucze.append(k)
+    return kod.strip(), klucze
+
+
 def homol_of(p):
-    src = " ".join([p["nazwa"].upper(), (p["attrs"].get("Homologacja") or "").upper()])
-    src = SIZE_RE.sub(" ", src)
-    return [k for k, rx, _ in HOMOL if re.search(rx, src)]
+    src = SIZE_RE.sub(" ", p["nazwa"].upper())
+    wynik = [k for k, rx, _ in HOMOL if re.search(rx, src)]
+    for k in homol_cecha(p)[1]:
+        if k not in wynik:
+            wynik.append(k)
+    return wynik
 
 PLATE_RE = re.compile(r"(?<![A-Z0-9])([A-Z]{1,3})[ -]?([0-9][0-9A-Z]{2,5}|[A-Z]{0,2}[0-9][0-9A-Z]{1,4})(?![A-Z0-9])")
 STOP = {"marka", "model", "rejestracja", "rozmiar", "wymaga", "nowych", "opon", "opony", "szt", "sztuk", "tak", "nie", "tylko",
