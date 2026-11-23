@@ -86,6 +86,27 @@ def test_zapytanie_tekstem():
     assert q["sezony"] == ["Zimowa"] and q["klasy"] == ["PREMIUM"] and q["producenci"] == "MICHELIN" and q["runflat"]
 
 
+def test_szybkie_po_indeksie_i_kodzie_producenta():
+    """2026-11-23: „258797” / „3940900” w szybkim poleceniu -> rozmiar, marka i sezon tej opony + podświetlenie."""
+    d = {"id": 258797, "nazwa": "PIRELLI Z245/40 R20 PZERO WINTER 99V XL *MO RG DOT2026", "netto": 900.0, "ilosc": 12,
+         "kod": "3940900", "attrs": {"Producent": "PIRELLI", "Sezon": "ZIMOWA"}}
+
+    class Kat:
+        def produkt(self, k):
+            return [d] if k in ("258797", "3940900") else []
+    stary = S.KONTO.get("katalog")
+    S.KONTO["katalog"] = Kat()
+    try:
+        for t in ("258797", " 3940900 "):
+            st, q = S.handle("/api/quick", {"text": t})
+            assert st == 200 and q["pojazdy"][0]["rozmiar"] == "245/40 R20" and q["szukany"]["id"] == 258797, q
+            assert q["producenci"] == "PIRELLI" and q["sezony"] == ["Zimowa"], q
+        assert S.handle("/api/quick", {"text": "999999"})[1]["pojazdy"] == []
+        assert "szukany" not in S.handle("/api/quick", {"text": "2055516"})[1]   # rozmiar ma pierwszeństwo
+    finally:
+        S.KONTO["katalog"] = stary
+
+
 def test_wyszukiwanie_pomija_cene_zero():
     _setup()
     r = S.do_search(S.load_cfg(), {"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": [], "klasy": []})
