@@ -524,7 +524,7 @@ async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.sho
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
  catch(e){$('#kCzas').textContent='';msg('#kMsg',e.message,1)}kDraw()}
-function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
+function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan||!!d.obciete;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
 function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
 /* Magazyny z dłuższą dostawą. xPartner sam wybiera magazyn wysyłki – przed zamówieniem tylko prognoza. */
 const DALEKIE={'Bydgoszcz':1};
@@ -543,7 +543,7 @@ function kDraw(){if(!KOSZ.length){$('#kL').innerHTML='<p class="muted">Koszyk je
  for(const k of KOSZ){const d=KDANE[k.id]||{};const mag=d.magazyny?Object.entries(d.magazyny).map(([m,v])=>esc(m)+' · '+(v>=50?'50+':v)+' szt.').join(', '):'';
   const rab=d.netto_kat>d.netto?`<div class="muted" style="font-size:11px"><s>${zl(d.netto_kat)}</s> −${((1-d.netto/d.netto_kat)*100).toFixed(2).replace('.',',')}%</div>`:'';
   const x48=d.id?kDal(d.magazyny,k.ilosc):null;
-  h+=`<tr class="${d.id&&!d.ok?'kbad':x48&&x48.pewne?'k48':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}${x48?'<div style="margin-top:3px">'+bdg48(x48)+'</div>':''}</td>
+  h+=`<tr class="${d.id&&!d.ok?'kbad':x48&&x48.pewne?'k48':''}"><td><b>${esc(d.nazwa||k.nazwa)}</b>${d.blad?`<div class="warn" style="font-size:12px">⚠ ${esc(d.blad)}</div>`:''}${!d.blad&&d.obciete&&k.ilosc>d.stan?`<div class="muted" style="font-size:12px;color:#b45309">⏱ xPartner pokazuje „50+” – czy jest ${k.ilosc} szt., potwierdzi dopiero zamówienie. Sprawdź ilość w odpowiedzi xPartner.</div>`:''}</td><td>${k.id}</td><td style="font-size:12px">${d.id?(mag||('stan '+d.stan+' szt.')):'…'}${x48?'<div style="margin-top:3px">'+bdg48(x48)+'</div>':''}</td>
   <td><span class="kq"><button onclick="kIl(${k.id},${k.ilosc-1})">−</button><input value="${k.ilosc}" onchange="kIl(${k.id},this.value)"><button onclick="kIl(${k.id},${k.ilosc+1})">+</button></span></td>
   <td class="num">${d.netto?zl(d.netto)+rab:'–'}</td><td class="num">${d.brutto?zl(d.brutto):'–'}</td><td class="num"><b>${d.netto?zl(d.netto*k.ilosc):'–'}</b></td><td><button class="sec" style="padding:2px 8px" title="Usuń z koszyka" onclick="kUsun(${k.id})">🗑</button></td></tr>`}
  const s=kSumy();$('#kL').innerHTML=kDalBan()+h+'</table>';

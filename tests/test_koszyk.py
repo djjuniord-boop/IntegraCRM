@@ -285,3 +285,13 @@ def test_stan_suma_magazynow_przy_obcieciu_do_50():
            b"<name>X</name><quantity>50</quantity><netDiscountPrice>10</netDiscountPrice><stock><item><warehouseName>A</warehouseName>"
            b"<quantity>50</quantity></item><item><warehouseName>B</warehouseName><quantity>50</quantity></item></stock></product></products></response>")
     assert S.parse_products(xml)[1][0]["ilosc"] == 100
+
+
+def test_50_plus_nie_blokuje_wiekszej_ilosci():
+    """2026-11-23: jeden magazyn „50” = „50+” – 70 szt. nie może być blokowane jako „tylko 50”; 49 to dokładna liczba."""
+    p = {"id": 254805, "nazwa": "WINDFORCE", "ilosc": 50, "netto": 144.9, "attrs": {}, "magazyny": {"Czechowice-Dziedzice": 50}}
+    (x,) = K.odswiez({}, [{"id": 254805, "ilosc": 70}], lambda cfg, pid: dict(p))
+    assert x["ok"] is True and x["blad"] == "" and x["obciete"] is True
+    p["magazyny"] = {"Czechowice-Dziedzice": 49}; p["ilosc"] = 49
+    (x,) = K.odswiez({}, [{"id": 254805, "ilosc": 70}], lambda cfg, pid: dict(p))
+    assert x["ok"] is False and "tylko 49" in x["blad"]
