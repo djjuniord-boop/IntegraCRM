@@ -799,7 +799,7 @@ def build_offer(cfg, req):
             warnings.append("Brak ceny wymiany dla %s R%s (%s) – uzupełnij Ustawienia" % (v.get("rej") or s, dia, TYPY[typ]))
         n_tp = int(v.get("tpms") or 0)
         tp_kw = round(n_tp * float(cfg["tpms_cena"]), 2)
-        tp_op = ("Czujniki TPMS %d szt. × %s" % (n_tp, pl(float(cfg["tpms_cena"])))) if n_tp else ""
+        tp_op = ("Obsługa TPMS przy wymianie: %d kół × %s" % (n_tp, pl(float(cfg["tpms_cena"])))) if n_tp else ""
         pr = v.get("przech") or ""
         pr_kw, pr_op = 0.0, ""
         if pr in ("opony", "kola"):
@@ -856,7 +856,7 @@ def write_xlsx(cfg, req, rows, variants):
     def _bez_formul(row):   # tekst wpisany przez użytkownika albo z xPartner nie może stać się formułą Excela
         return [(" " + v) if isinstance(v, str) and v[:1] in ("=", "+", "-", "@") and not re.match(r"^=[A-Z]+\d+[*+]", v) else v for v in row]
     ws.append = lambda row: _ws_append(_bez_formul(row))
-    hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks xPartner", "Nośność/prędkość", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Czujniki TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
+    hdr = ["Rejestracja", "Pojazd", "Rozmiar", "Rodzaj", "Producent", "Model opony", "Indeks xPartner", "Nośność/prędkość", "Cena brutto / szt.", "Ilość", "Opony razem", "Wymiana kół", "Obsługa TPMS", "Przechowalnia", "RAZEM brutto", "DOT", "Stan (szt.)", "Usługi – opis"]
     kl = (req.get("klient") or "").strip()
     ws.append(["OFERTA – opony i usługi" + (" dla: " + kl if kl else "")])
     ws["A1"].font = Font(b=True, size=14)
@@ -1055,7 +1055,7 @@ def szablon_xlsx():
                  "• Rozmiar w dowolnym zapisie: 205/55 R16, 205/55 16 albo 2055516. To jedyna wymagana kolumna.",
                  "• Ilość opon: 0 = auto tylko na wymianę (bez nowych opon). Puste = 4.",
                  "• Typ auta (osobowy / SUV / dostawczy) oraz Wymiana, Czujniki TPMS, Przechowalnia (TAK / NIE) – wybierz z listy.",
-                 "• Czujniki TPMS = TAK: czujnik do każdej nowej opony (przy samej wymianie – 4). Przechowalnia = TAK: przechowanie opon.",
+                 "• Czujniki TPMS = TAK: koła mają czujniki ciśnienia – dopłata za obsługę czujnika przy wymianie każdej opony (przy samej wymianie – 4 koła). Przechowalnia = TAK: przechowanie opon.",
                  "• Zapisz plik i w programie kliknij „📤 Wczytaj z Excela”."):
         inf.append([line])
     inf.column_dimensions["A"].width = 100
@@ -1302,7 +1302,7 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
                     "q": n, "j": "szt.", "c": c, "po": szt, "r": rw if c > szt else 0})
     n_tp = sum(int(r.get("tpms") or 0) for r in R)
     if n_tp:
-        poz.append({"nazwa": "Czujnik ciśnienia TPMS (z montażem)", "q": n_tp, "j": "szt.", "c": float(cfg["tpms_cena"])})
+        poz.append({"nazwa": "Obsługa czujnika ciśnienia TPMS przy wymianie opony", "q": n_tp, "j": "szt.", "c": float(cfg["tpms_cena"])})
     dep = {}
     for r in R:
         if r.get("przech_kw"):

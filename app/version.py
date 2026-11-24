@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.22"
+VERSION = "1.1.23"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.1.23",
+        "date": "2026-11-24",
+        "changes": [
+            "Oferta PDF: pozycja „Czujnik ciśnienia TPMS (z montażem)” nazywa się teraz „Obsługa czujnika ciśnienia TPMS przy wymianie opony” – to dopłata za wymianę opony na feldze z czujnikiem, nie sprzedaż czujnika",
+            "W programie i w Excelu z ofertą: „Koła z TPMS” (ile kół ma czujniki) i „Obsługa TPMS”; w Ustawieniach „Obsługa czujnika TPMS przy wymianie – za 1 koło”",
+        ],
+    },
     {
         "version": "1.1.22",
         "date": "2026-11-24",

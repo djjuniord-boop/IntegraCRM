@@ -278,7 +278,7 @@ def test_pdf_oferty_pozycje_rabat_i_oddzial():
     h = r["html"]
     assert "LATEX SERWIS OPOLE" in h and "77 474 80 89" in h and "WROCŁAW" not in h
     assert "Jan &lt;b&gt;Kowalski&lt;/b&gt;" in h and "<b>Kowalski" not in h          # tekst klienta nie staje się HTML
-    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Czujnik ciśnienia TPMS", "Depozyt", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
+    for txt in ("Opona BRIDGESTONE", "Wymiana opon", "Obsługa czujnika ciśnienia TPMS przy wymianie opony", "Depozyt", "DO ZAPŁATY BRUTTO", "OF/2026/11/05-1200"):
         assert txt in h, txt
     # rabat w wierszu: cena przed, −10%, cena po rabacie, wartość po rabacie; przekreślona cena w ramce; oszczędność
     assert "Cena po rabacie" in h and '<b class="rb">−10%</b>' in h and "<s>445,00 zł</s>" in h and "W tym oszczędzasz" in h
