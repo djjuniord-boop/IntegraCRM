@@ -127,9 +127,6 @@ class FakeSession(cloud.Session):
                 {"email": "opole@example.com", "name": "Jan", "role": "user", "modules": ["crm"],
                  "branches": ["Latex Opole"], "active": False}]
 
-    def list_files(self, bucket, prefix):
-        return []
-
     def min_version(self):
         return ""
 

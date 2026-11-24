@@ -181,22 +181,6 @@ class Session:
             except (urllib.error.URLError, TimeoutError, OSError):
                 raise CloudError("Brak połączenia z serwerem – plik nie trafił do chmury.") from None
 
-    def list_files(self, bucket: str, prefix: str) -> list:
-        return self.call("POST", f"/storage/v1/object/list/{bucket}",
-                         {"prefix": prefix, "limit": 1000, "sortBy": {"column": "name", "order": "desc"}}) or []
-
-    def download(self, bucket: str, path: str) -> bytes:
-        from urllib.parse import quote
-        req = urllib.request.Request(f"{URL}/storage/v1/object/authenticated/{bucket}/{quote(path)}",
-                                     headers={"apikey": ANON_KEY, "Authorization": f"Bearer {self.access}"})
-        try:
-            with urllib.request.urlopen(req, timeout=120) as r:
-                return r.read()
-        except urllib.error.HTTPError as e:
-            raise CloudError(f"Nie udało się pobrać pliku: HTTP {e.code}") from None
-        except (urllib.error.URLError, TimeoutError, OSError):
-            raise CloudError("Brak połączenia z serwerem.") from None
-
     # --- administrator ---
     def list_users(self) -> list:
         users = self.call("GET", "/rest/v1/app_users?select=*&order=email") or []

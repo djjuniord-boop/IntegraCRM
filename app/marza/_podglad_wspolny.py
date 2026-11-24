@@ -206,8 +206,6 @@ def generate(src_path, out_path, only_year=None, default_label=None):
     LABELS = f"{DATA}!$A$2:$A${last_row}"
     TARGETS = f"{DATA}!$B$2:$B${last_row}"
     CURRENTS = f"{DATA}!$C$2:$C${last_row}"
-    ALLDAYS = f"{DATA}!$D$2:$D${last_row}"
-    REMDAYS = f"{DATA}!$E$2:$E${last_row}"
 
     # --- Arkusz "Kalendarz (ukryte)": dni sprzedazowe liczone NA ZYWO ---
     # Bez tego "dni pozostale" byly zamrazane w chwili generowania pliku:
@@ -265,7 +263,6 @@ def generate(src_path, out_path, only_year=None, default_label=None):
     ws = wb.create_sheet("Wynik")
     wb.active = wb.sheetnames.index("Wynik")
     ws.sheet_view.showGridLines = False
-    FIRST_COL_IDX = 2   # B
     LAST_COL_IDX = 7    # G
     LAST_COL = "G"
     ws.column_dimensions["A"].width = 2.5

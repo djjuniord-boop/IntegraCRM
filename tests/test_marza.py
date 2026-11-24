@@ -376,7 +376,8 @@ def test_rozpoznawanie_nowych_tekstow_silnika():
 
 
 def test_kwoty_i_odmiana():
-    from marza.rozdziel import kwota, odmiana, _na_liczbe
+    from marza.rozdziel import kwota, _na_liczbe
+    from ui import odmiana
     from marza import silnik_wroclaw as sw, silnik_opole as so
     assert kwota(154186.54) == "154 186,54 zł" and kwota(0) == "0,00 zł" and kwota(None) == "—"
     assert kwota(34186.04, znak=True) == "+34 186,04 zł" and kwota(-1234.5, znak=True) == "-1 234,50 zł" == sw._zl(-1234.5, znak=True)

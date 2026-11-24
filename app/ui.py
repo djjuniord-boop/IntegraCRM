@@ -232,7 +232,7 @@ class WheelProgress(tk.Canvas):
         self._draw()
 
     @property
-    def running(self):
+    def running(self):   # czy koło się kręci (używane w testach)
         return self._job is not None
 
     # ---------- wewnętrzne ----------

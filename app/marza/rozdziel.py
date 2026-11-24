@@ -149,15 +149,6 @@ def kwota(v, znak=False):
     return t.replace(",", " ").replace(".", ",") + " zł"   # minus: zwykły „-” (tak samo jak _zl w silnikach)
 
 
-def odmiana(n, jeden, kilka, wiele):
-    n = abs(int(n))
-    if n == 1:
-        return jeden
-    if n % 10 in (2, 3, 4) and n % 100 not in (12, 13, 14):
-        return kilka
-    return wiele
-
-
 def _na_liczbe(t):
     """„154 186,54” / „154186.54” → 154186.54; „None”, „—” → None."""
     t = (t or "").replace("zł", "").replace("\xa0", "").replace(" ", "").replace("−", "-").strip()
