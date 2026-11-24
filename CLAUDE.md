@@ -58,6 +58,10 @@ Metody mixinów korzystają z pól okna (`self.session`, `self.fonts`, `self.pag
 
 ## Jak pracujemy (kontroler + agenci)
 
+> **Przed każdą zmianą przeczytaj [`DECYZJE.md`](DECYZJE.md)** (stałe ustalenia właściciela). **Wydanie wyłącznie
+> skryptem `tools/wydaj.sh`** – sam uruchamia testy, przerywa przy pierwszym błędzie i mówi „wydane” dopiero po
+> budowie tej zmiany na Windows. `tools/wydaj.sh --tylko-testy` – same testy.
+
 Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy każdej zmianie:
 
 1. **Ustal moduł** z mapy wyżej. Czytaj tylko `CLAUDE.md` + README tego modułu + jego pliki.
@@ -73,8 +77,8 @@ Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy k
 4. **Recenzent** (`.claude/agents/recenzent.md`) – przed każdym wydaniem. Nie widział, jak powstawała zmiana:
    uruchamia program jak nowy użytkownik (zrzuty wszystkich zakładek i okien), przegląda kod i bazę,
    zgłasza problemy. Kontroler poprawia, recenzent sprawdza poprawki.
-5. **Wydanie**: podnieś `VERSION`, dopisz `CHANGELOG` (po polsku, z punktu widzenia użytkownika), commit na `beta`,
-   push → GitHub Actions buduje paczkę, testuje na Windows, wydaje na kanał beta i publikuje stronę SERWIS QR.
+5. **Wydanie**: podnieś `VERSION`, dopisz `CHANGELOG` (po polsku, z punktu widzenia użytkownika), commit na gałęzi
+   `praca/…`, potem `tools/wydaj.sh` → GitHub Actions buduje paczkę, testuje na Windows, wydaje na kanał beta i publikuje stronę SERWIS QR.
    Sprawdź wynik (`gh run list -R djjuniord-boop/IntegraCRM -L 1`).
 6. **Audyt końcowy**: doradcy Supabase (bezpieczeństwo, wydajność), stan bazy, porównanie zrzutów przed/po,
    krótkie podsumowanie dla właściciela: co działa, co sprawdzić u siebie, co zostało.
