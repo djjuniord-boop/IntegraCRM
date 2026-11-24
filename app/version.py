@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.23"
+VERSION = "1.1.24"
 RELEASED = "2026-11-17"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -12,11 +12,18 @@ STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz3
 
 CHANGELOG = [
     {
+        "version": "1.1.24",
+        "date": "2026-11-24",
+        "changes": [
+            "Historia ofert: usunięty przycisk „XLSX” przy starych ofertach – program nie tworzy arkuszy Excel z ofertą",
+        ],
+    },
+    {
         "version": "1.1.23",
         "date": "2026-11-24",
         "changes": [
             "Oferta PDF: pozycja „Czujnik ciśnienia TPMS (z montażem)” nazywa się teraz „Obsługa czujnika ciśnienia TPMS przy wymianie opony” – to dopłata za wymianę opony na feldze z czujnikiem, nie sprzedaż czujnika",
-            "W programie i w Excelu z ofertą: „Koła z TPMS” (ile kół ma czujniki) i „Obsługa TPMS”; w Ustawieniach „Obsługa czujnika TPMS przy wymianie – za 1 koło”",
+            "W programie: „Koła z TPMS” (ile kół ma czujniki) i „Obsługa TPMS”; w Ustawieniach „Obsługa czujnika TPMS przy wymianie – za 1 koło”",
         ],
     },
     {
