@@ -14,12 +14,13 @@ stop() { echo; echo "❌ STOP: $*"; exit 1; }
 krok() { echo; echo "── $*"; }
 
 GAL=$(git rev-parse --abbrev-ref HEAD)
-[[ $GAL == praca/* ]] || stop "wydanie tylko z gałęzi praca/… (jesteś na $GAL)"
-[[ -z $(git status --porcelain) ]] || stop "niezatwierdzone zmiany – najpierw commit"
-
-krok "Świeży stan (git fetch + rebase na origin/beta)"
-git fetch -q origin 2>/dev/null || git fetch -q origin
-git rebase -q origin/beta || stop "konflikt przy rebase – rozwiąż ręcznie"
+if [[ ${1:-} != --tylko-testy ]]; then
+  [[ $GAL == praca/* ]] || stop "wydanie tylko z gałęzi praca/… (jesteś na $GAL)"
+  [[ -z $(git status --porcelain) ]] || stop "niezatwierdzone zmiany – najpierw commit"
+  krok "Świeży stan (git fetch + rebase na origin/beta)"
+  git fetch -q origin 2>/dev/null || git fetch -q origin
+  git rebase -q origin/beta || stop "konflikt przy rebase – rozwiąż ręcznie"
+fi
 
 ver() { grep -m1 '^VERSION' "$1" | sed -E 's/.*"([^"]+)".*/\1/'; }
 V=$(ver app/version.py)
@@ -43,7 +44,7 @@ krok "Importy"
 $PY tests/check_imports.py || stop "brakujące importy"
 
 krok "Testy modułów"
-xvfb-run -a $PY tests/run_tests.py > /tmp/wydaj_testy.log 2>&1 || { grep -A12 "BŁĄD" /tmp/wydaj_testy.log | head -60; tail -1 /tmp/wydaj_testy.log; stop "testy modułów"; }
+xvfb-run -a $PY tests/run_tests.py > /tmp/wydaj_testy.log 2>&1 || { grep -A10 "BŁĄD" /tmp/wydaj_testy.log | grep -v "^  OK" | head -60; tail -1 /tmp/wydaj_testy.log; stop "testy modułów"; }
 tail -1 /tmp/wydaj_testy.log
 
 krok "Panel OFERT (JavaScript)"

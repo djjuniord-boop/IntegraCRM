@@ -249,7 +249,6 @@ const zl=x=>x.toLocaleString('pl-PL',{minimumFractionDigits:2,maximumFractionDig
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 async function api(p,b){for(let i=0;i<100&&!(window.pywebview&&window.pywebview.api&&window.pywebview.api.call);i++)await new Promise(r=>setTimeout(r,100));
  const r=await window.pywebview.api.call(p,b===undefined?null:b);if(!r||r.code>=400)throw new Error((r&&r.body&&r.body.error)||'Błąd programu');return r.body}
-function openUrl(u){if(window.pywebview&&window.pywebview.api)window.pywebview.api.open_url(u);return false}
 function msg(el,t,e){$(el).innerHTML=t?`<div class="msg ${e?'e':'i'}">${esc(t)}</div>`:''}
 async function quick(){const b=$('#bQ');b.disabled=true;try{const j=await api('/api/quick',{text:$('#quick').value});
  if(!j.pojazdy.length)throw new Error('Nie rozpoznałem rozmiaru, marki, sezonu ani indeksu / kodu producenta – wpisz np. 205/55 R16, 20555, R20 albo „zima pirelli”.');
@@ -457,7 +456,7 @@ async function offer(quiet){const b=$('#bO');b.disabled=true;OPDF='';if($('#waIn
  const WR=wzRozwin(),wybor={};WR.sel.forEach(k=>{const[s,z,id]=k.split('|');((wybor[s]??={})[z]??=[]).push(+id)});
  if(!OID)OID=newOid();if(OSOBNO===null){const V=WR.poj.filter(v=>v.nowe);OSOBNO=V.length>1&&!V.some(v=>v.rej||v.pojazd)}const j=await api('/api/offer',{oddzial:OODD,osobno:OSOBNO,oid:OID,owner:HOWNER,sel:WR.sel,klient:$('#klient').value,pojazdy:WR.poj,wybor,marza:'',rabat:ORABAT,ceny:CENY,rabat_wym:ORABW,ceny_wym:CENYW,porownaj:HSNAP||undefined});ULS=j.ulotki;
  $('#zmBox').innerHTML=(j.zmiany&&j.zmiany.length)?`<div class="msg w"><b>⚠ Od zapisania tej oferty (${esc(HDATA)}) zmieniło się w xPartner:</b><ul style="margin:6px 0 0 18px;padding:0">${j.zmiany.map(z=>`<li>${esc(z.nazwa)}: <b style="color:${z.w_gore?'var(--red)':'#1b7a33'}">${esc(z.co)}</b></li>`).join('')}</ul><div style="font-size:12px;margin-top:4px">Oferta poniżej ma już aktualne ceny i stany – sprawdź przed wysłaniem klientowi.</div></div>`:'';
- msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+(j.plik?'Zapisano: '+j.plik:'Oferta zapisana w historii.'),j.uwagi.length>0);
+ msg('#oMsg',(j.uwagi.length?'⚠ '+j.uwagi.join('\n⚠ ')+'\n':'')+'Oferta zapisana w historii.',j.uwagi.length>0);
  $('#sum').innerHTML='<div class="vcards">'+j.warianty.map(v=>`<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(', '))}</div><div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana?`<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>`:''}${v.tpms?`<div class="l"><span>Obsługa TPMS</span><span>${zl(v.tpms)}</span></div>`:''}${v.przech?`<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>`:''}<div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join('')+'</div>';
  ULS=j.ulotki;WYMS=j.wymiany||[];drawUl();drawKz();
  drawEdit();uwPoOfercie();const first=$('#outCard').style.display==='none';$('#outCard').style.display='';if(!quiet||first)$('#outCard').scrollIntoView({behavior:'smooth'})

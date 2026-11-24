@@ -148,7 +148,7 @@ def test_oferta_ceny_wymiana_uslugi_historia():
     w = res["warianty"][0]
     # 344,10 × 1,05 × 1,23 = 444,41 → 445 zł; rabat 10% → 400,50 → 401 zł; 2 szt.; wymiana 2 × 44; TPMS 4 × 150; przechowalnia 120
     assert (w["opony"], w["wymiana"], w["tpms"], w["przech"]) == (802.0, 88.0, 600.0, 120.0)
-    assert res["plik"] == "" and "email" not in res          # bez arkusza Excel (decyzja właściciela 2026-11-09)
+    assert "plik" not in res and "email" not in res         # bez arkusza Excel (decyzja właściciela 2026-11-09)
     assert S.HIST.get("20261105_120000")["klient"] == "Test"
     code, lst = S.handle("/api/history?q=")
     assert code == 200 and lst["lista"][0]["klient"] == "Test" and lst["lista"][0]["kto"] == "Jan"
