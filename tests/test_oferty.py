@@ -539,9 +539,32 @@ def test_marza_wspolna_wroclaw_ustala_admin():
         assert not zapis and S.load_cfg()["marza_proc"] == 12.0 and S.load_cfg()["waznosc_dni"] == 9
         S.KONTO["admin"] = True
         S.handle("/api/cfg", {"marza_proc": 15})
-        assert zapis == [("Latex Wrocław", {"marza_proc": 15})]
+        assert zapis == [("Latex Wrocław", {"marza_proc": 15, "narzut_tryb": "procent", "progi": []})]
         S.KONTO.update(oddzialy_konta=["Latex Opole"], admin=False)
         assert S.load_cfg()["marza_proc"] == 30.0 and S.handle("/api/cfg")[1]["ceny_edycja"] is True
+    finally:
+        S.KONTO.clear(); S.KONTO.update(stare)
+
+
+def test_ceny_uslug_wroclaw_ustala_admin():
+    """2026-11-24: wymiana, TPMS i przechowalnia we Wrocławiu – wspólne, zmienia tylko administrator."""
+    stare = dict(S.KONTO)
+    zapis = []
+    try:
+        S.KONTO.update(oddzialy_konta=["Latex Wrocław"], admin=False,
+                       ustawienia={"tpms_cena": 999, "wymiana_kolo": {"16": 1}, "przech_kola_do19": 1},
+                       ceny_oddz={"Latex Wrocław": {"marza_proc": 12.0, "tpms_cena": 5, "wymiana_kolo": {"16": 55},
+                                                    "przech_kola_do19": 260}},
+                       zapisz=lambda d: None, zapisz_ceny=lambda o, d: zapis.append((o, d)))
+        c = S.load_cfg()
+        assert c["tpms_cena"] == 5 and c["wymiana_kolo"] == {"16": 55} and c["przech_kola_do19"] == 260
+        S.handle("/api/cfg", {"tpms_cena": 1, "wymiana_kolo": {"16": 2}})   # pracownik – bez skutku
+        assert not zapis and S.load_cfg()["tpms_cena"] == 5
+        S.KONTO["admin"] = True
+        S.handle("/api/cfg", {"tpms_cena": 7})
+        assert zapis[-1][1]["tpms_cena"] == 7 and zapis[-1][1]["marza_proc"] == 12.0 and zapis[-1][1]["wymiana_kolo"] == {"16": 55}
+        S.KONTO.update(oddzialy_konta=["Latex Opole"], admin=False)
+        assert S.load_cfg()["tpms_cena"] == 999   # inne oddziały – jak dotąd, ustawienia osobiste
     finally:
         S.KONTO.clear(); S.KONTO.update(stare)
 
