@@ -184,8 +184,6 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
         self.hist_index = None
         self._build()
         self.dnd_ok = dnd.enable(self, self.on_drop) if dnd else False
-        self.bind("<Control-v>", self._on_ctrl_v)
-        self.bind("<Control-V>", self._on_ctrl_v)
         shot = os.environ.get("INTEGRA_SHOT")   # tryb zrzutów ekranu (kontrola wyglądu w GitHub Actions)
         if shot:
             self.after(2500, self._screenshots, shot)
@@ -748,7 +746,7 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
                 pass
 
     def on_drop(self, files):
-        """Upuszczone pliki: PDF → krok 1, obraz → krok 2 (na zakładce MARŻA – raporty marży)."""
+        """Upuszczone pliki: PDF z Integry i raport .xlsx z CRM → KONTROLA (na zakładce MARŻA – raporty marży)."""
         if getattr(self, "current_tab", "") == "marza":
             self.marza_add(files)
             return

@@ -330,10 +330,6 @@ class KontrolaMixin:
                 self._wheel(u).pack(anchor="w", pady=2)
                 u.bind("<Button-1>", lambda e, w=u, v=a: (self.copy_text(v), w.config(bg=OK_BG, fg=OK)))
 
-    def _on_ctrl_v(self, event):
-        # Ctrl+V działa zwyczajnie (wkleja tekst w polach maila) – wycinków ekranu już nie wklejamy
-        return None
-
     # ---------- pliki / schowek ----------
     def pick_pdf(self):
         p = filedialog.askopenfilename(filetypes=[("PDF", "*.pdf")])
@@ -459,7 +455,7 @@ class KontrolaMixin:
         except Exception as e:
             messagebox.showerror("Raport z CRM", f"Nie udało się wczytać raportu:\n{opis_bledu(e)}")
             return
-        self.crm_rows, self.crm_file, self.crm_img = rows, os.path.basename(p), None
+        self.crm_rows, self.crm_file = rows, os.path.basename(p)
         self._build_branches(crm_report.branches(rows))
         self._show_report()
         self._kontrola_pliki_zmienione()
@@ -477,12 +473,6 @@ class KontrolaMixin:
         det = ",  ".join(f"{b}: {c}" for b, c in counts.items())
         self.preview.config(image="", text=f"✔  {self.crm_file}   ({rng})\n{det}\nDo sprawdzenia: {n} {odmiana(n, 'numer', 'numery', 'numerów')}",
                             fg=OK if n else WARN, bg=OK_BG if n else WARN_BG)
-
-    def set_image(self, img=None):
-        """Wywoływane przez okno po upuszczeniu obrazu – wycinki ekranu nie są już obsługiwane."""
-        messagebox.showinfo("Raport z CRM", "Zrzuty i wycinki ekranu z CRM nie są już obsługiwane.\n\n"
-                            "W CRM otwórz „Listy kontrolne”, pobierz raport do Excela (.xlsx) "
-                            "i przeciągnij go tutaj albo kliknij „Raport z CRM (.xlsx)…”.")
 
     def check(self):
         if not self.pdf_path.get():

@@ -1,7 +1,7 @@
 # Moduł KONTROLA CRM (+ HISTORIA)
 
 **Co robi:** porównuje zakończone zlecenia z raportu Integry 7 (PDF) z raportem z CRM (`.xlsx/.csv` z „Listy
-kontrolne”) po numerach rejestracyjnych, pokazuje braki i przygotowuje mail do handlowców. Każde sprawdzenie trafia do HISTORII. Od 0.21.0 **bez wycinka ekranu (OCR)** – upuszczony obraz → komunikat „pobierz .xlsx”.
+kontrolne”) po numerach rejestracyjnych, pokazuje braki i przygotowuje mail do handlowców. Każde sprawdzenie trafia do HISTORII. Od 0.21.0 **bez wycinka ekranu (OCR)** – upuszczony obraz → komunikat „pobierz .xlsx” (w `gui.on_drop`).
 OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `crm` + oddziały.
 
 ## Pliki
@@ -12,7 +12,7 @@ OCR (Tesseract) zostaje tylko dla skanów PDF z Integry. Uprawnienie: moduł `cr
 | `postep.py` | koło postępu „SPRAWDŹ”: linia ze „Szczegółów” → procent (`postep`), znak po wyniku (`rodzaj_wyniku`); bez okna |
 | `historia_zakladka.py` | `HistoriaMixin` – zakładka HISTORIA (z bazy, w tle) i eksport do Excela |
 | `analyze.py` | cała analiza: PDF → numery, raport CRM → numery, porównanie dokładne, ostrzeżenia (zły oddział/okres), `daily_stats` |
-| `plates.py` | wzorce numerów (Integra, w tym `extract_integra_visits` – wiersze z datą), normalizacja; funkcje OCR (`ocr_equal`, `compare`) zostały, ale analiza ich już nie używa |
+| `plates.py` | wzorce numerów (Integra, w tym `extract_integra_visits` – wiersze z datą), normalizacja (funkcje porównania „rozmytego” pod OCR wycinków usunięte 2026-11-24) |
 | `crm_report.py` | odczyt raportu CRM `.xlsx/.csv` (kolumny Data, Rejestracja, Oddział), wybór oddziałów |
 | `extract.py` | tekst z PDF (pdfplumber, skan → Tesseract); funkcje OCR obrazu usunięte w 0.26.1 |
 | `mailer.py` | treść maila, wysyłka przez serwer (`send_server`; dawna wysyłka Gmailem z komputera usunięta w 0.26.1) |
