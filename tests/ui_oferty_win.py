@@ -55,10 +55,10 @@ try:
     wyniki.append(zrzut(p, "oferty_zamowienia.png"))
 
     hist = [{"id": 1, "kto": "Jan Test", "owner": "jan@test.pl", "oid": "20261106_100000", "data": "06.11.2026 10:00", "klient": "Firma Test",
-             "pojazdy": "Octavia DW1", "warianty": [{"wariant": "P1", "modele": "Nokian Snowproof 1", "razem": 1668}], "razem": 1668, "plik_ok": False,
+             "pojazdy": "Octavia DW1", "warianty": [{"wariant": "P1", "modele": "Nokian Snowproof 1", "razem": 1668}], "razem": 1668,
              "status": "wyslana", "status_at": "2026-11-05T10:00:00Z", "uwagi": "Dla p. Kowalskiego, odbiór w czwartek", "oddzwon": True},
             {"id": 2, "kto": "Jan Test", "owner": "jan@test.pl", "oid": "20261107_100000", "data": "07.11.2026 10:00", "klient": "Klient B",
-             "pojazdy": "Golf", "warianty": [{"wariant": "P1", "modele": "Barum Polaris 6", "razem": 900}], "razem": 900, "plik_ok": False,
+             "pojazdy": "Golf", "warianty": [{"wariant": "P1", "modele": "Barum Polaris 6", "razem": 900}], "razem": 900,
              "status": "przyjeta", "status_at": "2026-11-07T10:00:00Z", "oddzwon": False}]
     p = panel_z("window.pywebview={api:{call:async(p)=>({code:200,body:p.startsWith('/api/history')?{lista:%s,admin:false,me:'jan@test.pl'}:{}})}};"
                 "setTimeout(openHist,300);" % json.dumps(hist), "hist")

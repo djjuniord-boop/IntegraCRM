@@ -1,4 +1,4 @@
-"""OFERTY OPON – silnik: wyszukiwanie opon w xPartner (XML API, productsList), oferta (XLSX, e-mail, ulotki).
+"""OFERTY OPON – silnik: wyszukiwanie opon w xPartner (XML API, productsList), oferta (PDF + historia w bazie).
 
 Bez okna i bez bazy: dane konta (login API, ustawienia) i historię dostarcza okno.py przez KONTO i HIST.
 Tylko biblioteka standardowa + openpyxl (dołączone do IntegraCRM.exe).
@@ -343,11 +343,6 @@ KL_ORDER = {"premium": 0, "średnia": 1, "budżetowa": 2}
 def vkey(k):
     parts = k[0].split(" · ")
     return (SEZ_ORDER.get(parts[0], 9), KL_ORDER.get(parts[1] if len(parts) > 1 else "", 9), k[1])
-
-def leaflet_url(pid, price):
-    """Ulotka PDF generowana przez xPartner (wymaga zalogowania w przeglądarce)."""
-    q = {"a": "b2b_products", "m": "getPDF", "pid": pid, "fp": 0, "fn": 0, "fb": 0, "fs": 0, "showc": 0, "price": "%.2f" % price}
-    return "https://xpartner.net.pl/index.php?" + urllib.parse.urlencode(q)
 
 def vlabel(variants, key):
     if key[0] == "wszystkie": return "Propozycja %d" % (key[1] + 1)
@@ -852,12 +847,6 @@ def safe_oid(o):
     o = re.sub(r"[^0-9_]", "", str(o or ""))
     return o or datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-def load_hist(oid):
-    try:
-        return HIST.get(safe_oid(oid)) if HIST else None
-    except Exception:
-        return None
-
 def snap_ofert(rows):
     """Ceny i stany wybranych opon w chwili zapisu – do porównania przy ponownym otwarciu z historii."""
     out, byly = [], set()
@@ -892,7 +881,7 @@ def zmiany_ofert(snap, rows):
     return out
 
 
-def save_hist(req, summ, path, rows=None):
+def save_hist(req, summ, rows=None):
     if not HIST:
         return
     oid = safe_oid(req.get("oid"))
@@ -900,7 +889,7 @@ def save_hist(req, summ, path, rows=None):
            "rabat_wym": req.get("rabat_wym"), "ceny_wym": req.get("ceny_wym") or {},
            "oid": oid, "data": datetime.datetime.now().strftime("%d.%m.%Y %H:%M"), "klient": req.get("klient", ""),
            "pojazdy": req.get("pojazdy", []), "wybor": req.get("wybor", {}), "sel": req.get("sel", []),
-           "warianty": summ, "plik": path, "oddzial": req.get("oddzial") or "", "snap": snap_ofert(rows or [])}
+           "warianty": summ, "oddzial": req.get("oddzial") or "", "snap": snap_ofert(rows or [])}
     hay = (rec["klient"] + " " + " ".join(v.get("rej", "") + " " + v.get("pojazd", "") + " " + v.get("rozmiar", "") for v in rec["pojazdy"])
            + " " + " ".join(m for w in summ for m in w.get("modele", []))).lower()
     HIST.save(oid, rec["klient"], rec, hay, owner=str(req.get("owner") or "").lower())   # oferta kolegi z oddziału – ten sam wpis
@@ -920,7 +909,6 @@ def list_hist(q=""):
                     "pojazdy": ", ".join(" ".join(x for x in (v.get("rej"), v.get("pojazd")) if x) or v.get("rozmiar", "") for v in r.get("pojazdy", [])),
                     "warianty": [{"wariant": w["wariant"], "modele": ", ".join(w["modele"]), "razem": w["razem"]} for w in r.get("warianty", [])],
                     "razem": max([w.get("razem", 0) for w in r.get("warianty", [])] or [0]),
-                    "plik_ok": os.path.exists(r.get("plik") or ""),
                     "status": row.get("status") or "nowa", "status_at": row.get("status_at") or "",
                     "oddzwon": do_oddzwonienia(row.get("status"), row.get("status_at")),
                     "uwagi": row.get("uwagi") or "", "uwagi_at": row.get("uwagi_at") or "", "uwagi_kto": row.get("uwagi_kto") or ""})
@@ -1069,10 +1057,6 @@ class Odpowiedz(Exception):
     def __init__(self, code, body):
         super().__init__(str(body))
         self.code, self.body = code, body
-
-
-def _in_out_dir(p):
-    return bool(p) and os.path.dirname(os.path.abspath(p)) == os.path.abspath(OUT_DIR)
 
 
 # ------------------------------------------------------------ PDF oferty (jeden model opony)
@@ -1408,13 +1392,6 @@ def handle(path, body=None, open_path=None):
                     return (200, r) if r else (404, {"error": "Brak oferty"})
                 return 200, {"lista": list_hist(qs.get("q", [""])[0]), "admin": bool(getattr(HIST, "admin", False)),
                              "me": (getattr(HIST, "me", "") or "").lower()}
-            if route == "/api/openfile":
-                r = (HIST.get_id((qs.get("id") or [""])[0]) if HIST else None) or {}
-                p = r.get("plik") or ""
-                if _in_out_dir(p) and os.path.exists(p) and open_path:
-                    open_path(p)
-                    return 200, {"ok": True}
-                return 404, {"error": "Plik nie istnieje na tym komputerze"}
             if route == "/api/open":
                 os.makedirs(OUT_DIR, exist_ok=True)
                 if open_path:
@@ -1515,7 +1492,6 @@ def handle(path, body=None, open_path=None):
             OSTATNIA.clear(); OSTATNIA.update(req=body, rows=rows)
             if not rows:
                 return 400, {"error": "Brak wybranych opon."}
-            path_x = ""   # arkusz Excel z ofertą – wyłączony (decyzja właściciela 2026-11-09); oferta = PDF + historia w bazie
             summ = [{"wariant": vlabel(variants, (s, k)), "modele": v["modele"], "opony": round(v["opony"], 2),
                      "wymiana": round(v["wymiana"], 2), "tpms": round(v["tpms_kw"], 2), "przech": round(v["przech_kw"], 2),
                      "razem": round(total(v), 2)} for (s, k), v in sorted(variants.items(), key=lambda kv: vkey(kv[0]))]
@@ -1529,10 +1505,10 @@ def handle(path, body=None, open_path=None):
                 if p and p["id"] not in seen:
                     seen.add(p["id"])
                     ul.append({"id": p["id"], "nazwa": p["nazwa"], "cena": p["cena_brutto"], "auto": p["cena_auto"],
-                               "recznie": p["recznie"], "zakup": p["brutto_zak"], "url": leaflet_url(p["id"], p["cena_brutto"]),
+                               "recznie": p["recznie"], "zakup": p["brutto_zak"],
                                "szt": sum(szt.get(p["id"], {}).values())})
             try:
-                save_hist(body, summ, path_x, rows)
+                save_hist(body, summ, rows)
             except Exception as e:
                 warns.append("Nie zapisano oferty w historii: %s" % e)
             wc = {}
@@ -1542,7 +1518,7 @@ def handle(path, body=None, open_path=None):
                     wc[r["wym_klucz"]] = {"klucz": r["wym_klucz"], "opis": "Wymiana %s%s" % (d, "" if t == "osobowy" else " " + TYPY.get(t, t)),
                                           "cennik": r["wym_cennik"], "auto": r["wym_auto"], "cena": r["wym_szt"], "recznie": r["wym_recznie"]}
             return 200, {"ulotki": ul, "wymiany": list(wc.values()), "zmiany": zmiany_ofert(body.get("porownaj"), rows) if body.get("porownaj") else [],
-                         "plik": path_x, "oddzialy": KONTO.get("oddzialy") or [], "warianty": summ, "uwagi": warns}
+                         "oddzialy": KONTO.get("oddzialy") or [], "warianty": summ, "uwagi": warns}
     except ApiError as e:
         return 502, {"error": str(e)}
     except Exception as e:

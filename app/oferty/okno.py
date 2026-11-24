@@ -465,13 +465,6 @@ class Api:
         code, res = silnik.handle(path, body, open_path=_open_path)
         return {"code": code, "body": res}
 
-    def open_url(self, url):
-        u = str(url or "")
-        if not u.startswith("https://xpartner.net.pl/"):
-            return False
-        _open_path(u)
-        return True
-
 
 def whatsapp_pdf(plik):
     """Kopiuje PDF oferty do schowka Windows (jak „Kopiuj” w Eksploratorze) i otwiera aplikację WhatsApp.
