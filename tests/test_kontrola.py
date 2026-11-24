@@ -8,9 +8,7 @@ from _wspolne import temp_data
 def test_numery_normalizacja_i_ocr():
     from kontrola import plates
     assert plates.normalize("dw 123-45") == "DW12345"
-    assert plates.ocr_equal("WE9LF81", "WESLF81")          # 9↔S – ten sam numer z wycinka
-    assert not plates.ocr_equal("WE9LF81", "WE9LF82")      # 1↔2 to nie pomyłka OCR
-    assert plates.extract_crm_plates("8.10.2026, 15:20  KT2277E  Latex Wrocław") == ["KT2277E"]
+    assert not hasattr(plates, "ocr_equal") and not hasattr(plates, "compare")   # porównanie z CRM tylko dokładne (.xlsx)
 
 
 def test_integra_wzorzec_wiersza():
