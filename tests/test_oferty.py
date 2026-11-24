@@ -204,9 +204,7 @@ def test_demo_i_indeks_xpartner():
     req = {"oid": "1", "pojazdy": [{"rozmiar": "235/55 R18", "ilosc": 4, "nowe": True}], "wybor": {"235/55 R18": {"wszystkie": [5]}}}
     code, res = S.handle("/api/offer", req)
     assert code == 200 and "DEMO" in str(res["ulotki"]) + str(S.OSTATNIA["rows"])
-    from openpyxl import load_workbook
-    ws = load_workbook(S.write_xlsx(S.load_cfg(), req, *S.build_offer(S.load_cfg(), req)[:2])).active   # funkcja zostaje (wyłączona w ofercie)
-    assert ws.cell(4, 7).value == "Indeks xPartner" and ws.cell(5, 7).value == 5 and ws.cell(5, 11).value == "=I5*J5"
+    assert not hasattr(S, "write_xlsx")   # arkusz Excel z ofertą usunięty – decyzja właściciela
 
 
 def test_marka_z_listy_i_wyszukiwanie_po_marce():
@@ -246,16 +244,6 @@ def test_doplata_kwotowa_wg_progow():
     assert S.doplata_progowa(cfg, 400.0) == 50 and S.doplata_progowa(cfg, 400.5) == 70 and S.doplata_progowa(cfg, 899) == 70
     assert S.doplata_progowa(cfg, 900) == 90
     S.KONTO["ustawienia"] = {}
-
-
-def test_xlsx_bez_wstrzykiwania_formul():
-    _setup()
-    req = {"oid": "2", "klient": "=HYPERLINK(\"http://zly\")", "pojazdy": [{"rej": "=1+1", "pojazd": "@SUM(A1)", "rozmiar": "205/55 R16",
-           "ilosc": 4, "nowe": True}], "wybor": {"205/55 R16": {"wszystkie": [1]}}}
-    from openpyxl import load_workbook
-    ws = load_workbook(S.write_xlsx(S.load_cfg(), req, *S.build_offer(S.load_cfg(), req)[:2])).active
-    assert ws.cell(5, 1).value == " =1+1" and ws.cell(5, 2).value == " @SUM(A1)"
-    assert str(ws.cell(5, 11).value).startswith("=I5*J5")
 
 
 ODDZ = {"Latex Wrocław": {"nazwa": "LATEX SERWIS WROCŁAW", "adres": "ul. Krakowska 54a, 50-425 Wrocław", "tel": "71 341 30 60"},
