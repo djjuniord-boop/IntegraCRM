@@ -231,10 +231,6 @@ class WheelProgress(tk.Canvas):
         self.itemconfigure(self._mark, text="", state="hidden")
         self._draw()
 
-    @property
-    def running(self):
-        return self._job is not None
-
     # ---------- wewnętrzne ----------
     def _schedule(self):
         if self._job is None:
