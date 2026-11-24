@@ -63,8 +63,11 @@ def load_cfg():
     return cfg
 
 
-CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi")
-ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą ustalaną przez administratora (decyzja właściciela 2026-11-12)
+CENY_USLUG = ("wymiana_kolo", "wymiana_suv", "wymiana_dost", "tpms_cena",
+              "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19")
+# marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (usługi: decyzja właściciela 2026-11-24)
+CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi") + CENY_USLUG
+ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą i cenami usług ustalaną przez administratora (decyzja właściciela 2026-11-12)
 
 
 def oddzial_cen():
@@ -1493,7 +1496,8 @@ def handle(path, body=None, open_path=None):
                 if k in body and not (o and k in CENY_WSPOLNE):   # marża wspólna – nie w ustawieniach osobistych
                     cfg[k] = body[k]
             if o and any(k in body for k in CENY_WSPOLNE):
-                nowe = {k: body[k] for k in CENY_WSPOLNE if k in body}
+                nowe = dict(((KONTO.get("ceny_oddz") or {}).get(o) or {}),   # zapis częściowy nie kasuje pozostałych cen oddziału
+                            **{k: body[k] for k in CENY_WSPOLNE if k in body})
                 if KONTO.get("admin") and KONTO.get("zapisz_ceny"):   # pracownik: pola zablokowane, wartości pomijamy
                     KONTO["zapisz_ceny"](o, nowe)
             save_cfg(cfg)
