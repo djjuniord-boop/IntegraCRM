@@ -6,7 +6,9 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 ## Jak pracujemy
 - **Wydanie tylko przez `tools/wydaj.sh`** (testy → beta + main → czekanie na budowę tej zmiany → sprawdzenie wydania).
   Nigdy ręczne `git push` na beta/main. „Wydane” mówimy dopiero, gdy skrypt skończył się ✅. (2026-11-24)
-- Po skończonej zmianie od razu wydanie oficjalne, chyba że właściciel powie „najpierw beta”; kilka poprawek w jednym
+- **Od 2026-11-25: po skończonej i przetestowanej zmianie od razu wydanie na kanał beta** (bez pytania); wydanie
+  oficjalne dopiero na „wydaj official”. (zastępuje zasadę z 2026-11-09)
+- (2026-11-09, zastąpione) Po skończonej zmianie od razu wydanie oficjalne, chyba że właściciel powie „najpierw beta”; kilka poprawek w jednym
   wydaniu zamiast wielu małych. (2026-11-09)
 - **Najpierw propozycja / makieta, potem wdrażanie** – przy nowych funkcjach i zmianach wyglądu.
 - Zanim opiszesz właścicielowi, jak coś działa – sprawdź w kodzie, że to jest naprawdę używane (nie martwy kod).
