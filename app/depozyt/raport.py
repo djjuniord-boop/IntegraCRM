@@ -304,8 +304,6 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         sezony = list(dict.fromkeys(sezon_spisu(x) for x in spis_poz if sezon_spisu(x)))
         if any(x.startswith("LATO") for x in sezony) and any(_sezon_pliku(x) == "ZIMA" for x in spis_poz):
             uwagi.append("w spisie opony LETNIE")
-        if any(s.get("wyjasnic") for s in spis_poz):
-            uwagi.append("do wyjaśnienia w spisie")
         if len({s.get("lok") for s in spis_poz}) > 1:
             uwagi.append("kilka lokalizacji")
         if p.get("bieznik_min") is not None and p["bieznik_min"] <= BIEZNIK_NISKI:
@@ -325,5 +323,5 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
                           if p["opony"] else " · ".join(x for s in spis_poz[:1] for x in (s.get("uwagi"), s.get("komentarz")) if x)),
         })
     wynik.sort(key=lambda w: (_data(w["dzien"]) or datetime.date.max,
-                              szukaj.klucz_lokalizacji(w["spis"][0].get("lok")) if w["spis"] else (10, "", 0, 0)))
+                              szukaj.klucz_lokalizacji(w["spis"][0].get("lok")) if w["spis"] else (1000, "", 0, 0)))
     return wynik

@@ -46,3 +46,17 @@ def historia(session, id_: int | None = None, limit: int = 300) -> list:
     filtr = f"&depozyt_id=eq.{int(id_)}" if id_ else ""
     return session.call("GET", f"/rest/v1/depozyt_historia?select=at,kto,co,depozyt(nr,lok)"
                                f"{filtr}&order=at.desc&limit={limit}") or []
+
+
+def ustawienia(session, branch: str) -> dict:
+    """Ustawienia depozytu oddziału (sezon na start, ukryte sezony, trasa, uprawnienia). Brak tabeli/wiersza = {}."""
+    try:
+        rows = session.call("GET", f"/rest/v1/depozyt_ustawienia?select=*&branch=eq.{_q(branch)}") or []
+    except Exception:
+        return {}
+    return rows[0] if rows else {}
+
+
+def zapisz_ustawienia(session, branch: str, u: dict) -> dict:
+    r = session.rpc("depozyt_zapisz_ustawienia", p_branch=branch, p=u)
+    return (r[0] if isinstance(r, list) and r else r) or {}

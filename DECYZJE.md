@@ -54,3 +54,7 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   z datą, godziną i nazwiskiem z konta. Pozycje odhaczone w Excelu mają „wg Excela” (bez godziny). (2026-11-25)
 - Raport przechowalni z Integry: program daje wynik zależny od raportu – dzień do przodu = lista do przygotowania
   (trasa po regałach K → M → reszta), dni minione = kontrola rozbieżności, okres = jedno i drugie. (2026-11-25)
+- Pomarańczowe w starym Excelu = przywiezione bez wymiany, nowa lokalizacja. W programie **bez oznaczenia
+  pomarańczowego** – informacja w komentarzu. (2026-11-25)
+- Ustawienia depozytu (sezon na start, archiwum sezonów, trasa regałów, uprawnienia cofania/edycji) zmienia
+  administrator w programie; domyślnie cofanie „przywiezione” tylko admin, numer/lokalizację – wszyscy. (2026-11-25)

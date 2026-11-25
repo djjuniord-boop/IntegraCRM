@@ -133,9 +133,8 @@ def test_filtry_i_statystyki_zakladki():
     teraz = datetime.datetime.now(datetime.timezone.utc).isoformat()
     rows = [dict(p) for p in SPIS]
     rows[0].update(przywiezione=True, przywiezione_at=teraz, przywiezione_kto="Jan")
-    rows[2]["wyjasnic"] = True
     s = zakladka.statystyki(rows)
-    assert (s["wszystkie"], s["przywiezione"], s["zostalo"], s["dzis"], s["wyjasnic"]) == (6, 2, 4, 1, 1)
+    assert (s["wszystkie"], s["przywiezione"], s["zostalo"], s["dzis"]) == (6, 2, 4, 1)
     assert len(zakladka.filtruj(rows, "", "Nieprzywiezione", "")) == 4
     assert [p["nr"] for p, _ in zakladka.filtruj(rows, "", "Przywiezione dziś", "")] == ["DX9M934"]
     assert len(zakladka.filtruj(rows, "", "Wszystkie", "KPOK")) == 1
@@ -231,3 +230,17 @@ def test_zmiany_podmieniaja_wiersze_bez_przeladowania():
     o.dep_rows = [dict(p, sezon="ZIMA") for p in SPIS]
     assert o._dep_podmien(rows[0])["lok"] == "K9.9" and o.dep_rows[1]["lok"] == "K9.9"
     assert o._dep_podmien(rows[1]) is None
+
+
+
+def test_trasa_z_ustawien():
+    from depozyt import szukaj
+    lok = ["MAGOPIS", "M8/10", "K12.3", "KPOK", "KB.2", "M2.1"]
+    try:
+        assert szukaj.trasa_dla(lok, ["M", "KPOK"]) == ["M", "KPOK", "K", "KB", "MAGOPIS"]
+        szukaj.TRASA[:] = ["M", "KPOK"]
+        assert sorted(lok, key=szukaj.klucz_lokalizacji) == ["M2.1", "M8/10", "KPOK", "K12.3", "KB.2", "MAGOPIS"]
+        assert szukaj.opis_trasy() == "M → KPOK"
+    finally:
+        szukaj.TRASA[:] = []
+    assert szukaj.opis_trasy() == "K → M → pozostałe"

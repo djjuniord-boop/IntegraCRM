@@ -19,8 +19,8 @@ from ui import BG, BLACK, FlatButton, INK, LINE, MUTED, OK, RED, SURFACE, odmian
 ZMIANY_MS = 10 * 1000           # gdy zakładka jest otwarta: tylko zmienione pozycje (inne osoby, arkusz Google)
 CALOSC_MS = 10 * 60 * 1000      # pełne wczytanie spisu co 10 min (na wszelki wypadek)
 LIMIT_WIERSZY = 400             # tyle pokazujemy naraz (reszta: „pokaż więcej”)
-KOLOR_PRZYW, KOLOR_WYJ, KOLOR_PRZYG = "#F6C9C9", "#FFE2B8", "#D9EAD3"
-FILTRY = ["Wszystkie", "Nieprzywiezione", "Przywiezione", "Przywiezione dziś", "Do wyjaśnienia", "Z komentarzem"]
+KOLOR_PRZYW, KOLOR_PRZYG = "#F6C9C9", "#D9EAD3"
+FILTRY = ["Wszystkie", "Nieprzywiezione", "Przywiezione", "Przywiezione dziś", "Z komentarzem"]
 
 
 def esc(s) -> str:
@@ -119,8 +119,6 @@ def filtruj(rows: list, zapytanie: str, filtr: str, lok: str) -> list:
             return False
         if filtr == "Przywiezione dziś" and not dzis(p):
             return False
-        if filtr == "Do wyjaśnienia" and not p.get("wyjasnic"):
-            return False
         if filtr == "Z komentarzem" and not p.get("komentarz"):
             return False
         return not lok or p.get("lok") == lok
@@ -133,7 +131,7 @@ def filtruj(rows: list, zapytanie: str, filtr: str, lok: str) -> list:
 def statystyki(rows: list) -> dict:
     przyw = sum(1 for p in rows if p.get("przywiezione"))
     return {"wszystkie": len(rows), "przywiezione": przyw, "zostalo": len(rows) - przyw,
-            "dzis": sum(1 for p in rows if dzis(p)), "wyjasnic": sum(1 for p in rows if p.get("wyjasnic"))}
+            "dzis": sum(1 for p in rows if dzis(p))}
 
 
 class DepozytMixin:
@@ -146,7 +144,7 @@ class DepozytMixin:
     # ---------- układ ----------
     def _build_depozyt(self, page):
         f = self.fonts
-        self.dep_rows, self.dep_sezon, self.dep_limit = [], "", LIMIT_WIERSZY
+        self.dep_rows, self.dep_sezon, self.dep_limit, self.dep_ust = [], "", LIMIT_WIERSZY, {}
         self.dep_branch = (self.depozyt_oddzialy() or ["Latex Wrocław"])[0]
         self.dep_ladowanie = False
 
@@ -164,6 +162,8 @@ class DepozytMixin:
         self.dep_sezon_cb.pack(side="left", padx=(10, 0))
         self.dep_sezon_cb.bind("<<ComboboxSelected>>", lambda e: self._dep_render())
         FlatButton(bar, "Odśwież", lambda: self.depozyt_odswiez(), "ghost", f.body, 12, 6).pack(side="right")
+        if self.session is not None and self.session.is_admin:
+            FlatButton(bar, "⚙ Ustawienia", self._dep_ustawienia_okno, "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
         FlatButton(bar, "Eksport do Excela", self._dep_eksport, "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
         FlatButton(bar, "Duplikaty", self._dep_duplikaty, "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
         FlatButton(bar, "Historia zmian", lambda: self._dep_historia(None), "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
@@ -217,7 +217,6 @@ class DepozytMixin:
             self.dep_tree.heading(k, text=t)
             self.dep_tree.column(k, width=w, anchor="center" if k == "ok" else "w", stretch=k in ("uwagi", "kom"))
         self.dep_tree.tag_configure("przyw", background=KOLOR_PRZYW)
-        self.dep_tree.tag_configure("wyj", background=KOLOR_WYJ)
         sb = ttk.Scrollbar(box, orient="vertical", command=self.dep_tree.yview)
         self.dep_tree.configure(yscrollcommand=sb.set)
         self.dep_tree.pack(side="left", fill="both", expand=True)
@@ -226,7 +225,7 @@ class DepozytMixin:
         self.dep_tree.bind("<space>", lambda e: self._dep_przelacz_zaznaczone())
         self.dep_tree.bind("<Button-3>", self._dep_menu)
         self.dep_wiecej = FlatButton(page, "Pokaż więcej", self._dep_pokaz_wiecej, "ghost", f.body, 12, 5)
-        tk.Label(page, text="Dwuklik lub spacja = przywiezione / cofnij · prawy przycisk = komentarz, do wyjaśnienia, "
+        tk.Label(page, text="Dwuklik lub spacja = przywiezione / cofnij · prawy przycisk = komentarz, "
                             "lokalizacja, historia", bg=BG, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 0))
         self.after(200, self.depozyt_odswiez)
         self.dep_ostatnio, self._dep_pelne = "", 0.0
@@ -244,12 +243,13 @@ class DepozytMixin:
         def work():
             try:
                 rows, err = dane.pozycje(self.session, branch), None
+                ust = dane.ustawienia(self.session, branch)
             except Exception as e:
-                rows, err = None, e
-            self.after(0, lambda: self._dep_wczytane(rows, err, branch, cicho))
+                rows, err, ust = None, e, None
+            self.after(0, lambda: self._dep_wczytane(rows, err, branch, cicho, ust))
         threading.Thread(target=work, daemon=True).start()
 
-    def _dep_wczytane(self, rows, err, branch=None, cicho=False):
+    def _dep_wczytane(self, rows, err, branch=None, cicho=False, ust=None):
         self.dep_ladowanie = False
         if branch is not None and branch != self.dep_branch:   # w trakcie wczytywania wybrano inny oddział
             self.depozyt_odswiez()
@@ -260,13 +260,16 @@ class DepozytMixin:
             self.dep_stat.config(text=f"Nie udało się wczytać spisu: {opis_bledu(err)}", fg=RED)
             return
         self.dep_rows = rows
+        if ust is not None:
+            self._dep_ustaw(ust)
         self.dep_ostatnio = dane.najnowsza_zmiana(rows)
 
         self._dep_pelne = time.monotonic()
-        sezony = sorted({p.get("sezon") or "" for p in rows}, reverse=True)
+        sezony = self._dep_sezony_widoczne()
         self.dep_sezon_cb.config(values=sezony)
         if self.dep_sezon_var.get() not in sezony:
-            self.dep_sezon_var.set(sezony[0] if sezony else "")
+            dom = self.dep_ust.get("sezon_domyslny") or ""
+            self.dep_sezon_var.set(dom if dom in sezony else sezony[0] if sezony else "")
         self._dep_render(zachowaj=cicho)
 
     def _dep_auto(self):
@@ -303,10 +306,21 @@ class DepozytMixin:
                 if self._dep_podmien(r) is None:
                     self.dep_rows.append(r)
             self.dep_ostatnio = max(self.dep_ostatnio, dane.najnowsza_zmiana(rows))
-            sezony = sorted({p.get("sezon") or "" for p in self.dep_rows}, reverse=True)
-            self.dep_sezon_cb.config(values=sezony)
+            self.dep_sezon_cb.config(values=self._dep_sezony_widoczne())
             self._dep_render(zachowaj=True)
         threading.Thread(target=work, daemon=True).start()
+
+    def _dep_ustaw(self, ust: dict):
+        self.dep_ust = ust or {}
+        szukaj.TRASA[:] = [r for r in self.dep_ust.get("trasa") or [] if r]
+
+    def _dep_sezony_widoczne(self) -> list:
+        ukryte = set(self.dep_ust.get("ukryte_sezony") or [])
+        wszystkie = sorted({p.get("sezon") or "" for p in self.dep_rows}, reverse=True)
+        return [x for x in wszystkie if x not in ukryte] or wszystkie
+
+    def _dep_ustawienia_okno(self):
+        UstawieniaOkno(self)
 
     def _dep_zmien_oddzial(self):
         self.dep_branch = self.dep_branch_var.get()
@@ -338,7 +352,7 @@ class DepozytMixin:
         self.dep_widoczne = lista
         t.delete(*t.get_children())
         for p, fz in lista[:self.dep_limit]:
-            tag = "przyw" if p.get("przywiezione") else "wyj" if p.get("wyjasnic") else ""
+            tag = "przyw" if p.get("przywiezione") else ""
             il = " ".join(x for x in (p.get("ilosc"), p.get("rodzaj")) if x)
             marka = p.get("marka", "") + (f" / {p['marka2']}" if p.get("marka2") else "")
             t.insert("", "end", iid=str(p["id"]), tags=(tag,) if tag else (), values=(
@@ -357,7 +371,7 @@ class DepozytMixin:
             t.yview_moveto(stan[1])
         s = statystyki(rows)
         txt = (f"Wszystkich {s['wszystkie']}  ·  przywiezione {s['przywiezione']}  ·  zostało {s['zostalo']}  ·  "
-               f"dziś {s['dzis']}" + (f"  ·  do wyjaśnienia {s['wyjasnic']}" if s["wyjasnic"] else ""))
+               f"dziś {s['dzis']}")
         if self.dep_q.get().strip() or self.dep_filtr.get() != FILTRY[0] or lok_wyb:
             txt += f"     |  pokazano {len(lista)}"
         self.dep_stat.config(text=txt, fg=INK)
@@ -463,8 +477,6 @@ class DepozytMixin:
         m.add_command(label="Cofnij „przywiezione”" if poz.get("przywiezione") else "Przywiezione ✓",
                       command=lambda: self._dep_przelacz(poz))
         m.add_command(label="Komentarz…", command=lambda: self._dep_komentarz(poz))
-        m.add_command(label="Zdejmij „do wyjaśnienia”" if poz.get("wyjasnic") else "Do wyjaśnienia",
-                      command=lambda: self._dep_zapisz(poz, "wyjasnic", not poz.get("wyjasnic")))
         m.add_separator()
         for pole, nazwa in (("lok", "Zmień lokalizację…"), ("nr", "Popraw numer…"), ("marka", "Zmień markę…")):
             m.add_command(label=nazwa, command=lambda p=pole, n=nazwa: self._dep_edytuj(poz, p, n))
@@ -580,14 +592,14 @@ class DepozytMixin:
                    "PRZYWIEZIONE", "KTO"])
         for c in ws[1]:
             c.font = Font(bold=True)
-        red, org = PatternFill("solid", fgColor="FFFF0000"), PatternFill("solid", fgColor="FFFF9900")
+        red = PatternFill("solid", fgColor="FFFF0000")
         for p in sorted(self._dep_sezonu(), key=lambda p: p.get("id")):
             ws.append([p.get("nr"), p.get("lok"), p.get("marka"), p.get("marka2"), p.get("ilosc"), p.get("rodzaj"),
                        p.get("uwagi"), p.get("komentarz"),
-                       "PRZYWIEZIONE" if p.get("przywiezione") else "DO WYJAŚNIENIA" if p.get("wyjasnic") else "",
+                       "PRZYWIEZIONE" if p.get("przywiezione") else "",
                        ("wg Excela" if not p.get("przywiezione_at") else czas(p["przywiezione_at"]))
                        if p.get("przywiezione") else "", p.get("przywiezione_kto") or ""])
-            fill = red if p.get("przywiezione") else org if p.get("wyjasnic") else None
+            fill = red if p.get("przywiezione") else None
             if fill:
                 for c in ws[ws.max_row]:
                     c.fill = fill
@@ -684,10 +696,10 @@ class PrzygotowanieOkno(tk.Toplevel):
         uw = sum(1 for w in wiersze if w["uwagi"])
         if self.terminy:
             opis = (f"{rap.get('tytul', '')} · {len(wiersze)} {odmiana(len(wiersze), 'wizyta', 'wizyty', 'wizyt')} · "
-                    f"z oponami w depozycie: {len(wiersze) - bez} · kolejność: dniami, potem regały K → M → pozostałe")
+                    f"z oponami w depozycie: {len(wiersze) - bez} · kolejność: dniami, potem regały {szukaj.opis_trasy()}")
         else:
             opis = (f"{rap.get('tytul', '')} · {len(wiersze)} {odmiana(len(wiersze), 'pozycja', 'pozycje', 'pozycji')}"
-                    f" · {uw} z uwagami · {bez} bez lokalizacji w spisie · kolejność: regały K → M → pozostałe")
+                    f" · {uw} z uwagami · {bez} bez lokalizacji w spisie · kolejność: regały {szukaj.opis_trasy()}")
         tk.Label(top, text=opis, bg=BG, fg=MUTED, font=f.small).pack(anchor="w")
         przyc = tk.Frame(top, bg=BG)
         przyc.pack(fill="x", pady=(8, 0))
@@ -804,10 +816,127 @@ th{{background:#111;color:#fff;text-align:left;padding:5px;font-size:11px}}td{{b
 .lok{{font:bold 16px Consolas,monospace;white-space:nowrap}}.nr{{font:bold 14px Consolas,monospace}}.c{{font-size:18px}}
 .u{{color:#8a5a00;font-weight:bold;font-size:11px}}tr.brak td{{background:#fde3e3}}tr.uw td{{background:#fff4e0}}small{{color:#555}}
 @media print{{tr{{page-break-inside:avoid}}}}</style></head><body onload="window.print()">
-<h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
+<h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały {esc(szukaj.opis_trasy())} ·
 wydrukowano {datetime.datetime.now():%d.%m.%Y %H:%M}</small></div><br>
 <table><tr>{naglowek}</tr>{tr}</table></body></html>"""
         fd, sciezka = tempfile.mkstemp(prefix="przygotowanie_", suffix=".html")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(doc)
         webbrowser.open("file:///" + sciezka.replace(os.sep, "/").lstrip("/"))
+
+
+class UstawieniaOkno(tk.Toplevel):
+    """Ustawienia depozytu oddziału – tylko administrator (zapis i tak sprawdza baza)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.app = app
+        f = app.fonts
+        self.title(f"Ustawienia depozytu – {app.dep_branch}")
+        set_icon(self)
+        self.configure(bg=SURFACE, padx=20, pady=14)
+        self.transient(app)
+        u = app.dep_ust or {}
+        wszystkie = sorted({p.get("sezon") or "" for p in app.dep_rows}, reverse=True)
+        ile = {s: sum(1 for p in app.dep_rows if p.get("sezon") == s) for s in wszystkie}
+
+        def naglowek(t):
+            tk.Label(self, text=t, bg=SURFACE, fg=BLACK, font=f.h2).pack(anchor="w", pady=(10, 4))
+
+        naglowek("Sezony")
+        r = tk.Frame(self, bg=SURFACE)
+        r.pack(fill="x")
+        tk.Label(r, text="Sezon otwierany na start:", bg=SURFACE, fg=INK, font=f.body).pack(side="left")
+        self.domyslny = tk.StringVar(value=u.get("sezon_domyslny") or (wszystkie[0] if wszystkie else ""))
+        ttk.Combobox(r, textvariable=self.domyslny, values=wszystkie, state="readonly", width=20).pack(side="left", padx=8)
+        tk.Label(self, text="Widoczne na liście sezonów (odznaczony = archiwum, ukryty):", bg=SURFACE, fg=MUTED,
+                 font=f.small).pack(anchor="w", pady=(6, 0))
+        ukryte = set(u.get("ukryte_sezony") or [])
+        self.widoczne = {}
+        for s in wszystkie:
+            v = tk.BooleanVar(value=s not in ukryte)
+            tk.Checkbutton(self, text=f"{s}  ({ile[s]} poz.)", variable=v, bg=SURFACE, font=f.body,
+                           anchor="w").pack(anchor="w")
+            self.widoczne[s] = v
+
+        naglowek("Trasa magazyniera (kolejność regałów na liście i wydruku)")
+        r = tk.Frame(self, bg=SURFACE)
+        r.pack(fill="x")
+        self.lista = tk.Listbox(r, height=8, font=f.mono, activestyle="none", exportselection=False)
+        for x in szukaj.trasa_dla([p.get("lok") for p in app.dep_rows], u.get("trasa")):
+            self.lista.insert("end", x)
+        self.lista.pack(side="left")
+        przy = tk.Frame(r, bg=SURFACE)
+        przy.pack(side="left", padx=8, anchor="n")
+        FlatButton(przy, "↑ wyżej", lambda: self._przesun(-1), "ghost", f.body, 10, 4).pack(fill="x")
+        FlatButton(przy, "↓ niżej", lambda: self._przesun(1), "ghost", f.body, 10, 4).pack(fill="x", pady=4)
+        tk.Label(przy, text="Nowe oznaczenia regałów\ndopisują się same na końcu.", bg=SURFACE, fg=MUTED,
+                 font=f.small, justify="left").pack(anchor="w", pady=(6, 0))
+
+        naglowek("Uprawnienia (pilnuje baza)")
+        self.cofanie = tk.BooleanVar(value=u.get("cofanie_tylko_admin", True) is not False)
+        self.edycja = tk.BooleanVar(value=bool(u.get("edycja_tylko_admin", False)))
+        for var, tekst in ((self.cofanie, "Cofanie „przywiezione”"), (self.edycja, "Zmiana numeru i lokalizacji")):
+            r = tk.Frame(self, bg=SURFACE)
+            r.pack(fill="x", pady=1)
+            tk.Label(r, text=tekst + ":", bg=SURFACE, fg=INK, font=f.body, width=28, anchor="w").pack(side="left")
+            tk.Radiobutton(r, text="wszyscy", variable=var, value=False, bg=SURFACE, font=f.body).pack(side="left")
+            tk.Radiobutton(r, text="tylko administrator", variable=var, value=True, bg=SURFACE,
+                           font=f.body).pack(side="left", padx=8)
+        tk.Label(self, text="Konto arkusza Google nie jest administratorem – przy „tylko administrator” cofnięcie "
+                            "w arkuszu zostanie odrzucone.", bg=SURFACE, fg=MUTED, font=f.small, wraplength=520,
+                 justify="left").pack(anchor="w", pady=(4, 0))
+
+        r = tk.Frame(self, bg=SURFACE)
+        r.pack(fill="x", pady=(14, 0))
+        FlatButton(r, "Anuluj", self.destroy, "ghost", f.body, 14, 6).pack(side="right")
+        self.btn = FlatButton(r, "Zapisz", self._zapisz, "primary", f.body, 18, 6)
+        self.btn.pack(side="right", padx=(0, 8))
+        self.bind("<Escape>", lambda e: self.destroy())
+
+    def _przesun(self, o):
+        sel = self.lista.curselection()
+        if not sel:
+            return
+        i = sel[0]
+        j = i + o
+        if 0 <= j < self.lista.size():
+            v = self.lista.get(i)
+            self.lista.delete(i)
+            self.lista.insert(j, v)
+            self.lista.selection_set(j)
+
+    def ustawienia(self) -> dict:
+        return {"sezon_domyslny": self.domyslny.get(),
+                "ukryte_sezony": [s for s, v in self.widoczne.items() if not v.get()],
+                "trasa": list(self.lista.get(0, "end")),
+                "cofanie_tylko_admin": bool(self.cofanie.get()), "edycja_tylko_admin": bool(self.edycja.get())}
+
+    def _zapisz(self):
+        u, app, branch = self.ustawienia(), self.app, self.app.dep_branch
+        if u["sezon_domyslny"] in u["ukryte_sezony"]:
+            messagebox.showwarning("Ustawienia", "Sezon otwierany na start nie może być ukryty.", parent=self)
+            return
+        self.btn.set_enabled(False, "Zapisuję…")
+
+        def work():
+            try:
+                wynik, err = dane.zapisz_ustawienia(app.session, branch, u), None
+            except Exception as e:
+                wynik, err = None, e
+            app.after(0, lambda: koniec(wynik, err))
+
+        def koniec(wynik, err):
+            if err is not None:
+                if self.winfo_exists():
+                    self.btn.set_enabled(True, "Zapisz")
+                messagebox.showerror("Ustawienia", f"Nie zapisano:\n{opis_bledu(err)}", parent=self)
+                return
+            app._dep_ustaw(wynik or u)
+            app.dep_sezon_cb.config(values=app._dep_sezony_widoczne())
+            if app.dep_sezon_var.get() not in app._dep_sezony_widoczne():
+                app.dep_sezon_var.set(u["sezon_domyslny"])
+            app._dep_render()
+            if self.winfo_exists():
+                self.destroy()
+        threading.Thread(target=work, daemon=True).start()

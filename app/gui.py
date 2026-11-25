@@ -110,7 +110,7 @@ HELP_MODULES = [
                      "i wśród numerów w uwagach. Można szukać po lokalizacji, marce i komentarzu. Enter odhacza, "
                      "gdy jest jeden wynik."),
         ("Raport z Integry", "„Wczytaj raport z Integry” przyjmuje PDF przechowalni na dowolny dzień albo okres oraz Excel z harmonogramem wizyt (które umówione auta mają opony w depozycie). Na jutro – "
-                             "lista do przygotowania ułożona trasą po regałach (K → M → reszta) do druku; z dni, które "
+                             "lista do przygotowania ułożona trasą po regałach (kolejność regałów ustawia administrator) do druku; z dni, które "
                              "minęły – kontrola: co nie jest odhaczone, czego nie ma w spisie, inna marka, niski bieżnik."),
     ]),
     ("serwis", "SERWIS QR", [

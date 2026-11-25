@@ -1,8 +1,8 @@
 /**
  * DEPOZYT ↔ arkusz Google (Apps Script). Wklej w arkuszu: Rozszerzenia → Apps Script → Kod.gs.
  *
- * Arkusz → program: zmiana komórki (checkbox PRZYWIEZIONE, NR, LOK, marka, ilość, sezon, uwagi, komentarz,
- *   DO WYJAŚNIENIA) od razu idzie do bazy funkcją depozyt_zmien – jak w programie, z wpisem w historii.
+ * Arkusz → program: zmiana komórki (checkbox PRZYWIEZIONE, NR, LOK, marka, ilość, sezon, uwagi, komentarz)
+ *   od razu idzie do bazy funkcją depozyt_zmien – jak w programie, z wpisem w historii.
  *   Nowy wiersz (NR + LOK, bez ID) → depozyt_dodaj.
  * Program → arkusz: baza od razu wysyła każdą zmianę do aplikacji internetowej tego skryptu (doPost, klucz),
  *   a co minutę – na wszelki wypadek – pobierane są pozycje zmienione od ostatniej synchronizacji (`zmieniono`).
@@ -17,12 +17,12 @@ var ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI
 var ARKUSZ = 'DEPOZYT';
 // kolumny (1 = A)
 var K = {PRZYW: 1, NR: 2, LOK: 3, MARKA: 4, MARKA2: 5, ILOSC: 6, RODZAJ: 7, UWAGI: 8, KOM: 9, KIEDY: 10, KTO: 11,
-         WYJ: 12, ID: 13};
+         ID: 12};
 var NAGLOWKI = ['PRZYWIEZIONE', 'NR REJ.', 'LOK', 'MARKA', 'MARKA 2', 'ILOŚĆ', 'SEZON', 'UWAGI', 'KOMENTARZ',
-                'DATA I GODZINA', 'KTO', 'DO WYJAŚNIENIA', 'ID (nie zmieniać)'];
+                'DATA I GODZINA', 'KTO', 'ID (nie zmieniać)'];
 var POLE = {}; POLE[K.NR] = 'nr'; POLE[K.LOK] = 'lok'; POLE[K.MARKA] = 'marka'; POLE[K.MARKA2] = 'marka2';
 POLE[K.ILOSC] = 'ilosc'; POLE[K.RODZAJ] = 'rodzaj'; POLE[K.UWAGI] = 'uwagi'; POLE[K.KOM] = 'komentarz';
-POLE[K.PRZYW] = 'przywiezione'; POLE[K.WYJ] = 'wyjasnic';
+POLE[K.PRZYW] = 'przywiezione';
 
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('Depozyt')
@@ -114,7 +114,7 @@ function wiersz_(p) {
   w[K.KOM - 1] = p.komentarz;
   w[K.KIEDY - 1] = p.przywiezione ? (p.przywiezione_at ? czas_(p.przywiezione_at) : 'wg Excela') : '';
   w[K.KTO - 1] = p.przywiezione ? (p.przywiezione_kto || '') : '';
-  w[K.WYJ - 1] = !!p.wyjasnic; w[K.ID - 1] = p.id;
+  w[K.ID - 1] = p.id;
   return w;
 }
 
@@ -136,12 +136,9 @@ function wczytajWszystko() {
   var n = Math.max(rows.length + 300, 500);   // zapas na nowe wiersze
   if (sh.getMaxRows() < n + 1) sh.insertRowsAfter(sh.getMaxRows(), n + 1 - sh.getMaxRows());
   sh.getRange(2, K.PRZYW, n, 1).insertCheckboxes();
-  sh.getRange(2, K.WYJ, n, 1).insertCheckboxes();
   var caly = sh.getRange(2, 1, n, NAGLOWKI.length);
   sh.setConditionalFormatRules([
     SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$A2=TRUE').setBackground('#ff9999')
-      .setRanges([caly]).build(),
-    SpreadsheetApp.newConditionalFormatRule().whenFormulaSatisfied('=$L2=TRUE').setBackground('#ffcc80')
       .setRanges([caly]).build()]);
   sh.setFrozenRows(1);
   sh.setFrozenColumns(2);
@@ -151,7 +148,7 @@ function wczytajWszystko() {
   sh.getRange(1, K.ID, n + 1, 1).protect().setDescription('Łączy wiersz z programem – nie zmieniać').setWarningOnly(true);
   if (sh.getFilter()) sh.getFilter().remove();
   sh.getRange(1, 1, n + 1, NAGLOWKI.length).createFilter();
-  [110, 100, 70, 120, 100, 60, 70, 180, 220, 130, 120, 110, 80].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
+  [110, 100, 70, 120, 100, 60, 70, 180, 220, 130, 120, 80].forEach(function (w, i) { sh.setColumnWidth(i + 1, w); });
   P().setProperty('OSTATNIO', new Date().toISOString());
   SpreadsheetApp.getActive().toast('Wczytano ' + rows.length + ' pozycji z programu.', 'Depozyt');
 }
@@ -216,12 +213,16 @@ function przyEdycji(e) {
         var pole = POLE[c];
         if (!pole) continue;   // DATA, KTO, ID – wypełnia program
         var v = wiersz[c - 1];
-        var wart = (pole === 'przywiezione' || pole === 'wyjasnic') ? (v === true ? '1' : '0') : String(v);
+        var wart = pole === 'przywiezione' ? (v === true ? '1' : '0') : String(v);
         var nowy = api_('post', '/rest/v1/rpc/depozyt_zmien', {p_id: Number(id), p_pole: pole, p_wartosc: wart});
         if (nowy && nowy.id) sh.getRange(r, 1, 1, NAGLOWKI.length).setValues([wiersz_(nowy)]);
       }
     } catch (err) {
       bledy.push('wiersz ' + r + ': ' + err.message);
+      try {   // odrzucona zmiana (np. cofnięcie tylko dla administratora) – przywróć stan z programu
+        var teraz = id ? api_('get', '/rest/v1/depozyt?select=*&id=eq.' + Number(id)) : null;
+        if (teraz && teraz.length) sh.getRange(r, 1, 1, NAGLOWKI.length).setValues([wiersz_(teraz[0])]);
+      } catch (e2) {}
     }
   }
   if (bledy.length) SpreadsheetApp.getActive().toast('Nie zapisano w programie:\n' + bledy.slice(0, 5).join('\n'), 'Depozyt', 10);

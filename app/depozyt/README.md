@@ -28,3 +28,7 @@ Testy: `tests/test_depozyt.py` (szukanie, raport w układzie Integry na zmyślon
 
 Arkusz Google: `tools/arkusz_depozyt.gs` (Apps Script) – synchronizacja dwustronna; baza powiadamia arkusz od razu
 (wyzwalacz `depozyt_do_arkusza` + pg_net, konfiguracja w `depozyt_arkusz_cfg`), zapas – co minutę.
+
+Ustawienia oddziału (`depozyt_ustawienia`, okno `UstawieniaOkno`, tylko admin): sezon na start, ukryte sezony,
+trasa (kolejność regałów, `szukaj.TRASA`), uprawnienia cofania i edycji numeru/lokalizacji – sprawdza `depozyt_zmien`.
+Oznaczenie „do wyjaśnienia” (pomarańczowe) wycofane 2026-11-25; kolumna `wyjasnic` zostaje w bazie, nieużywana.
