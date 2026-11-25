@@ -647,8 +647,20 @@ class DepozytMixin:
                 return
             self.dep_ostatni = wynik[0]
             _zapisz_ostatni(wynik[0])
+            self._dep_lista_do_telefonu(*wynik)
             self._dep_ostatni_opis()
             self.dep_okno = PrzygotowanieOkno(self, *wynik)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _dep_lista_do_telefonu(self, rap, wiersze):
+        """Lista trafia do bazy – magazynier otworzy ją w aplikacji na telefonie (błąd nie przeszkadza w Panelu)."""
+        branch = self.dep_branch
+
+        def work():
+            try:
+                dane.zapisz_liste(self.session, branch, rap, wiersze)
+            except Exception:
+                pass
         threading.Thread(target=work, daemon=True).start()
 
     def _dep_ostatni_opis(self):

@@ -32,3 +32,5 @@ Arkusz Google: `tools/arkusz_depozyt.gs` (Apps Script) – synchronizacja dwustr
 Ustawienia oddziału (`depozyt_ustawienia`, okno `UstawieniaOkno`, tylko admin): sezon na start, ukryte sezony,
 trasa (kolejność regałów, `szukaj.TRASA`), uprawnienia cofania i edycji numeru/lokalizacji – sprawdza `depozyt_zmien`.
 Oznaczenie „do wyjaśnienia” (pomarańczowe) wycofane 2026-11-25; kolumna `wyjasnic` zostaje w bazie, nieużywana.
+Lista do przygotowania po wczytaniu raportu trafia do `depozyt_listy` (jedna aktualna na oddział, bez nazw klientów) –
+czyta ją aplikacja Android (`dane.lista_do_bazy`, `depozyt_zapisz_liste`).

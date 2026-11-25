@@ -244,3 +244,14 @@ def test_trasa_z_ustawien():
     finally:
         szukaj.TRASA[:] = []
     assert szukaj.opis_trasy() == "K → M → pozostałe"
+
+
+def test_lista_dla_telefonu_bez_klientow():
+    from depozyt import dane, raport
+    rap = {"tytul": "Harmonogram", "od": "2026-11-26", "do": "2026-11-26", "zrodlo": "terminy", "pozycje": [
+        {"nr_rej": "DX10001", "kontrahent": "Jan Testowy", "data_wydania": "26.11.2026", "godzina": "8:00",
+         "opony": [], "rodzaj": "", "bieznik_min": None}]}
+    w = raport.przygotuj(rap, SPIS, datetime.date(2026, 11, 25))
+    d = dane.lista_do_bazy(rap, w)
+    assert d["wiersze"][0]["ids"] == [3] and d["wiersze"][0]["lok"] == "M2.1" and d["wiersze"][0]["godzina"] == "8:00"
+    assert "Jan Testowy" not in str(d)

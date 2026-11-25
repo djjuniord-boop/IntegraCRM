@@ -60,3 +60,18 @@ def ustawienia(session, branch: str) -> dict:
 def zapisz_ustawienia(session, branch: str, u: dict) -> dict:
     r = session.rpc("depozyt_zapisz_ustawienia", p_branch=branch, p=u)
     return (r[0] if isinstance(r, list) and r else r) or {}
+
+
+def lista_do_bazy(rap: dict, wiersze: list) -> dict:
+    """Lista do przygotowania w postaci dla telefonu (bez nazw klientów): lokalizacja, numer, ilość, sezon, uwagi,
+    id pozycji spisu (do „Przygotowane”)."""
+    return {"tytul": rap.get("tytul", ""), "od": rap.get("od", ""), "do": rap.get("do", ""),
+            "zrodlo": rap.get("zrodlo", ""),
+            "wiersze": [{"nr": w["raport"].get("nr_rej", ""), "lok": w.get("lok", ""), "szt": w.get("szt", ""),
+                         "sezon": w.get("sezon", ""), "dzien": w.get("dzien", ""),
+                         "godzina": w["raport"].get("godzina", ""), "uwagi": w.get("uwagi", []),
+                         "ids": [s.get("id") for s in w.get("spis", []) if s.get("id")]} for w in wiersze]}
+
+
+def zapisz_liste(session, branch: str, rap: dict, wiersze: list):
+    session.rpc("depozyt_zapisz_liste", p_branch=branch, p=lista_do_bazy(rap, wiersze))
