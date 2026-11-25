@@ -142,3 +142,38 @@ def test_filtry_i_statystyki_zakladki():
     assert zakladka.opis_przywiezienia(rows[3]) == "wg Excela"
     assert zakladka.opis_przywiezienia(rows[0]).endswith("Jan")
     assert zakladka.esc("<a&'>") == "&lt;a&amp;&#39;&gt;"
+
+
+def test_harmonogram_wizyt_excel():
+    """Excel z harmonogramem wizyt (jak eksport z Integry): pomija wpisy techniczne, łączy ze spisem."""
+    import openpyxl
+    from depozyt import raport
+    p = Path(tempfile.mkdtemp()) / "wizyty.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append([""] * 9)
+    ws.append(["Termin od", "Termin do", "Nr rej. / Nr seryjny", "Marka / Rodzaj", "Model / Marka", "Wersja / Model",
+               "Rok produkcji", "Kontrahent", "Telefon"])
+    ws.append(["2026-11-26 17:30", "2026-11-26 18:00", "DX10001", "OPEL", "......................", "", "", "Jan", ""])
+    ws.append(["2026-11-26 16:30", "2026-11-26 17:00", "CZK_OPONY", "", "", "", "", "Latex", ""])
+    ws.append(["2026-11-26 08:00", "2026-11-26 08:30", "DX 9M934", "KIA", "XCEED", "", "", "Anna", ""])
+    ws.append(["2026-11-26 09:00", "2026-11-26 09:30", "PO77777", "FORD", "FOCUS", "", "", "Obcy", ""])
+    wb.save(p)
+    r = raport.wczytaj(p)
+    assert r["zrodlo"] == "terminy" and (r["od"], r["do"]) == ("2026-11-26", "2026-11-26")
+    assert [x["nr_rej"] for x in r["pozycje"]] == ["DX10001", "DX9M934", "PO77777"]
+    assert r["pozycje"][0]["godzina"] == "17:30" and r["pozycje"][0]["auto"] == "OPEL"
+    w = raport.przygotuj(r, SPIS, datetime.date(2026, 11, 25))
+    assert [x["lok"] for x in w] == ["K5.1", "M2.1", ""]
+    assert w[-1]["uwagi"] == [raport.BRAK_OPON] and "auto: KIA XCEED" in w[0]["opis"]
+
+
+def test_xls_bledny_plik():
+    from depozyt import xls
+    p = Path(tempfile.mkdtemp()) / "zly.xls"
+    p.write_bytes(b"to nie jest excel")
+    try:
+        xls.wiersze(p)
+        assert False, "powinien być błąd"
+    except xls.XlsError:
+        pass

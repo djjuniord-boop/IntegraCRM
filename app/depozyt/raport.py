@@ -149,6 +149,53 @@ def _norm_size(s):
     return _find_size(s)
 
 
+BRAK_OPON = "brak opon w depozycie"   # harmonogram wizyt: auto może przyjechać po co innego niż opony
+
+
+def parse_terminy(sciezka) -> dict:
+    """Harmonogram umówionych wizyt z Integry (Excel .xls/.xlsx: Termin od, Nr rej., Marka, Model, Kontrahent).
+    Zwraca słownik w tym samym układzie co `parse` (bez opon) – `przygotuj` sprawdza, czy auto ma opony w depozycie."""
+    from depozyt import xls
+    wiersze = xls.wiersze(sciezka)
+    nag_i = next((i for i, w in enumerate(wiersze[:30]) if any("nr rej" in str(v).lower() for v in w)), None)
+    if nag_i is None:
+        raise ValueError("Nie znalazłem kolumny „Nr rej.” – to na pewno harmonogram wizyt z Integry?")
+    nag = [str(v).strip().lower() for v in wiersze[nag_i]]
+
+    def kol(*klucze):
+        return next((i for i, h in enumerate(nag) if any(h.startswith(k) for k in klucze)), None)
+    k_term, k_nr, k_marka = kol("termin od", "termin", "data"), kol("nr rej"), kol("marka")
+    k_model, k_klient = kol("model"), kol("kontrahent", "klient")
+    pozycje, widziane, dni = [], set(), []
+    for w in wiersze[nag_i + 1:]:
+        val = lambda k: str(w[k]).strip() if k is not None and k < len(w) else ""   # noqa: E731
+        nr = re.sub(r"\s", "", val(k_nr).upper())
+        if not nr or "_" in nr or not re.search(r"\d", nr) or not re.search(r"[A-Z]", nr):
+            continue   # wpisy techniczne grafiku (np. CZK_OPONY)
+        termin = val(k_term)
+        m = re.match(r"(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{1,2}:\d{2}))?", termin)
+        data = f"{int(m.group(3))}.{m.group(2)}.{m.group(1)}" if m else ""
+        godz = (m.group(4) or "") if m else ""
+        if m:
+            dni.append(f"{m.group(1)}-{m.group(2)}-{m.group(3)}")
+        if (nr, data, godz) in widziane:
+            continue
+        widziane.add((nr, data, godz))
+        auto = " ".join(x for x in (val(k_marka), val(k_model)) if x and not x.startswith("...."))
+        pozycje.append({"numer": "", "kontrahent": val(k_klient), "nr_rej": nr, "status": "umówiona wizyta",
+                        "data_przyjecia": "", "data_wydania": data, "godzina": godz, "auto": auto, "opony": [],
+                        "uwagi": "", "rodzaj": "", "bieznik_min": None, "ilosc": 0, "lokalizacja_integra": ""})
+    return {"tytul": "Harmonogram wizyt (Excel)", "od": min(dni) if dni else "", "do": max(dni) if dni else "",
+            "pozycje": pozycje, "zrodlo": "terminy"}
+
+
+def wczytaj(sciezka) -> dict:
+    """Raport z Integry wg rodzaju pliku: PDF przechowalni albo Excel z harmonogramem wizyt."""
+    if str(sciezka).lower().endswith((".xls", ".xlsx")):
+        return parse_terminy(sciezka)
+    return parse(sciezka)
+
+
 BIEZNIK_NISKI = 4.0   # mm – przy tylu i mniej pokazujemy „do oferty”
 _PL = str.maketrans("ĄĆĘŁŃÓŚŹŻ", "ACELNOSZZ")
 
@@ -208,7 +255,7 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         opona = _opona_wzorcowa(p["opony"])
         uwagi = []
         if not spis_poz:
-            uwagi.append("BRAK W SPISIE" + (f" (podobne: {podobne})" if podobne else ""))
+            uwagi.append((BRAK_OPON if not p["opony"] else "BRAK W SPISIE") + (f" (podobne: {podobne})" if podobne else ""))
         elif przybl:
             uwagi.append("≈ możliwa literówka – sprawdź numer")
         letnie = p.get("rodzaj") == "letnia"
@@ -226,7 +273,7 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
                 uwagi.append(f"w spisie inna marka: {spis_poz[0].get('marka') or '—'}")
             if wyd and wyd >= dzis and przyw:
                 uwagi.append("w spisie już odhaczone")
-            if wyd and wyd < dzis and spis_poz and not przyw:
+            if wyd and wyd < dzis and spis_poz and not przyw and p["opony"]:
                 uwagi.append("NIE odhaczone w spisie")
         if any(s.get("wyjasnic") for s in spis_poz):
             uwagi.append("do wyjaśnienia w spisie")
@@ -238,9 +285,13 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         wynik.append({
             "raport": p, "spis": spis_poz, "lok": lok, "uwagi": uwagi,
             "dzien": p.get("data_wydania") or p.get("data_przyjecia") or "",
-            "opis": f"{p.get('ilosc', 0)}× {(opona.get('Producent') or '').strip()} {(opona.get('Nazwa') or '').strip()}".strip(),
-            "szczegoly": " · ".join(x for x in (opona.get("rozmiar"), p.get("rodzaj"), opona.get("Felga") or "bez felgi",
-                                                 f"{p['bieznik_min']:g} mm" if p.get("bieznik_min") is not None else "") if x),
+            "opis": (f"{p.get('ilosc', 0)}× {(opona.get('Producent') or '').strip()} {(opona.get('Nazwa') or '').strip()}".strip()
+                     if p["opony"] else " · ".join(x for x in ("auto: " + (p.get("auto") or "—"),
+                                                               *[f"{s.get('ilosc') or ''} {s.get('marka') or ''}".strip()
+                                                                 for s in spis_poz[:1]]) if x)),
+            "szczegoly": (" · ".join(x for x in (opona.get("rozmiar"), p.get("rodzaj"), opona.get("Felga") or "bez felgi",
+                                                  f"{p['bieznik_min']:g} mm" if p.get("bieznik_min") is not None else "") if x)
+                          if p["opony"] else " · ".join(x for s in spis_poz[:1] for x in (s.get("uwagi"), s.get("komentarz")) if x)),
         })
     wynik.sort(key=lambda w: (_data(w["dzien"]) or datetime.date.max,
                               szukaj.klucz_lokalizacji(w["spis"][0].get("lok")) if w["spis"] else (10, "", 0, 0)))

@@ -536,23 +536,25 @@ class DepozytMixin:
         messagebox.showinfo("Eksport", f"Zapisano: {sciezka}")
 
     def _dep_raport(self):
-        sciezka = filedialog.askopenfilename(parent=self, title="Raport przechowalni z Integry (PDF)",
-                                             filetypes=[("PDF", "*.pdf")])
+        sciezka = filedialog.askopenfilename(
+            parent=self, title="Raport z Integry: przechowalnia (PDF) albo harmonogram wizyt (Excel)",
+            filetypes=[("Raport z Integry", "*.pdf *.xls *.xlsx"), ("PDF", "*.pdf"), ("Excel", "*.xls *.xlsx")])
         if sciezka:
             self.depozyt_wczytaj_raport(sciezka)
 
     def depozyt_wczytaj_raport(self, sciezka):
-        """PDF z Integry → okno listy dla magazyniera (wywoływane też z przeciągania pliku)."""
+        """PDF przechowalni albo Excel z harmonogramem wizyt z Integry → okno listy dla magazyniera."""
         from depozyt import raport
         self.dep_stat.config(text="Czytam raport z Integry…", fg=MUTED)
         spis = self._dep_sezonu() or self.dep_rows
 
         def work():
             try:
-                r = raport.parse(sciezka)
+                r = raport.wczytaj(sciezka)
                 wynik, err = (r, raport.przygotuj(r, spis)), None
                 if not r.get("pozycje"):
-                    err = ValueError("W pliku nie ma pozycji przechowalni – to na pewno raport przechowalni z Integry?")
+                    err = ValueError("W pliku nie ma pozycji – to na pewno raport przechowalni albo harmonogram wizyt "
+                                     "z Integry?")
             except Exception as e:
                 wynik, err = None, e
             self.after(0, lambda: koniec(wynik, err))
@@ -575,7 +577,10 @@ class PrzygotowanieOkno(tk.Toplevel):
         self.app, self.rap, self.wiersze = app, rap, wiersze
         self.tryb = rmod.tryb(rap)
         f = app.fonts
+        self.terminy = rap.get("zrodlo") == "terminy"
         tytuly = {"przygotowanie": "Do przygotowania", "kontrola": "Kontrola z dni, które minęły", "okres": "Raport z okresu"}
+        if self.terminy:
+            tytuly = {k: "Wizyty – opony w depozycie" for k in tytuly}
         okres = rap.get("od") if rap.get("od") == rap.get("do") else f"{rap.get('od')} – {rap.get('do')}"
         self.title(f"{tytuly[self.tryb]} · {okres}")
         set_icon(self)
@@ -586,9 +591,13 @@ class PrzygotowanieOkno(tk.Toplevel):
         tk.Label(top, text=f"{tytuly[self.tryb]} – {okres}", bg=BG, fg=BLACK, font=f.h1).pack(anchor="w")
         bez = sum(1 for w in wiersze if not w["spis"])
         uw = sum(1 for w in wiersze if w["uwagi"])
-        tk.Label(top, text=f"{rap.get('tytul', '')} · {len(wiersze)} {odmiana(len(wiersze), 'pozycja', 'pozycje', 'pozycji')}"
-                           f" · {uw} z uwagami · {bez} bez lokalizacji w spisie · kolejność: regały K → M → pozostałe",
-                 bg=BG, fg=MUTED, font=f.small).pack(anchor="w")
+        if self.terminy:
+            opis = (f"{rap.get('tytul', '')} · {len(wiersze)} {odmiana(len(wiersze), 'wizyta', 'wizyty', 'wizyt')} · "
+                    f"z oponami w depozycie: {len(wiersze) - bez} · kolejność: dniami, potem regały K → M → pozostałe")
+        else:
+            opis = (f"{rap.get('tytul', '')} · {len(wiersze)} {odmiana(len(wiersze), 'pozycja', 'pozycje', 'pozycji')}"
+                    f" · {uw} z uwagami · {bez} bez lokalizacji w spisie · kolejność: regały K → M → pozostałe")
+        tk.Label(top, text=opis, bg=BG, fg=MUTED, font=f.small).pack(anchor="w")
         przyc = tk.Frame(top, bg=BG)
         przyc.pack(fill="x", pady=(8, 0))
         FlatButton(przyc, "✓ Przygotowane", lambda: self._oznacz("przygotowane"), "primary", f.body, 14, 6).pack(side="left")
@@ -596,14 +605,19 @@ class PrzygotowanieOkno(tk.Toplevel):
                    12, 6).pack(side="left", padx=6)
         FlatButton(przyc, "🖨  Drukuj / otwórz w przeglądarce", self._drukuj, "ghost", f.body, 12, 6).pack(side="left")
         self.tylko_uwagi = tk.BooleanVar(value=False)
+        self.tylko_depozyt = tk.BooleanVar(value=self.terminy)
         tk.Checkbutton(przyc, text="tylko z uwagami", variable=self.tylko_uwagi, bg=BG, font=f.body,
                        command=self._render).pack(side="right")
+        if self.terminy:
+            tk.Checkbutton(przyc, text="tylko auta z oponami w depozycie", variable=self.tylko_depozyt, bg=BG,
+                           font=f.body, command=self._render).pack(side="right", padx=8)
         tk.Label(self, text="Zaznacz wiersze (Ctrl/Shift + klik) i użyj przycisków. „Przygotowane” zapisuje w spisie, "
                             "kto i kiedy przygotował opony.", bg=BG, fg=MUTED, font=f.small).pack(anchor="w", padx=14)
         box = tk.Frame(self, bg=SURFACE)
         box.pack(fill="both", expand=True, padx=14, pady=(6, 14))
-        kol = [("dzien", "Dzień", 85), ("lok", "Lokalizacja", 110), ("nr", "Nr rej.", 95), ("opis", "Opony (Integra)", 240),
-               ("szcz", "Rozmiar · rodzaj · felga · bieżnik", 250), ("klient", "Klient", 170), ("uwagi", "Uwagi", 300)]
+        kol = [("dzien", "Termin" if self.terminy else "Dzień", 95), ("lok", "Lokalizacja", 110), ("nr", "Nr rej.", 95),
+               ("opis", "Auto / opony w spisie" if self.terminy else "Opony (Integra)", 240),
+               ("szcz", "Uwagi ze spisu" if self.terminy else "Rozmiar · rodzaj · felga · bieżnik", 250), ("klient", "Klient", 170), ("uwagi", "Uwagi", 300)]
         self.tree = ttk.Treeview(box, columns=[k for k, _, _ in kol], show="headings", style="Dep.Treeview")
         for k, t, w in kol:
             self.tree.heading(k, text=t)
@@ -611,23 +625,28 @@ class PrzygotowanieOkno(tk.Toplevel):
         self.tree.tag_configure("brak", background="#FDE3E3")
         self.tree.tag_configure("uwaga", background="#FFF4E0")
         self.tree.tag_configure("gotowe", background=KOLOR_PRZYG)
+        self.tree.tag_configure("nie", foreground=MUTED)
         sb = ttk.Scrollbar(box, command=self.tree.yview)
         self.tree.configure(yscrollcommand=sb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="right", fill="y")
         self._render()
 
+    def _widoczne(self) -> list:
+        return [(i, w) for i, w in enumerate(self.wiersze)
+                if not (self.tylko_uwagi.get() and not w["uwagi"]) and not (self.tylko_depozyt.get() and not w["spis"])]
+
     def _render(self):
         t = self.tree
         t.delete(*t.get_children())
-        for i, w in enumerate(self.wiersze):
-            if self.tylko_uwagi.get() and not w["uwagi"]:
-                continue
+        for i, w in self._widoczne():
             gotowe = w["spis"] and all(s.get("przygotowane_at") for s in w["spis"])
-            tag = "brak" if not w["spis"] else "gotowe" if gotowe else "uwaga" if w["uwagi"] else ""
+            tag = ("nie" if self.terminy else "brak") if not w["spis"] else "gotowe" if gotowe else \
+                "uwaga" if w["uwagi"] else ""
             r = w["raport"]
+            dzien = ".".join((r.get("data_wydania") or r.get("data_przyjecia") or "").split(".")[:2])
             t.insert("", "end", iid=str(i), tags=(tag,) if tag else (), values=(
-                (r.get("data_wydania") or r.get("data_przyjecia") or "")[:5], w["lok"] or "—", r["nr_rej"], w["opis"],
+                f"{dzien} {r.get('godzina', '')}".strip(), w["lok"] or "—", r["nr_rej"], w["opis"],
                 w["szczegoly"], r.get("kontrahent", "")[:30],
                 ("✓ przygotowane · " if gotowe else "") + " · ".join(w["uwagi"])))
 
@@ -669,7 +688,7 @@ class PrzygotowanieOkno(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
     def _drukuj(self):
-        wiersze = [w for w in self.wiersze if not self.tylko_uwagi.get() or w["uwagi"]]
+        wiersze = [w for _, w in self._widoczne()]
         tr = "".join(
             f"<tr class='{'brak' if not w['spis'] else 'uw' if w['uwagi'] else ''}'><td class=c>☐</td>"
             f"<td class=lok>{esc(w['lok'] or '—')}</td><td class=nr>{esc(w['raport']['nr_rej'])}</td>"
@@ -686,7 +705,7 @@ th{{background:#111;color:#fff;text-align:left;padding:5px;font-size:11px}}td{{b
 @media print{{tr{{page-break-inside:avoid}}}}</style></head><body onload="window.print()">
 <h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
 wydrukowano {datetime.datetime.now():%d.%m.%Y %H:%M}</small></div><br>
-<table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>Opony (Integra)</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
+<table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>{'Auto / opony w spisie' if self.terminy else 'Opony (Integra)'}</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
         fd, sciezka = tempfile.mkstemp(prefix="przygotowanie_", suffix=".html")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(doc)

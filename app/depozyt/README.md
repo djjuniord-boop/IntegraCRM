@@ -13,6 +13,10 @@ w oddziale. Moduł uprawnień `depozyt` (UŻYTKOWNICY), oddział konta = oddzia�
   umówionych terminów”, dowolny dzień lub okres). Czyta słowa wg pozycji kolumn z nagłówka każdej strony.
   `przygotuj()` łączy raport ze spisem i dodaje uwagi; `tryb()`: przyszłość = przygotowanie, przeszłość = kontrola.
   Integra w kolumnie „Lokalizacja” ma zwykle tylko „Wrocław” – miejsce na regale jest wyłącznie w spisie.
+- `xls.py` – odczyt starego Excela (.xls, BIFF8) bez xlrd (nie ma go w paczce .exe): kontener OLE2 → rekordy
+  komórek; .xlsx przez openpyxl. Sprawdzone na eksporcie z Integry – wynik identyczny jak z xlrd.
+  `raport.parse_terminy` / `raport.wczytaj` – harmonogram wizyt z Integry (Termin od, Nr rej., Marka, Model, Kontrahent);
+  wpisy techniczne (np. CZK_OPONY) pomijane, auta bez opon w spisie – „brak opon w depozycie” (bez alarmu).
 - `dane.py` – zapytania (stronicowanie po 1000 wierszy; zapis tylko funkcjami `depozyt_zmien`, `depozyt_dodaj`).
 
 Baza: `supabase/depozyt_2026-11-25.sql` (tabele `depozyt`, `depozyt_historia`, RLS, funkcje). Import spisu z Excela –
