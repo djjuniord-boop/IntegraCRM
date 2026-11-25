@@ -1,0 +1,22 @@
+# DEPOZYT – spis opon w przechowalni
+
+Wspólny spis opon klientów z lokalizacją na regale (dawniej `SPIS_ZIMA_….xlsx`), widoczny na żywo dla wszystkich
+w oddziale. Moduł uprawnień `depozyt` (UŻYTKOWNICY), oddział konta = oddział spisu.
+
+- `zakladka.py` – `DepozytMixin` (część `App` w `gui.py`): tabela spisu, odhaczanie „przywiezione” (dwuklik / spacja /
+  Enter przy jednym wyniku; data, godzina i kto zapisują się w bazie), komentarz, „do wyjaśnienia”, zmiana
+  lokalizacji/numeru/marki, historia zmian, duplikaty, eksport do Excela (czerwone/pomarańczowe wiersze jak w starym
+  pliku), „Dodaj pozycję”. Odświeżanie co minutę, gdy zakładka jest otwarta. `PrzygotowanieOkno` – lista z raportu Integry.
+- `szukaj.py` – wyszukiwanie odporne na literówki (znaki mylone O/0/D, I/1, B/8…, 1–2 inne znaki, numery w uwagach),
+  `klucz_lokalizacji` – kolejność obchodu magazynu: regały K, potem M, potem pozostałe (KPOK, KWEJ, MAGOPIS…).
+- `raport.py` – PDF przechowalni z Integry (FastReport; „Rejestr przechowalni opon”, „Rejestr opon do wydania wg
+  umówionych terminów”, dowolny dzień lub okres). Czyta słowa wg pozycji kolumn z nagłówka każdej strony.
+  `przygotuj()` łączy raport ze spisem i dodaje uwagi; `tryb()`: przyszłość = przygotowanie, przeszłość = kontrola.
+  Integra w kolumnie „Lokalizacja” ma zwykle tylko „Wrocław” – miejsce na regale jest wyłącznie w spisie.
+- `dane.py` – zapytania (stronicowanie po 1000 wierszy; zapis tylko funkcjami `depozyt_zmien`, `depozyt_dodaj`).
+
+Baza: `supabase/depozyt_2026-11-25.sql` (tabele `depozyt`, `depozyt_historia`, RLS, funkcje). Import spisu z Excela –
+jednorazowy plik SQL poza repozytorium (dane klientów).
+
+Testy: `tests/test_depozyt.py` (szukanie, raport w układzie Integry na zmyślonych danych, lista, filtry) i kontrola
+`depozyt_spis_i_szukanie` w `tests/ui_smoke.py`.

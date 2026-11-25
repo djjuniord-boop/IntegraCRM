@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.27"
-RELEASED = "2026-11-17"
+VERSION = "1.2.0"
+RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.0",
+        "date": "2026-11-25",
+        "changes": [
+            "Nowa zakładka DEPOZYT: spis opon w przechowalni z lokalizacjami – wspólny dla całego oddziału, na żywo",
+            "„Przywiezione” jednym kliknięciem (dwuklik, spacja albo Enter) – zapisuje datę, godzinę i kto zaznaczył; cofnięcie z potwierdzeniem",
+            "Szukanie numeru także z literówką (O/0, I/1, B/8, jedna-dwie złe litery) i wśród numerów w uwagach; komentarze, „do wyjaśnienia”, historia zmian, duplikaty, eksport do Excela",
+            "„Wczytaj raport z Integry”: raport przechowalni na jutro → lista dla magazyniera ułożona po regałach do druku; raport z minionych dni → co nie jest odhaczone, czego nie ma w spisie, inna marka, niski bieżnik",
+        ],
+    },
     {
         "version": "1.1.27",
         "date": "2026-11-24",

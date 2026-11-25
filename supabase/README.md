@@ -18,6 +18,7 @@ Projekt `latex-serwis-qr` (id `nlrwulrtaocuemfmlfav`, Frankfurt, plan darmowy). 
 | `cars`, `services` | SERWIS QR | moduł `serwis` + oddział auta (`cars.branch`) |
 | `oferty_konta` | OFERTY OPON | login/hasło API xPartner i ustawienia ofert: odczyt swój wiersz albo admin; zapis tylko `oferty_admin_set_konto` (admin) i `oferty_zapisz_ustawienia` (właściciel, moduł `oferty`) |
 | `oferty` | OFERTY OPON | historia ofert – odczyt: swoje (moduł `oferty`) albo admin wszystkie; zapis/zmiana/usuwanie: tylko swoje (`oferty_admin_2026-11-05.sql`) |
+| `depozyt`, `depozyt_historia` | DEPOZYT | odczyt: moduł `depozyt` + oddział wiersza (historia – pozycji, które konto widzi); zapis tylko `depozyt_zmien` (pole: przywiezione, wyjasnic, przygotowane, komentarz, lok, nr, marka, ilosc, uwagi) i `depozyt_dodaj` – każda zmiana w `depozyt_historia`; usuwanie: nikt (`depozyt_2026-11-25.sql`) |
 | `settings` | SERWIS QR | odczyt: anon (strona klienta) i moduł `serwis`; zapis: admin |
 | Storage `marza` | MARŻA | moduł `marza` (odczyt, dodawanie) |
 
