@@ -38,6 +38,7 @@ from oferty.zakladka import OfertyMixin
 from uzytkownicy.zakladka import UzytkownicyMixin
 from wyniki.zakladka import WynikiMixin
 from dzis.zakladka import DzisMixin, kafle_konta
+from depozyt.zakladka import DepozytMixin
 
 
 STATS_INFO = ("Program wysyła anonimowe statystyki użycia: losowy identyfikator instalacji, wersję, "
@@ -101,6 +102,17 @@ HELP_MODULES = [
         ("Zamówienia xPartner", "Otwarte zamówienia, zrealizowane (domyślnie 2 dni – dłuższy okres wybierz datami) "
                                 "i faktury."),
     ]),
+    ("depozyt", "DEPOZYT OPON", [
+        ("Spis przechowalni", "Zakładka DEPOZYT to wspólny spis opon klientów z lokalizacją na regale – widzą go na żywo "
+                              "wszyscy w oddziale. Dwuklik albo spacja odhacza „przywiezione” (zapisuje datę, godzinę "
+                              "i kto), drugi raz – cofa. Prawy przycisk: komentarz, do wyjaśnienia, zmiana lokalizacji, historia."),
+        ("Szukanie", "Wpisz numer – znajdzie go też z literówką (O/0, I/1, B/8, jedna-dwie złe litery; wynik z „≈”) "
+                     "i wśród numerów w uwagach. Można szukać po lokalizacji, marce i komentarzu. Enter odhacza, "
+                     "gdy jest jeden wynik."),
+        ("Raport z Integry", "„Wczytaj raport z Integry” przyjmuje PDF przechowalni na dowolny dzień albo okres oraz Excel z harmonogramem wizyt (które umówione auta mają opony w depozycie). Na jutro – "
+                             "lista do przygotowania ułożona trasą po regałach (K → M → reszta) do druku; z dni, które "
+                             "minęły – kontrola: co nie jest odhaczone, czego nie ma w spisie, inna marka, niski bieżnik."),
+    ]),
     ("serwis", "SERWIS QR", [
         ("Wpis serwisowy", "W zakładce SERWIS QR dodaj wpis (numer, przebieg, olej, filtry) i wydrukuj naklejkę "
                            "z kodem QR – klient zeskanuje ją telefonem i zobaczy historię auta."),
@@ -109,7 +121,7 @@ HELP_MODULES = [
 
 
 # ---------- okno główne: rdzeń + zakładki modułów ----------
-class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
+class App(DzisMixin, KontrolaMixin, DepozytMixin, HistoriaMixin, MarzaMixin, WynikiMixin, SerwisMixin, OfertyMixin, UzytkownicyMixin,
           tk.Tk):
     """Okno programu. Zakładki są w modułach (kontrola/, marza/, serwis/, uzytkownicy/) jako klasy *Mixin;
     tutaj: start, układ okna, zakładki wg uprawnień, aktualizacje, obsługa błędów."""
@@ -363,6 +375,8 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
             tab_list.append(("serwis", "SERWIS QR  β"))
         if can("oferty"):
             tab_list.append(("oferty", "OFERTY OPON"))
+        if can("depozyt"):
+            tab_list.append(("depozyt", "DEPOZYT"))
         if self.session and self.session.is_admin:
             tab_list.append(("users", "UŻYTKOWNICY"))
         tab_list.append(("help", "POMOC I WERSJE"))
@@ -404,6 +418,13 @@ class App(DzisMixin, KontrolaMixin, HistoriaMixin, MarzaMixin, WynikiMixin, Serw
                 self._build_oferty(self.pages["oferty"])
             except Exception as e:   # beta nie może zablokować reszty programu
                 tk.Label(self.pages["oferty"], text=f"Nie udało się wczytać zakładki OFERTY OPON: {e}",
+                         bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
+        if "depozyt" in self.pages:
+            try:
+                self._build_depozyt(self.pages["depozyt"])
+            except Exception as e:   # nowy moduł nie może zablokować reszty programu
+                self._report(e, "zakładka DEPOZYT")
+                tk.Label(self.pages["depozyt"], text=f"Nie udało się wczytać zakładki DEPOZYT: {e}",
                          bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
         self.show_tab(self.current_tab)
 

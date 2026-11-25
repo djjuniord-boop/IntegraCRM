@@ -46,3 +46,9 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Kto zamówił przez Panel – zapisywane w bazie. (2026-11-18)
 - Oddział faktury („Kod odbiorcy”) **nie jest dostępny w API xPartner** – faktura bez zamówienia widoczna tylko przy
   „wszystkie subkonta”. (2026-11-21)
+
+## DEPOZYT OPON
+- Spis przechowalni w programie (moduł `depozyt`) zamiast arkusza; wszyscy w oddziale na żywo, „przywiezione”
+  z datą, godziną i nazwiskiem z konta. Pozycje odhaczone w Excelu mają „wg Excela” (bez godziny). (2026-11-25)
+- Raport przechowalni z Integry: program daje wynik zależny od raportu – dzień do przodu = lista do przygotowania
+  (trasa po regałach K → M → reszta), dni minione = kontrola rozbieżności, okres = jedno i drugie. (2026-11-25)

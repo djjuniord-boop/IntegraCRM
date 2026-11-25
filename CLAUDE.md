@@ -22,6 +22,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) – **wygaszony w programie** (`konfig.SERWIS_WYGASZONY`, decyzja 2026-11-16); strona z kodów QR działa |
 | **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner, koszyk i zamówienia |
 | **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – oferty opon i wyniki marży na telefonie – **zawieszona** |
+| **DEPOZYT** | `app/depozyt/` | → [`app/depozyt/README.md`](app/depozyt/README.md) – spis opon w przechowalni, odhaczanie, lista dla magazyniera z raportu Integry |
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
 | Baza i serwer | `supabase/` | → [`supabase/README.md`](supabase/README.md) |
 | Testy | `tests/`, `app/selftest.py` | → sekcja „Sprawdzanie” niżej |
@@ -66,7 +67,7 @@ Sesja, z którą rozmawia właściciel, jest **kontrolerem**. Kolejność przy k
 
 1. **Ustal moduł** z mapy wyżej. Czytaj tylko `CLAUDE.md` + README tego modułu + jego pliki.
    Zmiana w jednym module → agent tego modułu (`.claude/agents/agent-<moduł>.md`): `agent-kontrola`, `agent-marza`,
-   `agent-wyniki`, `agent-dzis` (ekran DZIŚ), `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-android`
+   `agent-wyniki`, `agent-dzis` (ekran DZIŚ), `agent-serwis`, `agent-oferty` (OFERTY OPON i zamówienia), `agent-depozyt` (DEPOZYT), `agent-android`
    (`mobile/`), `agent-uzytkownicy`, `agent-baza` (Supabase). Zmiana silnika ofert albo wzorów WYNIKÓW = także
    ta sama zmiana w telefonie (agent Android).
    Zmiana w kilku modułach albo w rdzeniu → kontroler sam, po kolei, z agentami jako pomocą.

@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.1.27"
-RELEASED = "2026-11-17"
+VERSION = "1.2.3"
+RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,37 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.3",
+        "date": "2026-11-25",
+        "changes": [
+            "DEPOZYT – lista z raportu: nowe kolumny „Ilość (spis)” (puste w spisie = komplet; 1, 2, 3 szt. albo np. „1 + 3 = 4 szt.”, gdy opony leżą w dwóch miejscach) i „Sezon (spis)” (ZIMA / LATO); ostrzeżenia „NIEPEŁNY KOMPLET” i „w spisie opony LETNIE”; to samo na wydruku",
+        ],
+    },
+    {
+        "version": "1.2.2",
+        "date": "2026-11-25",
+        "changes": [
+            "DEPOZYT: przycisk „↺ Ostatnia lista” – po zamknięciu okna listy (albo programu) wracasz do ostatnio wczytanego raportu z Integry bez ponownego wczytywania pliku; stan „przygotowane” i „przywiezione” jest zawsze aktualny",
+        ],
+    },
+    {
+        "version": "1.2.1",
+        "date": "2026-11-25",
+        "changes": [
+            "DEPOZYT: „Wczytaj raport z Integry” przyjmuje też Excel z harmonogramem wizyt (.xls / .xlsx) – pokazuje, które auta umówione na dany dzień mają opony w depozycie, z lokalizacją, ułożone po regałach (do druku)",
+        ],
+    },
+    {
+        "version": "1.2.0",
+        "date": "2026-11-25",
+        "changes": [
+            "Nowa zakładka DEPOZYT: spis opon w przechowalni z lokalizacjami – wspólny dla całego oddziału, na żywo",
+            "„Przywiezione” jednym kliknięciem (dwuklik, spacja albo Enter) – zapisuje datę, godzinę i kto zaznaczył; cofnięcie z potwierdzeniem",
+            "Szukanie numeru także z literówką (O/0, I/1, B/8, jedna-dwie złe litery) i wśród numerów w uwagach; komentarze, „do wyjaśnienia”, historia zmian, duplikaty, eksport do Excela",
+            "„Wczytaj raport z Integry”: raport przechowalni na jutro → lista dla magazyniera ułożona po regałach do druku; raport z minionych dni → co nie jest odhaczone, czego nie ma w spisie, inna marka, niski bieżnik",
+        ],
+    },
     {
         "version": "1.1.27",
         "date": "2026-11-24",

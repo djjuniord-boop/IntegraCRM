@@ -92,6 +92,16 @@ class FakeSession(cloud.Session):
                         "branches": branches, "active": True}
 
     def call(self, method, path, body=None, prefer=None):
+        if path.startswith("/rest/v1/depozyt?") and method == "GET":   # spis zmyślony, jak po imporcie z Excela
+            return [{"id": i, "branch": "Latex Wrocław", "sezon": "ZIMA 2026/27", "nr": nr, "lok": lok, "marka": m,
+                     "marka2": "", "ilosc": il, "rodzaj": "", "uwagi": uw, "komentarz": kom,
+                     "przywiezione": pw, "przywiezione_at": at, "przywiezione_kto": kto, "wyjasnic": wj}
+                    for i, (nr, lok, m, il, uw, kom, pw, at, kto, wj) in enumerate([
+                        ("DW12345", "K1.4", "YOKOHAMA", "", "", "", True, None, None, False),
+                        ("WE7A071", "K1.4", "CONTINENTAL", "3X", "", "felgi w worku", False, None, None, False),
+                        ("DX5521K", "K2.3", "PIRELLI", "", "DX5521X?", "", True, "2026-11-25T08:15:00Z", "Jan", False),
+                        ("OP1234X", "M8/10", "MICHELIN", "2X", "", "", False, None, None, True),
+                        ("DX9M934", "KPOK", "HANKOOK", "", "", "", False, None, None, False)], 1)]
         if "app_config" in path and "crm" in path and method == "GET":
             return [{"value": COMPANY}]
         if ("marza_months" in path or "marza_results" in path) and method == "GET" and (
@@ -256,6 +266,11 @@ def run_scenario(label, sess):
             info["branches_crm"] = list(app.branch_vars)
         if "users" in app.pages:
             info["users_rows"] = len(app.users_tv.get_children())
+        if "depozyt" in app.pages:
+            info["depozyt_wiersze"] = len(app.dep_tree.get_children())
+            app.dep_q.set("DX5521X")
+            app._dep_render()
+            info["depozyt_szukaj"] = [app.dep_tree.item(i, "values")[1] for i in app.dep_tree.get_children()]
         if "hist" in app.pages:
             info["history_rows"] = len(app.hist_tree.get_children())
         if "wyniki" in app.pages:
@@ -355,6 +370,9 @@ def main():
         "admin_ma_wszystkie_zakladki": all(t in result.get("admin", {}).get("tabs", []) for t in
                                            ("main", "hist", "marza", "wyniki", "users", "help")),
         "bez_statystyk_i_serwisu": not ({"stat", "serwis"} & set(result.get("admin", {}).get("tabs", []))),
+        "depozyt_spis_i_szukanie": (result.get("admin", {}).get("depozyt_wiersze") == 5
+                                    and result.get("admin", {}).get("depozyt_szukaj", [""])[0].startswith("DX5521K")
+                                    and "depozyt" not in result.get("kontrola_opole", {}).get("tabs", [])),
         "admin_lista_uzytkownikow": result.get("admin", {}).get("users_rows") == 2,
         "okno_logowania": result.get("logowanie", {}).get("shown") is True,
         "historia_z_bazy": result.get("admin", {}).get("history_rows") == 2,
