@@ -270,10 +270,11 @@ class DepozytMixin:
         self._dep_render(zachowaj=cicho)
 
     def _dep_auto(self):
-        """Co 10 s (zakładka otwarta, okno aktywne): pobiera tylko zmienione pozycje i podmienia je w tabeli."""
+        """Co 10 s (zakładka otwarta, okno nie zminimalizowane – także gdy pracujesz w arkuszu albo innym programie):
+        pobiera tylko zmienione pozycje i podmienia je w tabeli."""
 
         try:
-            if getattr(self, "current_tab", "") == "depozyt" and self.focus_displayof() is not None \
+            if getattr(self, "current_tab", "") == "depozyt" and self.state() != "iconic" \
                     and not self.dep_ladowanie and self.session is not None:
                 minelo = time.monotonic() - self._dep_pelne
                 if minelo > CALOSC_MS / 1000 or (not self.dep_ostatnio and minelo > 60):   # bez znacznika: co minutę
