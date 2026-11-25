@@ -58,6 +58,32 @@ def zapytaj(okno, tytul, tekst, initialvalue=""):
     return wynik["v"]
 
 
+def _plik_ostatni():
+    import paths
+    return paths.DATA_DIR / "depozyt_ostatni_raport.json"
+
+
+def _wczytaj_ostatni():
+    """Ostatnio wczytany raport (odczytany z PDF/Excela) – żeby po zamknięciu okna albo programu wrócić do listy."""
+    import json
+    try:
+        return json.loads(_plik_ostatni().read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _zapisz_ostatni(rap: dict):
+    import json
+    p = _plik_ostatni()
+    try:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        tmp = p.with_suffix(".tmp")
+        tmp.write_text(json.dumps(rap, ensure_ascii=False), encoding="utf-8")
+        os.replace(tmp, p)
+    except OSError:
+        pass   # brak zapisu = tylko brak listy po ponownym uruchomieniu
+
+
 def czas(iso) -> str:
     try:
         t = datetime.datetime.fromisoformat(str(iso).replace("Z", "+00:00")).astimezone()
@@ -140,11 +166,16 @@ class DepozytMixin:
         FlatButton(bar, "Duplikaty", self._dep_duplikaty, "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
         FlatButton(bar, "Historia zmian", lambda: self._dep_historia(None), "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
         FlatButton(bar, "+ Dodaj pozycję", self._dep_dodaj, "ghost", f.body, 12, 6).pack(side="right", padx=(0, 6))
-        FlatButton(bar, "📄  Wczytaj raport z Integry", self._dep_raport, "primary", f.body, 14, 6).pack(
-            side="right", padx=(0, 10))
-
-        self.dep_stat = tk.Label(page, text="Wczytywanie spisu…", bg=BG, fg=INK, font=f.body, anchor="w")
-        self.dep_stat.pack(fill="x")
+        rzad2 = tk.Frame(page, bg=BG)
+        rzad2.pack(fill="x")
+        self.dep_ostatni_btn = FlatButton(rzad2, "↺  Ostatnia lista", self.depozyt_ostatnia_lista, "ghost", f.body, 12, 6)
+        self.dep_ostatni_btn.pack(side="right")
+        FlatButton(rzad2, "📄  Wczytaj raport z Integry", self._dep_raport, "primary", f.body, 14, 6).pack(
+            side="right", padx=(0, 6))
+        self.dep_ostatni = _wczytaj_ostatni()
+        self._dep_ostatni_opis()
+        self.dep_stat = tk.Label(rzad2, text="Wczytywanie spisu…", bg=BG, fg=INK, font=f.body, anchor="w")
+        self.dep_stat.pack(side="left", fill="x", expand=True)
         self.dep_pasek = tk.Canvas(page, height=6, bg=LINE, highlightthickness=0)
         self.dep_pasek.pack(fill="x", pady=(4, 8))
         self.dep_pasek.bind("<Configure>", lambda e: self._dep_rysuj_pasek())
@@ -174,7 +205,7 @@ class DepozytMixin:
         box = tk.Frame(page, bg=SURFACE, highlightbackground=LINE, highlightthickness=1)
         box.pack(fill="both", expand=True)
         kol = [("ok", "✓", 36), ("nr", "Nr rej.", 110), ("lok", "Lok.", 80), ("marka", "Marka", 150),
-               ("il", "Ilość / rodzaj", 100), ("uwagi", "Uwagi (spis)", 190), ("kom", "Komentarz", 230),
+               ("il", "Ilość / rodzaj", 115), ("uwagi", "Uwagi (spis)", 190), ("kom", "Komentarz", 230),
                ("kiedy", "Przywiezione", 210)]
         st = ttk.Style(page)
         st.configure("Dep.Treeview", rowheight=26, font=f.body)
@@ -564,8 +595,30 @@ class DepozytMixin:
             if err is not None:
                 messagebox.showerror("Raport z Integry", f"Nie udało się odczytać raportu:\n{opis_bledu(err)}")
                 return
-            PrzygotowanieOkno(self, *wynik)
+            self.dep_ostatni = wynik[0]
+            _zapisz_ostatni(wynik[0])
+            self._dep_ostatni_opis()
+            self.dep_okno = PrzygotowanieOkno(self, *wynik)
         threading.Thread(target=work, daemon=True).start()
+
+    def _dep_ostatni_opis(self):
+        r = self.dep_ostatni
+        if r:
+            okres = r.get("od") if r.get("od") == r.get("do") else f"{r.get('od')} – {r.get('do')}"
+            self.dep_ostatni_btn.set_enabled(True, f"↺  Ostatnia lista ({okres})")
+        else:
+            self.dep_ostatni_btn.set_enabled(False, "↺  Ostatnia lista")
+
+    def depozyt_ostatnia_lista(self):
+        """Ponownie otwiera listę z ostatnio wczytanego raportu – ze świeżym stanem spisu (kto co przygotował)."""
+        from depozyt import raport
+        if not self.dep_ostatni:
+            return
+        okno = getattr(self, "dep_okno", None)
+        if okno is not None and okno.winfo_exists():
+            okno.destroy()
+        self.dep_okno = PrzygotowanieOkno(self, self.dep_ostatni,
+                                          raport.przygotuj(self.dep_ostatni, self._dep_sezonu() or self.dep_rows))
 
 
 class PrzygotowanieOkno(tk.Toplevel):

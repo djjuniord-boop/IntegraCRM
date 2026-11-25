@@ -177,3 +177,13 @@ def test_xls_bledny_plik():
         assert False, "powinien być błąd"
     except xls.XlsError:
         pass
+
+
+def test_ostatnia_lista_zostaje_po_zamknieciu():
+    from _wspolne import temp_data as td
+    from depozyt import zakladka
+    td()
+    assert zakladka._wczytaj_ostatni() is None
+    rap = {"tytul": "Rejestr", "od": "2026-11-26", "do": "2026-11-26", "pozycje": [{"nr_rej": "DX10001", "opony": []}]}
+    zakladka._zapisz_ostatni(rap)
+    assert zakladka._wczytaj_ostatni() == rap

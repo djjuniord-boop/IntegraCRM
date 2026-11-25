@@ -17,6 +17,7 @@ w oddziale. Moduł uprawnień `depozyt` (UŻYTKOWNICY), oddział konta = oddzia�
   komórek; .xlsx przez openpyxl. Sprawdzone na eksporcie z Integry – wynik identyczny jak z xlrd.
   `raport.parse_terminy` / `raport.wczytaj` – harmonogram wizyt z Integry (Termin od, Nr rej., Marka, Model, Kontrahent);
   wpisy techniczne (np. CZK_OPONY) pomijane, auta bez opon w spisie – „brak opon w depozycie” (bez alarmu).
+- Ostatnio wczytany raport zapisuje się w `data/depozyt_ostatni_raport.json` (przycisk „↺ Ostatnia lista”).
 - `dane.py` – zapytania (stronicowanie po 1000 wierszy; zapis tylko funkcjami `depozyt_zmien`, `depozyt_dodaj`).
 
 Baza: `supabase/depozyt_2026-11-25.sql` (tabele `depozyt`, `depozyt_historia`, RLS, funkcje). Import spisu z Excela –
