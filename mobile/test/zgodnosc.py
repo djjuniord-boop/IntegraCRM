@@ -16,7 +16,7 @@ import xp_oferta_sync as XS
 PLIK = XS.czytaj_csv(T.CSV_TEST)[0]["dane"]
 DB.append(dict(copy.deepcopy(PLIK), attrs={k: v for k, v in PLIK["attrs"].items() if k not in ("Kod EPREL", "Przyczepność na śniegu")}))
 TEKSTY = ["2254517 lato 91w 2szt", "205/55 R16 94 V zimowe", "225/45r17 91/88y", "205/55 r 16 4 szt", "2055516 zimowe premium", "205/55 16 sailun", "silun 2055516 x2", "rodx 1956515 bez demo", "2155517 conti runflat",
-          "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia", "bmw x5 suv 275/40 20 dw12345 wymiana przechowalnia opon",
+          "2055516 ten sam model", "octavia dw5444lw 2055516 zimowe", "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia", "bmw x5 suv 275/40 20 dw12345 wymiana przechowalnia opon",
           "transit dostawczy 2156516 tylko wymiana", "vw passat 2055516 dw5444lw silun", "2055516 ling long 8 szt", "2254517 premium budzet całoroczne demo",
           "SKODA\tOCTAVIA\tDX1522H\t205/60 R16\tTAK\nSKODA\tOCTAVIA\tDX3985C\t205/60 R16\tNIE",
           "superb 215/55 17 DX1209H 4 szt\nDX3985C octavia 205/60 16 tylko wymiana", "2055516 w lecie", "2055516 4 pory roku 2 szt", "platon 2055516 winter", "całorok 2055516 summer"]
@@ -25,7 +25,7 @@ S.ucz_marki(S.load_cfg())
 py = {"quick": [S.parse_quick(t) for t in TEKSTY], "parse": [S.parse_request_text(t) for t in TEKSTY],
       "marki": [S.brand_of_word(w) for w in SLOWA], "sizes": [S.find_sizes(t) for t in TEKSTY]}
 cfg = S.load_cfg()
-py["enrich"] = [{k: v for k, v in S.enrich(cfg, p).items() if k in ("sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta", "nosnosc", "predkosc", "rant")} for p in DB]
+py["enrich"] = [{k: v for k, v in S.enrich(cfg, p).items() if k in ("sezon", "producent", "klasa", "model", "indeks", "dot", "standard", "cena_brutto", "mokra", "halas", "homol", "demo", "model_oferta", "nosnosc", "predkosc", "rant", "homol_kod")} for p in DB]
 cfg2 = dict(cfg, narzut_tryb="kwota")
 py["ceny"] = [[S.sell_price(cfg, n), S.sell_price(cfg2, n)] for n in (100, 236.44, 300, 325.2, 344.10, 500, 731.0, 800)]
 reqs = [{"pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}], "sezony": [], "klasy": []},
@@ -45,7 +45,7 @@ py["pdf"] = []
 py["offer"] = []
 for o in offers:
     c, r = S.handle("/api/offer", copy.deepcopy(o))
-    py["offer"].append({"warianty": r["warianty"], "email": r["email"], "uwagi": r["uwagi"], "ulotki": [(u["id"], u["cena"]) for u in r["ulotki"]]})
+    py["offer"].append({"warianty": r["warianty"], "uwagi": r["uwagi"], "ulotki": [(u["id"], u["cena"], u["szt"]) for u in r["ulotki"]]})
     for u in r["ulotki"]:
         py["pdf"].append(S.handle("/api/pdf", {"id": u["id"], "logo": "logo.png"})[1].get("html"))
     if len(r["ulotki"]) > 1:
@@ -63,11 +63,28 @@ py["plik_search"] = [r["zrodlo"], {g: [p["id"] for p in l] for g, l in r["wyniki
 S.handle("/api/offer", {"oid": "20261106_090000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True, "wymiana": True}], "wybor": {"205/55 R16": {"x": [PLIK["id"]]}}})
 py["plik_pdf"] = [S.handle("/api/pdf", {"id": PLIK["id"], "logo": "logo.png"})[1].get("html")]
 assert py["plik_search"][0] == "z pliku" and "tyres/381909/labels" in (py["plik_pdf"][0] or "") and "3PMSF" in py["plik_pdf"][0], "PDF z pliku bez EPREL"
+# 1.1.19–1.1.25: homologacja z cechy, szybkie polecenie po kodzie, wspólne ceny usług (Wrocław), run flat w PDF
+HOM = [{"Homologacja": "NC0_PORSCHE"}, {"Homologacja": "MOBMW_MERCEDES/BMW/MINI"}, {"Homologacja": "XX_LAND ROVER/FERRARI"}, {"Homologacja": "MO"}, {}]
+py["homol"] = [[S.homol_cecha({"attrs": a}), S.homol_of({"nazwa": "205/55 R16 91V NA0 TEST", "attrs": a})] for a in HOM]
+S.KONTO["katalog"].produkt = lambda k: [copy.deepcopy(PLIK)] if k in (str(PLIK["id"]), PLIK.get("ean") or "-") else []
+py["kod"] = [S.handle("/api/quick", {"text": t})[1] for t in (str(PLIK["id"]), "ABC123456789", "xyz")]
+CENY_ODDZ = {"Latex Wrocław": {"marza_proc": 33, "tpms_cena": 99, "wymiana_kolo": {"16": 70}}}
+py["cfg"] = []
+for adm, odd in ((False, ["Latex Wrocław"]), (True, ["Latex Wrocław"]), (False, ["Latex Opole"])):
+    S.KONTO.update(admin=adm, oddzialy_konta=odd, ceny_oddz=copy.deepcopy(CENY_ODDZ), ustawienia={"marza_proc": 20, "tpms_cena": 50})
+    zap = []
+    S.KONTO["zapisz_ceny"] = lambda o, d, zap=zap: zap.append([o, d])
+    S.KONTO["zapisz"] = lambda d, zap=zap: zap.append(["osobiste", d.get("marza_proc"), d.get("tpms_cena"), d.get("vat_proc")])
+    c = S.handle("/api/cfg")[1]
+    S.handle("/api/cfg", {"marza_proc": 40, "tpms_cena": 120, "vat_proc": 23})
+    py["cfg"].append([c["marza_proc"], c["tpms_cena"], c["wymiana_kolo"].get("16"), c["ceny_oddzial"], c["ceny_edycja"], zap])
+S.KONTO.update(admin=False, oddzialy_konta=[], ceny_oddz={}, ustawienia={})
+inp_cfg = {"CENY_ODDZ": CENY_ODDZ, "HOM": HOM}
 import importlib.util as _iu
 _spec = _iu.spec_from_file_location("zw", ROOT / "mobile/zrob_wzor.py"); _zw = _iu.module_from_spec(_spec); _spec.loader.exec_module(_zw)
 if (ROOT / "mobile/www/pdf_wzor.js").read_text(encoding="utf-8") != _zw.tresc():
     print("RÓŻNICA: mobile/www/pdf_wzor.js nieaktualny – uruchom python3 mobile/zrob_wzor.py"); sys.exit(1)
-inp = {"PLIK": PLIK, "ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "POROWNANIE": (ROOT / "app/oferty/pdf_porownanie.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers}
+inp = {"PLIK": PLIK, "ODDZ": ODDZ, "WZOR": (ROOT / "app/oferty/pdf_wzor.html").read_text(encoding="utf-8"), "POROWNANIE": (ROOT / "app/oferty/pdf_porownanie.html").read_text(encoding="utf-8"), "TEKSTY": TEKSTY, "SLOWA": SLOWA, "DB": DB, "reqs": reqs, "offers": offers, **inp_cfg}
 js = subprocess.run(["node", str(Path(__file__).with_name("zgodnosc_js.cjs"))], input=json.dumps(inp), capture_output=True, text=True)
 if js.returncode:
     print(js.stderr); sys.exit(2)
@@ -81,6 +98,9 @@ for k in py:
         for i, (x, y) in enumerate(zip(a, b)):
             if x != y:
                 bad += 1
+                if isinstance(x, str) and isinstance(y, str):   # długi tekst (PDF) – pokaż miejsce pierwszej różnicy
+                    j = next((n for n, (c1, c2) in enumerate(zip(x, y)) if c1 != c2), min(len(x), len(y)))
+                    x, y = x[max(0, j - 150):j + 250], y[max(0, j - 150):j + 250]
                 print("RÓŻNICA", k, i, "\n PY:", json.dumps(x, ensure_ascii=False)[:600], "\n JS:", json.dumps(y, ensure_ascii=False)[:600])
         if len(a) != len(b):
             bad += 1; print("RÓŻNA DŁUGOŚĆ", k)

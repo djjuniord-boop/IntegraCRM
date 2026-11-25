@@ -36,14 +36,23 @@
     const user = Object.assign({}, S.KONTO.ustawienia || {});
     if (user.klasy_ver !== DEFAULT_CFG.klasy_ver) for (const k of ["premium", "srednie", "budzet", "klasy_ver"]) delete user[k];
     for (const k of Object.keys(user)) if (k in DEFAULT_CFG) cfg[k] = user[k];
+    const o = S.oddzial_cen();
+    if (o) for (const [k, v] of Object.entries(((S.KONTO.ceny_oddz || {})[o]) || {})) if (CENY_WSPOLNE.includes(k)) cfg[k] = v;   // wspólne ceny oddziału
     cfg.login = S.KONTO.login || ""; cfg.password = S.KONTO.password || "";
     return cfg;
   };
   const bkey = (x) => String(x || "").toUpperCase().replace(/[^A-ZĄĆĘŁŃÓŚŹŻ0-9]/g, "");
   S.bkey = bkey;
+  // marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (jak CENY_WSPOLNE w silnik.py)
+  const CENY_USLUG = ["wymiana_kolo", "wymiana_suv", "wymiana_dost", "tpms_cena", "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19"];
+  const CENY_WSPOLNE = ["narzut_tryb", "marza_proc", "progi"].concat(CENY_USLUG);
+  const ODDZ_CEN = ["Latex Wrocław"];
+  S.CENY_WSPOLNE = CENY_WSPOLNE;
+  S.oddzial_cen = () => (S.KONTO.oddzialy_konta || []).find((o) => ODDZ_CEN.includes(o)) || null;
   S.save_cfg = async function (cfg) {
     const dane = {};
     for (const k of Object.keys(DEFAULT_CFG)) if (k in cfg) dane[k] = cfg[k];
+    if (S.oddzial_cen()) { const stare = S.KONTO.ustawienia || {}; for (const k of CENY_WSPOLNE) { delete dane[k]; if (k in stare) dane[k] = stare[k]; } }
     if (S.KONTO.zapisz) await S.KONTO.zapisz(dane);
     S.KONTO.ustawienia = dane;
   };
@@ -203,7 +212,6 @@
     for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
     return 0;
   }
-  S.leaflet_url = (pid, price) => S.API_URL + "?" + new URLSearchParams({ a: "b2b_products", m: "getPDF", pid, fp: 0, fn: 0, fb: 0, fs: 0, showc: 0, price: price.toFixed(2) }).toString();
   function vlabel(keys, key) {
     if (key[0] === "wszystkie") return "Propozycja " + (key[1] + 1);
     const multi = keys.filter((k) => k[0] === key[0]).length > 1;
@@ -226,16 +234,29 @@
   }
   S.sell_price = sell_price; S.doplata_progowa = doplata_progowa;
 
-  const HOMOL = [["MO", /\bMOE?\b|\bMO1\b|\bMO-S\b/], ["AO", /\bAOE?\b|\bRO[12]\b|\bA8A\b/], ["*", /\*|\bBMW\b/], ["N", /\bN[0-9]\b/],
+  const HOMOL = [["MO", /\bMOE?\b|\bMO1\b|\bMO-S\b/], ["AO", /\bAOE?\b|\bRO[12]\b|\bA8A\b/], ["*", /\*|\bBMW\b/], ["N", /\bN[A-G]?[0-9]\b/],
     ["VOL", /\bVOL\b/], ["T0", /\bT[0O][0-9]?\b/], ["J", /\bJLR\b|\bJ\b/], ["LR", /\bLR\b/], ["VW", /\bVW\b/], ["FR", /\b(FR|MFS|FP|RG)\b/]];
   S.HOMOL_NAZWY = { MO: "Mercedes (MO)", AO: "Audi (AO/RO)", "*": "BMW (*)", N: "Porsche (N0–N9)", VOL: "Volvo (VOL)", T0: "Tesla (T0)", J: "Jaguar (J)", LR: "Land Rover (LR)", VW: "VW", FR: "rant ochronny felgi" };
   function is_demo(p) {
     if (/\bDEMO\b/.test(p.nazwa.toUpperCase())) return true;
     return Object.entries(p.attrs).some(([k, v]) => (k + " " + v).toLowerCase().includes("demont") && !["", "NIE", "0", "FALSE"].includes(String(v).trim().toUpperCase()));
   }
+  // cecha „Homologacja” z pliku xPartner: „KOD_MARKA[/MARKA…]”, np. „NC0_PORSCHE”, „MOBMW_MERCEDES/BMW/MINI” (jak homol_cecha w silnik.py)
+  const HOMOL_MARKA = { MERCEDES: "MO", AUDI: "AO", BMW: "*", MINI: "*", PORSCHE: "N", VOLVO: "VOL", TESLA: "T0", JAGUAR: "J", "LAND ROVER": "LR", VOLKSWAGEN: "VW", SKODA: "VW", CUPRA: "VW" };
+  const tytul = (m) => m.toLowerCase().replace(/(^|[^a-ząćęłńóśźż])([a-ząćęłńóśźż])/g, (x, a, b) => a + b.toUpperCase());
+  function homol_cecha(p) {
+    const h = String(p.attrs.Homologacja || "").trim().toUpperCase();
+    if (!h.includes("_")) return ["", []];
+    const i = h.indexOf("_"), kod = h.slice(0, i), klucze = [];
+    for (const m of h.slice(i + 1).split("/").map((x) => x.trim())) { const k = HOMOL_MARKA[m] || (m ? tytul(m) : ""); if (k && !klucze.includes(k)) klucze.push(k); }
+    return [kod.trim(), klucze];
+  }
+  S.homol_cecha = homol_cecha;
   function homol_of(p) {
-    const src = (p.nazwa.toUpperCase() + " " + (p.attrs.Homologacja || "").toUpperCase()).replace(new RegExp(SIZE_RE.source, "gi"), " ");
-    return HOMOL.filter(([, rx]) => rx.test(src)).map(([k]) => k);
+    const src = p.nazwa.toUpperCase().replace(new RegExp(SIZE_RE.source, "gi"), " ");
+    const wynik = HOMOL.filter(([, rx]) => rx.test(src)).map(([k]) => k);
+    for (const k of homol_cecha(p)[1]) if (!wynik.includes(k)) wynik.push(k);
+    return wynik;
   }
   function enrich(cfg, p0) {
     const p = Object.assign({}, p0);
@@ -244,7 +265,7 @@
       etykieta: Object.fromEntries(["Opory toczenia", "Przyczepność na mokrej nawierzchni", "Hałas", "Poziom hałasu"].map((k) => [k, p.attrs[k] || ""])) });
     const nz = /(\d{2})/.exec(p.attrs["Poziom hałasu"] || "");
     Object.assign(p, { mokra: (p.attrs["Przyczepność na mokrej nawierzchni"] || "").trim().slice(0, 1).toUpperCase(),
-      opory: (p.attrs["Opory toczenia"] || "").trim().slice(0, 1).toUpperCase(), halas: nz ? +nz[1] : 0, homol: homol_of(p), demo: is_demo(p) });
+      opory: (p.attrs["Opory toczenia"] || "").trim().slice(0, 1).toUpperCase(), halas: nz ? +nz[1] : 0, homol: homol_of(p), homol_kod: homol_cecha(p)[0], demo: is_demo(p) });
     const mi = /^(\d{2,3})(?:\/\d{2,3})?([A-Z]{1,2}\d?)/.exec(p.indeks || "");
     Object.assign(p, { nosnosc: mi ? +mi[1] : 0, predkosc: mi ? mi[2] : "",
       rant: !!(p.attrs["Rant ochronny"] || "").trim() || /\b(FR|MFS|FSL|RPB|MFS)\b/.test(p.nazwa.toUpperCase()) });
@@ -401,9 +422,30 @@
     const ex = extras(t);
     const runflat = /run ?-?flat|\brft\b|\bssr\b|\bzp\b|\brof\b/.test(t);
     const pojazdy = sizes.map((s) => ({ rej: "", pojazd: "", rozmiar: s, ilosc, nowe: true, wymiana: ex.wymiana, typ: ex.typ, tpms: ex.tpms, przech: ex.przech }));
+    if (pojazdy.length === 1) {   // jedno auto: rejestracja i model jak w polu „Zapytanie klienta”
+      let fl = {}; try { fl = parse_free_line(txt0) || {}; } catch (e) { fl = {}; }
+      if (fl.rej) pojazdy[0].rej = fl.rej;
+      const auto = String(fl.pojazd || "").split(/\s+/).filter((w) => w && !/^(\d{2,3}[a-z]|xl|run|flat|runflat|rft)$/i.test(w));
+      if (auto.length && auto.some((w) => /^[a-ząćęłńóśźż-]{3,}$/i.test(w)) && (fl.rej || auto.length >= 2)) pojazdy[0].pojazd = auto.join(" ");
+    }
     const demo = /bez\s+demo/.test(t) ? "bez" : /\bdemo\b/.test(t) ? "tylko" : "";
     const [nosnosc, predkosc] = S.indeks_z_tekstu(t);
-    return { demo, pojazdy, sezony, klasy, runflat, producenci: marki.join(", "), nosnosc, predkosc };
+    return { demo, pojazdy, sezony, klasy, runflat, producenci: marki.join(", "), nosnosc, predkosc,
+      ten_sam: /\bt(en|e)\s+sam[ea]?\s+model/.test(t) };   // „ten sam model” – ten sam model na wszystkich rozmiarach
+  };
+  // szybkie polecenie z samym indeksem xPartner / kodem producenta / EAN (jak szukaj_kodu w silnik.py)
+  const KOD_RE = /^[0-9A-Za-z][0-9A-Za-z\-./]{2,29}$/;
+  S.szukaj_kodu = async function (cfg, txt) {
+    const t = String(txt || "").trim(), kat = S.KONTO.katalog_produkt;
+    if (!KOD_RE.test(t) || !/\d/.test(t) || !kat) return {};
+    let lista; try { lista = (await kat(t)) || []; } catch (e) { return {}; }
+    for (const d of lista) {
+      const p = enrich(cfg, d), roz = norm_size(p.nazwa);
+      if (!roz) continue;
+      return { pojazdy: [{ rej: "", pojazd: "", rozmiar: roz, ilosc: 4, nowe: true, wymiana: false, typ: "osobowy", tpms: 0, przech: "" }],
+        sezony: p.sezon ? [p.sezon] : [], producenci: p.producent, klasy: [], szukany: { id: p.id, nazwa: p.nazwa } };
+    }
+    return {};
   };
   S.indeks_z_tekstu = function (t) {   // '91w' / '94 v' -> [91, "W"] (jak indeks_z_tekstu w silnik.py)
     const m = /(?<![\d/.,])(\d{2,3})(?:\/\d{2,3})?\s?([lmnpqrstuhvwyz])(?![a-ząćęłńóśźż0-9])/.exec(t.toLowerCase().replace(sizeLoose(), " "));
@@ -490,7 +532,7 @@
       if (v.wymiana && !cen[dia]) warnings.push(`Brak ceny wymiany dla ${v.rej || s} R${dia} (${TYPY[typ]}) – uzupełnij Ustawienia`);
       const n_tp = parseInt(v.tpms, 10) || 0;
       const tp_kw = r2(n_tp * +cfg.tpms_cena);
-      const tp_op = n_tp ? `Czujniki TPMS ${n_tp} szt. × ${pl(+cfg.tpms_cena)}` : "";
+      const tp_op = n_tp ? `Obsługa TPMS przy wymianie: ${n_tp} kół × ${pl(+cfg.tpms_cena)}` : "";
       const pr = v.przech || "";
       let pr_kw = 0, pr_op = "";
       if (pr === "opony" || pr === "kola") {
@@ -538,51 +580,6 @@
     return { rows, variants: ordered, warnings };
   };
 
-  S.email_text = function (cfg, req, rows, vars) {
-    const kl = (req.klient || "").trim();
-    const L = ["Dzień dobry,", "", "dziękujemy za zapytanie. W załączeniu przesyłamy ofertę na zakup i wymianę opon" + (kl ? " dla " + kl : "") + ".", ""];
-    const keys = vars.map((v) => v.key);
-    const per_car = rows.some((r) => r.p && (r.rej || r.pojazd));
-    for (const v of vars) {
-      const key = v.key[0] + "\u0001" + v.key[1];
-      L.push("WARIANT: " + vlabel(keys, v.key).toUpperCase());
-      const mine = rows.filter((r) => r.p && r.wariant === key);
-      if (per_car) for (const r of mine) {
-        const p = r.p, kto = [r.rej, r.pojazd].filter(Boolean).join(" ") || r.rozmiar;
-        L.push(`• ${kto}: ${title(p.producent)} ${p.model_oferta} ${r.rozmiar} ${p.indeks} – ${pl(p.cena_brutto)} brutto/szt. × ${r.ilosc} = ${pl(r.opony)}`);
-      } else {
-        const seen = new Map();
-        for (const r of mine) { const e = seen.get(r.p.id) || [r.p, r.rozmiar, 0]; e[2] += r.ilosc; seen.set(r.p.id, e); }
-        for (const [p, s, q] of seen.values()) L.push(`• ${title(p.producent)} ${p.model_oferta} ${s} ${p.indeks} – ${pl(p.cena_brutto)} brutto/szt. × ${q} = ${pl(p.cena_brutto * q)}`);
-      }
-      const parts = [];
-      if (v.opony) parts.push("Opony: " + pl(v.opony));
-      if (v.wymiana) parts.push("Wymiana: " + pl(v.wymiana));
-      if (v.tpms_kw) parts.push("Czujniki TPMS: " + pl(v.tpms_kw));
-      if (v.przech_kw) parts.push("Przechowalnia: " + pl(v.przech_kw));
-      L.push(parts.concat(["RAZEM: " + pl(total(v)) + " brutto"]).join(" | "));
-      L.push("");
-    }
-    const us = rows.filter((r) => r.uslugi);
-    if (us.length) {
-      L.push("USŁUGI DODATKOWE");
-      const seen = new Set();
-      for (const r of us) {
-        const k = r.rej + "|" + r.rozmiar; if (seen.has(k)) continue; seen.add(k);
-        const kto = [r.pojazd, r.rej].filter(Boolean).join(" ") || r.rozmiar;
-        if (r.tpms_kw) L.push(`• ${kto} – ${r.tpms_op} = ${pl(r.tpms_kw)}`);
-        if (r.przech_kw) L.push(`• ${kto} – ${r.przech_op} = ${pl(r.przech_kw)}`);
-      }
-      L.push("");
-    }
-    L.push("GWARANCJA",
-      "• Gwarancja producenta na wady fabryczne (materiałowe i produkcyjne) – standardowo do 5 lat od daty produkcji.",
-      "• Nie obejmuje uszkodzeń mechanicznych (przebicia, przecięcia, uderzenia), jazdy na niewłaściwym ciśnieniu, złej geometrii ani naturalnego zużycia.",
-      "• Reklamację zgłaszają Państwo w naszym serwisie z dowodem zakupu; oponę przekazujemy do oceny producenta.", "",
-      `Ceny ważne ${cfg.waznosc_dni} dni, z zastrzeżeniem dostępności.`, "", "Z poważaniem,", cfg.podpis);
-    return L.join("\n");
-  };
-
   // ------------------------------------------------------------ historia (format zgodny z Panelem)
   const now = () => { const d = new Date(), p = (n) => String(n).padStart(2, "0"); return { d, p }; };
   S.nowy_oid = () => { const { d, p } = now(); return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`; };
@@ -608,29 +605,16 @@
     return out;
   };
   S.STATUSY_OFERT = { nowa: "Nowa", wyslana: "Wysłana", przyjeta: "Przyjęta", odrzucona: "Odrzucona", zamowiona: "Zamówiona" };
-  S.STRONA_KLIENTA = "https://djjuniord-boop.github.io/IntegraCRM/";
   S.do_oddzwonienia = function (status, status_at, teraz) {
     if (status !== "wyslana" || !status_at) return false;
     const t = Date.parse(status_at); if (isNaN(t)) return false;
     return ((teraz ? Date.parse(teraz) : Date.now()) - t) >= 2 * 86400000;
   };
-  S.link_dane = function (cfg, req, rows, oddzial, kto) {
-    const modele = [], byly = new Set();
-    for (const r of rows) {
-      const p = r.p; if (!p || byly.has(p.id)) continue; byly.add(p.id);
-      const d = S.pdf_dane(cfg, req, rows, p.id, oddzial, kto, S.STRONA_KLIENTA + "logo.png");
-      modele.push({ id: p.id, tytul: d.tytul, tag: d.tag, cena_szt: d.cena_szt, brutto: d.brutto, mokra: p.mokra || "", opory: p.opory || "", halas: p.halas || "",
-        html: wypelnij(S.wzor_pdf(), d) });
-    }
-    if (!modele.length) throw new Error("W ofercie nie ma opon – wybierz opony i przelicz ofertę.");
-    const d0 = S.pdf_dane(cfg, req, rows, modele[0].id, oddzial, kto, "");
-    return { nr: d0.nr, klient: d0.klient, wazna: d0.wazna, o_nazwa: d0.o_nazwa, o_tel: d0.o_tel, o_kom: d0.o_kom.map((x) => x.t), kto, modele };
-  };
   async function save_hist(req, summ, rows) {
     if (!S.HIST) return;
     const oid = String(req.oid || S.nowy_oid()).replace(/[^0-9_]/g, "") || S.nowy_oid();
     const rec = { osobno: req.osobno, marza: req.marza, rabat: req.rabat, ceny: req.ceny || {}, rabat_wym: req.rabat_wym, ceny_wym: req.ceny_wym || {}, oid, data: data_txt(), klient: req.klient || "",
-      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, plik: "", zrodlo: "telefon", oddzial: req.oddzial || "", snap: S.snap_ofert(rows || []) };
+      pojazdy: req.pojazdy || [], wybor: req.wybor || {}, sel: req.sel || [], warianty: summ, zrodlo: "telefon", oddzial: req.oddzial || "", snap: S.snap_ofert(rows || []) };
     const hay = (rec.klient + " " + rec.pojazdy.map((v) => (v.rej || "") + " " + (v.pojazd || "") + " " + (v.rozmiar || "")).join(" ") + " " + summ.flatMap((w) => w.modele).join(" ")).toLowerCase();
     await S.HIST.save(oid, rec.klient, rec, hay);
   }
@@ -642,8 +626,8 @@
         pojazdy: (r.pojazdy || []).map((v) => [v.rej, v.pojazd].filter(Boolean).join(" ") || v.rozmiar || "").join(", "),
         warianty: (r.warianty || []).map((w) => ({ wariant: w.wariant, modele: (w.modele || []).join(", "), razem: w.razem })),
         razem: Math.max(0, ...(r.warianty || []).map((w) => w.razem || 0)), zrodlo: r.zrodlo || "Panel",
-        status: row.status || "nowa", status_at: row.status_at || "", link: !!row.link_at, otwarta: row.link_otwarta || "", odp: row.klient_odp || null,
-        oddzwon: S.do_oddzwonienia(row.status, row.status_at) };
+        status: row.status || "nowa", status_at: row.status_at || "", oddzwon: S.do_oddzwonienia(row.status, row.status_at),
+        uwagi: row.uwagi || "", uwagi_at: row.uwagi_at || "", uwagi_kto: row.uwagi_kto || "" };
     });
   };
 
@@ -717,7 +701,7 @@
     rabat_wym_kw = r2(rabat_wym_kw);
     for (const [key, n] of wym) { const [dia, typ, c, szt] = key.split("\u0001"); poz.push({ nazwa: `Wymiana opon – demontaż, montaż, wyważenie (R${dia}${typ === "osobowy" ? "" : ", " + (TYPY[typ] || typ)})`, q: n, j: "szt.", c: +c, po: +szt, r: +c > +szt ? rw : 0 }); }
     const n_tp = R.reduce((a, r) => a + (parseInt(r.tpms, 10) || 0), 0);
-    if (n_tp) poz.push({ nazwa: "Czujnik ciśnienia TPMS (z montażem)", q: n_tp, j: "szt.", c: parseFloat(cfg.tpms_cena) });
+    if (n_tp) poz.push({ nazwa: "Obsługa czujnika ciśnienia TPMS przy wymianie opony", q: n_tp, j: "szt.", c: parseFloat(cfg.tpms_cena) });
     const dep = new Map();
     for (const r of R) if (r.przech_kw) { const key = r.przech_op + "\u0001" + r.przech_kw; dep.set(key, (dep.get(key) || 0) + 1); }
     for (const [key, n] of dep) { const [op, c] = key.split("\u0001"); poz.push({ nazwa: "Depozyt – " + op.slice(0, 1).toLowerCase() + op.slice(1) + ", 1 sezon", q: n, j: "kpl.", c: +c }); }
@@ -734,8 +718,8 @@
       o_nazwa: oddzial.nazwa || "", o_adres: oddzial.adres || "", o_tel: oddzial.tel || "", o_www: oddzial.www || "", o_email: oddzial.email || "",
       o_kom: (oddzial.kom || "").split(/[,;]/).map((t) => t.trim()).filter(Boolean).map((t) => ({ t })), xp_id: String(p.id || ""),
       klient: (req.klient || "").trim(), pojazd: poj.join(", "), kto: kto || "",
-      tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : ""),
-      tytul: p.nazwa, producent: p.producent || "", model: p.model || "", rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
+      tag: "OPONA " + (p.sezon || "").toUpperCase() + (KLASA_PDF[p.klasa] ? " · " + KLASA_PDF[p.klasa] : "") + (p.demo ? " · DEMO" : "") + (p.standard === false ? " · RUN FLAT" : ""),
+      tytul: p.nazwa, producent: p.producent || "", model: (p.model || "") + (p.standard === false && p.model ? " (run flat)" : ""), rozmiar: R[0].rozmiar || "", indeks: p.indeks || "", dot: p.dot || "",
       foto: p.foto || "", ean: p.ean || "", eu: !!(p.mokra || p.opory || p.halas) || !!eprel, ma_opory: !!p.opory, ma_mokra: !!p.mokra,
       skala_opory: skala(p.opory), skala_mokra: skala(p.mokra), halas: p.halas || "", halas_klasa: ["A", "B", "C"].includes(hk) ? hk : "",
       snieg: !!(cechy["Przyczepność na śniegu"] || "").trim(), lod: !!(cechy["Przyczepność na lodzie"] || "").trim(),
@@ -794,25 +778,30 @@
   };
 
   // ------------------------------------------------------------ polecenia (jak handle() w Panelu)
-  const root_Z = () => (typeof window !== "undefined" ? window : globalThis).Zamowienia || require("./zamowienia.js");
   S.handle = async function (path, body) {
     const u = new URL(path, "http://x"), route = u.pathname, qs = u.searchParams;
     const cfg = S.load_cfg();
     S.ucz_marki(cfg);
     try {
       if (body === null || body === undefined) {
-        if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; c.oddzialy = S.KONTO.oddzialy || []; c.oddzialy_dane = S.KONTO.oddzialy_dane || {}; return [200, c]; }
-        if (route === "/api/zamowienia" || route === "/api/zamkniete" || route === "/api/faktury" || route === "/api/faktura") {
-          if (!S.KONTO.zamowienia) return [403, { error: "Brak dostępu do zamówień – poproś administratora (UŻYTKOWNICY → moduł Zamówienia)." }];
-          return await root_Z().handle(route, Object.fromEntries(qs.entries()), cfg, !!S.KONTO.admin, S.KONTO.oddzialy || []);
-        }
+        if (route === "/api/cfg") { const c = Object.assign({}, cfg); c.login = cfg.login ? "tak" : ""; c.password = ""; c.marki_xp = MARKI_STALE; c.oddzialy = S.KONTO.oddzialy || []; c.oddzialy_dane = S.KONTO.oddzialy_dane || {}; c.admin = !!S.KONTO.admin;
+          c.ceny_oddzial = S.oddzial_cen() || ""; c.ceny_edycja = !c.ceny_oddzial || !!S.KONTO.admin; return [200, c]; }
         if (route === "/api/history") {
           if (qs.get("id")) { const r = S.HIST ? await S.HIST.get_id(qs.get("id")) : null; return r ? [200, r] : [404, { error: "Brak oferty" }]; }
           return [200, { lista: await S.list_hist(qs.get("q") || ""), admin: !!(S.HIST && S.HIST.admin), me: ((S.HIST && S.HIST.me) || "").toLowerCase() }];
         }
         return [404, { error: "404" }];
       }
-      if (route === "/api/cfg") { for (const k of Object.keys(DEFAULT_CFG)) if (k in body) cfg[k] = body[k]; await S.save_cfg(cfg); return [200, { ok: true }]; }
+      if (route === "/api/cfg") {
+        const o = S.oddzial_cen();
+        for (const k of Object.keys(DEFAULT_CFG)) if (k in body && !(o && CENY_WSPOLNE.includes(k))) cfg[k] = body[k];   // wspólne ceny – nie w ustawieniach osobistych
+        if (o && CENY_WSPOLNE.some((k) => k in body)) {
+          const nowe = Object.assign({}, ((S.KONTO.ceny_oddz || {})[o]) || {});   // zapis częściowy nie kasuje pozostałych cen oddziału
+          for (const k of CENY_WSPOLNE) if (k in body) nowe[k] = body[k];
+          if (S.KONTO.admin && S.KONTO.zapisz_ceny) await S.KONTO.zapisz_ceny(o, nowe);   // pracownik: pola zablokowane, wartości pomijamy
+        }
+        await S.save_cfg(cfg); return [200, { ok: true }];
+      }
       if (route === "/api/test") { const [count, items] = await S.api_call(cfg, { productName: "205/55 R16", resultsPerPage: 1 }); return [200, { ok: true, msg: `Połączono z xPartner. Przykładowe zapytanie zwróciło ${count} produktów.` + S.opis_pol(items) }]; }
       if (route === "/api/pdf") {
         if (!OSTATNIA.rows) return [400, { error: "Najpierw wygeneruj ofertę." }];
@@ -823,24 +812,13 @@
         const strony = ids.map((pid) => S.pdf_html(cfg, OSTATNIA.req, OSTATNIA.rows, pid, dane, S.KONTO.kto || "", body.logo || ""));
         return [200, { html: S.polacz_strony(strony), oddzial: o, stron: strony.length }];
       }
-      if (route === "/api/link") {
-        if (!S.HIST || !S.HIST.link) return [500, { error: "Link wymaga zapisu w historii (zaloguj się ponownie)." }];
-        if (!OSTATNIA.rows) return [400, { error: "Najpierw przelicz ofertę." }];
-        const [o, dane] = S.oddzial_oferty({ oddzial: body.oddzial || OSTATNIA.req.oddzial });
-        const oid = String(OSTATNIA.req.oid || "").replace(/[^0-9_]/g, "");
-        let tok, ld;
-        try { ld = S.link_dane(cfg, OSTATNIA.req, OSTATNIA.rows, dane, S.KONTO.kto || ""); tok = await S.HIST.link(oid, ld); }
-        catch (e) { let m = String(e.message || e); if (/oferty_link|404|PGRST202/.test(m)) m = "Baza nie ma jeszcze funkcji linków – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)."; return [500, { error: m }]; }
-        const url = S.STRONA_KLIENTA + "oferta.html#" + tok, tel = (o && dane && dane.tel) || "";
-        return [200, { url, wazna: ld.wazna, sms: "Dzień dobry, oferta na opony od Latex Serwis: " + url + " (ważna do " + ld.wazna + "). Wybierz model i kliknij „Akceptuję” – oddzwonimy." + (tel ? " Tel. " + tel : "") }];
-      }
       if (route === "/api/status") {
         if (!(body.status in S.STATUSY_OFERT) || !S.HIST || !S.HIST.status) return [400, { error: "Zły status" }];
         try { await S.HIST.status(String(body.oid || "").replace(/[^0-9_]/g, ""), body.status); }
         catch (e) { return [500, { error: "Nie udało się zmienić statusu – administrator musi wkleić plik SQL (supabase/oferty_status_link_2026-11-08.sql)." }]; }
         return [200, { ok: true }];
       }
-      if (route === "/api/quick") return [200, S.parse_quick(body.text || "")];
+      if (route === "/api/quick") { const q = S.parse_quick(body.text || ""); if (!q.pojazdy.length) Object.assign(q, await S.szukaj_kodu(cfg, body.text || "")); return [200, q]; }
       if (route === "/api/parse") { const t = body.text || "", q = S.parse_quick(t); return [200, { pojazdy: S.parse_request_text(t), kryteria: { sezony: q.sezony, klasy: q.klasy, producenci: q.producenci, runflat: q.runflat } }]; }
       if (route === "/api/search") return [200, await S.do_search(cfg, body)];
       if (route === "/api/offer") {
@@ -850,13 +828,16 @@
         const keys = variants.map((v) => v.key);
         const summ = variants.map((v) => ({ wariant: vlabel(keys, v.key), modele: v.modele, opony: r2(v.opony), wymiana: r2(v.wymiana),
           tpms: r2(v.tpms_kw), przech: r2(v.przech_kw), razem: r2(total(v)) }));
+        const szt = {};   // ilość: każde auto raz (warianty tej samej opony się nie sumują)
+        for (const r of rows) if (r.p) (szt[r.p.id] ??= {})[JSON.stringify([r.rej, r.pojazd, r.rozmiar])] = parseInt(r.ilosc, 10) || 0;
         const ul = [], seen = new Set();
-        for (const r of rows) if (r.p && !seen.has(r.p.id)) { seen.add(r.p.id); ul.push({ id: r.p.id, nazwa: r.p.nazwa, cena: r.p.cena_brutto, auto: r.p.cena_auto, recznie: r.p.recznie, zakup: r.p.brutto_zak, url: S.leaflet_url(r.p.id, r.p.cena_brutto) }); }
+        for (const r of rows) if (r.p && !seen.has(r.p.id)) { seen.add(r.p.id); ul.push({ id: r.p.id, nazwa: r.p.nazwa, cena: r.p.cena_brutto, auto: r.p.cena_auto, recznie: r.p.recznie, zakup: r.p.brutto_zak,
+          szt: Object.values(szt[r.p.id] || {}).reduce((a, b) => a + b, 0) }); }
         try { await save_hist(body, summ, rows); } catch (e) { warnings.push("Nie zapisano oferty w historii: " + (e.message || e)); }
         const wc = new Map();
         for (const r of rows) if (r.wym_tak && r.wym_klucz && !wc.has(r.wym_klucz)) { const [d, t] = r.wym_klucz.split("|");
           wc.set(r.wym_klucz, { klucz: r.wym_klucz, opis: "Wymiana " + d + (t === "osobowy" ? "" : " " + (TYPY[t] || t)), cennik: r.wym_cennik, auto: r.wym_auto, cena: r.wym_szt, recznie: r.wym_recznie }); }
-        return [200, { ulotki: ul, wymiany: [...wc.values()], zmiany: body.porownaj ? S.zmiany_ofert(body.porownaj, rows) : [], plik: "", oddzialy: S.KONTO.oddzialy || [], email: S.email_text(cfg, body, rows, variants), warianty: summ, uwagi: warnings }];
+        return [200, { ulotki: ul, wymiany: [...wc.values()], zmiany: body.porownaj ? S.zmiany_ofert(body.porownaj, rows) : [], oddzialy: S.KONTO.oddzialy || [], warianty: summ, uwagi: warnings }];
       }
     } catch (e) {
       if (e instanceof ApiError) return [502, { error: e.message }];
