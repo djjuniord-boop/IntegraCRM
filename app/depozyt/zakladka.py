@@ -637,7 +637,7 @@ class PrzygotowanieOkno(tk.Toplevel):
         okres = rap.get("od") if rap.get("od") == rap.get("do") else f"{rap.get('od')} – {rap.get('do')}"
         self.title(f"{tytuly[self.tryb]} · {okres}")
         set_icon(self)
-        self.geometry("1180x700")
+        self.geometry("1320x700")
         self.configure(bg=BG)
         top = tk.Frame(self, bg=BG, padx=14, pady=10)
         top.pack(fill="x")
@@ -669,8 +669,9 @@ class PrzygotowanieOkno(tk.Toplevel):
         box = tk.Frame(self, bg=SURFACE)
         box.pack(fill="both", expand=True, padx=14, pady=(6, 14))
         kol = [("dzien", "Termin" if self.terminy else "Dzień", 95), ("lok", "Lokalizacja", 110), ("nr", "Nr rej.", 95),
+               ("szt", "Ilość (spis)", 95), ("sezon", "Sezon (spis)", 105),
                ("opis", "Auto / opony w spisie" if self.terminy else "Opony (Integra)", 240),
-               ("szcz", "Uwagi ze spisu" if self.terminy else "Rozmiar · rodzaj · felga · bieżnik", 250), ("klient", "Klient", 170), ("uwagi", "Uwagi", 300)]
+               ("szcz", "Uwagi ze spisu" if self.terminy else "Rozmiar · rodzaj · felga · bieżnik", 170), ("klient", "Klient", 150), ("uwagi", "Uwagi", 300)]
         self.tree = ttk.Treeview(box, columns=[k for k, _, _ in kol], show="headings", style="Dep.Treeview")
         for k, t, w in kol:
             self.tree.heading(k, text=t)
@@ -699,7 +700,7 @@ class PrzygotowanieOkno(tk.Toplevel):
             r = w["raport"]
             dzien = ".".join((r.get("data_wydania") or r.get("data_przyjecia") or "").split(".")[:2])
             t.insert("", "end", iid=str(i), tags=(tag,) if tag else (), values=(
-                f"{dzien} {r.get('godzina', '')}".strip(), w["lok"] or "—", r["nr_rej"], w["opis"],
+                f"{dzien} {r.get('godzina', '')}".strip(), w["lok"] or "—", r["nr_rej"], w.get("szt", ""), w.get("sezon", ""), w["opis"],
                 w["szczegoly"], r.get("kontrahent", "")[:30],
                 ("✓ przygotowane · " if gotowe else "") + " · ".join(w["uwagi"])))
 
@@ -745,6 +746,7 @@ class PrzygotowanieOkno(tk.Toplevel):
         tr = "".join(
             f"<tr class='{'brak' if not w['spis'] else 'uw' if w['uwagi'] else ''}'><td class=c>☐</td>"
             f"<td class=lok>{esc(w['lok'] or '—')}</td><td class=nr>{esc(w['raport']['nr_rej'])}</td>"
+            f"<td><b>{esc(w.get('szt', ''))}</b><br><small>{esc(w.get('sezon', ''))}</small></td>"
             f"<td>{esc(w['opis'])}<br><small>{esc(w['szczegoly'])}</small></td>"
             f"<td><small>{esc(w['raport'].get('kontrahent', '')[:30])}</small></td>"
             f"<td class=u>{esc(' · '.join(w['uwagi']))}</td></tr>" for w in wiersze)
@@ -758,7 +760,7 @@ th{{background:#111;color:#fff;text-align:left;padding:5px;font-size:11px}}td{{b
 @media print{{tr{{page-break-inside:avoid}}}}</style></head><body onload="window.print()">
 <h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
 wydrukowano {datetime.datetime.now():%d.%m.%Y %H:%M}</small></div><br>
-<table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>{'Auto / opony w spisie' if self.terminy else 'Opony (Integra)'}</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
+<table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>Ilość / sezon</th><th>{'Auto / opony w spisie' if self.terminy else 'Opony (Integra)'}</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
         fd, sciezka = tempfile.mkstemp(prefix="przygotowanie_", suffix=".html")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(doc)

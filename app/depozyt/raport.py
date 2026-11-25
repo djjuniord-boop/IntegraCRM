@@ -227,6 +227,26 @@ def tryb(raport: dict, dzis=None) -> str:
     return "okres"
 
 
+def ilosc_spisu(poz: dict) -> tuple:
+    """Ilość opon wg spisu: puste pole = komplet (4). Zwraca (liczba, opis), np. (4, 'komplet'), (2, '2 szt.')."""
+    m = re.search(r"\d+", str(poz.get("ilosc") or ""))
+    n = int(m.group()) if m else 4
+    return n, "komplet" if n == 4 else f"{n} szt."
+
+
+def _sezon_pliku(poz: dict) -> str:
+    return str(poz.get("sezon") or "").strip().upper().split(" ")[0]
+
+
+def sezon_spisu(poz: dict) -> str:
+    """Sezon opon wg spisu: kolumna SEZON (np. LATO, LATO?), a gdy pusta – sezon całego spisu (np. ZIMA)."""
+    r = str(poz.get("rodzaj") or "").strip().upper()
+    if r:
+        return r
+    sezon = str(poz.get("sezon") or "").strip().upper().split(" ")[0]
+    return sezon if sezon in ("ZIMA", "LATO") else ""
+
+
 def _opona_wzorcowa(opony: list) -> dict:
     """Opis kompletu z opony, której nazwy nie zakłóca zawinięta nazwa klienta (zwykle ostatnia)."""
     if not opony:
@@ -275,6 +295,15 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
                 uwagi.append("w spisie już odhaczone")
             if wyd and wyd < dzis and spis_poz and not przyw and p["opony"]:
                 uwagi.append("NIE odhaczone w spisie")
+        ilosci = [ilosc_spisu(x) for x in spis_poz]
+        razem = sum(n for n, _ in ilosci)
+        if spis_poz and razem < 4:
+            uwagi.append(f"NIEPEŁNY KOMPLET: {razem} szt.")
+        elif spis_poz and razem > 4:
+            uwagi.append(f"w spisie razem {razem} szt.")
+        sezony = list(dict.fromkeys(sezon_spisu(x) for x in spis_poz if sezon_spisu(x)))
+        if any(x.startswith("LATO") for x in sezony) and any(_sezon_pliku(x) == "ZIMA" for x in spis_poz):
+            uwagi.append("w spisie opony LETNIE")
         if any(s.get("wyjasnic") for s in spis_poz):
             uwagi.append("do wyjaśnienia w spisie")
         if len({s.get("lok") for s in spis_poz}) > 1:
@@ -284,11 +313,13 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         lok = ", ".join(dict.fromkeys(s.get("lok") or "?" for s in spis_poz))
         wynik.append({
             "raport": p, "spis": spis_poz, "lok": lok, "uwagi": uwagi,
+            "szt": ("" if not spis_poz else ilosci[0][1] if len(ilosci) == 1 else
+                    " + ".join(str(n) for n, _ in ilosci) + f" = {razem} szt."),
+            "sezon": " / ".join(sezony),
             "dzien": p.get("data_wydania") or p.get("data_przyjecia") or "",
             "opis": (f"{p.get('ilosc', 0)}× {(opona.get('Producent') or '').strip()} {(opona.get('Nazwa') or '').strip()}".strip()
                      if p["opony"] else " · ".join(x for x in ("auto: " + (p.get("auto") or "—"),
-                                                               *[f"{s.get('ilosc') or ''} {s.get('marka') or ''}".strip()
-                                                                 for s in spis_poz[:1]]) if x)),
+                                                               *[s.get("marka") or "" for s in spis_poz[:1]]) if x)),
             "szczegoly": (" · ".join(x for x in (opona.get("rozmiar"), p.get("rodzaj"), opona.get("Felga") or "bez felgi",
                                                   f"{p['bieznik_min']:g} mm" if p.get("bieznik_min") is not None else "") if x)
                           if p["opony"] else " · ".join(x for s in spis_poz[:1] for x in (s.get("uwagi"), s.get("komentarz")) if x)),

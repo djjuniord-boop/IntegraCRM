@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.2"
+VERSION = "1.2.3"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.3",
+        "date": "2026-11-25",
+        "changes": [
+            "DEPOZYT – lista z raportu: nowe kolumny „Ilość (spis)” (puste w spisie = komplet; 1, 2, 3 szt. albo np. „1 + 3 = 4 szt.”, gdy opony leżą w dwóch miejscach) i „Sezon (spis)” (ZIMA / LATO); ostrzeżenia „NIEPEŁNY KOMPLET” i „w spisie opony LETNIE”; to samo na wydruku",
+        ],
+    },
     {
         "version": "1.2.2",
         "date": "2026-11-25",

@@ -187,3 +187,21 @@ def test_ostatnia_lista_zostaje_po_zamknieciu():
     rap = {"tytul": "Rejestr", "od": "2026-11-26", "do": "2026-11-26", "pozycje": [{"nr_rej": "DX10001", "opony": []}]}
     zakladka._zapisz_ostatni(rap)
     assert zakladka._wczytaj_ostatni() == rap
+
+
+def test_ilosc_i_sezon_ze_spisu():
+    from depozyt import raport
+    assert raport.ilosc_spisu({"ilosc": ""}) == (4, "komplet")
+    assert raport.ilosc_spisu({"ilosc": "2X"}) == (2, "2 szt.")
+    assert raport.sezon_spisu({"rodzaj": "", "sezon": "ZIMA 2026/27"}) == "ZIMA"
+    assert raport.sezon_spisu({"rodzaj": "lato", "sezon": "ZIMA 2026/27"}) == "LATO"
+    spis = [{"id": 1, "nr": "DX40001", "lok": "K1.1", "ilosc": "3X", "rodzaj": "", "sezon": "ZIMA 2026/27"},
+            {"id": 2, "nr": "DX40002", "lok": "K1.2", "ilosc": "1X", "rodzaj": "LATO", "sezon": "ZIMA 2026/27"},
+            {"id": 3, "nr": "DX40002", "lok": "K1.3", "ilosc": "3X", "rodzaj": "", "sezon": "ZIMA 2026/27"}]
+    rap = {"od": "2026-11-26", "do": "2026-11-26", "zrodlo": "terminy", "pozycje": [
+        {"nr_rej": n, "data_wydania": "26.11.2026", "godzina": "8:00", "opony": [], "rodzaj": "", "bieznik_min": None}
+        for n in ("DX40001", "DX40002")]}
+    w = {x["raport"]["nr_rej"]: x for x in raport.przygotuj(rap, spis, datetime.date(2026, 11, 25))}
+    assert w["DX40001"]["szt"] == "3 szt." and "NIEPEŁNY KOMPLET: 3 szt." in w["DX40001"]["uwagi"]
+    assert w["DX40002"]["szt"] == "1 + 3 = 4 szt." and w["DX40002"]["sezon"] == "LATO / ZIMA"
+    assert "w spisie opony LETNIE" in w["DX40002"]["uwagi"] and not any("NIEPEŁNY" in u for u in w["DX40002"]["uwagi"])
