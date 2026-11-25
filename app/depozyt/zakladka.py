@@ -8,6 +8,7 @@ import datetime
 import os
 import tempfile
 import threading
+import time
 import tkinter as tk
 import webbrowser
 from tkinter import filedialog, messagebox, ttk
@@ -15,7 +16,8 @@ from tkinter import filedialog, messagebox, ttk
 from depozyt import dane, szukaj
 from ui import BG, BLACK, FlatButton, INK, LINE, MUTED, OK, RED, SURFACE, odmiana, opis_bledu, set_icon
 
-ODSWIEZ_MS = 60 * 1000          # gdy zakładka jest otwarta – zmiany innych osób
+ZMIANY_MS = 10 * 1000           # gdy zakładka jest otwarta: tylko zmienione pozycje (inne osoby, arkusz Google)
+CALOSC_MS = 10 * 60 * 1000      # pełne wczytanie spisu co 10 min (na wszelki wypadek)
 LIMIT_WIERSZY = 400             # tyle pokazujemy naraz (reszta: „pokaż więcej”)
 KOLOR_PRZYW, KOLOR_WYJ, KOLOR_PRZYG = "#F6C9C9", "#FFE2B8", "#D9EAD3"
 FILTRY = ["Wszystkie", "Nieprzywiezione", "Przywiezione", "Przywiezione dziś", "Do wyjaśnienia", "Z komentarzem"]
@@ -227,7 +229,8 @@ class DepozytMixin:
         tk.Label(page, text="Dwuklik lub spacja = przywiezione / cofnij · prawy przycisk = komentarz, do wyjaśnienia, "
                             "lokalizacja, historia", bg=BG, fg=MUTED, font=f.small).pack(anchor="w", pady=(6, 0))
         self.after(200, self.depozyt_odswiez)
-        self.after(ODSWIEZ_MS, self._dep_auto)
+        self.dep_ostatnio, self._dep_pelne = "", 0.0
+        self.after(ZMIANY_MS, self._dep_auto)
 
     # ---------- dane ----------
     def depozyt_odswiez(self, cicho=False):
@@ -257,6 +260,9 @@ class DepozytMixin:
             self.dep_stat.config(text=f"Nie udało się wczytać spisu: {opis_bledu(err)}", fg=RED)
             return
         self.dep_rows = rows
+        self.dep_ostatnio = dane.najnowsza_zmiana(rows)
+
+        self._dep_pelne = time.monotonic()
         sezony = sorted({p.get("sezon") or "" for p in rows}, reverse=True)
         self.dep_sezon_cb.config(values=sezony)
         if self.dep_sezon_var.get() not in sezony:
@@ -264,11 +270,42 @@ class DepozytMixin:
         self._dep_render(zachowaj=cicho)
 
     def _dep_auto(self):
+        """Co 10 s (zakładka otwarta, okno aktywne): pobiera tylko zmienione pozycje i podmienia je w tabeli."""
+
         try:
-            if getattr(self, "current_tab", "") == "depozyt" and self.focus_displayof() is not None:
-                self.depozyt_odswiez(cicho=True)
+            if getattr(self, "current_tab", "") == "depozyt" and self.focus_displayof() is not None \
+                    and not self.dep_ladowanie and self.session is not None:
+                minelo = time.monotonic() - self._dep_pelne
+                if minelo > CALOSC_MS / 1000 or (not self.dep_ostatnio and minelo > 60):   # bez znacznika: co minutę
+                    self.depozyt_odswiez(cicho=True)
+                elif self.dep_ostatnio:
+                    self._dep_pobierz_zmiany()
         finally:
-            self.after(ODSWIEZ_MS, self._dep_auto)
+            self.after(ZMIANY_MS, self._dep_auto)
+
+    def _dep_pobierz_zmiany(self):
+        branch, od = self.dep_branch, self.dep_ostatnio
+        self.dep_ladowanie = True
+
+        def work():
+            try:
+                rows = dane.zmiany(self.session, branch, od)
+            except Exception:
+                rows = None   # chwilowy brak sieci – spróbujemy za 10 s
+            self.after(0, lambda: koniec(rows))
+
+        def koniec(rows):
+            self.dep_ladowanie = False
+            if not rows or branch != self.dep_branch:
+                return
+            for r in rows:
+                if self._dep_podmien(r) is None:
+                    self.dep_rows.append(r)
+            self.dep_ostatnio = max(self.dep_ostatnio, dane.najnowsza_zmiana(rows))
+            sezony = sorted({p.get("sezon") or "" for p in self.dep_rows}, reverse=True)
+            self.dep_sezon_cb.config(values=sezony)
+            self._dep_render(zachowaj=True)
+        threading.Thread(target=work, daemon=True).start()
 
     def _dep_zmien_oddzial(self):
         self.dep_branch = self.dep_branch_var.get()

@@ -64,3 +64,38 @@ begin
 end $$;
 revoke all on function public.depozyt_zmien(bigint, text, text) from public, anon;
 grant execute on function public.depozyt_zmien(bigint, text, text) to authenticated;
+
+-- ===== Etap 2 (2026-11-25): natychmiastowe powiadomienia program → arkusz =====
+-- Migracja `depozyt_arkusz_powiadomienia`. Po każdej zmianie pozycji baza wysyła ją (pg_net) do aplikacji
+-- internetowej skryptu arkusza. Zmiany zrobione z konta arkusza są pomijane (bez pętli). Synchronizacja co minutę
+-- w skrypcie zostaje jako zapas. Adres i klucz – tabela bez żadnych uprawnień (czyta tylko wyzwalacz).
+create table if not exists public.depozyt_arkusz_cfg (
+  branch text not null,
+  sezon text not null,
+  url text not null,
+  klucz text not null,
+  pomin_email text not null,          -- konto, którym pisze arkusz
+  aktywny boolean not null default true,
+  primary key (branch, sezon)
+);
+alter table public.depozyt_arkusz_cfg enable row level security;
+revoke all on public.depozyt_arkusz_cfg from public, anon, authenticated;
+
+create or replace function public.depozyt_do_arkusza() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare c public.depozyt_arkusz_cfg;
+begin
+  select * into c from public.depozyt_arkusz_cfg where branch = new.branch and sezon = new.sezon and aktywny;
+  if found and lower(coalesce((select auth.jwt() ->> 'email'), '')) <> lower(c.pomin_email) then
+    perform net.http_post(url := c.url,
+                          body := jsonb_build_object('klucz', c.klucz, 'wiersz', to_jsonb(new)),
+                          headers := '{"Content-Type": "application/json"}'::jsonb);
+  end if;
+  return null;
+exception when others then
+  return null;   -- powiadomienie nigdy nie blokuje zapisu w programie
+end $$;
+revoke all on function public.depozyt_do_arkusza() from public, anon, authenticated;
+drop trigger if exists depozyt_do_arkusza on public.depozyt;
+create trigger depozyt_do_arkusza after insert or update on public.depozyt
+  for each row execute function public.depozyt_do_arkusza();

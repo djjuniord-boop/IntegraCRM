@@ -4,7 +4,8 @@
  * Arkusz → program: zmiana komórki (checkbox PRZYWIEZIONE, NR, LOK, marka, ilość, sezon, uwagi, komentarz,
  *   DO WYJAŚNIENIA) od razu idzie do bazy funkcją depozyt_zmien – jak w programie, z wpisem w historii.
  *   Nowy wiersz (NR + LOK, bez ID) → depozyt_dodaj.
- * Program → arkusz: co minutę pobierane są pozycje zmienione od ostatniej synchronizacji (kolumna `zmieniono`).
+ * Program → arkusz: baza od razu wysyła każdą zmianę do aplikacji internetowej tego skryptu (doPost, klucz),
+ *   a co minutę – na wszelki wypadek – pobierane są pozycje zmienione od ostatniej synchronizacji (`zmieniono`).
  *
  * Konto: osobne konto programu z modułem „depozyt” i oddziałem (np. „Arkusz Google”). E-mail i hasło wpisuje
  * właściciel w menu Depozyt → Ustawienia połączenia (zapisują się we właściwościach skryptu, nie w arkuszu).
@@ -29,6 +30,7 @@ function onOpen() {
     .addItem('Wczytaj cały spis z programu (od nowa)', 'wczytajWszystko')
     .addItem('Synchronizuj teraz', 'synchronizuj')
     .addItem('Włącz automatyczną synchronizację', 'wlaczAutomat')
+    .addItem('Natychmiastowe zmiany z programu – dane dla bazy', 'daneDlaBazy')
     .addToUi();
 }
 
@@ -231,4 +233,45 @@ function wlaczAutomat() {
   ScriptApp.newTrigger('synchronizuj').timeBased().everyMinutes(1).create();
   SpreadsheetApp.getUi().alert('Automatyczna synchronizacja włączona: zmiany z arkusza idą od razu, ' +
                                'zmiany z programu pojawiają się w ciągu minuty.');
+}
+
+/** Adres aplikacji internetowej i klucz do wpisania w bazie (plik SQL od Claude). */
+function daneDlaBazy() {
+  var klucz = P().getProperty('KLUCZ');
+  if (!klucz) {
+    klucz = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+    P().setProperty('KLUCZ', klucz);
+  }
+  var url = ScriptApp.getService().getUrl();
+  var html = HtmlService.createHtmlOutput(
+    '<div style="font:13px Arial">' + (url ? '' : '<p style="color:#b00"><b>Najpierw wdróż skrypt jako aplikację ' +
+    'internetową</b> (Wdróż → Nowe wdrożenie → Aplikacja internetowa; wykonuj jako: Ja; dostęp: Każdy).</p>') +
+    '<p>Adres:</p><textarea style="width:100%;height:60px" onclick="this.select()">' + (url || '') + '</textarea>' +
+    '<p>Klucz:</p><textarea style="width:100%;height:40px" onclick="this.select()">' + klucz + '</textarea>' +
+    '<p>Wklej oba do pliku SQL od Claude (zamiast ADRES i KLUCZ).</p></div>').setWidth(520).setHeight(300);
+  SpreadsheetApp.getUi().showModalDialog(html, 'Depozyt – dane dla bazy');
+}
+
+/** Powiadomienie z bazy o zmianie jednej pozycji (aplikacja internetowa). */
+function doPost(e) {
+  var d;
+  try { d = JSON.parse(e.postData.contents); } catch (err) { return ContentService.createTextOutput('zly json'); }
+  if (!d || d.klucz !== P().getProperty('KLUCZ') || !d.wiersz) return ContentService.createTextOutput('odmowa');
+  var p = d.wiersz;
+  if (p.branch !== P().getProperty('ODDZIAL') || p.sezon !== P().getProperty('SEZON')) {
+    return ContentService.createTextOutput('inny spis');
+  }
+  var lock = LockService.getScriptLock();
+  lock.waitLock(20000);
+  try {
+    var sh = arkusz_();
+    var ostatni = Math.max(sh.getLastRow(), 1);
+    var ids = ostatni > 1 ? sh.getRange(2, K.ID, ostatni - 1, 1).getValues().map(function (r) { return String(r[0]); }) : [];
+    var i = ids.indexOf(String(p.id));
+    var r = i >= 0 ? i + 2 : ostatni + 1;
+    sh.getRange(r, 1, 1, NAGLOWKI.length).setValues([wiersz_(p)]);
+  } finally {
+    lock.releaseLock();
+  }
+  return ContentService.createTextOutput('ok');
 }

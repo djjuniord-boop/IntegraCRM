@@ -20,6 +20,16 @@ def pozycje(session, branch: str, sezon: str = "") -> list:
         offset += STRONA
 
 
+def zmiany(session, branch: str, od: str) -> list:
+    """Pozycje oddziału zmienione po chwili `od` (znacznik `zmieniono` z bazy) – małe zapytanie co kilka sekund."""
+    return session.call("GET", f"/rest/v1/depozyt?select=*&branch=eq.{_q(branch)}&zmieniono=gt.{_q(od)}"
+                               f"&order=zmieniono&limit={STRONA}") or []
+
+
+def najnowsza_zmiana(rows: list) -> str:
+    return max((r.get("zmieniono") or "" for r in rows), default="")
+
+
 def zmien(session, id_: int, pole: str, wartosc) -> dict:
     if isinstance(wartosc, bool):
         wartosc = "1" if wartosc else "0"

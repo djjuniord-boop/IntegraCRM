@@ -205,3 +205,29 @@ def test_ilosc_i_sezon_ze_spisu():
     assert w["DX40001"]["szt"] == "3 szt." and "NIEPEŁNY KOMPLET: 3 szt." in w["DX40001"]["uwagi"]
     assert w["DX40002"]["szt"] == "1 + 3 = 4 szt." and w["DX40002"]["sezon"] == "LATO / ZIMA"
     assert "w spisie opony LETNIE" in w["DX40002"]["uwagi"] and not any("NIEPEŁNY" in u for u in w["DX40002"]["uwagi"])
+
+
+def test_zmiany_podmieniaja_wiersze_bez_przeladowania():
+    """Odświeżanie co 10 s: zapytanie tylko o zmienione pozycje, podmiana po id, nowe na końcu."""
+    from depozyt import dane, zakladka
+
+    class S:
+        def __init__(self):
+            self.zapytania = []
+
+        def call(self, m, path, body=None, prefer=None):
+            self.zapytania.append(path)
+            return [{"id": 2, "nr": "DX8L367", "lok": "K9.9", "sezon": "ZIMA", "zmieniono": "2026-11-25T15:00:01+00:00"},
+                    {"id": 99, "nr": "DX99999", "lok": "M1.1", "sezon": "ZIMA", "zmieniono": "2026-11-25T15:00:02+00:00"}]
+
+    s = S()
+    rows = dane.zmiany(s, "Latex Wrocław", "2026-11-25T15:00:00+00:00")
+    assert "zmieniono=gt.2026-11-25T15%3A00%3A00%2B00%3A00" in s.zapytania[0]
+    assert dane.najnowsza_zmiana(rows) == "2026-11-25T15:00:02+00:00"
+
+    class Okno(zakladka.DepozytMixin):
+        pass
+    o = Okno()
+    o.dep_rows = [dict(p, sezon="ZIMA") for p in SPIS]
+    assert o._dep_podmien(rows[0])["lok"] == "K9.9" and o.dep_rows[1]["lok"] == "K9.9"
+    assert o._dep_podmien(rows[1]) is None
