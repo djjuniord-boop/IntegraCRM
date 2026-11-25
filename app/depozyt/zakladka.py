@@ -160,7 +160,7 @@ class DepozytMixin:
                  bg=BG, fg=MUTED, font=f.small, justify="left").pack(side="left")
         self.dep_filtr = tk.StringVar(value=FILTRY[0])
         ttk.Combobox(szuk, textvariable=self.dep_filtr, values=FILTRY, state="readonly", width=18).pack(side="right")
-        self.dep_lok = tk.StringVar(value="")
+        self.dep_lok = tk.StringVar(value="wszystkie")
         self.dep_lok_cb = ttk.Combobox(szuk, textvariable=self.dep_lok, state="readonly", width=12)
         self.dep_lok_cb.pack(side="right", padx=6)
         tk.Label(szuk, text="Lokalizacja:", bg=BG, fg=MUTED, font=f.small).pack(side="right")
@@ -174,7 +174,7 @@ class DepozytMixin:
         box = tk.Frame(page, bg=SURFACE, highlightbackground=LINE, highlightthickness=1)
         box.pack(fill="both", expand=True)
         kol = [("ok", "✓", 36), ("nr", "Nr rej.", 110), ("lok", "Lok.", 80), ("marka", "Marka", 150),
-               ("il", "Ilość / sezon", 100), ("uwagi", "Uwagi (spis)", 190), ("kom", "Komentarz", 230),
+               ("il", "Ilość / rodzaj", 100), ("uwagi", "Uwagi (spis)", 190), ("kom", "Komentarz", 230),
                ("kiedy", "Przywiezione", 210)]
         st = ttk.Style(page)
         st.configure("Dep.Treeview", rowheight=26, font=f.body)
@@ -212,12 +212,17 @@ class DepozytMixin:
                 rows, err = dane.pozycje(self.session, branch), None
             except Exception as e:
                 rows, err = None, e
-            self.after(0, lambda: self._dep_wczytane(rows, err))
+            self.after(0, lambda: self._dep_wczytane(rows, err, branch, cicho))
         threading.Thread(target=work, daemon=True).start()
 
-    def _dep_wczytane(self, rows, err):
+    def _dep_wczytane(self, rows, err, branch=None, cicho=False):
         self.dep_ladowanie = False
+        if branch is not None and branch != self.dep_branch:   # w trakcie wczytywania wybrano inny oddział
+            self.depozyt_odswiez()
+            return
         if err is not None:
+            if cicho:   # odświeżanie w tle – chwilowy brak sieci nie zasłania spisu
+                return
             self.dep_stat.config(text=f"Nie udało się wczytać spisu: {opis_bledu(err)}", fg=RED)
             return
         self.dep_rows = rows
@@ -225,7 +230,7 @@ class DepozytMixin:
         self.dep_sezon_cb.config(values=sezony)
         if self.dep_sezon_var.get() not in sezony:
             self.dep_sezon_var.set(sezony[0] if sezony else "")
-        self._dep_render()
+        self._dep_render(zachowaj=cicho)
 
     def _dep_auto(self):
         try:
@@ -248,16 +253,20 @@ class DepozytMixin:
             self.after_cancel(self._dep_job)
         self._dep_job = self.after(150, self._dep_render)
 
-    def _dep_render(self):
+    def _dep_render(self, zachowaj=False):
+        """zachowaj=True (odświeżanie w tle, zapis): bez skoku listy – zostaje zaznaczenie, przewinięcie i „pokaż więcej”."""
         self._dep_job = None
-        self.dep_limit = LIMIT_WIERSZY if not getattr(self, "_dep_wiecej_klik", False) else self.dep_limit
+        t = self.dep_tree
+        stan = (t.selection(), t.yview()[0]) if zachowaj else None
+        if not zachowaj and not getattr(self, "_dep_wiecej_klik", False):
+            self.dep_limit = LIMIT_WIERSZY
         self._dep_wiecej_klik = False
         rows = self._dep_sezonu()
         lok = sorted({p.get("lok") or "" for p in rows if p.get("lok")}, key=szukaj.klucz_lokalizacji)
-        self.dep_lok_cb.config(values=[""] + lok)
-        lista = filtruj(rows, self.dep_q.get(), self.dep_filtr.get(), self.dep_lok.get())
+        self.dep_lok_cb.config(values=["wszystkie"] + lok)
+        lok_wyb = "" if self.dep_lok.get() == "wszystkie" else self.dep_lok.get()
+        lista = filtruj(rows, self.dep_q.get(), self.dep_filtr.get(), lok_wyb)
         self.dep_widoczne = lista
-        t = self.dep_tree
         t.delete(*t.get_children())
         for p, fz in lista[:self.dep_limit]:
             tag = "przyw" if p.get("przywiezione") else "wyj" if p.get("wyjasnic") else ""
@@ -271,10 +280,16 @@ class DepozytMixin:
             self.dep_wiecej.pack(pady=4)
         else:
             self.dep_wiecej.pack_forget()
+        if stan:
+            istnieja = [i for i in stan[0] if t.exists(i)]
+            if istnieja:
+                t.selection_set(istnieja)
+                t.focus(istnieja[0])
+            t.yview_moveto(stan[1])
         s = statystyki(rows)
         txt = (f"Wszystkich {s['wszystkie']}  ·  przywiezione {s['przywiezione']}  ·  zostało {s['zostalo']}  ·  "
                f"dziś {s['dzis']}" + (f"  ·  do wyjaśnienia {s['wyjasnic']}" if s["wyjasnic"] else ""))
-        if self.dep_q.get().strip() or self.dep_filtr.get() != FILTRY[0] or self.dep_lok.get():
+        if self.dep_q.get().strip() or self.dep_filtr.get() != FILTRY[0] or lok_wyb:
             txt += f"     |  pokazano {len(lista)}"
         self.dep_stat.config(text=txt, fg=INK)
         self.dep_stat_liczby = s
@@ -291,6 +306,14 @@ class DepozytMixin:
         self.dep_limit += LIMIT_WIERSZY
         self._dep_wiecej_klik = True
         self._dep_render()
+
+    def _dep_podmien(self, nowy: dict) -> dict | None:
+        """Wiersz z bazy podmienia pozycję o tym samym id w aktualnej liście (lista mogła się w międzyczasie odświeżyć)."""
+        cur = next((p for p in self.dep_rows if p.get("id") == nowy.get("id")), None)
+        if cur is not None:
+            cur.clear()
+            cur.update(nowy)
+        return cur
 
     def _dep_poz(self, iid) -> dict | None:
         try:
@@ -315,12 +338,10 @@ class DepozytMixin:
                 return
             if isinstance(nowy, list):
                 nowy = nowy[0] if nowy else None
-            if nowy:
-                poz.clear()
-                poz.update(nowy)
-            self._dep_render()
+            wiersz = (self._dep_podmien(nowy) or nowy) if nowy else poz
+            self._dep_render(zachowaj=True)
             if po:
-                po(poz)
+                po(wiersz)
         threading.Thread(target=work, daemon=True).start()
 
     def _dep_przelacz(self, poz: dict):
@@ -634,13 +655,13 @@ class PrzygotowanieOkno(tk.Toplevel):
                     nowy = dane.zmien(app.session, p["id"], pole, True)
                     nowy = nowy[0] if isinstance(nowy, list) and nowy else nowy
                     if isinstance(nowy, dict):
-                        app.after(0, lambda p=p, n=nowy: (p.clear(), p.update(n)))
+                        app.after(0, lambda p=p, n=nowy: (p.clear(), p.update(n), app._dep_podmien(n)))
                 except Exception as e:
                     bledy.append(f"{p.get('nr')}: {opis_bledu(e)}")
             app.after(0, lambda: koniec(bledy))
 
         def koniec(bledy):
-            app._dep_render()
+            app._dep_render(zachowaj=True)
             if self.winfo_exists():
                 self._render()
             if bledy:
@@ -657,13 +678,13 @@ class PrzygotowanieOkno(tk.Toplevel):
             f"<td class=u>{esc(' · '.join(w['uwagi']))}</td></tr>" for w in wiersze)
         rap = self.rap
         okres = rap.get("od") if rap.get("od") == rap.get("do") else f"{rap.get('od')} – {rap.get('do')}"
-        doc = f"""<!DOCTYPE html><html lang=pl><head><meta charset=utf-8><title>Przygotowanie {okres}</title><style>
+        doc = f"""<!DOCTYPE html><html lang=pl><head><meta charset=utf-8><title>Przygotowanie {esc(okres)}</title><style>
 body{{font:13px Arial;margin:12mm}}h1{{font-size:18px;margin:0 0 4px}}table{{border-collapse:collapse;width:100%}}
 th{{background:#111;color:#fff;text-align:left;padding:5px;font-size:11px}}td{{border-bottom:1px solid #ccc;padding:4px 5px;vertical-align:top}}
 .lok{{font:bold 16px Consolas,monospace;white-space:nowrap}}.nr{{font:bold 14px Consolas,monospace}}.c{{font-size:18px}}
 .u{{color:#8a5a00;font-weight:bold;font-size:11px}}tr.brak td{{background:#fde3e3}}tr.uw td{{background:#fff4e0}}small{{color:#555}}
 @media print{{tr{{page-break-inside:avoid}}}}</style></head><body onload="window.print()">
-<h1>Opony do przygotowania – {okres}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
+<h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
 wydrukowano {datetime.datetime.now():%d.%m.%Y %H:%M}</small></div><br>
 <table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>Opony (Integra)</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
         fd, sciezka = tempfile.mkstemp(prefix="przygotowanie_", suffix=".html")

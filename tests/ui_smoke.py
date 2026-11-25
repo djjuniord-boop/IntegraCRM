@@ -101,7 +101,7 @@ class FakeSession(cloud.Session):
                         ("WE7A071", "K1.4", "CONTINENTAL", "3X", "", "felgi w worku", False, None, None, False),
                         ("DX5521K", "K2.3", "PIRELLI", "", "DX5521X?", "", True, "2026-11-25T08:15:00Z", "Jan", False),
                         ("OP1234X", "M8/10", "MICHELIN", "2X", "", "", False, None, None, True),
-                        ("DW9M934", "KPOK", "HANKOOK", "", "", "", False, None, None, False)], 1)]
+                        ("DX9M934", "KPOK", "HANKOOK", "", "", "", False, None, None, False)], 1)]
         if "app_config" in path and "crm" in path and method == "GET":
             return [{"value": COMPANY}]
         if ("marza_months" in path or "marza_results" in path) and method == "GET" and (

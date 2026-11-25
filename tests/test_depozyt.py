@@ -7,8 +7,8 @@ from pathlib import Path
 from _wspolne import temp_data  # noqa: F401 – ustawia ścieżkę do app/
 
 SPIS = [
-    {"id": 1, "nr": "DW9M934", "lok": "K5.1", "marka": "HANKOOK", "uwagi": "DW9M935", "przywiezione": False},
-    {"id": 2, "nr": "WE8L367", "lok": "K1.2", "marka": "YOKOHAMA", "uwagi": "", "przywiezione": False},
+    {"id": 1, "nr": "DX9M934", "lok": "K5.1", "marka": "HANKOOK", "uwagi": "DX9M935", "przywiezione": False},
+    {"id": 2, "nr": "DX8L367", "lok": "K1.2", "marka": "YOKOHAMA", "uwagi": "", "przywiezione": False},
     {"id": 3, "nr": "DX10001", "lok": "M2.1", "marka": "NOKIAN", "uwagi": "", "przywiezione": False},
     {"id": 4, "nr": "DX20002", "lok": "K12.3", "marka": "PIRELLI", "uwagi": "", "przywiezione": True},
     {"id": 5, "nr": "DX30003", "lok": "KPOK", "marka": "MICHELIN", "uwagi": "", "przywiezione": False,
@@ -20,16 +20,16 @@ SPIS = [
 def test_szukanie_z_literowkami():
     from depozyt import szukaj
     nr = lambda q: [p["nr"] for p, _, _ in szukaj.szukaj(SPIS, q)]   # noqa: E731
-    assert nr("DW9M934")[0] == "DW9M934"
-    assert nr("dw 9m9")[0] == "DW9M934"                     # fragment, spacje, małe litery
-    assert nr("DW9M93A")[0] == "DW9M934"                     # jedna zła litera
-    assert nr("WEBL367")[0] == "WE8L367"                     # B zamiast 8
+    assert nr("DX9M934")[0] == "DX9M934"
+    assert nr("dx 9m9")[0] == "DX9M934"                     # fragment, spacje, małe litery
+    assert nr("DX9M93A")[0] == "DX9M934"                     # jedna zła litera
+    assert nr("DXBL367")[0] == "DX8L367"                     # B zamiast 8
     assert nr("K12.3") == ["DX20002"]                        # lokalizacja
     assert nr("worku") == ["DX30003"]                        # komentarz
     assert nr("ZZ") == []
-    p, pkt, fz = szukaj.szukaj(SPIS, "DW9M93A")[0]
+    p, pkt, fz = szukaj.szukaj(SPIS, "DX9M93A")[0]
     assert fz and pkt < szukaj.FRAGMENT
-    assert szukaj.szukaj(SPIS, "DW9M934")[0][2] is False
+    assert szukaj.szukaj(SPIS, "DX9M934")[0][2] is False
 
 
 def test_kolejnosc_obchodu():
@@ -88,7 +88,7 @@ POZ = [
      "rozmiar": "215/65R17", "producent": "Nokian", "rodzaj": "zimowa", "bieznik": 7},
     {"nr": "DX20002", "klient": "Jan Testowy", "przyj": "8.04.2026", "wyd": "26.11.2026", "model": "Winter 2",
      "rozmiar": "225 45 18", "producent": "Pirelli", "rodzaj": "zimowa", "bieznik": 4},
-    {"nr": "DW9M93A", "klient": "Anna Testowa", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Icept",
+    {"nr": "DX9M93A", "klient": "Anna Testowa", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Icept",
      "rozmiar": "205/55r16", "producent": "Continental", "rodzaj": "zimowa", "bieznik": 6},
     {"nr": "PO99999", "klient": "Brak W Spisie", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Alpin 6",
      "rozmiar": "205/55R16", "producent": "Michelin", "rodzaj": "zimowa", "bieznik": 6, "ilosc": 2},
@@ -122,7 +122,7 @@ def test_raport_integry_i_lista_dla_magazyniera():
     assert "Snowproof 2" in po_nr["DX10001"]["opis"]
     u = po_nr["DX20002"]["uwagi"]
     assert "w spisie już odhaczone" in u and any("bieżnik 4 mm" in x for x in u)
-    u = po_nr["DW9M93A"]["uwagi"]
+    u = po_nr["DX9M93A"]["uwagi"]
     assert any("literówka" in x for x in u) and any("inna marka" in x for x in u)
     assert po_nr["DX30003"]["lok"] == "KPOK, K40.1" and "LETNIE do wydania" in po_nr["DX30003"]["uwagi"]
     assert "kilka lokalizacji" in po_nr["DX30003"]["uwagi"]
@@ -137,7 +137,7 @@ def test_filtry_i_statystyki_zakladki():
     s = zakladka.statystyki(rows)
     assert (s["wszystkie"], s["przywiezione"], s["zostalo"], s["dzis"], s["wyjasnic"]) == (6, 2, 4, 1, 1)
     assert len(zakladka.filtruj(rows, "", "Nieprzywiezione", "")) == 4
-    assert [p["nr"] for p, _ in zakladka.filtruj(rows, "", "Przywiezione dziś", "")] == ["DW9M934"]
+    assert [p["nr"] for p, _ in zakladka.filtruj(rows, "", "Przywiezione dziś", "")] == ["DX9M934"]
     assert len(zakladka.filtruj(rows, "", "Wszystkie", "KPOK")) == 1
     assert zakladka.opis_przywiezienia(rows[3]) == "wg Excela"
     assert zakladka.opis_przywiezienia(rows[0]).endswith("Jan")

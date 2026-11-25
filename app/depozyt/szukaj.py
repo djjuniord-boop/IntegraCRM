@@ -2,7 +2,7 @@
 
 Kolejność wyników: numer dokładnie / fragment numeru → lokalizacja, marka, komentarz → „≈ możliwa literówka”
 (znaki mylone przy przepisywaniu: O/0/D, I/1/L, Z/2, S/5, B/8, G/6, T/7 albo 1–2 inne znaki).
-Numery szukane są też w kolumnie uwag (spis często ma tam poprawiony numer, np. „WE8L367?”).
+Numery szukane są też w kolumnie uwag (spis często ma tam poprawiony numer, np. „DX8L367?”).
 """
 import re
 
