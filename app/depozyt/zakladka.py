@@ -781,13 +781,21 @@ class PrzygotowanieOkno(tk.Toplevel):
 
     def _drukuj(self):
         wiersze = [w for _, w in self._widoczne()]
-        tr = "".join(
-            f"<tr class='{'brak' if not w['spis'] else 'uw' if w['uwagi'] else ''}'><td class=c>☐</td>"
-            f"<td class=lok>{esc(w['lok'] or '—')}</td><td class=nr>{esc(w['raport']['nr_rej'])}</td>"
-            f"<td><b>{esc(w.get('szt', ''))}</b><br><small>{esc(w.get('sezon', ''))}</small></td>"
-            f"<td>{esc(w['opis'])}<br><small>{esc(w['szczegoly'])}</small></td>"
-            f"<td><small>{esc(w['raport'].get('kontrahent', '')[:30])}</small></td>"
-            f"<td class=u>{esc(' · '.join(w['uwagi']))}</td></tr>" for w in wiersze)
+        t = self.terminy   # harmonogram wizyt: bez kolumn auta i klienta (magazynier potrzebuje miejsca i ilości)
+
+        def wiersz(w):
+            r = w["raport"]
+            nr = f"{esc(r['nr_rej'])}" + (f"<br><small>{esc(w['szczegoly'])}</small>" if t and w["szczegoly"] else "")
+            return (f"<tr class='{'brak' if not w['spis'] else 'uw' if w['uwagi'] else ''}'><td class=c>☐</td>"
+                    + (f"<td>{esc(r.get('godzina', ''))}</td>" if t else "")
+                    + f"<td class=lok>{esc(w['lok'] or '—')}</td><td class=nr>{nr}</td>"
+                    f"<td><b>{esc(w.get('szt', ''))}</b><br><small>{esc(w.get('sezon', ''))}</small></td>"
+                    + ("" if t else f"<td>{esc(w['opis'])}<br><small>{esc(w['szczegoly'])}</small></td>"
+                                    f"<td><small>{esc(r.get('kontrahent', '')[:30])}</small></td>")
+                    + f"<td class=u>{esc(' · '.join(w['uwagi']))}</td></tr>")
+        tr = "".join(wiersz(w) for w in wiersze)
+        naglowek = ("<th></th>" + ("<th>Godz.</th>" if t else "") + "<th>Lokalizacja</th><th>Nr rej.</th><th>Ilość / sezon</th>"
+                    + ("" if t else "<th>Opony (Integra)</th><th>Klient</th>") + "<th>Uwagi</th>")
         rap = self.rap
         okres = rap.get("od") if rap.get("od") == rap.get("do") else f"{rap.get('od')} – {rap.get('do')}"
         doc = f"""<!DOCTYPE html><html lang=pl><head><meta charset=utf-8><title>Przygotowanie {esc(okres)}</title><style>
@@ -798,7 +806,7 @@ th{{background:#111;color:#fff;text-align:left;padding:5px;font-size:11px}}td{{b
 @media print{{tr{{page-break-inside:avoid}}}}</style></head><body onload="window.print()">
 <h1>Opony do przygotowania – {esc(okres)}</h1><div><small>Panel Latex Serwis · {len(wiersze)} pozycji · trasa: regały K → M → pozostałe ·
 wydrukowano {datetime.datetime.now():%d.%m.%Y %H:%M}</small></div><br>
-<table><tr><th></th><th>Lokalizacja</th><th>Nr rej.</th><th>Ilość / sezon</th><th>{'Auto / opony w spisie' if self.terminy else 'Opony (Integra)'}</th><th>Klient</th><th>Uwagi</th></tr>{tr}</table></body></html>"""
+<table><tr>{naglowek}</tr>{tr}</table></body></html>"""
         fd, sciezka = tempfile.mkstemp(prefix="przygotowanie_", suffix=".html")
         with os.fdopen(fd, "w", encoding="utf-8") as fh:
             fh.write(doc)

@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.5"
+VERSION = "1.2.6"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.6",
+        "date": "2026-11-25",
+        "changes": [
+            "DEPOZYT: wydruk listy z harmonogramu wizyt bez kolumn auta i klienta – za to z godziną wizyty; zostają lokalizacja, numer, ilość/sezon i uwagi",
+        ],
+    },
     {
         "version": "1.2.5",
         "date": "2026-11-25",
