@@ -52,3 +52,9 @@ do telefonu (wymaga szukania wzorca w kopii `xp_oferta`).
 
 Wydanie: push na `main` (workflow `mobile.yml`) → wydanie `aplikacja-android` z `LatexOferty.apk` i `aplikacja.json`. Na `beta` tylko artefakt do pobrania z Actions.
 Podpis: sekrety `ANDROID_KEYSTORE_B64`, `ANDROID_KEYSTORE_PASS` – **ten sam klucz zawsze**; zgubiony klucz = każdy musi odinstalować i zainstalować aplikację od nowa.
+
+## Lista do przygotowania
+
+Panel po wczytaniu raportu z Integry zapisuje listę w `depozyt_listy` (jedna aktualna na oddział, bez nazw klientów).
+W telefonie przycisk „📋 Lista dd.mm” w Depozycie: karty po regałach, „✓ Przygotowane” (depozyt_zmien, pole przygotowane) dla
+wszystkich pozycji spisu danego auta; nowa lista z Panelu sprawdzana co minutę.

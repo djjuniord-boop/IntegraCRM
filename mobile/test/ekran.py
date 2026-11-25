@@ -27,16 +27,24 @@ DEP = [{"id": i, "branch": "Latex Wrocław", "sezon": "ZIMA 2026/27" if i % 6 el
         "komentarz": "felgi alu, żółta naklejka" if i % 17 == 0 else "", "przywiezione": i % 4 == 0,
         "przywiezione_at": (_dt.datetime.now(_dt.timezone.utc).isoformat() if i % 8 == 0 else None) if i % 4 == 0 else None,
         "przywiezione_kto": "Magazynier Testowy" if i % 8 == 0 else None, "zmieniono": "2026-11-25T08:00:00+00:00"} for i in range(1, 1201)]
+LISTA = {"branch": "Latex Wrocław", "tytul": "Harmonogram wizyt (Excel)", "od": "2026-11-26", "do": "2026-11-26", "zrodlo": "terminy",
+         "utworzono": "2026-11-25T18:00:00+00:00", "kto": "Jan Testowy",
+         "wiersze": [{"nr": "XX0002C", "lok": "M3.3", "szt": "komplet", "sezon": "ZIMA", "dzien": "26.11.2026", "godzina": "8:00", "uwagi": [], "ids": [2]},
+                     {"nr": "XX0005A", "lok": "K6.2", "szt": "1 + 3 = 4 szt.", "sezon": "ZIMA / LATO", "dzien": "26.11.2026", "godzina": "9:30", "uwagi": ["kilka lokalizacji", "w spisie opony LETNIE"], "ids": [5, 7]},
+                     {"nr": "PO12345", "lok": "", "szt": "", "sezon": "", "dzien": "26.11.2026", "godzina": "10:00", "uwagi": ["BRAK W SPISIE"], "ids": []}]}
 DEP_ZM = []   # zmiany „z innego telefonu” – zwracane przy odświeżaniu
 def dep_route(r, u, m):
     import urllib.parse as up
     q = dict(up.parse_qsl(up.urlparse(u).query))
     if "depozyt_ustawienia" in u: return r.fulfill(json=[{"branch": "Latex Wrocław", "sezon_domyslny": "ZIMA 2026/27", "ukryte_sezony": [], "trasa": []}])
+    if "depozyt_listy" in u: return r.fulfill(json=[LISTA])
     if "rpc/depozyt_zmien" in u:
         b = json.loads(r.request.post_data); p = next(x for x in DEP if x["id"] == b["p_id"])
         if b["p_pole"] == "przywiezione" and b["p_wartosc"] == "0" and PROF["p"]["role"] != "admin":
             return r.fulfill(status=400, json={"message": "Cofnąć „przywiezione” może tylko administrator"})
-        if b["p_pole"] == "przywiezione":
+        if b["p_pole"] == "przygotowane":
+            p.update(przygotowane_at=_dt.datetime.now(_dt.timezone.utc).isoformat() if b["p_wartosc"] == "1" else None, przygotowane_kto=PROF["p"]["name"])
+        elif b["p_pole"] == "przywiezione":
             p.update(przywiezione=b["p_wartosc"] == "1", przywiezione_at=_dt.datetime.now(_dt.timezone.utc).isoformat() if b["p_wartosc"] == "1" else None, przywiezione_kto=PROF["p"]["name"])
         else:
             p[b["p_pole"]] = b["p_wartosc"]
@@ -119,7 +127,7 @@ with sync_playwright() as p:
         # DEPOZYT (admin): wybór oddziału, sezon domyślny, bez wyszukania najwyżej 50 kart
         pg.click("#tabs button[data-v=vDep]"); pg.wait_for_selector("#dL .dk")
         assert pg.is_visible("#dOdd") and pg.input_value("#dSez") == "ZIMA 2026/27", pg.input_value("#dSez")
-        assert pg.locator("#dL .dk").count() == 50 and not pg.is_visible("#dLista"), pg.locator("#dL .dk").count()
+        assert pg.locator("#dL .dk").count() == 50 and pg.is_visible("#dLista"), pg.locator("#dL .dk").count()
         assert "wszystkie 1000" in pg.inner_text("#dCnt").replace("\n", " "), pg.inner_text("#dCnt")
         shot("12_depozyt"); wide()
         pg.fill("#dq", "xx0O07c"); pg.wait_for_timeout(400)   # literówka O/0 – i tak znajdzie
@@ -164,6 +172,11 @@ with sync_playwright() as p:
         pg.once("dialog", lambda d: d.accept()); pg.click("#dL .dk[data-id='4'] >> text=Cofnij przywiezione"); pg.wait_for_selector("#dMsg .msg.e")
         assert "tylko administrator" in pg.inner_text("#dMsg"), pg.inner_text("#dMsg")
         shot("15_magazynier"); wide()
+        pg.click("#dLista"); pg.wait_for_selector("text=Do przygotowania"); shot("17_lista"); wide()
+        pg.click("#dL .dk >> nth=0 >> text=Przygotowane"); pg.wait_for_selector("#dL .dk >> nth=0 >> text=przygotowane – Magazynier Testowy")
+        assert "gotowe 1 z 2" in pg.inner_text("#dL"), pg.inner_text("#dL")[:200]
+        shot("18_lista_przygotowane"); wide()
+        pg.click("text=← Spis"); pg.wait_for_selector("#dq")
         pg.select_option("#dSez", "LATO 2026"); pg.fill("#dq", ""); pg.select_option("#dFil", ""); pg.wait_for_timeout(300); shot("16_magazynier_lato"); wide()
         PROF["p"] = {"email": "test@firma.pl", "name": "Jan Testowy", "role": "admin", "modules": ["oferty"], "branches": []}
         ctx.close()

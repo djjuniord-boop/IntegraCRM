@@ -58,3 +58,5 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   pomarańczowego** – informacja w komentarzu. (2026-11-25)
 - Ustawienia depozytu (sezon na start, archiwum sezonów, trasa regałów, uprawnienia cofania/edycji) zmienia
   administrator w programie; domyślnie cofanie „przywiezione” tylko admin, numer/lokalizację – wszyscy. (2026-11-25)
+- Aplikacja Android wznowiona: Wyniki, Oferta opon, Depozyt (zakładki wg modułów konta; magazynier – sam Depozyt).
+  Zamówień w telefonie nie ma. Lista do przygotowania: wczytywana w Panelu, zapisywana w bazie, otwierana w telefonie. (2026-11-25)

@@ -163,6 +163,8 @@
   };
   A.depZmiany = async (branch, od) => (await A.db("GET", "/rest/v1/depozyt?select=*&branch=eq." + encodeURIComponent(branch) + "&zmieniono=gt." + encodeURIComponent(od) + "&order=zmieniono&limit=1000")) || [];
   A.depUstawienia = async (branch) => { try { const r = (await A.db("GET", "/rest/v1/depozyt_ustawienia?select=*&branch=eq." + encodeURIComponent(branch))) || []; return r[0] || {}; } catch (e) { return {}; } };
+  // lista do przygotowania zapisana z Panelu po wczytaniu raportu z Integry (jedna aktualna na oddział, bez klientów)
+  A.depLista = async (branch) => { try { const r = (await A.db("GET", "/rest/v1/depozyt_listy?select=*&branch=eq." + encodeURIComponent(branch))) || []; return r[0] || null; } catch (e) { return null; } };
   A.depZmien = async (id, pole, wartosc) => {
     if (typeof wartosc === "boolean") wartosc = wartosc ? "1" : "0";
     const r = await A.db("POST", "/rest/v1/rpc/depozyt_zmien", { p_id: id, p_pole: pole, p_wartosc: String(wartosc) });

@@ -458,7 +458,7 @@ window.onBack = function () {
 
 
 // ------------------------------------------------ depozyt (spis opon w przechowalni; zapis tylko funkcją bazy depozyt_zmien)
-const DEP = { branch: "", rows: [], ust: {}, sezon: "", ostatnio: "", timer: null, ok: false, limit: 50, busy: 0 };
+const DEP = { branch: "", rows: [], ust: {}, sezon: "", ostatnio: "", timer: null, ok: false, limit: 50, busy: 0, lista: null, widok: "spis" };
 const DEP_LIMIT = 50;   // tyle kart naraz – spis ma ~1800 pozycji
 function depWidoczny() { return !$("#vDep").hidden && !document.hidden; }
 function depStart() {
@@ -475,9 +475,10 @@ async function depLoad(force) {
   if (!DEP.ok) $("#dL").innerHTML = '<p class="muted" style="padding:0 6px">Wczytuję spis…</p>';
   const br = DEP.branch;
   try {
-    const [rows, ust] = await Promise.all([Aplikacja.depPozycje(br), Aplikacja.depUstawienia(br)]);
+    const [rows, ust, lista] = await Promise.all([Aplikacja.depPozycje(br), Aplikacja.depUstawienia(br), Aplikacja.depLista(br)]);
     if (br !== DEP.branch) return;   // w trakcie wybrano inny oddział
     DEP.rows = rows; DEP.ust = ust || {}; DEP.ostatnio = Depozyt.najnowsza_zmiana(rows); DEP.ok = true;
+    depUstawLista(lista);
     depSezony(); depDraw(); if (force) toast("Odświeżono.");
   } catch (e) { $("#dL").innerHTML = `<div class="msg e">Nie udało się wczytać spisu: ${esc(e.message)}</div>`; }
 }
@@ -491,6 +492,10 @@ function depSezon(v) { DEP.sezon = v === "(bez sezonu)" ? "" : v; DEP.limit = DE
 async function depOdswiez() {
   if (!DEP.ok || DEP.busy) return;
   const br = DEP.branch;
+  DEP.tik = (DEP.tik || 0) + 1;
+  if (DEP.tik % 6 === 0) {   // co minutę: czy w Panelu wczytano nową listę do przygotowania
+    Aplikacja.depLista(br).then((l) => { if (br === DEP.branch && (!l || !DEP.lista || l.utworzono !== DEP.lista.utworzono)) { depUstawLista(l); if (DEP.widok === "lista") depDraw(true); } });
+  }
   try {
     const zm = await Aplikacja.depZmiany(br, DEP.ostatnio || "1970-01-01T00:00:00Z");
     if (!zm.length || br !== DEP.branch) return;
@@ -516,6 +521,8 @@ function depKarta(p, fz) {
 }
 function depDraw(cicho) {
   if (!DEP.ok) return;
+  $("#vDep .dep-top").hidden = DEP.widok === "lista";   // na liście: bez szukania i filtrów (wraca „← Spis”)
+  if (DEP.widok === "lista") return depListaDraw(cicho);
   const rows = DEP.rows.filter((p) => (p.sezon || "") === DEP.sezon), s = Depozyt.statystyki(rows);
   $("#dCnt").innerHTML = `<span>wszystkie <b>${s.wszystkie}</b></span><span>przywiezione <b>${s.przywiezione}</b></span><span>zostało <b>${s.zostalo}</b></span><span>dziś <b>${s.dzis}</b></span>`;
   const f = $("#dFil").value, q = $("#dq").value.trim();
@@ -547,7 +554,50 @@ function depEdytuj(id, pole) {
   setTimeout(() => $("#dEd") && $("#dEd").focus(), 50);
 }
 async function depEdZapisz(id, pole) { const v = $("#dEd").value.trim(); closeSheet(); if (await depZapisz(id, pole, pole === "lok" ? v.toUpperCase() : v)) toast("Zapisano."); }
-function depLista() { /* „Lista do przygotowania” – dorobi kontroler (tabela depozyt_listy); przycisk na razie ukryty */ }
+// ---- lista do przygotowania (z Panelu: depozyt_listy) – trasa po regałach, „Przygotowane” zapisuje kto i kiedy
+function depUstawLista(l) {
+  DEP.lista = l && Array.isArray(l.wiersze) && l.wiersze.length ? l : null;
+  const b = $("#dLista");
+  b.hidden = !DEP.lista;
+  if (DEP.lista) b.textContent = "📋 Lista " + depOkres(DEP.lista);
+  if (!DEP.lista && DEP.widok === "lista") DEP.widok = "spis";
+}
+function depOkres(l) { const f = (d) => (d || "").split("-").reverse().slice(0, 2).join("."); return l.od === l.do ? f(l.od) : f(l.od) + "–" + f(l.do); }
+async function depLista() {
+  msg("#dMsg", "");
+  DEP.widok = DEP.widok === "lista" ? "spis" : "lista";
+  if (DEP.widok === "lista") { const l = await Aplikacja.depLista(DEP.branch); if (l) depUstawLista(l); }
+  depDraw(); window.scrollTo(0, 0);
+}
+function depPozycjeListy(w) { return (w.ids || []).map((id) => DEP.rows.find((r) => r.id === id)).filter(Boolean); }
+function depListaDraw(cicho) {
+  const l = DEP.lista; if (!l) { DEP.widok = "spis"; return depDraw(cicho); }
+  const y = window.scrollY;
+  const gotowe = (w) => { const p = depPozycjeListy(w); return p.length && p.every((r) => r.przygotowane_at); };
+  const ile = l.wiersze.filter((w) => (w.ids || []).length).length, got = l.wiersze.filter(gotowe).length;
+  const karta = (w, i) => {
+    const poz = depPozycjeListy(w), g = gotowe(w), uw = (w.uwagi || []).filter((u) => !/^brak opon w depozycie/.test(u));
+    const kto = poz.map((r) => r.przygotowane_kto).filter(Boolean)[0];
+    return `<div class="dk${g ? " jest" : ""}${poz.length ? "" : " brak"}">
+      <div class="row gap"><div class="dlok grow">${esc(w.lok || "—")}</div>${w.godzina ? `<div class="dnr">${esc(w.godzina)}</div>` : ""}</div>
+      <div class="dnr">${esc(w.nr || "")}</div>
+      <div class="dinf"><b>${esc(w.szt || "—")}</b>${w.sezon ? " · " + esc(w.sezon) : ""}${w.godzina ? "" : w.dzien ? " · " + esc(w.dzien) : ""}</div>
+      ${uw.length ? `<div class="small dkom">⚠ ${esc(uw.join(" · "))}</div>` : ""}
+      ${poz.length ? (g ? `<div class="dst">✓ przygotowane${kto ? " – " + esc(kto) : ""}</div><div class="row gap" style="margin-top:6px"><button class="btn sec grow sm" onclick="depPrzyg(${i},false)">↺ Cofnij przygotowane</button></div>`
+                        : `<div class="row gap" style="margin-top:8px"><button class="btn big grow dok" onclick="depPrzyg(${i},true)">✓ Przygotowane</button></div>`)
+                   : `<div class="small muted">Brak w spisie – szukaj ręcznie.</div>`}
+    </div>`;
+  };
+  $("#dL").innerHTML = `<div class="card"><div class="row gap"><div class="grow"><div class="h" style="margin:0">📋 Do przygotowania ${esc(depOkres(l))}</div>
+      <div class="small muted">${esc(l.tytul || "")} · gotowe ${got} z ${ile}${l.kto ? " · wczytał " + esc(l.kto) : ""}</div></div>
+      <button class="btn sec sm" onclick="depLista()">← Spis</button></div></div>` + l.wiersze.map(karta).join("");
+  if (cicho) window.scrollTo(0, y);
+}
+async function depPrzyg(i, tak) {
+  const w = DEP.lista && DEP.lista.wiersze[i]; if (!w) return;
+  for (const id of w.ids || []) if (!(await depZapisz(id, "przygotowane", tak))) return;
+  if (tak) toast("✓ " + (w.nr || "") + " – przygotowane");
+}
 document.addEventListener("visibilitychange", () => { if (depWidoczny()) depOdswiez(); });
 
 drawChips();
