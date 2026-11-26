@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.12"
+VERSION = "1.2.13"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.13",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: naprawione pobieranie zdjęć z xPartner (zdjęcia się nie pokazywały, a program niepotrzebnie otwierał okienko logowania)",
+        ],
+    },
     {
         "version": "1.2.12",
         "date": "2026-11-26",

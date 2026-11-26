@@ -446,12 +446,13 @@ def logo_uri() -> str:
 KONFIGURATOR = "https://konfigurator.xpartner.net.pl/"
 # Skrypt w oknie konfiguratora (ta sama domena co usługa zdjęć – jej ciasteczko logowania xPartner).
 # Serwery xPartner blokują zapytania spoza przeglądarki, więc zdjęcia pobiera ukryte okno przeglądarki programu.
-ZDJ_JS = """(async()=>{const A='https://konfigurator-api.xpartner.net.pl/';
+ZDJ_JS = """window.__zdj=null;(async()=>{const A='https://konfigurator-api.xpartner.net.pl/';
 if(location.hostname!=='konfigurator.xpartner.net.pl')return JSON.stringify({login:true});
 const me=await fetch(A+'auth/me',{credentials:'include'}).catch(()=>null);if(!me||me.status!==200)return JSON.stringify({login:true});
 const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch(A+'xpartner-product-images/'+id,{credentials:'include'});
 const j=r.ok?await r.json():null;out[id]=[...new Set(((j&&j.data)||[]).map(x=>x.url).filter(u=>/^https:\\/\\/xpartner\\.net\\.pl\\/descriptionFiles\\//.test(u)))]}catch(e){}}}
-await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out})})()"""
+await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out})})().then(x=>{window.__zdj=x},e=>{window.__zdj=JSON.stringify({blad:String(e)})});1"""
+# pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
 
 
 class Api:
@@ -481,7 +482,13 @@ class Api:
             w = self._kw
             if w is None:
                 return {"login": True}
-            wynik = w.evaluate_js(ZDJ_JS % json.dumps(ids))
+            w.evaluate_js(ZDJ_JS % json.dumps(ids))
+            wynik = None
+            for _ in range(120):   # do ~30 s
+                time.sleep(0.25)
+                wynik = w.evaluate_js("window.__zdj")
+                if wynik:
+                    break
             try:
                 d = json.loads(wynik) if isinstance(wynik, str) else (wynik or {})
             except ValueError:
