@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| | | | |
+| 2026-11-26 | OFERTY – zakładka Felgi (beta 1.2.10, zdjęcia w toku). **Na becie, nie wydawać oficjalnie bez zgody właściciela** | praca/czesciowy | app/oferty/felgi.py, index.html, silnik.py, okno.py |
