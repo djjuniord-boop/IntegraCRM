@@ -25,7 +25,7 @@ fi
 
 ver() { grep -m1 '^VERSION' "$1" | sed -E 's/.*"([^"]+)".*/\1/'; }
 V=$(ver app/version.py)
-VB=$(git show origin/beta:app/version.py | grep -m1 '^VERSION' | sed -E 's/.*"([^"]+)".*/\1/')
+VB=$(git show origin/beta:app/version.py > /tmp/wydaj_vb.py && ver /tmp/wydaj_vb.py)   # bez potoku: grep -m1 + pipefail = SIGPIPE (kod 141)
 if [[ ${1:-} != --tylko-testy ]]; then
   krok "Wersja: $VB (beta) → $V"
   python3 - "$V" "$VB" <<'EOF' || stop "VERSION musi być wyższa niż na origin/beta, a pierwszy wpis CHANGELOG musi mieć tę wersję"
