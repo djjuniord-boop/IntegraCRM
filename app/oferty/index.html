@@ -662,7 +662,13 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
 
 // ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
 let TL=[],TQ={ilosc:4},TROD={};
-let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200;
+let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false;
+try{FZDJ=JSON.parse(localStorage.getItem('felgi_zdjecia')||'{}')||{}}catch(e){FZDJ={}}
+async function fZdjecia(wymus){const L=fFiltr().slice(0,FPOK).filter(f=>wymus||!(f.id in FZDJ)).map(f=>f.id).slice(0,80);if(!L.length||FZDJ_TRWA)return;FZDJ_TRWA=true;
+ try{const r=await api('/api/felgi_zdjecia',{ids:L});if(r.login){msg('#fMsg','Zdjęcia felg: zaloguj się do xPartner w okienku, które się otworzyło (tylko raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);return}
+  for(const[k,v]of Object.entries(r.zdjecia||{}))FZDJ[k]=v;try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia',JSON.stringify(FZDJ))}catch(e){}
+  fRender(true);if(FW)fWybierz(FW.id,true)}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
+const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
 async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fMarza').textContent=r.marza;FPOK=200;
  msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
@@ -673,15 +679,15 @@ function fWyczysc(){for(const k of['pcd','sred','szer','et','otwor','rodzaj','pr
 function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0;
  return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
- return `<div class="fw${FW&&FW.id===f.id?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})">${f.foto?`<img class="ph" src="${esc(f.foto)}" alt="" loading="lazy">`:FPH}
+ return `<div class="fw${FW&&FW.id===f.id?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})">${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''} <span class="muted">· ${f.id}</span></span><span class="ce">${zl(f.cena)}</span></div>
  <div class="rw"><span class="muted">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div></div>`}
-function fRender(){const L=fFiltr();$('#fIle').textContent=L.length+' z '+FL.length;$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
- $('#fWiecej').innerHTML=L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=200;fRender()">Pokaż kolejne (${L.length-FPOK})</button>`:''}
-function fWybierz(id){FW=FL.find(f=>f.id===id)||null;FOP=null;FCZ=null;$('#fo_opL').innerHTML='';$('#fo_czL').innerHTML='';$('#fo_il').value=FQ.ilosc||4;fRender();if(!FW)return;
- $('#fWyb').innerHTML=`<div style="display:flex;gap:14px;align-items:center">${FW.foto?`<img src="${esc(FW.foto)}" style="width:110px;height:110px;object-fit:contain">`:'<div style="font-size:54px">⚙️</div>'}<div><b>${esc(FW.nazwa)}</b><br><span class="muted">${esc([FW.rodzaj,FW.pcd,FW.et?'ET'+FW.et:'',FW.otwor?'otwór '+FW.otwor:'',FW.producent].filter(Boolean).join(' · '))}</span><br>Cena oferty: <b>${zl(FW.cena)}</b> / szt. · stan ${FW.stan>=50?'50+':FW.stan}</div></div>`;
- $('#fo_roz').value=FW.sred?'R'+FW.sred:'';$('#fOf').style.display='';$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
+function fRender(bez){const L=fFiltr();$('#fIle').textContent=L.length+' z '+FL.length;$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
+ $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=200;fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
+function fWybierz(id,odsw){FW=FL.find(f=>f.id===id)||null;if(!odsw){FOP=null;FCZ=null;$('#fo_opL').innerHTML='';$('#fo_czL').innerHTML='';$('#fo_il').value=FQ.ilosc||4;fRender(true)}if(!FW)return;const zd=FZDJ[FW.id]||[];
+ $('#fWyb').innerHTML=`<div style="display:flex;gap:14px;align-items:center">${zd.length?zd.slice(0,4).map(u=>`<img src="${esc(u)}" style="width:110px;height:110px;object-fit:contain;background:#fafafa;border-radius:8px">`).join(''):'<div style="font-size:54px">⚙️</div>'}<div><b>${esc(FW.nazwa)}</b><br><span class="muted">${esc([FW.rodzaj,FW.pcd,FW.et?'ET'+FW.et:'',FW.otwor?'otwór '+FW.otwor:'',FW.producent].filter(Boolean).join(' · '))}</span><br>Cena oferty: <b>${zl(FW.cena)}</b> / szt. · stan ${FW.stan>=50?'50+':FW.stan}</div></div>`;
+ if(odsw)return;$('#fo_roz').value=FW.sred?'R'+FW.sred:'';$('#fOf').style.display='';$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
 async function fOpony(){const r=$('#fo_roz').value.trim();if(!r)return;$('#fo_opL').innerHTML='<div class="muted">Szukam…</div>';
  try{const q=await api('/api/quick',{text:r});const roz=(q.pojazdy||[])[0];if(!roz){$('#fo_opL').innerHTML='<div class="warn">Nie rozpoznałem rozmiaru – wpisz np. 225/45 R17</div>';return}
   const w=await api('/api/search',{pojazdy:[{rozmiar:roz.rozmiar,ilosc:+$('#fo_il').value||4,nowe:true}],sezony:q.sezony||[],klasy:q.klasy||[],producenci:q.producenci||''});
@@ -694,7 +700,7 @@ async function fCzujniki(){const q=$('#fo_czq').value.trim();if(!q)return;$('#fo
   $('#fo_czL').innerHTML=L.length?`<div class="fpick">${L.slice(0,60).map(x=>`<div onclick="fWezCzujnik(${x.id})"><span>${esc(x.nazwa)} <span class="muted">${esc((TROD&&TROD[x.rodzaj])||x.rodzaj)} · stan ${x.stan>=50?'50+':x.stan}</span></span><b>${zl(Math.ceil(x.netto*(1+(+$('#fMarza').textContent||13)/100)*(1+(CFG.vat_proc||23)/100)-1e-9))}</b></div>`).join('')}</div>`:'<div class="warn">Nie znalazłem czujników – wpisz markę i model auta.</div>'}
  catch(e){$('#fo_czL').innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
 function fWezCzujnik(id){const x=(window._FCZL||[]).find(c=>c.id===id);FCZ=FCZ&&FCZ.id===id?null:x;document.querySelectorAll('#fo_czL .fpick div').forEach(d=>d.classList.toggle('on',FCZ&&d.getAttribute('onclick')===`fWezCzujnik(${id})`));fLicz()}
-function fCialo(){const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));return {felga:FW&&FW.id,ilosc:il,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto}:null,il_op:FOP?il:0,czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto}:null,il_cz:FCZ?il:0,
+function fCialo(){const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));return {felga:FW&&FW.id,foto:FW?fFoto(FW):'',ilosc:il,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto}:null,il_op:FOP?il:0,czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto}:null,il_cz:FCZ?il:0,
  montaz:$('#fo_mon').checked,typ:$('#fo_typ').value,depozyt:$('#fo_dep').value,klient:$('#fo_kl').value.trim(),uwagi:$('#fo_uw').value.trim(),oddzial:typeof OODD!=='undefined'?OODD:''}}
 async function fLicz(){if(!FW)return;try{const r=await api('/api/felgi_oferta',fCialo());
  $('#fPoz').innerHTML=`<table class="tbl"><tr><th>Pozycja</th><th style="text-align:right">Ilość</th><th style="text-align:right">Cena brutto</th><th style="text-align:right">Wartość</th></tr>${r.pozycje.map(p=>`<tr><td>${esc(p.nazwa)}${p.opis?`<br><span class="muted">${esc(p.opis)}</span>`:''}</td><td style="text-align:right">${p.q}</td><td style="text-align:right">${zl(p.c)}</td><td style="text-align:right"><b>${zl(p.w)}</b></td></tr>`).join('')}<tr><td colspan="3" style="text-align:right"><b>Razem brutto</b></td><td style="text-align:right;font-size:16px"><b>${zl(r.razem)}</b></td></tr></table>`;msg('#foMsg','')}

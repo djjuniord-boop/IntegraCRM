@@ -1305,6 +1305,9 @@ def felgi_route(cfg, route, body):
     f = FELGI_OSTATNIE.get(int(body.get("felga") or 0))
     if not f:
         raise ApiError("Wybierz felgę z wyników wyszukiwania.")
+    foto = str(body.get("foto") or "")
+    if re.match(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", foto, re.I):
+        f = dict(f, foto=foto)   # zdjęcie z konfiguratora xPartner – tylko z ich serwera zdjęć
     op = body.get("opona") or None
     if op:   # opona z oferty opon: cena oferty liczona tu, z marżą opon
         op = dict(op, cena_brutto=sell_price(cfg, float(op.get("netto") or 0))) if float(op.get("netto") or 0) > 0 else None

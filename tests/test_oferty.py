@@ -412,6 +412,9 @@ def test_felgi_parametry_szukanie_oferta_pdf():
         assert st == 200 and r["razem"] == r["pozycje"][0]["w"] + r["pozycje"][1]["w"]
         st, r = S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "klient": "<Jan>"})
         assert st == 200 and "DIEWE NEVE" in r["html"] and "&lt;Jan&gt;" in r["html"] and "<Jan>" not in r["html"]
+        u = "https://xpartner.net.pl/descriptionFiles/images/10837/abc123.jpg"
+        assert u in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "foto": u})[1]["html"]
+        assert "evil" not in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "foto": "https://evil.pl/x.jpg"})[1]["html"]
     finally:
         S.KONTO.pop("katalog", None)
 

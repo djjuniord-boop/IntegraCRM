@@ -115,4 +115,4 @@ w bazie (`kto_ok=false`) okno działa jak dawniej, bez znaczków i filtra osób.
 Felgi z kopii pliku xPartner (asortyment FELGA: Rozstaw śrub, ET, Otwór centralny, Szerokość, Średnica, Typ, Model).
 `/api/felgi` (szukanie, cena = zakup netto + `marza_felgi` + VAT), `/api/felgi_oferta` (same felgi albo komplet: opona z oferty
 opon z marżą opon, czujnik TPMS z marżą felg + obsługa TPMS, montaż wg cennika wymiany, depozyt wg cennika przechowalni),
-`/api/felgi_pdf`. Zdjęcia: pole `foto` (na razie puste – usługa zdjęć xPartner wymaga logowania, w przygotowaniu).
+`/api/felgi_pdf`. Zdjęcia (1.2.12): `okno.Api._zdjecia` – ukryte okno konfiguratora xPartner (ta sama domena co `konfigurator-api…/xpartner-product-images/<indeks>`, ciasteczko logowania xPartner w profilu WebView2); serwery xPartner blokują zapytania spoza przeglądarki (także z Supabase). Brak sesji → okno się pokazuje, użytkownik loguje się sam. Adresy zdjęć w `localStorage` (`felgi_zdjecia`); do PDF tylko adresy `xpartner.net.pl/descriptionFiles/…`.

@@ -443,9 +443,57 @@ def logo_uri() -> str:
 
 
 # ---------- funkcje dla strony (window.pywebview.api.*) ----------
+KONFIGURATOR = "https://konfigurator.xpartner.net.pl/"
+# Skrypt w oknie konfiguratora (ta sama domena co usługa zdjęć – jej ciasteczko logowania xPartner).
+# Serwery xPartner blokują zapytania spoza przeglądarki, więc zdjęcia pobiera ukryte okno przeglądarki programu.
+ZDJ_JS = """(async()=>{const A='https://konfigurator-api.xpartner.net.pl/';
+if(location.hostname!=='konfigurator.xpartner.net.pl')return JSON.stringify({login:true});
+const me=await fetch(A+'auth/me',{credentials:'include'}).catch(()=>null);if(!me||me.status!==200)return JSON.stringify({login:true});
+const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch(A+'xpartner-product-images/'+id,{credentials:'include'});
+const j=r.ok?await r.json():null;out[id]=[...new Set(((j&&j.data)||[]).map(x=>x.url).filter(u=>/^https:\\/\\/xpartner\\.net\\.pl\\/descriptionFiles\\//.test(u)))]}catch(e){}}}
+await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out})})()"""
+
+
 class Api:
     def __init__(self):
         self._window = None
+        self._kw = None
+        self._kw_gotowe = threading.Event()
+        self._kw_lock = threading.Lock()
+
+    def _zdjecia(self, ids):
+        """{id: [adresy zdjęć]} dla felg. Pierwszy raz otwiera ukryte okno konfiguratora xPartner; gdy xPartner
+        prosi o zalogowanie – pokazuje to okno (użytkownik loguje się sam, ciasteczko zostaje w profilu programu)."""
+        import webview
+        ids = [int(x) for x in ids if str(x).isdigit()][:80]
+        if not ids:
+            return {"zdjecia": {}}
+        with self._kw_lock:
+            if self._kw is None:
+                self._kw_gotowe.clear()
+                self._kw = webview.create_window("xPartner – zdjęcia felg (zaloguj się, potem zamknij lub zostaw)", url=KONFIGURATOR,
+                                                 hidden=True, width=1000, height=760)
+                self._kw.events.loaded += lambda: self._kw_gotowe.set()
+                self._kw.events.closed += lambda: setattr(self, "_kw", None)
+        for _ in range(3):   # strona konfiguratora po zalogowaniu przechodzi przez /callback – poczekaj na stronę główną
+            self._kw_gotowe.wait(25)
+            time.sleep(1.5)
+            w = self._kw
+            if w is None:
+                return {"login": True}
+            wynik = w.evaluate_js(ZDJ_JS % json.dumps(ids))
+            try:
+                d = json.loads(wynik) if isinstance(wynik, str) else (wynik or {})
+            except ValueError:
+                d = {}
+            if d.get("zdjecia") is not None:
+                return d
+            self._kw_gotowe.clear()
+        try:
+            self._kw.show()
+        except Exception:
+            pass
+        return {"login": True}
 
     def call(self, path, body=None):
         from oferty import silnik
@@ -474,6 +522,11 @@ class Api:
             if not (body or {}).get("bez_otwierania"):
                 _open_path(plik)
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        if path == "/api/felgi_zdjecia":   # zdjęcia felg z konfiguratora xPartner (decyzja właściciela 2026-11-26)
+            try:
+                return {"code": 200, "body": self._zdjecia((body or {}).get("ids") or [])}
+            except Exception as e:
+                return {"code": 502, "body": {"error": f"Nie udało się pobrać zdjęć z xPartner: {e}"}}
         if path == "/api/whatsapp":   # PDF do schowka + otwarcie WhatsApp (decyzja właściciela 2026-11-18)
             try:
                 return {"code": 200, "body": whatsapp_pdf((body or {}).get("plik") or "")}
