@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.20"
+VERSION = "1.2.21"
 RELEASED = "2026-11-26"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,16 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.21",
+        "date": "2026-11-26",
+        "changes": ["Ustawienia ofert w zakładkach: Ogólne, Oferty opon, Felgi, Koszyk i zamówienia, PDF i oddziały – więcej rzeczy ustawisz sam w programie",
+                    "Felgi: własne ustawienia cen – marża % albo stała kwota wg progów, osobna marża na czujniki TPMS, zaokrąglanie, najwyższy rabat; montaż, TPMS i przechowalnia z cennika ofert opon",
+                    "Felgi: w ustawieniach – ile felg w ofercie, co robić przy złej średnicy opon (blokada albo ostrzeżenie), domyślny montaż i rodzaj auta, ukrywanie felg DEMO, kafelków na stronę",
+                    "Opony: zaokrąglanie ceny do 1, 5 albo 10 zł, najwyższe rabaty, liczba wyników na stronę, edycja wszystkich klas marek (premium, średnia, budżetowa)",
+                    "PDF: własne teksty dla każdego oddziału (warunki oferty, napisy w ramce kontaktu i w porównaniach)",
+                    "Koszyk: bezpiecznik – najwięcej sztuk jednej pozycji ustawia administrator"],
+    },
     {
         "version": "1.2.20",
         "date": "2026-11-26",

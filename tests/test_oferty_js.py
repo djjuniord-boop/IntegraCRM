@@ -21,7 +21,8 @@ def test_okna_ofert_bez_bledow_js():
     odp = {"/api/cfg": cfg, "/api/history": {"lista": [], "admin": True, "me": "a@b.pl"}, "/api/koszyk/adresy": {"adresy": []},
            "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""},
            "/api/felgi_oferta": {"propozycje": [{"nr": 1, "pozycje": [{"k": "felga", "nazwa": "Felga X", "opis": "alu", "q": 4, "c": 523, "w": 2092}], "razem": 2092, "blad": ""},
-                                                {"nr": 2, "pozycje": [{"k": "felga", "nazwa": "Felga Y", "q": 4, "c": 400, "w": 1600}], "razem": 1600, "blad": 'Felga 2 ma 17", opony są R18 – nie pasują.'}],
+                                                {"nr": 2, "pozycje": [{"k": "felga", "nazwa": "Felga Y", "q": 4, "c": 400, "w": 1600}], "razem": 1600, "blad": 'Felga 2 ma 17", opony są R18 – nie pasują.'},
+                                                {"nr": 3, "pozycje": [{"k": "felga", "nazwa": "Felga Z", "q": 4, "c": 400, "w": 1600}], "razem": 1600, "blad": "", "ostrz": "Felga 3 ma 16\""}],
                                  "edycja": [{"id": 231798, "k": "felga", "nr": 1, "nazwa": "Felga X", "zakup": 462, "auto": 523, "cena": 523, "recznie": False}],
                                  "wymiany": [{"klucz": "R17|osobowy", "opis": "Montaż R17", "cennik": 50, "auto": 50, "cena": 50, "recznie": False}], "uwagi": []},
            "/api/felgi_pdf": {"plik": "x.pdf"},
@@ -42,7 +43,11 @@ def test_okna_ofert_bez_bledow_js():
             pg.on("pageerror", lambda e: bledy.append(str(e)))
             pg.goto(p.as_uri())
             pg.wait_for_timeout(600)
-            for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
+            for js in ("openCfg()", "saveCfg()", "openCfg()", "cTab(document.querySelector('.ctabs button[data-t=fe]'))",
+                       "document.querySelector('input[name=ftryb][value=kwota]').checked=true;drawFProgi()", "FPROGI.push({do:null,kwota:50});drawFProgi()",
+                       "document.querySelector('input[name=ntryb][value=kwota]').checked=true;drawProgi()",
+                       "cTab(document.querySelector('.ctabs button[data-t=pdf]'))", "cTab(document.querySelector('.ctabs button[data-t=ko]'))",
+                       "cTab(document.querySelector('.ctabs button[data-t=og]'))", "saveCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
                        "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')",
                        "widok('f')", "fSzukaj()", "fRender()", "fWybierz(231798)", "fLicz()", "fUst('mon',true)", "fUst('rf','10')", "fSetC(231798,'600')", "fSetW('R17|osobowy','40')",
                        "fWybierzCzujniki()", "tSzukaj()", "fDodajCzujnik(1)", "fWybierzOpony()", "fKompletKoniec()", "fZdjecia(true)",

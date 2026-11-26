@@ -39,6 +39,17 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C), opony C ze znaczkiem „C”. (2026-11-26)
 - Czujniki TPMS (zakładka 📡): samo wyszukiwanie i koszyk, bez ofert. (2026-11-17)
 
+## USTAWIENIA OFERT (2026-11-26)
+- Okno Ustawień w zakładkach: Ogólne · Oferty opon · Felgi · Koszyk i zamówienia · PDF i oddziały. **Co się da – ustawiane
+  w programie, nie w kodzie.** Ceny i reguły (marże, progi, zaokrąglanie, limity rabatów, limit felg, reguła średnicy,
+  bezpiecznik koszyka) – wspólne dla oddziału, zmienia administrator; wygoda (stan, ilość wyników, DEMO, domyślne) – osobiste.
+- Felgi mają **własne ustawienia cen** (marża % albo progi kwotowe, **osobna marża na czujniki TPMS**, zaokrąglanie, rabat
+  max) – **bez własnego cennika usług**: montaż, TPMS i przechowalnia z cennika „Oferty opon”.
+- Zaokrąglanie ceny (1 / 5 / 10 zł) – dla opon i dla felg (każde osobno).
+- **Teksty PDF osobno dla każdego oddziału** (warunki, napisy w ramce kontaktu, napisy w porównaniach) – admin; puste = domyślne.
+- Aplikacja Android nie dostaje tych ustawień (decyzja: wydanie bez telefonu) – przy zaokrągleniu innym niż 1 zł albo
+  własnych tekstach PDF ceny / PDF w telefonie mogą się różnić od Panelu.
+
 ## OFERTY NA FELGI (w przygotowaniu, decyzje 2026-11-26)
 - Nowa część OFERT: felgi z pliku oferty xPartner (asortyment FELGA), **zdjęcia z usługi zdjęć xPartner po indeksie**
   (`konfigurator-api.xpartner.net.pl/xpartner-product-images/<indeks>`) – właściciel ma zgodę xPartner.

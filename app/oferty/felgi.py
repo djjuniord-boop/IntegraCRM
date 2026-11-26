@@ -63,12 +63,16 @@ def rodzaj(p):
     return ""
 
 
-def info(p, marza_proc=13.0, vat_proc=23.0):
-    """Produkt z kopii pliku -> kafelek wyników. Cena oferty = zakup netto + marża felg + VAT, w górę do pełnych zł."""
+def info(p, marza_proc=13.0, vat_proc=23.0, cena=None):
+    """Produkt z kopii pliku -> kafelek wyników. Cena oferty = zakup netto + marża felg + VAT, w górę do pełnych zł;
+    cena(netto) – sposób liczenia z Ustawień → Felgi (marża % albo progi kwotowe, zaokrąglenie)."""
     a = p.get("attrs") or {}
     n = p.get("nazwa") or ""
     netto = float(p.get("netto") or 0)
-    cena = float(math.ceil(round(netto * (1 + marza_proc / 100) * (1 + vat_proc / 100), 2) - 1e-9)) if netto > 0 else 0.0
+    if cena:
+        cena = cena(netto) if netto > 0 else 0.0
+    else:
+        cena = float(math.ceil(round(netto * (1 + marza_proc / 100) * (1 + vat_proc / 100), 2) - 1e-9)) if netto > 0 else 0.0
     oe = re.search(r"\b(\d{7,12})\b", n)
     return dict(parametry(p), id=int(p["id"]), nazwa=n, producent=_attr(a, "Producent") or "–", model=_attr(a, "Model"),
                 przeznaczenie=_attr(a, "Przeznaczenie"), rodzaj=rodzaj(p), marki=TP.marki_z_nazwy(n + " " + _attr(a, "Model")),
@@ -150,10 +154,10 @@ def pasuje(f, q):
     return all(TP._k(w) in tekst for w in q.get("slowa") or [])
 
 
-def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0):
+def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0, cena=None):
     """Lista felg dla szybkiego polecenia (najpierw dostępne w potrzebnej ilości, potem po cenie)."""
     q = zapytanie(txt)
-    lista = [info(p, marza_proc, vat_proc) for p in items]
+    lista = [info(p, marza_proc, vat_proc, cena) for p in items]
     lista = [f for f in lista if f["cena"] > 0 and pasuje(f, q)]
     # wpisana marka auta najpierw (VW), dopiero potem pokrewne z tej samej grupy (Audi, Skoda, Seat – ten sam rozstaw)
     lista.sort(key=lambda f: (bool(q["marki"]) and not (set(f["marki"]) & set(q["marki"])), f["stan"] < q["ilosc"], f["cena"], f["nazwa"]))

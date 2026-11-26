@@ -344,7 +344,8 @@ def zapisz_oddzialy(dane: dict):
     czyste = {}
     for nazwa, o in (dane or {}).items():
         if isinstance(o, dict) and str(nazwa).strip():
-            czyste[str(nazwa).strip()[:60]] = {k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "kom", "www", "email")}
+            czyste[str(nazwa).strip()[:60]] = dict({k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "kom", "www", "email")},
+                                                   **{k: str(o.get(k) or "").strip()[:400] for k in ("warunki", "cta_t", "cta_p", "por_t", "por_p")})
     _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "oddzialy", "value": czyste}, prefer="resolution=merge-duplicates,return=minimal")
     wczytaj_oddzialy(True)
 

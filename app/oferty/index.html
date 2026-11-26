@@ -101,6 +101,8 @@ tr.k48 td{background:#fffbeb}
 .fwyb{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.fwyb .w{display:flex;align-items:center;gap:8px;border:2px solid var(--red);border-radius:10px;padding:6px 10px;background:#fff;font-size:13px}.fwyb img{width:44px;height:44px;object-fit:contain}.fnr{background:var(--red);color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:4px}.fwyb .x{color:var(--muted);cursor:pointer;font-size:16px;margin-left:4px}
 .fw .bw{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid #d4d4d8;background:#fff;z-index:1}.fw.on .bw{background:var(--red);color:#fff;border-color:var(--red)}
 .vcard img.fph{width:100%;height:140px;object-fit:contain;background:#fafafa;border-radius:8px;margin-bottom:6px}.vcard.zle{border-color:#e11d48;background:#fff5f5}.vcard .bl{color:#b00012;font-size:13px;font-weight:600;margin-top:6px}
+.ctabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--line);padding-bottom:8px;margin-bottom:12px}.ctabs .on{background:var(--red);color:#fff;border-color:var(--red)}
+.cpane{display:none}.cpane.on{display:grid}.cpane[data-t=pdf].on{display:block}.csek{font-size:12px;color:var(--muted);margin:6px 0 2px;font-weight:600}.cinfo{background:#eef6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px;font-size:13px}
 .kban{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;border-radius:10px;padding:10px 14px;margin:0 0 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .fpick{max-height:220px;overflow:auto;margin-top:6px;font-size:12px}.fpick div{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-bottom:1px solid #f1f1f1;cursor:pointer}.fpick div:hover{background:#fef2f2}.fpick div.on{background:#fee2e2;font-weight:700}
 @media(max-width:1000px){.fdod{grid-template-columns:1fr}}
@@ -187,7 +189,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Otwór<select id="ff_otwor" onchange="fRender()"></select></label><label>Rodzaj<select id="ff_rodzaj" onchange="fRender()"><option value="">wszystkie</option><option value="aluminiowa">aluminiowe</option><option value="stalowa">stalowe</option></select></label>
 <label>Producent<select id="ff_prod" onchange="fRender()"></select></label><label>Min. stan<input id="ff_stan" type="number" min="0" style="width:70px" oninput="fRender()"></label>
 <label>Szukaj w wynikach<input id="ff_t" oninput="fRender()" placeholder="model, kolor, indeks…"></label><button class="sec" onclick="fWyczysc()">Wyczyść filtry</button></div></div>
-<div class="card" id="fCard" style="display:none"><h2><span class="n">🔘</span>Wyniki <span class="muted" style="font-size:13px;font-weight:400">cena oferty = zakup netto + marża <span id="fMarza"></span>% + VAT · kliknij felgi (do 3), żeby zrobić ofertę – każda to osobna propozycja</span></h2><div id="fRes" class="fgrid"></div><div id="fWiecej"></div><div id="fDiag" class="muted" style="font-size:11px;margin-top:6px"></div></div>
+<div class="card" id="fCard" style="display:none"><h2><span class="n">🔘</span>Wyniki <span class="muted" style="font-size:13px;font-weight:400"><span id="fWzor"></span> · kliknij felgi (do 3), żeby zrobić ofertę – każda to osobna propozycja</span></h2><div id="fRes" class="fgrid"></div><div id="fWiecej"></div></div>
 <div class="card" id="fOf" style="display:none"><h2><span class="n">4</span>Oferta – felgi <span class="muted" style="font-size:13px;font-weight:400">do 3 felg – każda to osobna propozycja; opony, czujniki i usługi wspólne</span></h2>
 <div id="fWyb" class="fwyb"></div>
 <div class="uwbox"><b>📝 Uwagi do oferty</b> <span class="muted" style="font-size:12px">– tylko dla nas, nie trafiają do PDF ani do klienta</span> <span id="fuwInfo" class="muted" style="font-size:12px"></span>
@@ -266,23 +268,59 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 </style>
 <dialog id="dlg"><h2>Ustawienia</h2>
 <p style="font-size:12px;color:#6b7785;margin-top:0" id="c_info">Ustawienia zapisują się na Twoim koncie (w bazie). Login API xPartner wpisuje administrator w zakładce UŻYTKOWNICY.</p>
-<div class="grid2">
-<div style="grid-column:1/3" id="cenyBox"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Jak liczyć cenę opony w ofercie <b id="cenyInfo"></b></div>
+<div class="ctabs"><button type="button" class="sec" data-t="og" onclick="cTab(this)">Ogólne</button><button type="button" class="sec" data-t="op" onclick="cTab(this)">Oferty opon</button><button type="button" class="sec" data-t="fe" onclick="cTab(this)">Felgi</button><button type="button" class="sec" data-t="ko" onclick="cTab(this)">Koszyk i zamówienia</button><button type="button" class="sec" data-t="pdf" onclick="cTab(this)">PDF i oddziały</button></div>
+<div class="cpane grid2" data-t="og">
+<label>VAT %<input id="c_vat_proc" type="number"></label><label>Kół na auto (domyślna ilość)<input id="c_kola_na_auto" type="number" min="1" max="40"></label>
+<label>Ważność oferty (dni)<input id="c_waznosc_dni" type="number" min="1" max="90"></label>
+<label title="Przy cenie wpisanej ręcznie w ofercie (opony i felgi)">Ostrzeżenie „poniżej ceny zakupu”<select id="c_ponizej_zakupu"><option value="1">pokazuj</option><option value="0">nie pokazuj</option></select></label>
+</div>
+<div class="cpane grid2" data-t="op">
+<div style="grid-column:1/3" id="cenyBox"><div class="csek">Cena opony w ofercie <b id="cenyInfo"></b></div>
 <label class="chips" style="flex-direction:row;gap:16px;color:#111;font-size:14px"><span><input type="radio" name="ntryb" value="procent" onchange="drawProgi()"> marża % od ceny zakupu</span><span><input type="radio" name="ntryb" value="kwota" onchange="drawProgi()"> stała kwota wg ceny zakupu brutto</span></label>
 <div id="progiBox" style="margin-top:6px"></div></div>
-<label id="lblMarza">Marża %<input id="c_marza_proc" type="number" step="0.1"></label><label>VAT %<input id="c_vat_proc" type="number"></label><label class="usl" title="Felgi i czujniki do kompletu z felgami: zakup netto + marża + VAT">Marża na felgi %<input id="c_marza_felgi" type="number" step="0.1"></label>
-<label>Domyślny min. stan<input id="c_min_stan" type="number"></label>
-<label>Kół na auto<input id="c_kola_na_auto" type="number"></label><label>Ważność oferty (dni)<input id="c_waznosc_dni" type="number"></label>
-<div style="grid-column:1/3"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Cennik wymiany – cena brutto za 1 koło (demontaż, montaż, wyważenie)<b class="uslInfo"></b></div>
+<label id="lblMarza">Marża %<input id="c_marza_proc" type="number" step="0.1"></label>
+<label class="usl">Zaokrąglanie ceny opony<select id="c_zaokr_opony"><option value="1">w górę do pełnych zł</option><option value="5">w górę do 5 zł</option><option value="10">w górę do 10 zł</option></select></label>
+<label class="usl">Najwyższy rabat na opony w ofercie %<input id="c_rabat_max_opony" type="number" min="0" max="100"></label>
+<label class="usl">Najwyższy rabat na wymianę %<input id="c_rabat_max_wym" type="number" min="0" max="100"></label>
+<div class="csek" style="grid-column:1/3">Wyszukiwanie</div>
+<label>Domyślny min. stan<input id="c_min_stan" type="number"></label><label>Wyników na stronę (w każdej tabeli)<input id="c_wynikow_na_strone" type="number" min="5" max="200"></label>
+<div style="grid-column:1/3"><div class="csek">Cennik wymiany – cena brutto za 1 koło (demontaż, montaż, wyważenie) – używany też w ofercie felg<b class="uslInfo"></b></div>
 <div class="wtabs"><button type="button" class="sec on" data-t="wymiana_kolo" onclick="wTab(this)">Osobowe</button><button type="button" class="sec" data-t="wymiana_suv" onclick="wTab(this)">SUV / 4x4</button><button type="button" class="sec" data-t="wymiana_dost" onclick="wTab(this)">Dostawcze</button></div>
 <div id="c_wym" class="wgrid"></div></div>
-<div style="grid-column:1/3;font-size:12px;color:var(--muted);margin-top:6px">Usługi dodatkowe (brutto)<b class="uslInfo"></b></div>
-<label class="usl" title="Dopłata do wymiany opony na feldze z czujnikiem ciśnienia (obsługa czujnika), nie sprzedaż czujnika">Obsługa czujnika TPMS przy wymianie – za 1 koło<input id="c_tpms_cena" type="number"></label><label>Dostawa z magazynu Bydgoszcz<input id="c_bydgoszcz_dostawa" maxlength="30" placeholder="ok. 48 h"></label>
+<div class="csek" style="grid-column:1/3">Usługi dodatkowe (brutto) – używane też w ofercie felg<b class="uslInfo"></b></div>
+<label class="usl" title="Dopłata do wymiany opony na feldze z czujnikiem ciśnienia (obsługa czujnika), nie sprzedaż czujnika">Obsługa czujnika TPMS przy wymianie – za 1 koło<input id="c_tpms_cena" type="number"></label><span></span>
 <label class="usl">Przechowalnia opon – do R19 (komplet)<input id="c_przech_opony_do19" type="number"></label><label class="usl">Przechowalnia opon – powyżej R19<input id="c_przech_opony_pow19" type="number"></label>
 <label class="usl">Przechowalnia kół – do R19 (komplet)<input id="c_przech_kola_do19" type="number"></label><label class="usl">Przechowalnia kół – powyżej R19<input id="c_przech_kola_pow19" type="number"></label>
-<label style="grid-column:1/3">Marki premium (gdy API nie poda klasy)<input id="c_premium"></label>
+<div class="csek" style="grid-column:1/3">Klasy marek (gdy xPartner nie poda klasy) – nazwy producentów po przecinku</div>
+<label style="grid-column:1/3">Premium<textarea id="c_premium" rows="2"></textarea></label>
+<label style="grid-column:1/3">Średnia<textarea id="c_srednie" rows="2"></textarea></label>
+<label style="grid-column:1/3">Budżetowa<textarea id="c_budzet" rows="2"></textarea></label>
 </div>
-<div id="oddzBox"></div>
+<div class="cpane grid2" data-t="fe">
+<div style="grid-column:1/3" id="fcenyBox"><div class="csek">Cena felgi w ofercie<b class="uslInfo"></b></div>
+<label class="chips" style="flex-direction:row;gap:16px;color:#111;font-size:14px"><span><input type="radio" name="ftryb" value="procent" onchange="drawFProgi()"> marża % od ceny zakupu</span><span><input type="radio" name="ftryb" value="kwota" onchange="drawFProgi()"> stała kwota wg ceny zakupu brutto</span></label>
+<div id="fprogiBox" style="margin-top:6px"></div></div>
+<label class="usl" id="lblMarzaF">Marża na felgi %<input id="c_marza_felgi" type="number" step="0.1"></label>
+<label class="usl" title="Czujnik ciśnienia jako część do kompletu z felgami">Marża na czujniki TPMS (część) %<input id="c_marza_czujniki" type="number" step="0.1"></label>
+<label class="usl">Zaokrąglanie ceny felgi i czujnika<select id="c_zaokr_felgi"><option value="1">w górę do pełnych zł</option><option value="5">w górę do 5 zł</option><option value="10">w górę do 10 zł</option></select></label>
+<label class="usl">Najwyższy rabat na felgi %<input id="c_rabat_max_felgi" type="number" min="0" max="100"></label>
+<div class="csek" style="grid-column:1/3">Oferta</div>
+<label class="usl">Najwięcej felg w jednej ofercie (1–3)<input id="c_felgi_max" type="number" min="1" max="3"></label>
+<label class="usl">Opony o innej średnicy niż felga<select id="c_felgi_srednica"><option value="blokuj">błąd – blokuj PDF tej propozycji</option><option value="ostrzez">tylko ostrzeżenie</option></select></label>
+<label>Montaż w nowej ofercie<select id="c_felgi_montaz_dom"><option value="0">niezaznaczony</option><option value="1">zaznaczony</option></select></label>
+<label>Domyślny rodzaj auta<select id="c_felgi_typ_dom"><option value="osobowy">osobowe</option><option value="suv">SUV / 4x4</option><option value="dostawczy">dostawcze</option></select></label>
+<div class="csek" style="grid-column:1/3">Wyszukiwanie</div>
+<label>Felgi DEMO (z demontażu)<select id="c_felgi_demo"><option value="pokaz">pokazuj</option><option value="ukryj">ukrywaj (chyba że wpiszesz „demo”)</option></select></label>
+<label>Kafelków na stronę<input id="c_felgi_na_stronie" type="number" min="4" max="200"></label>
+<label>Min. stan (domyślnie w filtrze)<input id="c_felgi_min_stan" type="number" min="0"></label>
+<div class="cinfo" style="grid-column:1/3">Montaż, obsługa TPMS i przechowalnia w ofercie felg – z cennika w zakładce <b>Oferty opon</b>.</div>
+</div>
+<div class="cpane grid2" data-t="ko">
+<label>Dostawa z magazynu Bydgoszcz<input id="c_bydgoszcz_dostawa" maxlength="30" placeholder="ok. 48 h"></label>
+<label class="usl" title="Bezpiecznik przed pomyłką w ilości">Najwięcej sztuk jednej pozycji w koszyku<input id="c_koszyk_max_szt" type="number" min="1" max="1000"></label>
+<div class="cinfo" style="grid-column:1/3">Zamówienie dzieli się na części po 50 szt. jednej opony – to wymóg xPartner, nie ustawienie.</div>
+</div>
+<div class="cpane" data-t="pdf"><div id="oddzBox"></div></div>
 <div class="row" style="margin-top:12px"><button onclick="saveCfg()">Zapisz</button><button class="sec" onclick="testApi()">Test połączenia</button><button class="sec" onclick="dlg.close()">Zamknij</button></div><div id="cMsg"></div>
 </dialog>
 <script>
@@ -423,7 +461,7 @@ function setProd(v,auto){$('#prod').value=v;if(auto!==false)setTimeout(autoSzuka
 function applyProd(){setProd([...PSEL].join(', '));pdlg.close()}
 let SEL=new Set(),PAGE={};
 function hideBuy(v){const on=v===undefined?!document.body.classList.contains('hidebuy'):!!v;document.body.classList.toggle('hidebuy',on);try{localStorage.setItem('hidebuy',on?'1':'')}catch(e){}}
-try{if(localStorage.getItem('hidebuy'))document.body.classList.add('hidebuy')}catch(e){}const PER=20;
+try{if(localStorage.getItem('hidebuy'))document.body.classList.add('hidebuy')}catch(e){}let PER=20;
 function tog(c){const k=c.dataset.k;c.checked?SEL.add(k):SEL.delete(k);updCnt()}
 function updCnt(){const b=$('#bO');b.disabled=!SEL.size;b.textContent=SEL.size?'📄 Generuj ofertę ('+SEL.size+' wybr.) – odświeża ceny i stany':'📄 Zaznacz opony do oferty'}
 function go(g,d){PAGE[g]=(PAGE[g]||0)+d;render();document.getElementById('g_'+g)?.scrollIntoView({block:'start'})}
@@ -478,10 +516,10 @@ function setO(k,v){if(k==='m')OMARZA=v;else if(k==='r')ORABAT=v;else if(k==='w')
 function setW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete CENYW[k];else CENYW[k]=Math.ceil(+v);reoffer()}
 function setC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0)delete CENY[id];else CENY[id]=Math.ceil(+v);reoffer()}
 function drawEdit(){const rows=[...document.querySelectorAll('#veh tbody tr')].filter(t=>t.querySelector('.roz').value.trim());
- const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label><input type="checkbox" ${OSOBNO?'checked':''} onchange="OSOBNO=this.checked;reoffer()">Osobna oferta dla każdego pojazdu / rozmiaru</label><label>Rabat na opony % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(ORABAT)}" onchange="setO('r',this.value)"></label><label>Rabat na wymianę % <input type="number" step="1" min="0" max="100" placeholder="0" value="${esc(ORABW)}" onchange="setO('w',this.value)"></label></div>
+ const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label><input type="checkbox" ${OSOBNO?'checked':''} onchange="OSOBNO=this.checked;reoffer()">Osobna oferta dla każdego pojazdu / rozmiaru</label><label>Rabat na opony % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_opony??90}" placeholder="0" value="${esc(ORABAT)}" onchange="setO('r',this.value)"></label><label>Rabat na wymianę % <input type="number" step="1" min="0" max="${CFG.rabat_max_wym??100}" placeholder="0" value="${esc(ORABW)}" onchange="setO('w',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny opon w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
  ULS.map(u=>`<div class="r"><b style="min-width:380px">${esc(u.nazwa)}</b><span class="tag buy">zakup ${zl(u.zakup)}</span><span class="tag">wyliczona ${zl(u.auto)}</span>
- <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="setC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="setC(${u.id},'')">↺ przywróć</button>`:''}${u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
+ <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="setC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="setC(${u.id},'')">↺ przywróć</button>`:''}${CFG.ponizej_zakupu!==false&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
  const wy=WYMS.length?'<div class="t" style="margin-top:8px">Ceny wymiany (brutto za 1 koło) – wpisz własną, aby nadpisać; puste = z cennika'+(+ORABW?' minus rabat':'')+'</div>'+WYMS.map(w=>`<div class="r"><b style="min-width:380px">${esc(w.opis)}</b><span class="tag">cennik ${zl(w.cennik)}</span>${+ORABW?`<span class="tag">po rabacie ${zl(w.auto)}</span>`:''}
  <label>Cena <input class="pr-in ${w.recznie?'man':''}" type="number" min="0" step="1" placeholder="${w.auto}" value="${w.recznie?w.cena:''}" data-k="${esc(w.klucz)}" onchange="setW(this.dataset.k,this.value)"> zł</label>${w.recznie?`<button class="sec" style="padding:2px 10px" data-k="${esc(w.klucz)}" onclick="setW(this.dataset.k,'')">↺ przywróć</button>`:''}</div>`).join(''):'';
  $('#edit').innerHTML=top+wy+'<div class="t" style="margin-top:8px">Ilość i usługi – zmiana od razu przelicza ofertę</div>'+rows.map((t,i)=>{const q=c=>t.querySelector(c);const nm=[q('.poj').value,q('.rej').value].filter(Boolean).join(' ')||('Pojazd '+(i+1));const pr=q('.pr').value;
@@ -525,34 +563,50 @@ async function waWyslij(b){b.disabled=true;try{if(!OPDF){msg('#oMsg','Tworzę PD
 async function pdfOferta(b,wszystkie){b.disabled=true;msg('#oMsg','Tworzę PDF…');try{const j=await api('/api/pdf',wszystkie===2?{ids:ULS.map(u=>u.id),porownanie:1,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' porownanie'}:wszystkie?{ids:ULS.map(u=>u.id),oddzial:OODD,nazwa:'Oferta '+(OID||'')+' wszystkie '+ULS.length}:{id:+b.dataset.id,oddzial:OODD,nazwa:'Oferta '+(OID||'')+' '+b.dataset.n});
  if(j.pdf)OPDF=j.plik;$('#waInfo').textContent=j.pdf?'WhatsApp wyśle: '+j.plik.split(/[\\/]/).pop():'';msg('#oMsg',(j.pdf?'Zapisano PDF: ':'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ')+j.plik,!j.pdf)}catch(e){msg('#oMsg',e.message,1)}b.disabled=false}
 const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['kom','Komórki (po przecinku)'],['www','Strona www'],['email','E-mail']];
-function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
- $('#oddzBox').innerHTML='<h3 style="margin:14px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
- L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:6px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>`).join('')+
+const ODD_TEKSTY=[['warunki','Warunki pod kalkulacją (puste = „Oferta ważna do {data} lub do wyczerpania zapasów. Ceny zawierają VAT {vat}. Termin montażu do uzgodnienia telefonicznie.”)'],
+ ['cta_t','Napis w ramce kontaktu (puste = „Zarezerwuj termin montażu”)'],['cta_p','Podpis pod napisem (puste = „Zadzwoń – dobierzemy dogodną godzinę”)'],
+ ['por_t','Napis w ramce kontaktu – porównania opon i felg (puste = tekst domyślny)'],['por_p','Podpis – porównania (puste = tekst domyślny)']];
+function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='<div class="cinfo">Dane oddziałów i teksty na PDF ustawia administrator.</div>';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
+ $('#oddzBox').innerHTML='<h3 style="margin:4px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
+ L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>
+ <div style="margin:6px 0 0 126px;display:grid;gap:4px"><span style="font-size:12px;color:var(--muted)">Teksty na PDF tego oddziału (opony i felgi) – w warunkach możesz użyć {data} i {vat}</span>${ODD_TEKSTY.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${esc(t)}" title="${esc(t)}" maxlength="400" value="${esc((D[o]||{})[k]||'')}">`).join('')}</div>`).join('')+
  '<button class="sec" style="margin-top:6px" onclick="saveOddz()">Zapisz dane oddziałów</button>'}
 async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o[i.dataset.o]??={})[i.dataset.k]=i.value.trim()});
  for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
  try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
-async function loadCfg(){CFG=await api('/api/cfg');$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
+async function loadCfg(){CFG=await api('/api/cfg');PER=Math.max(5,+CFG.wynikow_na_strone||20);$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 setTimeout(badgeStart,1500);
 let WT={},WCUR='wymiana_kolo';
 function readW(){WT[WCUR]=Object.fromEntries([...document.querySelectorAll('#c_wym input')].filter(i=>i.value!=='').map(i=>[i.dataset.d,+i.value]))}
 function drawW(){const W=WT[WCUR];$('#c_wym').innerHTML=Array.from({length:12},(_,i)=>String(i+12)).map(d=>`<div class="w"><b>R${d}</b><input type="number" min="0" step="1" data-d="${d}" value="${W[d]??''}" placeholder="—" oninput="this.nextElementSibling.textContent=this.value?'4 koła: '+(this.value*4)+' zł':'brak ceny'"><small>${W[d]!=null?'4 koła: '+(W[d]*4)+' zł':'brak ceny'}</small></div>`).join('')}
 function wTab(b){readW();WCUR=b.dataset.t;document.querySelectorAll('.wtabs button').forEach(x=>x.classList.toggle('on',x===b));drawW();if(!CFG.ceny_edycja)document.querySelectorAll('#c_wym input').forEach(e=>e.disabled=true)}
-let PROGI=[];
-function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';
- if(k!=='kwota'){$('#progiBox').innerHTML='';return}
- $('#progiBox').innerHTML='<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+PROGI.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="PROGI[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="PROGI[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="PROGI.splice(${i},1);drawProgi()">✕</button></td></tr>`).join('')+'</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="PROGI.splice(PROGI.length-1,0,{do:null,kwota:0});drawProgi()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, w górę do pełnych zł.</span>'}
-function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi'])$('#c_'+k).value=CFG[k]??'';
+let PROGI=[],FPROGI=[];
+const CNUM=['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi','marza_czujniki','rabat_max_opony','rabat_max_wym','wynikow_na_strone','rabat_max_felgi','felgi_max','felgi_na_stronie','felgi_min_stan','koszyk_max_szt'];
+const CSEL=['zaokr_opony','zaokr_felgi','felgi_srednica','felgi_typ_dom','felgi_demo'];
+function progiHtml(arr,nazwa){const rys=nazwa==='PROGI'?'drawProgi':'drawFProgi';return '<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+arr.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="${nazwa}[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="${nazwa}[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="${nazwa}.splice(${i},1);${rys}()">✕</button></td></tr>`).join('')+`</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="${nazwa}.splice(${nazwa}.length-1,0,{do:null,kwota:0});${rys}()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, potem zaokrąglenie.</span>`}
+function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';$('#progiBox').innerHTML=k==='kwota'?progiHtml(PROGI,'PROGI'):'';cenyBlok()}
+function drawFProgi(){const k=document.querySelector('input[name=ftryb]:checked')?.value||'procent';$('#lblMarzaF').style.display=k==='procent'?'':'none';$('#fprogiBox').innerHTML=k==='kwota'?progiHtml(FPROGI,'FPROGI'):'';cenyBlok()}
+function cTab(b){document.querySelectorAll('.ctabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.cpane').forEach(p=>p.classList.toggle('on',p.dataset.t===b.dataset.t));try{localStorage.setItem('oferty_cfg_tab',b.dataset.t)}catch(e){}}
+function openCfg(){for(const k of CNUM)$('#c_'+k).value=CFG[k]??'';for(const k of CSEL)$('#c_'+k).value=String(CFG[k]??'');
+ $('#c_ponizej_zakupu').value=CFG.ponizej_zakupu===false?'0':'1';$('#c_felgi_montaz_dom').value=CFG.felgi_montaz_dom?'1':'0';
  WT={wymiana_kolo:{...CFG.wymiana_kolo},wymiana_suv:{...CFG.wymiana_suv},wymiana_dost:{...CFG.wymiana_dost}};WCUR='wymiana_kolo';document.querySelectorAll('.wtabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==WCUR));drawW();
- for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_bydgoszcz_dostawa').value=CFG.bydgoszcz_dostawa||'ok. 48 h';$('#c_premium').value=CFG.premium.join(', ');PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));drawProgi();drawOddz();msg('#cMsg','');cenyBlok();dlg.showModal()}
+ for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_bydgoszcz_dostawa').value=CFG.bydgoszcz_dostawa||'ok. 48 h';
+ for(const k of['premium','srednie','budzet'])$('#c_'+k).value=(CFG[k]||[]).join(', ');
+ PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));FPROGI=JSON.parse(JSON.stringify(CFG.felgi_progi||[]));
+ document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));document.querySelectorAll('input[name=ftryb]').forEach(r=>r.checked=r.value===(CFG.felgi_tryb||'procent'));
+ drawProgi();drawFProgi();drawOddz();msg('#cMsg','');let t='op';try{t=localStorage.getItem('oferty_cfg_tab')||'op'}catch(e){}
+ cTab(document.querySelector(`.ctabs button[data-t="${t}"]`)||document.querySelector('.ctabs button[data-t="op"]'));cenyBlok();dlg.showModal()}
 function cenyBlok(){const o=CFG.ceny_oddzial,ed=CFG.ceny_edycja;$('#cenyInfo').textContent=o?(ed?'– wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':'– ustala administrator dla oddziału '+o):'';
- document.querySelectorAll('#cenyBox input,#cenyBox button,#c_marza_proc,#c_wym input,.usl input').forEach(e=>e.disabled=!ed);
+ document.querySelectorAll('#cenyBox input,#cenyBox button,#fcenyBox input,#fcenyBox button,#c_marza_proc,#c_wym input,.usl input,.usl select').forEach(e=>e.disabled=!ed);
  document.querySelectorAll('.uslInfo').forEach(e=>e.textContent=o?(ed?' – wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':' – ustala administrator'):'')}
-async function saveCfg(){const c={};for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi'])c[k]=+$('#c_'+k).value;
+const progiCzyste=a=>a.filter(p=>p.kwota!==undefined&&p.kwota!=='').map(p=>({do:p.do===null||p.do===''?null:+p.do,kwota:+p.kwota}));
+async function saveCfg(){const c={};for(const k of CNUM)if($('#c_'+k).value!=='')c[k]=+$('#c_'+k).value;for(const k of CSEL)c[k]=$('#c_'+k).value;
+ c.zaokr_opony=+c.zaokr_opony;c.zaokr_felgi=+c.zaokr_felgi;c.ponizej_zakupu=$('#c_ponizej_zakupu').value==='1';c.felgi_montaz_dom=$('#c_felgi_montaz_dom').value==='1';
  readW();Object.assign(c,WT);for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])c[k]=+$('#c_'+k).value||0;c.bydgoszcz_dostawa=$('#c_bydgoszcz_dostawa').value.trim().slice(0,30)||'ok. 48 h';
- c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=PROGI.filter(p=>p.kwota!==undefined&&p.kwota!=='').map(p=>({do:p.do===null||p.do===''?null:+p.do,kwota:+p.kwota}));
- c.premium=$('#c_premium').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
- try{await api('/api/cfg',c);await loadCfg();msg('#cMsg','Zapisano.')}catch(e){msg('#cMsg',e.message,1)}}
+ c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=progiCzyste(PROGI);
+ c.felgi_tryb=document.querySelector('input[name=ftryb]:checked')?.value||'procent';c.felgi_progi=progiCzyste(FPROGI);
+ for(const k of['premium','srednie','budzet'])c[k]=$('#c_'+k).value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);c.klasy_ver=CFG.klasy_ver;
+ try{await api('/api/cfg',c);await loadCfg();msg('#cMsg','Zapisano.');if(typeof FR!=='undefined'&&FR&&FWS.length)fLicz()}catch(e){msg('#cMsg',e.message,1)}}
 async function testApi(){await saveCfg();msg('#cMsg','Łączę…');try{const j=await api('/api/test',{});msg('#cMsg',j.msg)}catch(e){msg('#cMsg',e.message,1)}}
 
 // ---------------------------------------------------------------- KOSZYK xPartner (zamawianie; uprawnienie „Zamawianie w xPartner”)
@@ -569,7 +623,7 @@ async function openKosz(){KOSZ=kLs(KK,[]);KSENT=false;KADR=null;KWYB='';kdlg.sho
 async function kOdswiez(){if(!KOSZ.length)return kDraw();$('#kCzas').textContent='sprawdzam ceny i stany w xPartner…';
  try{const r=await api('/api/koszyk/odswiez',{pozycje:KOSZ.map(k=>({id:k.id,ilosc:k.ilosc}))});KDANE={};for(const p of r.pozycje)KDANE[p.id]=p;$('#kCzas').textContent='ceny i stany sprawdzone w xPartner o '+r.czas}
  catch(e){$('#kCzas').textContent='';msg('#kMsg',e.message,1)}kDraw()}
-function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan||!!d.obciete;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
+function kIl(id,v){const x=KOSZ.find(k=>k.id===id);if(!x)return;v=Math.max(1,Math.min(+CFG.koszyk_max_szt||200,parseInt(v)||1));x.ilosc=v;const d=KDANE[id];if(d){d.ilosc=v;d.ok=v<=d.stan||!!d.obciete;d.blad=d.ok?'':'W xPartner jest tylko '+d.stan+' szt.'}kSave();kDraw()}
 function kUsun(id){KOSZ=KOSZ.filter(k=>k.id!==id);delete KDANE[id];kSave();kDraw()}
 /* Magazyny z dłuższą dostawą. xPartner sam wybiera magazyn wysyłki – przed zamówieniem tylko prognoza. */
 const DALEKIE={'Bydgoszcz':1};
@@ -677,39 +731,41 @@ async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true
   if(!L.length){if(FZDJ_PON)continue;break}L.forEach(id=>zrob.add(id));
   const r=await api('/api/felgi_zdjecia',{ids:L});if(r.login){msg('#fMsg','Zdjęcia felg: zaloguj się do xPartner w okienku, które się otworzyło (tylko raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);return}
   if(r.login_karta)msg('#fMsg','Części zdjęć xPartner pokazuje tylko po zalogowaniu na stronie xPartner – zaloguj się w okienku, które się otworzyło (raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);
-  if(r.diag_karta||r.blad_karta)console.log('karta',r.diag_karta,r.blad_karta),window.__diag=(r.diag_karta||'')+' '+(r.blad_karta||''),$('#fDiag')&&($('#fDiag').textContent='Zdjęcia z kart produktów: '+window.__diag);
+  if(r.diag_karta||r.blad_karta)console.log('karta',r.diag_karta,r.blad_karta);
   for(const id of L)FZDJ[id]=(r.zdjecia||{})[id]||[];try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia2',JSON.stringify(Object.fromEntries(Object.entries(FZDJ).filter(([,v])=>v&&v.length))))}catch(e){}
   fRender(true);if(FWS.length){fWybDraw();if(FR){fSumDraw(FR)}}}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
 const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
-async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fMarza').textContent=r.marza;FPOK=20;
- FPOK=20;msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
+async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fWzor').textContent=r.wzor||('cena oferty = zakup netto + marża '+r.marza+'% + VAT');
+ FPOK=fNaStr();$('#ff_stan').value=+CFG.felgi_min_stan||'';msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
  catch(e){msg('#fMsg',e.message,1)}finally{b.disabled=false}}
 function fOpcje(){const ust=(id,k,lab,sort)=>{const v=[...new Set(FL.map(f=>f[k]).filter(Boolean))].sort(sort||((a,b)=>parseFloat(a)-parseFloat(b)||String(a).localeCompare(b)));$(id).innerHTML=`<option value="">${lab}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join('')};
  ust('#ff_pcd','pcd','wszystkie',(a,b)=>a.localeCompare(b,'pl',{numeric:true}));ust('#ff_sred','sred','wszystkie');ust('#ff_szer','szer','wszystkie');ust('#ff_et','et','wszystkie');ust('#ff_otwor','otwor','wszystkie');ust('#ff_prod','producent','wszyscy',(a,b)=>a.localeCompare(b,'pl'))}
 function fWyczysc(){for(const k of['pcd','sred','szer','et','otwor','rodzaj','prod','stan','t'])$('#ff_'+k).value='';fRender()}
-function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0;
- return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
+const fNaStr=()=>Math.max(4,+CFG.felgi_na_stronie||20);
+const fDemoUkryj=()=>CFG.felgi_demo==='ukryj'&&FQ.demo!=='tylko';
+function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0,ud=fDemoUkryj();
+ return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&!(ud&&f.demo)&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
  const nw=FWS.findIndex(x=>x.id===f.id);
  return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''}</span><span class="ce">${zl(f.cena)}</span></div>
  <div class="rw"><span class="muted">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''}</div></div>`}
-function fRender(bez){const L=fFiltr();$('#fIle').textContent=L.length+' z '+FL.length;$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
- $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=20;fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
+function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).length:0;$('#fIle').textContent=L.length+' z '+FL.length+(nd?' · ukryto '+nd+' felg DEMO (wpisz „demo” w poleceniu albo zmień w Ustawieniach → Felgi)':'');$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
+ $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
 /* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
    ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
 let FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
-const FMAX=3;
-function fNowa(){FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||4;FILO=null;FTP=0;FMON=false;FTYP='osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
+const fMax=()=>Math.max(1,Math.min(3,+CFG.felgi_max||3));
+function fNowa(){FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||+CFG.kola_na_auto||4;FILO=null;FTP=0;FMON=!!CFG.felgi_montaz_dom;FTYP=CFG.felgi_typ_dom||'osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
  $('#fuw').value='';$('#fuwInfo').textContent='';$('#fuwMsg').textContent='';FUWZM=false;$('#fo_kl').value=''}
-function fWybierz(id){const i=FWS.findIndex(x=>x.id===id);if(i>=0)FWS.splice(i,1);else{if(FWS.length>=FMAX){msg('#fMsg','W jednej ofercie najwyżej '+FMAX+' felgi – usuń jedną (✕ w ofercie albo klik w kafelek), żeby dodać inną.',1);return}
+function fWybierz(id){const i=FWS.findIndex(x=>x.id===id);if(i>=0)FWS.splice(i,1);else{if(FWS.length>=fMax()){msg('#fMsg','W jednej ofercie najwyżej '+fMax()+' felgi – usuń jedną (✕ w ofercie albo klik w kafelek), żeby dodać inną.',1);return}
   const f=FL.find(x=>x.id===id);if(!f)return;if(!FWS.length)fNowa();FWS.push(f)}
  msg('#fMsg','');fRender(true);fWybrane();if(!FWS.length){$('#fOf').style.display='none';return}const nowa=$('#fOf').style.display==='none';$('#fOf').style.display='';fWybDraw();if(nowa)$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
 function fUsun(id){fWybierz(id)}
 function fWybDraw(){$('#fWyb').innerHTML=FWS.map((f,i)=>`<div class="w"><span class="fnr">${i+1}</span>${fFoto(f)?`<img src="${esc(fFoto(f))}" alt="">`:'<span style="font-size:30px">⚙️</span>'}<span><b>${esc(f.nazwa)}</b><br><span class="muted">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''} · stan ${f.stan>=50?'50+':f.stan}</span></span><span class="x" title="Usuń z oferty" onclick="fUsun(${f.id})">✕</span></div>`).join('')+
- (FWS.length<FMAX?`<span class="muted" style="align-self:center;font-size:12px">Możesz dodać jeszcze ${FMAX-FWS.length} – kliknij kafelek w wynikach.</span>`:'')}
+ (FWS.length<fMax()?`<span class="muted" style="align-self:center;font-size:12px">Możesz dodać jeszcze ${fMax()-FWS.length} – kliknij kafelek w wynikach.</span>`:'')}
 let KOMPLET='';   // '' / 'o' (wybór opon do felg) / 't' (wybór czujników do felg)
 function fSrednice(){return [...new Set(FWS.map(f=>String(f.sred||'').split('.')[0]).filter(Boolean))]}
 function kBaner(){document.querySelectorAll('.kban').forEach(e=>e.remove());if(!KOMPLET||!FWS.length)return;const m=KOMPLET==='o'?$('#mainO'):$('#mainT'),d=document.createElement('div');d.className='kban';const sr=fSrednice();
@@ -734,10 +790,10 @@ function fSetW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+
 async function fLicz(){if(!FWS.length)return;try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
  catch(e){msg('#foMsg',e.message,1)}}
 function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
- const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label>Rabat na felgi % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label>Rabat na opony % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label>Rabat na montaż % <input type="number" step="1" min="0" max="100" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
+ const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label>Rabat na felgi % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_felgi??90}" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label>Rabat na opony % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_opony??90}" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label>Rabat na montaż % <input type="number" step="1" min="0" max="${CFG.rabat_max_wym??100}" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
  r.edycja.map(u=>`<div class="r"><b style="min-width:380px">${u.nr?`<span class="fnr">${u.nr}</span>`:''}${esc(u.nazwa)}</b>${u.zakup?`<span class="tag buy">zakup ${zl(u.zakup)}</span>`:''}<span class="tag">wyliczona ${zl(u.auto)}</span>
- <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="fSetC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="fSetC(${u.id},'')">↺ przywróć</button>`:''}${u.zakup&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
+ <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="fSetC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="fSetC(${u.id},'')">↺ przywróć</button>`:''}${CFG.ponizej_zakupu!==false&&u.zakup&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
  const wy=(r.wymiany||[]).length?'<div class="t" style="margin-top:8px">Ceny montażu (brutto za 1 koło) – wpisz własną, aby nadpisać; puste = z cennika'+(+FRAB.m?' minus rabat':'')+'</div>'+r.wymiany.map(w=>`<div class="r"><b style="min-width:380px">${esc(w.opis)}</b><span class="tag">cennik ${zl(w.cennik)}</span>${+FRAB.m?`<span class="tag">po rabacie ${zl(w.auto)}</span>`:''}
  <label>Cena <input class="pr-in ${w.recznie?'man':''}" type="number" min="0" step="1" placeholder="${w.auto}" value="${w.recznie?w.cena:''}" data-k="${esc(w.klucz)}" onchange="fSetW(this.dataset.k,this.value)"> zł</label>${w.recznie?`<button class="sec" style="padding:2px 10px" data-k="${esc(w.klucz)}" onclick="fSetW(this.dataset.k,'')">↺ przywróć</button>`:''}</div>`).join(''):'';
  $('#fEdit').innerHTML=top+wy+'<div class="t" style="margin-top:8px">Ilość i usługi – wspólne dla wszystkich propozycji, zmiana od razu przelicza ofertę</div>'+
@@ -746,9 +802,10 @@ function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v=
  <label title="Ile kół ma czujniki ciśnienia – obsługa TPMS przy montażu${FCZ?' i tyle czujników':''}">Koła z TPMS <input type="number" min="0" max="40" value="${FTP}" onchange="fUst('tp',this.value)"></label>
  <label>Przechowalnia <select onchange="fUst('dep',this.value)">${sel(FDEP,[['','—'],['kola','koła z felgami'],['opony','same opony']])}</select></label></div>`}
 const FKAT={felga:'Felgi',opona:'Opony',czujnik:'Czujniki TPMS',tpms:'Obsługa TPMS'};
-function fSumDraw(r){const zle=r.propozycje.filter(p=>p.blad);$('#fBlad').innerHTML=zle.length?`<div class="msg e">⛔ ${zle.map(p=>esc(p.blad)).join('<br>⛔ ')}<br><span style="font-size:12px">PDF tej propozycji i porównanie są zablokowane, dopóki felga i opony nie będą pasować.</span></div>`:'';
+function fSumDraw(r){const zle=r.propozycje.filter(p=>p.blad),ost=r.propozycje.filter(p=>p.ostrz);$('#fBlad').innerHTML=(zle.length?`<div class="msg e">⛔ ${zle.map(p=>esc(p.blad)).join('<br>⛔ ')}<br><span style="font-size:12px">PDF tej propozycji i porównanie są zablokowane, dopóki felga i opony nie będą pasować.</span></div>`:'')+
+ (ost.length?`<div class="msg w">⚠ ${ost.map(p=>esc(p.ostrz)).join('<br>⚠ ')}</div>`:'');
  $('#fSum').innerHTML='<div class="vcards">'+r.propozycje.map((p,i)=>{const f=FWS[i]||{};return `<div class="vcard${p.blad?' zle':''}"><div class="t">Propozycja ${p.nr}</div><div class="m">${esc(f.nazwa||'')}${FOP?' + '+esc(FOP.nazwa):''}</div>${fFoto(f)?`<img class="fph" src="${esc(fFoto(f))}" alt="">`:''}
- ${p.pozycje.map(x=>`<div class="l"><span>${FKAT[x.k]?FKAT[x.k]+' ('+x.q+' szt.)':esc(x.nazwa)}</span><span>${zl(x.w)}</span></div>`).join('')}<div class="tot"><span>RAZEM brutto</span><b>${zl(p.razem)}</b></div>${p.blad?`<div class="bl">⛔ ${esc(p.blad)}</div>`:''}</div>`}).join('')+'</div>'}
+ ${p.pozycje.map(x=>`<div class="l"><span>${FKAT[x.k]?FKAT[x.k]+' ('+x.q+' szt.)':esc(x.nazwa)}</span><span>${zl(x.w)}</span></div>`).join('')}<div class="tot"><span>RAZEM brutto</span><b>${zl(p.razem)}</b></div>${p.blad?`<div class="bl">⛔ ${esc(p.blad)}</div>`:''}${p.ostrz?`<div class="bl" style="color:#92400e">⚠ ${esc(p.ostrz)}</div>`:''}</div>`}).join('')+'</div>'}
 function fUlDraw(r){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';const P=r.propozycje,zle=P.some(p=>p.blad),kpl=FOP?'komplet':'razem';
  $('#fUl').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">każda propozycja osobno, duże zdjęcie felgi · dane Twojego oddziału</span>'+
  (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="setOdd(this.value)" style="width:auto">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+'<br>'+
@@ -770,7 +827,7 @@ async function fWa(b){b.disabled=true;try{if(!FPDF){if(!FR||!FR.propozycje.lengt
  if(FOID)try{await api('/api/status',{oid:FOID,status:'wyslana',owner:FOWNER})}catch(e){}}catch(e){msg('#foMsg',e.message,1)}b.disabled=false}
 async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:FOID,owner:FOWNER,uwagi:$('#fuw').value});FUWZM=false;m.textContent='✔ zapisane';$('#fuwInfo').textContent=''}catch(e){m.textContent='';msg('#foMsg',e.message,1)}}
 function fUwPo(){if(FUWZM&&$('#fuw').value.trim())fZapiszUw()}
-async function fZHist(r,hh){widok('f');FWS=(r.felgi_dane||[]).slice(0,FMAX);FOP=r.opona||null;FCZ=r.czujnik||null;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
+async function fZHist(r,hh){widok('f');FWS=(r.felgi_dane||[]).slice(0,fMax());FOP=r.opona||null;FCZ=r.czujnik||null;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
  FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
  $('#fo_kl').value=r.klient||'';$('#fuw').value=hh.uwagi||'';FUWZM=false;$('#fuwMsg').textContent='';$('#fuwInfo').textContent=hh.uwagi_at?'· ostatnia zmiana: '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
  msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny i stany odświeżone z aktualnej kopii xPartner.');if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();$('#fOf').scrollIntoView({behavior:'smooth'})}

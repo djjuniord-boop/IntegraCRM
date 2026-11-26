@@ -48,7 +48,51 @@ DEFAULT_CFG = {
     "budzet": ["SAILUN", "ROADX", "OPTIMO", "TRACMAX", "TRIANGLE", "FORTUNE", "WINDFORCE", "POWERTRAC", "DĘBICA", "BARUM", "GLOBGUM2", "KABAT", "KENDA", "LANVIGATOR", "MAXXIS", "PETLAS", "ROADHIKER", "STARMAXX", "TBBTIRES", "TRAXMAX", "TRAYAL", "TRAZANO", "VK TYRE", "APLUS"],
     "podpis": "Latex Serwis",
     "waznosc_dni": 7,
+    # --- ustawienia w zakładkach (decyzje właściciela 2026-11-26): dawne stałe z kodu, zmieniane w programie
+    "zaokr_opony": 1,            # cena opony w górę do pełnych 1 / 5 / 10 zł
+    "rabat_max_opony": 90, "rabat_max_wym": 100,
+    "wynikow_na_strone": 20,
+    "ponizej_zakupu": True,      # ostrzeżenie „poniżej ceny zakupu” przy cenie wpisanej ręcznie
+    "koszyk_max_szt": 200,       # bezpiecznik: najwięcej sztuk jednej pozycji w koszyku
+    "felgi_tryb": "procent", "felgi_progi": [{"do": 500, "kwota": 60}, {"do": 1000, "kwota": 90}, {"do": None, "kwota": 120}],
+    "marza_czujniki": 13,        # czujniki TPMS (część) do kompletu z felgami – osobno od felg
+    "rabat_max_felgi": 90, "zaokr_felgi": 1,
+    "felgi_max": 3, "felgi_srednica": "blokuj",   # opony o innej średnicy niż felga: „blokuj” PDF albo „ostrzez”
+    "felgi_montaz_dom": False, "felgi_typ_dom": "osobowy",
+    "felgi_demo": "pokaz", "felgi_na_stronie": 20, "felgi_min_stan": 0,
 }
+
+# zakresy ustawień – pilnowane przy wczytaniu (zły zapis w bazie nie może zepsuć cen)
+def _normuj_cfg(c):
+    def lic(k, lo, hi, dom):
+        try:
+            v = float(c.get(k))
+        except (TypeError, ValueError):
+            v = dom
+        c[k] = int(v) if float(v).is_integer() and isinstance(dom, int) else v
+        c[k] = max(lo, min(hi, c[k]))
+    for k in ("zaokr_opony", "zaokr_felgi"):
+        c[k] = c.get(k) if c.get(k) in (1, 5, 10) else 1
+    lic("rabat_max_opony", 0, 100, 90); lic("rabat_max_wym", 0, 100, 100); lic("rabat_max_felgi", 0, 100, 90)
+    lic("wynikow_na_strone", 5, 200, 20); lic("felgi_na_stronie", 4, 200, 20); lic("felgi_min_stan", 0, 1000, 0)
+    lic("koszyk_max_szt", 1, 1000, 200); lic("felgi_max", 1, 3, 3)
+    lic("marza_felgi", 0, 500, 13); lic("marza_czujniki", 0, 500, 13)
+    c["felgi_tryb"] = c.get("felgi_tryb") if c.get("felgi_tryb") in ("procent", "kwota") else "procent"
+    c["felgi_srednica"] = c.get("felgi_srednica") if c.get("felgi_srednica") in ("blokuj", "ostrzez") else "blokuj"
+    c["felgi_typ_dom"] = c.get("felgi_typ_dom") if c.get("felgi_typ_dom") in ("osobowy", "suv", "dostawczy") else "osobowy"
+    c["felgi_demo"] = c.get("felgi_demo") if c.get("felgi_demo") in ("pokaz", "ukryj") else "pokaz"
+    c["felgi_montaz_dom"] = bool(c.get("felgi_montaz_dom"))
+    c["ponizej_zakupu"] = c.get("ponizej_zakupu") is not False
+    if not isinstance(c.get("felgi_progi"), list):
+        c["felgi_progi"] = json.loads(json.dumps(DEFAULT_CFG["felgi_progi"]))
+    return c
+
+
+def zaokr(c, krok=1):
+    """W górę do pełnych zł (krok 1) albo do 5 / 10 zł."""
+    import math
+    krok = krok if krok in (1, 5, 10) else 1
+    return float(math.ceil(round(round(c, 2) / krok, 6) - 1e-9) * krok)
 
 def load_cfg():
     cfg = json.loads(json.dumps(DEFAULT_CFG))
@@ -60,6 +104,7 @@ def load_cfg():
     o = oddzial_cen()
     if o:   # marża wspólna oddziału – nadpisuje ustawienia osobiste
         cfg.update({k: v for k, v in ((KONTO.get("ceny_oddz") or {}).get(o) or {}).items() if k in CENY_WSPOLNE})
+    _normuj_cfg(cfg)
     cfg["login"], cfg["password"] = KONTO.get("login") or "", KONTO.get("password") or ""
     return cfg
 
@@ -67,7 +112,9 @@ def load_cfg():
 CENY_USLUG = ("wymiana_kolo", "wymiana_suv", "wymiana_dost", "tpms_cena",
               "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19")
 # marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (usługi: decyzja właściciela 2026-11-24)
-CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi", "marza_felgi") + CENY_USLUG
+CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi", "marza_felgi") + CENY_USLUG + (
+    "zaokr_opony", "rabat_max_opony", "rabat_max_wym", "koszyk_max_szt", "felgi_tryb", "felgi_progi", "marza_czujniki",
+    "rabat_max_felgi", "zaokr_felgi", "felgi_max", "felgi_srednica")   # ustawienia w zakładkach – też wspólne (2026-11-26)
 ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą i cenami usług ustalaną przez administratora (decyzja właściciela 2026-11-12)
 
 
@@ -350,9 +397,9 @@ def vlabel(variants, key):
     multi = sum(1 for k in variants if k[0] == key[0]) > 1
     return key[0] + (" – propozycja %d" % (key[1] + 1) if multi else "")
 
-def rabat_wymiany(req):
+def rabat_wymiany(req, mx=100.0):
     """Rabat % na wymianę (0–100) i ręczne ceny wymiany za 1 koło {"R16|osobowy": 40}."""
-    try: rw = max(0.0, min(100.0, float(str(req.get("rabat_wym") or 0).replace(",", "."))))
+    try: rw = max(0.0, min(float(mx), float(str(req.get("rabat_wym") or 0).replace(",", "."))))
     except ValueError: rw = 0.0
     over = {}
     for k, v in (req.get("ceny_wym") or {}).items():
@@ -388,6 +435,8 @@ def sell_price(cfg, netto):
         cena = brutto + doplata_progowa(cfg, brutto)
     else:
         cena = netto * (1 + cfg["marza_proc"] / 100) * vat
+    if cfg.get("zaokr_opony", 1) in (5, 10):
+        return zaokr(cena, cfg["zaokr_opony"])
     return float(math.ceil(round(cena, 2) - 1e-9))  # w górę do pełnych zł
 
 def enrich(cfg, p):
@@ -763,7 +812,7 @@ def build_offer(cfg, req):
         fresh = {pid: (enrich(cfg, p) if p else None) for pid, p in zip(ids, ex.map(lambda i: get_product(cfg, i), ids))}
     try: m_off = float(req.get("marza")) if req.get("marza") not in (None, "") else None
     except ValueError: m_off = None
-    try: rab = max(0.0, min(90.0, float(req.get("rabat") or 0)))
+    try: rab = max(0.0, min(float(cfg.get("rabat_max_opony", 90)), float(req.get("rabat") or 0)))
     except ValueError: rab = 0.0
     over = {int(k): float(v) for k, v in (req.get("ceny") or {}).items() if str(v).strip() not in ("", "0")}
     c2 = dict(cfg, marza_proc=cfg["marza_proc"] if m_off is None else m_off)
@@ -777,7 +826,7 @@ def build_offer(cfg, req):
         p["cena_brutto"] = over.get(pid, auto)
         p["recznie"] = pid in over
     warnings = []
-    rw, over_w = rabat_wymiany(req)
+    rw, over_w = rabat_wymiany(req, cfg.get("rabat_max_wym", 100))
     kola = int(cfg["kola_na_auto"])
     rows, variants = [], {}
     sep = bool(req.get("osobno"))
@@ -1198,14 +1247,14 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
         raise ValueError("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.")
     p = R[0]["p"]
     vat = float(cfg.get("vat_proc") or 23)
-    try: rab = max(0.0, min(90.0, float(req.get("rabat") or 0)))
+    try: rab = max(0.0, min(float(cfg.get("rabat_max_opony", 90)), float(req.get("rabat") or 0)))
     except ValueError: rab = 0.0
     przed_szt = p["cena_brutto"] if (p.get("recznie") or not rab) else sell_price(cfg, p["netto"])
     il = sum(int(r.get("ilosc") or 0) for r in R)
     poz = [{"nazwa": "Opona " + p["nazwa"], "q": il, "j": "szt.", "c": przed_szt, "po": p["cena_brutto"],
             "r": rab if przed_szt > p["cena_brutto"] else 0}]
     kola = int(cfg["kola_na_auto"])
-    rw, _ = rabat_wymiany(req)
+    rw, _ = rabat_wymiany(req, cfg.get("rabat_max_wym", 100))
     wym, rabat_wym_kw = {}, 0.0
     for r in R:
         if r.get("wym_tak", r.get("wymiana")):
@@ -1278,6 +1327,25 @@ def pdf_dane(cfg, req, rows, pid, oddzial, kto="", logo=""):
 def pdf_html(cfg, req, rows, pid, oddzial, kto="", logo=""):
     return wypelnij(wzor_pdf(), pdf_dane(cfg, req, rows, pid, oddzial, kto, logo))
 
+PDF_TEKSTY = ("warunki", "cta_t", "cta_p", "por_t", "por_p")   # teksty PDF oddziału (Ustawienia → PDF i oddziały, admin)
+_WAR_RE = re.compile(r'<div class="war">Oferta ważna do (\S+) lub do wyczerpania zapasów\. Ceny zawierają VAT ([\d,]+)%\. Termin montażu do uzgodnienia telefonicznie\.</div>')
+_CTA_RE = re.compile(r'(<div class="cta"><div><b>)(.*?)(</b><br><span>)(.*?)(</span>)', re.S)
+
+
+def teksty_pdf(html, oddzial, porownanie=False):
+    """Własne teksty oddziału na PDF (puste = tekst domyślny ze wzoru). Podmiana po wypełnieniu wzoru – wzory i ich kopia
+    w aplikacji telefonu zostają bez zmian. W warunkach można użyć {data} (ważna do) i {vat}."""
+    escape = _esc
+    o = oddzial or {}
+    war = (o.get("warunki") or "").strip()
+    if war:
+        html = _WAR_RE.sub(lambda m: '<div class="war">%s</div>' % escape(war).replace("{data}", m.group(1)).replace("{vat}", m.group(2) + "%"), html)
+    t, p = ((o.get("por_t") or "").strip(), (o.get("por_p") or "").strip()) if porownanie else ((o.get("cta_t") or "").strip(), (o.get("cta_p") or "").strip())
+    if t or p:
+        html = _CTA_RE.sub(lambda m: m.group(1) + (escape(t) if t else m.group(2)) + m.group(3) + (escape(p) if p else m.group(4)) + m.group(5), html)
+    return html
+
+
 def polacz_strony(strony):
     """Kilka PDF-ów (pełne strony HTML z tego samego wzoru) -> jeden dokument, każda opona na osobnej stronie A4."""
     if len(strony) == 1:
@@ -1290,6 +1358,26 @@ def polacz_strony(strony):
 FELGI_OSTATNIE = {}   # id -> kafelek z ostatniego wyszukiwania (oferta liczy cenę z tej samej kopii)
 
 
+def cena_felgi(cfg, netto):
+    """Cena felgi brutto wg Ustawień → Felgi: marża % od zakupu netto albo zakup brutto + kwota z progów; zaokrąglenie."""
+    vat = 1 + float(cfg.get("vat_proc") or 23) / 100
+    if netto <= 0:
+        return 0.0
+    if cfg.get("felgi_tryb") == "kwota":
+        brutto = round(netto * vat, 2)
+        c = brutto + doplata_progowa({"progi": cfg.get("felgi_progi") or []}, brutto)
+    else:
+        c = netto * (1 + float(cfg.get("marza_felgi") or 0) / 100) * vat
+    return zaokr(c, cfg.get("zaokr_felgi", 1))
+
+
+def cena_czujnika(cfg, netto):
+    """Czujnik TPMS (część) do kompletu z felgami: zakup netto + marża czujników + VAT, zaokrąglenie jak felgi."""
+    if netto <= 0:
+        return 0.0
+    return zaokr(netto * (1 + float(cfg.get("marza_czujniki") or 0) / 100) * (1 + float(cfg.get("vat_proc") or 23) / 100), cfg.get("zaokr_felgi", 1))
+
+
 def _proc(v, mx):
     try:
         return max(0.0, min(float(mx), float(str(v or 0).replace(",", "."))))
@@ -1297,7 +1385,7 @@ def _proc(v, mx):
         return 0.0
 
 
-def _felga_po_id(kat, fid, m, vat):
+def _felga_po_id(kat, fid, m, vat, cena=None):
     """Felga z ostatniego wyszukiwania, a gdy jej tam nie ma (oferta z Historii) – z kopii pliku, z aktualną ceną."""
     from oferty import felgi as FG
     f = FELGI_OSTATNIE.get(fid)
@@ -1305,7 +1393,7 @@ def _felga_po_id(kat, fid, m, vat):
         return f
     for p in (kat.felgi() if kat and hasattr(kat, "felgi") else None) or []:
         if int(p.get("id") or 0) == fid:
-            f = FG.info(p, m, vat)
+            f = FG.info(p, m, vat, cena)
             FELGI_OSTATNIE[fid] = f
             return f
     return None
@@ -1317,19 +1405,21 @@ def felgi_licz(cfg, body):
     from oferty import felgi as FG
     import math
     kat = KONTO.get("katalog")
-    m, vat = float(cfg.get("marza_felgi") or 13), float(cfg.get("vat_proc") or 23)
-    ids = [int(x) for x in (body.get("felgi") or ([body["felga"]] if body.get("felga") else [])) if str(x).strip().isdigit()][:3]
+    m, vat = float(cfg["marza_felgi"]), float(cfg.get("vat_proc") or 23)
+    ids = [int(x) for x in (body.get("felgi") or ([body["felga"]] if body.get("felga") else [])) if str(x).strip().isdigit()][:int(cfg["felgi_max"])]
     if not ids:
         raise ApiError("Wybierz felgę z wyników wyszukiwania.")
     felgi = []
     for fid in ids:
-        f = _felga_po_id(kat, fid, m, vat)
+        f = _felga_po_id(kat, fid, m, vat, lambda n: cena_felgi(cfg, n))
+        if f:
+            f = dict(f, cena=cena_felgi(cfg, float(f.get("netto") or 0)))   # zawsze wg aktualnych Ustawień → Felgi
         if not f:
             raise ApiError("Felgi o indeksie %d nie ma już w ofercie xPartner – usuń ją z oferty." % fid)
         felgi.append(f)
     rab = body.get("rabat") if isinstance(body.get("rabat"), dict) else {}
-    rf, ro = _proc(rab.get("f"), 90), _proc(rab.get("o"), 90)
-    rw, over_w = rabat_wymiany({"rabat_wym": rab.get("m"), "ceny_wym": body.get("ceny_wym") or {}})
+    rf, ro = _proc(rab.get("f"), cfg["rabat_max_felgi"]), _proc(rab.get("o"), cfg["rabat_max_opony"])
+    rw, over_w = rabat_wymiany({"rabat_wym": rab.get("m"), "ceny_wym": body.get("ceny_wym") or {}}, cfg["rabat_max_wym"])
     over = {}
     for k, v in (body.get("ceny") or {}).items():
         try:
@@ -1350,7 +1440,7 @@ def felgi_licz(cfg, body):
     cz = body.get("czujnik") or None
     c_cz = 0.0
     if cz and float(cz.get("netto") or 0) > 0:
-        auto = float(math.ceil(round(float(cz["netto"]) * (1 + m / 100) * (1 + vat / 100), 2) - 1e-9))
+        auto = cena_czujnika(cfg, float(cz["netto"]))
         c_cz = over.get(str(cz.get("id")), auto)
         edycja.append({"id": cz["id"], "k": "czujnik", "nazwa": "Czujnik TPMS " + str(cz.get("nazwa") or ""), "zakup": round(float(cz["netto"]) * (1 + vat / 100), 2),
                        "auto": auto, "cena": c_cz, "recznie": str(cz.get("id")) in over})
@@ -1380,10 +1470,14 @@ def felgi_licz(cfg, body):
             wymiany[kw] = {"klucz": kw, "opis": "Montaż / wymiana R%s (%s)" % (sr, TYPY.get(typ, typ)), "cennik": c0,
                            "auto": cena_po_rabacie(c0, rw), "cena": c_w, "recznie": kw in over_w}
         poz, razem = FG.oferta(cfg, fe, il, op, il_op, cz, il_tp, montaz, typ, depozyt, c_cz, c_w)
-        blad = ""
+        blad = ostrz = ""
         if op and sr_op and sr and sr != sr_op:
-            blad = 'Felga %d ma %s", opony są R%s – nie pasują. Usuń tę felgę albo zmień opony.' % (i + 1, sr, sr_op)
-        props.append({"nr": i + 1, "felga": fe, "fotos": zd, "pozycje": poz, "razem": razem, "blad": blad})
+            t = 'Felga %d ma %s", opony są R%s – nie pasują. Usuń tę felgę albo zmień opony.' % (i + 1, sr, sr_op)
+            if cfg["felgi_srednica"] == "ostrzez":
+                ostrz = t
+            else:
+                blad = t
+        props.append({"nr": i + 1, "felga": fe, "fotos": zd, "pozycje": poz, "razem": razem, "blad": blad, "ostrz": ostrz})
     return {"props": props, "edycja": ef + edycja, "wymiany": list(wymiany.values()), "opona": op, "czujnik": cz, "il": il,
             "il_op": il_op, "il_tp": il_tp, "montaz": montaz, "typ": typ, "depozyt": depozyt, "vat": vat, "marza": m,
             "rabat": {"f": rf, "o": ro, "m": rw}}
@@ -1410,15 +1504,19 @@ def felgi_route(cfg, route, body):
     """Zakładka „Felgi”: wyszukiwanie w kopii pliku, oferta (1–3 felgi, same albo komplet), PDF propozycji i porównanie."""
     from oferty import felgi as FG
     kat = KONTO.get("katalog")
-    m, vat = float(cfg.get("marza_felgi") or 13), float(cfg.get("vat_proc") or 23)
+    m, vat = float(cfg["marza_felgi"]), float(cfg.get("vat_proc") or 23)
     if route == "/api/felgi":
         items = kat.felgi() if kat and hasattr(kat, "felgi") else None
         if items is None:
             raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
-        lista, q = FG.szukaj(items, body.get("q") or "", m, vat)
+        lista, q = FG.szukaj(items, body.get("q") or "", m, vat, lambda n: cena_felgi(cfg, n))
         FELGI_OSTATNIE.clear(); FELGI_OSTATNIE.update({f["id"]: f for f in lista})
         info = KONTO.get("katalog_info")
-        return 200, {"lista": lista, "q": q, "marza": m, "zrodlo": info() if info else ""}
+        wzor = ("cena oferty = zakup brutto + " + ", ".join(("powyżej" if p.get("do") in (None, "") else "do %g zł" % float(p["do"])) + ": %g zł" % float(p.get("kwota") or 0)
+                                                          for p in cfg["felgi_progi"])) if cfg["felgi_tryb"] == "kwota" else "cena oferty = zakup netto + marża %g%% + VAT" % m
+        if cfg.get("zaokr_felgi", 1) != 1:
+            wzor += ", w górę do %d zł" % cfg["zaokr_felgi"]
+        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else ""}
     w = felgi_licz(cfg, body)
     if route == "/api/felgi_oferta":
         uwagi = []
@@ -1426,7 +1524,7 @@ def felgi_route(cfg, route, body):
             felgi_zapisz_hist(body, w)
         except Exception as e:
             uwagi.append("Nie zapisano oferty w historii: %s" % e)
-        return 200, {"propozycje": [{k: p[k] for k in ("nr", "pozycje", "razem", "blad")} for p in w["props"]],
+        return 200, {"propozycje": [{k: p[k] for k in ("nr", "pozycje", "razem", "blad", "ostrz")} for p in w["props"]],
                      "edycja": w["edycja"], "wymiany": w["wymiany"], "uwagi": uwagi}
     o, dane = oddzial_oferty(body)
     if not all((dane.get(k) or "").strip() for k in ("nazwa", "adres", "tel")):
@@ -1437,12 +1535,12 @@ def felgi_route(cfg, route, body):
         zle = [p["blad"] for p in w["props"] if p["blad"]]
         if zle:
             raise ApiError(zle[0])
-        return 200, {"html": felgi_porownanie_html(cfg, body, w, dane), "oddzial": o}
+        return 200, {"html": teksty_pdf(felgi_porownanie_html(cfg, body, w, dane), dane, True), "oddzial": o}
     nr = max(0, min(len(w["props"]) - 1, int(body.get("nr") or 0)))
     p = w["props"][nr]
     if p["blad"]:
         raise ApiError(p["blad"])
-    return 200, {"html": felgi_pdf_html(cfg, body, p["felga"], p["pozycje"], p["razem"], dane, vat, p["fotos"]), "oddzial": o}
+    return 200, {"html": teksty_pdf(felgi_pdf_html(cfg, body, p["felga"], p["pozycje"], p["razem"], dane, vat, p["fotos"]), dane), "oddzial": o}
 
 
 FOTO_XP = re.compile(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", re.I)
@@ -1559,7 +1657,7 @@ def koszyk_route(route, body, cfg):
             if not ZAMAWIAM.acquire(blocking=False):
                 return 409, {"error": "Zamówienie jest właśnie wysyłane – poczekaj na wynik."}
             try:
-                K.order_xml(body)   # sprawdzenie całego koszyka (adres, ilości 1–MAX_SZT, uwagi) przed wysłaniem czegokolwiek
+                K.order_xml(body, cfg["koszyk_max_szt"])   # sprawdzenie całego koszyka (adres, ilości 1–MAX_SZT, uwagi) przed wysłaniem czegokolwiek
                 spr = [p for p in K.odswiez(cfg, body.get("pozycje") or [], get_product) if not p["ok"]]
                 if spr:   # zalecenie xPartner: stany sprawdzone tuż przed zamówieniem
                     return 409, {"error": "Zmieniły się stany w xPartner – popraw koszyk.", "pozycje_zle": spr}
@@ -1571,7 +1669,7 @@ def koszyk_route(route, body, cfg):
                     if len(czesci) > 1:
                         szczegoly["czesc"] = "%d/%d" % (i + 1, len(czesci))
                     try:
-                        z, u = K.czytaj_wynik(K.wyslij(cfg, K.order_xml(dict(body, pozycje=cz)), dziennik=szczegoly))
+                        z, u = K.czytaj_wynik(K.wyslij(cfg, K.order_xml(dict(body, pozycje=cz), cfg["koszyk_max_szt"]), dziennik=szczegoly))
                     except Exception as e:
                         if not zam:
                             raise
@@ -1663,10 +1761,10 @@ def handle(path, body=None, open_path=None):
                         pass
             o, dane = oddzial_oferty({"oddzial": body.get("oddzial") or OSTATNIA["req"].get("oddzial")})
             if body.get("porownanie"):
-                return 200, {"html": porownanie_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], ids, dane, KONTO.get("kto") or "", body.get("logo") or ""),
+                return 200, {"html": teksty_pdf(porownanie_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], ids, dane, KONTO.get("kto") or "", body.get("logo") or ""), dane, True),
                              "oddzial": o, "stron": 1}
             strony = [pdf_html(cfg, OSTATNIA["req"], OSTATNIA["rows"], pid, dane, KONTO.get("kto") or "", body.get("logo") or "") for pid in ids]
-            return 200, {"html": polacz_strony(strony), "oddzial": o, "stron": len(strony)}
+            return 200, {"html": teksty_pdf(polacz_strony(strony), dane), "oddzial": o, "stron": len(strony)}
         if route == "/api/status":
             st = body.get("status")
             if st not in STATUSY_OFERT or not HIST or not hasattr(HIST, "status"):
