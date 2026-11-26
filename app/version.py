@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.19"
-RELEASED = "2026-11-25"
+VERSION = "1.2.20"
+RELEASED = "2026-11-26"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.20",
+        "date": "2026-11-26",
+        "changes": ["Felgi: oferta wygląda i działa jak oferta opon – rabaty (felgi, opony, montaż), własne ceny, ilości i usługi, uwagi, Zamów w xPartner, WhatsApp, zapis w Historii ofert (znaczek „felgi”)",
+                    "Felgi: do 3 felg w jednej ofercie – każda to osobna propozycja z własnym PDF, plus PDF „porównanie” (wszystkie felgi na jednej stronie, klient wybiera)",
+                    "Felgi: gdy opony mają inną średnicę niż felga – czerwony komunikat i blokada PDF tej propozycji"],
+    },
     {
         "version": "1.2.19",
         "date": "2026-11-26",
