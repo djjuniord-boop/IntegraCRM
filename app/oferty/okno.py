@@ -459,6 +459,9 @@ const ids=%s,out={};let i=0,login=false;async function w(){while(i<ids.length){c
 const t=await r.text();if(!/Wyloguj/i.test(t)){login=true;continue}const u=[...t.matchAll(/descriptionFiles\\/images\\/(\\d+)\\/(?:\\d+x\\d+c?\\/)?([0-9a-f]{40}\\.(?:jpe?g|png|webp))/gi)].map(m=>'https://xpartner.net.pl/descriptionFiles/images/'+m[1]+'/'+m[2]);
 out[id]=[...new Set(u)]}catch(e){}}}
 await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out,login:login})})().then(x=>{window.__zdj2=x},e=>{window.__zdj2=JSON.stringify({zdjecia:{}})});1"""
+OBRAZY_JS = """window.__img=null;(async()=>{const out={};for(const u of %s){try{const b=await (await fetch(u,{credentials:'include'})).blob();
+out[u]=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=()=>r('');f.readAsDataURL(b)})}catch(e){}}
+return JSON.stringify(out)})().then(x=>{window.__img=x},e=>{window.__img='{}'});1"""
 # pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
 
 
@@ -519,6 +522,38 @@ class Api:
         except Exception:
             pass
         return {"login": True}
+
+    def _wbuduj_zdjecia(self, html):
+        """Adresy zdjęć xPartner w HTML -> obrazki wbudowane (data:), pobrane przez ukryte okno na xpartner.net.pl."""
+        import webview
+        urls = sorted(set(re.findall(r"https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(?:jpe?g|png|webp)", html, re.I)))[:6]
+        if not urls:
+            return html
+        with self._kw_lock:
+            if self._kw2 is None:
+                self._kw2_gotowe.clear()
+                self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
+                self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
+                self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
+        self._kw2_gotowe.wait(25)
+        w = self._kw2
+        if w is None:
+            return html
+        w.evaluate_js(OBRAZY_JS % json.dumps(urls))
+        wynik = None
+        for _ in range(120):
+            time.sleep(0.25)
+            wynik = w.evaluate_js("window.__img")
+            if wynik:
+                break
+        try:
+            mapa = json.loads(wynik) if isinstance(wynik, str) else {}
+        except ValueError:
+            mapa = {}
+        for u, d in mapa.items():
+            if isinstance(d, str) and d.startswith("data:image/"):
+                html = html.replace(u, d)
+        return html
 
     def _zdjecia_karta(self, ids):
         """Zdjęcia z karty produktu xPartner (ta sama sesja co konfigurator) – drugie ukryte okno na xpartner.net.pl."""
@@ -583,8 +618,14 @@ class Api:
             code, res = silnik.handle(path, dict(body or {}, logo=logo_uri()), open_path=_open_path)
             if code != 200:
                 return {"code": code, "body": res}
+            html = res["html"]
+            if path == "/api/felgi_pdf":
+                try:   # zdjęcia xPartner wbudowane w PDF (Edge bez okna dostaje od xPartner odmowę – serwer blokuje automaty)
+                    html = self._wbuduj_zdjecia(html)
+                except Exception:
+                    pass
             try:
-                plik = zrob_pdf(res["html"], (body or {}).get("nazwa") or "oferta")
+                plik = zrob_pdf(html, (body or {}).get("nazwa") or "oferta")
             except Exception as e:
                 return {"code": 500, "body": {"error": f"Nie udało się zapisać PDF: {e}"}}
             if not (body or {}).get("bez_otwierania"):
