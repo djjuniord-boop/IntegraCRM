@@ -15,6 +15,9 @@ sys.path.insert(0, str(ROOT / "tools"))
 import xp_oferta_sync as XS
 PLIK = XS.czytaj_csv(T.CSV_TEST)[0]["dane"]
 DB.append(dict(copy.deepcopy(PLIK), attrs={k: v for k, v in PLIK["attrs"].items() if k not in ("Kod EPREL", "Przyczepność na śniegu")}))
+# opona dostawcza tego samego rozmiaru (R16C) – rozmiar bez „C” pokazuje ją razem (Panel 1.2.9)
+DB.append(dict(copy.deepcopy(DB[1]), id=99916, nazwa=DB[1]["nazwa"].replace(" R16 ", " R16C ")))
+assert "R16C" in DB[-1]["nazwa"]
 TEKSTY = ["2254517 lato 91w 2szt", "205/55 R16 94 V zimowe", "225/45r17 91/88y", "205/55 r 16 4 szt", "2055516 zimowe premium", "205/55 16 sailun", "silun 2055516 x2", "rodx 1956515 bez demo", "2155517 conti runflat",
           "2055516 ten sam model", "octavia dw5444lw 2055516 zimowe", "skoda octavia 2055516 dw5444lw z wymianą 4 czujniki przechowalnia kół srednia", "bmw x5 suv 275/40 20 dw12345 wymiana przechowalnia opon",
           "transit dostawczy 2156516 tylko wymiana", "vw passat 2055516 dw5444lw silun", "2055516 ling long 8 szt", "2254517 premium budzet całoroczne demo",

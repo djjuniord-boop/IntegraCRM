@@ -472,7 +472,10 @@
     const found = await pool(sizes, 4, (s) => search_size(cfg, s));
     const res = {};
     sizes.forEach((s, si) => {
-      const items = found[si].filter((p) => norm_size(p.nazwa) === s && p.netto > 0).map((p) => enrich(cfg, p));
+      // rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C) – jak Panel 1.2.9
+      const ok = s.endsWith("C") ? [s] : [s, s + "C"];
+      const items = found[si].filter((p) => ok.includes(norm_size(p.nazwa)) && p.netto > 0).map((p) => enrich(cfg, p));
+      for (const p of items) p.rozmiar = norm_size(p.nazwa) || s;
       S.ucz_marki(null, items.map((p) => p.producent));
       res[s] = {};
       for (const sez of sezony) for (const klasa of klasy) {
