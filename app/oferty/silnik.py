@@ -105,8 +105,8 @@ def load_cfg():
     if user.get("klasy_ver") != DEFAULT_CFG["klasy_ver"]:
         for k in ("premium", "srednie", "budzet", "klasy_ver"):
             user.pop(k, None)
-    cfg.update({k: v for k, v in user.items() if k in DEFAULT_CFG})
     o = oddzial_cen()
+    cfg.update({k: v for k, v in user.items() if k in DEFAULT_CFG and not (o and k in CENY_WSPOLNE)})   # wspólne – tylko z oddziału
     if o:   # marża wspólna oddziału – nadpisuje ustawienia osobiste
         cfg.update({k: v for k, v in ((KONTO.get("ceny_oddz") or {}).get(o) or {}).items() if k in CENY_WSPOLNE})
     _normuj_cfg(cfg)
@@ -1613,7 +1613,7 @@ def felgi_porownanie_html(cfg, body, w, oddzial):
                     "pcd": f.get("pcd") or "", "et": f.get("et") or "", "otwor": f.get("otwor") or "", "xp_id": str(f["id"]), "kod": f.get("kod") or "",
                     "linie": [{"t": ("Felgi %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "felga" else ("Opony %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "opona"
                                else x["nazwa"].replace("Montaż / wymiana kół", "Montaż").replace("Obsługa czujnika ciśnienia TPMS przy montażu", "Obsługa TPMS")
-                               .replace("Czujnik ciśnienia TPMS", "Czujniki TPMS"), "w": pl(x["w"])} for x in p["pozycje"]],
+                               .replace("Czujnik ciśnienia TPMS CZUJNIK", "Czujniki").replace("Czujnik ciśnienia TPMS", "Czujniki TPMS"), "w": pl(x["w"])} for x in p["pozycje"]],
                     "cena_szt": pl(f["cena"]), "brutto": pl(p["razem"]), "netto": pl(round(p["razem"] / (1 + vat / 100), 2))})
     ctx = dict(_ctx_oddzial(cfg, body, oddzial), kolumny=kol, wsp_txt=" · ".join(x["t"] for x in wsp), ile=len(kol), komplet=bool(w["opona"]),
                tytul_h="Koła kompletne" if w["opona"] else "Felgi", vat_proc=("%g" % vat).replace(".", ","))
@@ -1627,7 +1627,7 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
     teraz = datetime.datetime.now()
     oid = teraz.strftime("%Y%m%d_%H%M%S")
     fotki = [u for u in (fotos if fotos is not None else (body.get("fotos") or [])) if isinstance(u, str) and FOTO_XP.match(u)]
-    glowne = f.get("foto") or (fotki[0] if fotki else "")
+    glowne = f.get("foto") if FOTO_XP.match(f.get("foto") or "") else (fotki[0] if fotki else "")
     netto = round(razem / (1 + vat / 100), 2)
     rodz = {"aluminiowa": "FELGA ALUMINIOWA", "stalowa": "FELGA STALOWA"}.get(f.get("rodzaj"), "FELGA")
     komplet = len(poz) > 1

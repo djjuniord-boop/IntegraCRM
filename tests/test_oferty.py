@@ -830,6 +830,10 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
         cfg = S.load_cfg()
         assert (cfg["zaokr_opony"], cfg["zaokr_felgi"], cfg["felgi_max"], cfg["rabat_max_opony"], cfg["koszyk_max_szt"]) == (1, 1, 3, 90, 200)
         assert S.sell_price(cfg, 300.0) == 406.0   # 300 × 1,10 × 1,23 = 405,90 → 406 (bez zmian)
+        S.KONTO["ustawienia"] = {"zaokr_opony": 10, "rabat_max_opony": 100, "marza_czujniki": 0, "min_stan": 7}
+        c1 = S.load_cfg()   # Wrocław: wspólne reguły nie przychodzą z ustawień osobistych pracownika
+        assert (c1["zaokr_opony"], c1["rabat_max_opony"], c1["marza_czujniki"], c1["min_stan"]) == (1, 90, 13, 7)
+        S.KONTO["ustawienia"] = {}
         assert S.cena_felgi(cfg, 375.72) == 523.0 and S.cena_czujnika(cfg, 100.0) == 139.0   # jak FG.info() wcześniej
         # złe wartości w bazie nie psują cen (zakresy pilnowane przy wczytaniu)
         S.KONTO["ceny_oddz"] = {"Latex Wrocław": dict(stare["Latex Wrocław"], zaokr_opony=0, rabat_max_opony=-5, felgi_max=9, felgi_tryb="x", koszyk_max_szt="abc")}
