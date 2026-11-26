@@ -161,14 +161,6 @@ def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0):
 
 
 # ---------- oferta (same felgi albo komplet) ----------
-def _e(x):
-    return (str(x if x is not None else "").replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;"))
-
-
-def _zl(x):
-    return "{:,.2f}".format(x).replace(",", " ").replace(".", ",") + " zł"
-
-
 def oferta(cfg, felga, il, opona=None, il_op=0, czujnik=None, il_cz=0, montaz=False, typ="osobowy", depozyt="",
            cena_czujnika=0.0):
     """Pozycje oferty (ceny brutto). felga – z info(); opona – opona z oferty opon (enrich: nazwa, cena_brutto);
@@ -205,32 +197,3 @@ def opis_felgi(f):
           f.get("pcd") or "", ("ET%s" % f["et"]) if f.get("et") else "", ("otwór %s" % f["otwor"]) if f.get("otwor") else "",
           ("OE %s" % f["oe"]) if f.get("oe") else ""]
     return " · ".join(x for x in cz if x)
-
-
-def pdf_html(poz, razem, oddzial, klient="", uwagi="", kto="", logo="", waznosc=7, data=""):
-    """Oferta PDF dla klienta: felga ze zdjęciem (gdy jest), pozostałe pozycje, suma brutto."""
-    wiersze = []
-    for p in poz:
-        img = ('<img src="%s" alt="">' % _e(p["foto"])) if p.get("foto", "").startswith("https://") else ""
-        ind = " · ".join(x for x in (("Indeks: %s" % p["id"]) if p.get("id") else "", ("Kod producenta: %s" % p["kod"]) if p.get("kod") else "") if x)
-        wiersze.append('<tr><td class="f">%s</td><td><b>%s</b>%s%s</td><td class="r">%d szt.</td><td class="r">%s</td><td class="r">%s</td></tr>' % (
-            img, _e(p["nazwa"]), ("<br><span class=m>%s</span>" % _e(p["opis"])) if p.get("opis") else "",
-            ("<br><span class=m>%s</span>" % _e(ind)) if ind else "", p["q"], _zl(p["c"]), _zl(p["w"])))
-    return """<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>Oferta na felgi</title><style>
-@page{size:A4;margin:14mm}body{font-family:"Segoe UI",Arial,sans-serif;color:#141414;font-size:12px}
-.hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #d81f26;padding-bottom:10px;margin-bottom:14px}
-.hd img{height:42px}h1{font-size:20px;margin:0 0 4px}.m{color:#6b7280;font-size:11px}
-table{width:100%%;border-collapse:collapse}th{text-align:left;font-size:11px;color:#6b7280;border-bottom:1px solid #ddd;padding:6px 4px}
-td{padding:8px 4px;border-bottom:1px solid #eee;vertical-align:middle}.r{text-align:right;white-space:nowrap}
-td.f{width:96px}td.f img{width:90px;height:90px;object-fit:contain}
-.sum{margin-top:12px;text-align:right;font-size:16px}.sum b{font-size:20px}.st{margin-top:24px;font-size:11px;color:#444}
-</style></head><body>
-<div class="hd"><div>%s<h1>Oferta na felgi</h1><div class="m">%s%s</div></div>
-<div style="text-align:right"><b>%s</b><br>%s<br>tel. %s<br><span class="m">%s</span></div></div>
-<table><tr><th></th><th>Pozycja</th><th class="r">Ilość</th><th class="r">Cena brutto</th><th class="r">Wartość brutto</th></tr>%s</table>
-<div class="sum">Razem brutto: <b>%s</b></div>
-%s<div class="st">Oferta ważna %d dni. Ceny zawierają VAT. %s</div></body></html>""" % (
-        ('<img src="%s" alt="">' % _e(logo)) if logo else "", ("Dla: %s · " % _e(klient)) if klient else "", _e(data),
-        _e(oddzial.get("nazwa")), _e(oddzial.get("adres")), _e(oddzial.get("tel")), _e(oddzial.get("email") or ""),
-        "".join(wiersze), _zl(razem), ("<p><b>Uwagi:</b> %s</p>" % _e(uwagi)) if uwagi else "", int(waznosc or 7),
-        ("Przygotował(a): %s" % _e(kto)) if kto else "")

@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.17"
+VERSION = "1.2.18"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,11 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.18",
+        "date": "2026-11-26",
+        "changes": ["Felgi: nowa oferta PDF w układzie jak oferta opon – duże zdjęcie felgi (i miniatury pozostałych zdjęć), parametry (rozmiar, rozstaw, ET, otwór, indeks, kod producenta), cena za sztukę i za komplet, kalkulacja z netto i VAT, numer oferty i termin ważności"],
+    },
     {
         "version": "1.2.17",
         "date": "2026-11-26",

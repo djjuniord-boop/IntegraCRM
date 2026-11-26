@@ -1306,7 +1306,7 @@ def felgi_route(cfg, route, body):
     if not f:
         raise ApiError("Wybierz felgę z wyników wyszukiwania.")
     foto = str(body.get("foto") or "")
-    if re.match(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", foto, re.I):
+    if FOTO_XP.match(foto):
         f = dict(f, foto=foto)   # zdjęcie z konfiguratora xPartner – tylko z ich serwera zdjęć
     op = body.get("opona") or None
     if op:   # opona z oferty opon: cena oferty liczona tu, z marżą opon
@@ -1323,10 +1323,43 @@ def felgi_route(cfg, route, body):
     o, dane = oddzial_oferty(body)
     if not all((dane.get(k) or "").strip() for k in ("nazwa", "adres", "tel")):
         raise ApiError("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.")
+    return 200, {"html": felgi_pdf_html(cfg, body, f, poz, razem, dane, vat), "oddzial": o}
+
+
+FOTO_XP = re.compile(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", re.I)
+PDF_FELGI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi.html")
+
+
+def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat):
+    """PDF oferty na felgi – układ jak oferta opon: duże zdjęcie felgi (+ miniatury), parametry, ceny, kalkulacja."""
     import datetime
-    return 200, {"html": FG.pdf_html(poz, razem, dane, body.get("klient") or "", body.get("uwagi") or "", KONTO.get("kto") or "",
-                                     body.get("logo") or "", cfg.get("waznosc_dni") or 7, datetime.date.today().strftime("%d.%m.%Y")),
-                 "oddzial": o}
+    teraz = datetime.datetime.now()
+    oid = teraz.strftime("%Y%m%d_%H%M%S")
+    fotki = [u for u in (body.get("fotos") or []) if isinstance(u, str) and FOTO_XP.match(u)]
+    glowne = f.get("foto") or (fotki[0] if fotki else "")
+    netto = round(razem / (1 + vat / 100), 2)
+    rodz = {"aluminiowa": "FELGA ALUMINIOWA", "stalowa": "FELGA STALOWA"}.get(f.get("rodzaj"), "FELGA")
+    komplet = len(poz) > 1
+    ctx = {
+        "logo": body.get("logo") or "", "nr": "OF/%s/%s/%s-%s" % (oid[0:4], oid[4:6], oid[6:8], oid[9:13]),
+        "data": teraz.strftime("%d.%m.%Y"), "wazna": (teraz + datetime.timedelta(days=int(cfg.get("waznosc_dni") or 7))).strftime("%d.%m.%Y"),
+        "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
+        "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
+        "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
+        "klient": (body.get("klient") or "").strip(), "uwagi": (body.get("uwagi") or "").strip(), "kto": KONTO.get("kto") or "",
+        "tag": rodz + (" · " + (f.get("przeznaczenie") or "").upper() if f.get("przeznaczenie") else "") + (" · DEMO" if f.get("demo") else "") + (" · KOMPLET" if komplet else ""),
+        "tytul": f["nazwa"], "producent": f.get("producent") or "", "model": f.get("model") or "",
+        "rozmiar": ('%s x %s"' % (f["szer"], f["sred"])) if f.get("szer") and f.get("sred") else (f.get("sred") or ""),
+        "pcd": f.get("pcd") or "", "et": f.get("et") or "", "otwor": f.get("otwor") or "", "xp_id": str(f["id"]), "kod": f.get("kod") or "",
+        "foto": glowne, "lista": [{"u": u} for u in fotki if u != glowne][:3],
+        "cena_szt": pl(f["cena"]), "cena_szt_netto": pl(round(f["cena"] / (1 + vat / 100), 2)), "komplet": komplet,
+        "pozycje": [{"nazwa": x["nazwa"], "opis": x.get("opis") or "",
+                     "ind": " · ".join(t for t in (("Indeks xPartner: %s" % x["id"]) if x.get("id") else "", ("Kod producenta: %s" % x["kod"]) if x.get("kod") else "") if t),
+                     "ilosc": "%d %s" % (x["q"], "kpl." if x["nazwa"].startswith("Przechowalnia") else "szt."), "cena": pl(x["c"]), "wartosc": pl(x["w"])} for x in poz],
+        "netto": pl(netto), "vat": pl(round(razem - netto, 2)), "vat_proc": ("%g" % vat).replace(".", ","), "brutto": pl(razem),
+    }
+    with open(PDF_FELGI, encoding="utf-8") as fh:
+        return wypelnij(fh.read(), ctx)
 
 
 def oddzial_oferty(req):

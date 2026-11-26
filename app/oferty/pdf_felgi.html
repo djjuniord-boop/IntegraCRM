@@ -1,0 +1,61 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{{nr}}</title>
+<!-- Wzór PDF oferty na felgi (same felgi albo komplet). Styl jak oferta opon (pdf_wzor.html); duże zdjęcie felgi z xPartner. -->
+<style>
+@page{size:A4;margin:0}*{box-sizing:border-box}
+body{margin:0;font:10pt/1.4 "Segoe UI",Roboto,Arial,sans-serif;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:296mm;padding:14mm 15mm 12mm;position:relative;overflow:hidden}
+.r{text-align:right;white-space:nowrap}.c{text-align:center;white-space:nowrap}
+.band{margin:-14mm -15mm 0;padding:8mm 15mm 5mm;background:#fff;color:#141414;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #E30613}
+.lg img{height:40px;display:block}
+.firma{text-align:right;font-size:8.3pt;color:#555;line-height:1.45}.firma b{color:#141414;font-size:10pt}
+.meta{display:flex;gap:8px;margin:10px 0}.meta div{flex:1;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:9pt}.meta small{display:block;color:#888;font-size:7.5pt}
+.tag{display:inline-block;background:#E30613;color:#fff;font-size:8pt;font-weight:800;padding:2px 9px;border-radius:9px;letter-spacing:.05em}
+h1{font-size:17pt;line-height:1.15;margin:4px 0 10px;color:#141414}
+.top{display:flex;gap:6mm;align-items:flex-start}.top .k1{width:60mm;flex:none}.top .k2{flex:1;min-width:0}.top .k3{width:60mm;flex:none}
+.foto{width:100%;border-radius:6px;display:block}
+.par div{border-bottom:1px solid #e6e6e6;padding:4px 0}.par span{display:block;color:#888;font-size:7.5pt;text-transform:uppercase}.par b{color:#141414}
+.pr{border:2px solid #141414;color:#141414;border-radius:10px;padding:12px;text-align:right}.pr small{display:block;color:#777;font-size:7.5pt;text-transform:uppercase}
+.pr .b{font-size:22pt;font-weight:800;line-height:1.1}.pr .n{color:#555;font-size:9pt;margin-bottom:8px}.pr .t{border-top:1px solid #ccc;padding-top:8px;margin-top:6px}.pr .t .b{color:#E30613;font-size:18pt}
+.eul{border:1.5px solid #1d4f9c;border-radius:4px;padding:6px;font-size:8pt;margin-top:8px}.top .k1 .eul{margin-top:0}
+.euh{display:flex;align-items:center;gap:6px;border-bottom:2px solid #1d4f9c;color:#1d4f9c;padding:2px 2px 3px}.euh i{color:#1d4f9c;font-style:normal}.ean{margin-left:auto;font-size:7pt}
+.eus{font-size:7.5pt;color:#555;margin:4px 0;border-bottom:1px solid #ddd;padding-bottom:3px}.eug{display:flex;gap:6px}.eug>div{flex:1}.ec{font-size:7pt;color:#555;margin-bottom:2px}
+.er{display:flex;align-items:center;gap:4px;height:13px;margin:1px 0}
+.er span{display:inline-block;height:11px;font-size:7pt;font-weight:800;padding-left:3px;line-height:11px;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,0 100%)}
+.er b{background:#111;color:#fff;font-size:8pt;padding:0 5px;border-radius:2px;line-height:12px}.euf{margin-top:5px;border-top:1px solid #ddd;padding-top:4px}
+.eprel{display:block;width:100%;height:auto;margin-top:8px}.top .k1 .eprel{margin-top:0}.eprel-t{font-size:7pt;color:#888;margin-top:2px}
+h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;padding-left:8px}
+.kal{width:100%;border-collapse:collapse;font-size:9.3pt}.kal th{border-bottom:2px solid #141414;color:#141414;text-align:left;padding:6px;font-size:8.5pt}.kal td{padding:6px;border-bottom:1px solid #e6e6e6}
+.kal tr.p td{border-bottom:1px solid #e6e6e6}.kal tr.s td{border:none;padding:2px 6px;color:#666}.kal tr.rab td{border:none;padding:2px 6px;color:#141414}.kal tr.rab b{color:#E30613}
+.kal tr.sum td{border-top:2px solid #E30613;border-bottom:2px solid #E30613;color:#E30613;font-weight:800;font-size:12.5pt;padding:8px 6px}
+.war{font-size:8.5pt;color:#666;margin-top:10px}
+.kal .rb{color:#E30613;font-weight:700}.kal tr.osz td{border:none;padding:3px 6px;color:#E30613;font-size:9pt}
+.pr .przed{font-size:9.5pt;color:#777}.pr .przed s{color:#999}.pr .przed span{color:#E30613;font-weight:700;margin-left:4px}
+.cta{margin-top:14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;color:#141414;border-radius:10px;padding:12px 18px;border-left:6px solid #E30613}
+.tels{text-align:right}.kom{font-size:13pt;font-weight:700;white-space:nowrap;color:#141414;line-height:1.3}
+.cta span{color:#666;font-size:9pt}.cta b{font-size:12pt}.cta .tel{font-size:20pt;font-weight:800;white-space:nowrap;color:#E30613}
+.foot{position:absolute;left:15mm;right:15mm;bottom:9mm;border-top:1px solid #ddd;padding-top:5px;display:flex;justify-content:space-between;font-size:8pt;color:#888}
+.top{gap:5mm}.top .k1{width:88mm}.top .k2{flex:1}.top .k3{width:52mm}
+.fbig{width:100%;height:88mm;object-fit:contain;background:#f6f6f6;border-radius:8px;display:block}
+.fmini{display:flex;gap:2mm;margin-top:2mm}.fmini img{width:20mm;height:20mm;object-fit:contain;background:#f6f6f6;border-radius:5px;border:1px solid #e6e6e6}
+.fbrak{height:60mm;border-radius:8px;background:#f6f6f6;display:flex;align-items:center;justify-content:center;color:#999;font-size:9pt}
+.kal td small{display:block;color:#888;font-size:7.5pt}
+</style></head><body><div class="page">
+<div class="band"><div class="lg"><img src="{{{logo}}}" alt="Latex"></div>
+<div class="firma"><b>{{o_nazwa}}</b><br>{{o_adres}}<br>tel. {{o_tel}}<br>{{o_www}}{{#o_www}}{{#o_email}} · {{/o_email}}{{/o_www}}{{o_email}}</div></div>
+<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
+<span class="tag">{{tag}}</span><h1>{{tytul}}</h1>
+<div class="top">
+<div class="k1">{{#foto}}<img class="fbig" src="{{foto}}" alt=""><div class="fmini">{{#lista}}<img src="{{u}}" alt="">{{/lista}}</div>{{/foto}}{{^foto}}<div class="fbrak">brak zdjęcia w xPartner</div>{{/foto}}</div>
+<div class="k2"><div class="par"><div><span>Producent</span><b>{{producent}}</b></div>{{#model}}<div><span>Model / wzór</span><b>{{model}}</b></div>{{/model}}<div><span>Rozmiar</span><b>{{rozmiar}}</b></div>{{#pcd}}<div><span>Rozstaw śrub</span><b>{{pcd}}</b></div>{{/pcd}}{{#et}}<div><span>Odsadzenie ET</span><b>{{et}}</b></div>{{/et}}{{#otwor}}<div><span>Otwór centralny</span><b>{{otwor}} mm</b></div>{{/otwor}}<div><span>Indeks xPartner</span><b>{{xp_id}}</b></div>{{#kod}}<div><span>Kod producenta</span><b>{{kod}}</b></div>{{/kod}}</div></div>
+<div class="k3"><div class="pr"><small>Cena za 1 szt. brutto</small><div class="b">{{cena_szt}}</div><div class="n">netto {{cena_szt_netto}}</div><div class="t"><small>{{^komplet}}Razem{{/komplet}}{{#komplet}}Komplet{{/komplet}}</small><div class="b">{{brutto}}</div><div class="n" style="margin:2px 0 0">netto {{netto}}</div></div></div></div>
+</div>
+<h2>Kalkulacja</h2>
+<table class="kal"><tr><th>Pozycja</th><th class="c">Ilość</th><th class="r">Cena brutto</th><th class="r">Wartość brutto</th></tr>
+{{#pozycje}}<tr class="p"><td>{{nazwa}}{{#opis}}<small>{{opis}}</small>{{/opis}}{{#ind}}<small>{{ind}}</small>{{/ind}}</td><td class="c">{{ilosc}}</td><td class="r">{{cena}}</td><td class="r">{{wartosc}}</td></tr>{{/pozycje}}
+<tr class="s"><td colspan="3">Razem netto</td><td class="r">{{netto}}</td></tr><tr class="s"><td colspan="3">VAT {{vat_proc}}%</td><td class="r">{{vat}}</td></tr>
+<tr class="sum"><td colspan="3">DO ZAPŁATY BRUTTO</td><td class="r">{{brutto}}</td></tr></table>
+{{#uwagi}}<div class="war"><b>Uwagi:</b> {{uwagi}}</div>{{/uwagi}}
+<div class="war">Oferta ważna do {{wazna}} lub do wyczerpania zapasów. Ceny zawierają VAT {{vat_proc}}%. Termin montażu do uzgodnienia telefonicznie.</div>
+<div class="cta"><div><b>Zarezerwuj termin montażu</b><br><span>Zadzwoń – dobierzemy dogodną godzinę</span></div><div class="tels"><div class="tel">☎ {{o_tel}}</div>{{#o_kom}}<div class="kom">📱 {{t}}</div>{{/o_kom}}</div></div>
+<div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}}</span></div>
+</div></body></html>
