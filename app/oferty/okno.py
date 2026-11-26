@@ -452,6 +452,13 @@ const me=await fetch(A+'auth/me',{credentials:'include'}).catch(()=>null);if(!me
 const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch(A+'xpartner-product-images/'+id,{credentials:'include'});
 const j=r.ok?await r.json():null;out[id]=[...new Set(((j&&j.data)||[]).map(x=>x.url).filter(u=>/^https:\\/\\/xpartner\\.net\\.pl\\/descriptionFiles\\//.test(u)))]}catch(e){}}}
 await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out})})().then(x=>{window.__zdj=x},e=>{window.__zdj=JSON.stringify({blad:String(e)})});1"""
+XPARTNER_LISTA = "https://xpartner.net.pl/index.php?a=b2b_products"
+# Karta produktu xPartner (gdy konfigurator nie ma zdjęć): adresy obrazków descriptionFiles z HTML karty, bez rozmiaru miniatury.
+KARTA_JS = """window.__zdj2=null;(async()=>{if(location.hostname!=='xpartner.net.pl')return JSON.stringify({zdjecia:{}});
+const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch('/index.php?a=b2b_products&m=productCart&pid='+id,{credentials:'include'});
+const t=await r.text();const u=[...t.matchAll(/descriptionFiles\\/images\\/(\\d+)\\/(?:\\d+x\\d+c?\\/)?([0-9a-f]{40}\\.(?:jpe?g|png|webp))/gi)].map(m=>'https://xpartner.net.pl/descriptionFiles/images/'+m[1]+'/'+m[2]);
+out[id]=[...new Set(u)]}catch(e){}}}
+await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out})})().then(x=>{window.__zdj2=x},e=>{window.__zdj2=JSON.stringify({zdjecia:{}})});1"""
 # pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
 
 
@@ -461,6 +468,8 @@ class Api:
         self._kw = None
         self._kw_gotowe = threading.Event()
         self._kw_lock = threading.Lock()
+        self._kw2 = None
+        self._kw2_gotowe = threading.Event()
 
     def _zdjecia(self, ids):
         """{id: [adresy zdjęć]} dla felg. Pierwszy raz otwiera ukryte okno konfiguratora xPartner; gdy xPartner
@@ -494,6 +503,12 @@ class Api:
             except ValueError:
                 d = {}
             if d.get("zdjecia") is not None:
+                brak = [i for i in ids if not d["zdjecia"].get(str(i))]
+                if brak:   # konfigurator nie ma zdjęć części felg – są na karcie produktu w xPartner
+                    try:
+                        d["zdjecia"].update(self._zdjecia_karta(brak))
+                    except Exception:
+                        pass
                 return d
             self._kw_gotowe.clear()
         try:
@@ -501,6 +516,32 @@ class Api:
         except Exception:
             pass
         return {"login": True}
+
+    def _zdjecia_karta(self, ids):
+        """Zdjęcia z karty produktu xPartner (ta sama sesja co konfigurator) – drugie ukryte okno na xpartner.net.pl."""
+        import webview
+        with self._kw_lock:
+            if self._kw2 is None:
+                self._kw2_gotowe.clear()
+                self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
+                self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
+                self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
+        self._kw2_gotowe.wait(25)
+        time.sleep(1)
+        w = self._kw2
+        if w is None:
+            return {}
+        w.evaluate_js(KARTA_JS % json.dumps(ids[:40]))
+        wynik = None
+        for _ in range(160):   # do ~40 s
+            time.sleep(0.25)
+            wynik = w.evaluate_js("window.__zdj2")
+            if wynik:
+                break
+        try:
+            return (json.loads(wynik) if isinstance(wynik, str) else {}).get("zdjecia") or {}
+        except ValueError:
+            return {}
 
     def call(self, path, body=None):
         from oferty import silnik
