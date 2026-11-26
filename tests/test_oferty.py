@@ -377,6 +377,22 @@ def test_wyszukiwanie_z_pliku_i_etykieta_eprel():
         S.KONTO.pop("katalog", None); S.KONTO.pop("katalog_info", None)
 
 
+def test_rozmiar_bez_c_pokazuje_tez_dostawcze():
+    """2026-11-26: „2057516” – 3 osobowe + 119 dostawczych R16C; razem, opony C z rozmiarem „R16C”. Wpisane C = tylko C."""
+    _setup()
+    def opona(i, roz):
+        return {"id": i, "nazwa": "MARKA %s MODEL 110R" % roz, "netto": 300.0, "ilosc": 50, "attrs": {"Sezon": "CAŁOROCZNA"}}
+    lista = [opona(1, "205/75 R16"), opona(2, "205/75 R16C"), opona(3, "215/75 R16C")]
+    S.KONTO.update(katalog=lambda s: list(lista), katalog_info=lambda: "z pliku", oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    try:
+        r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/75 R16", "ilosc": 4, "nowe": True}]})[1]
+        assert sorted((p["id"], p["rozmiar"]) for g in r["wyniki"]["205/75 R16"].values() for p in g) == [(1, "205/75 R16"), (2, "205/75 R16C")]
+        r = S.handle("/api/search", {"pojazdy": [{"rozmiar": "205/75 R16C", "ilosc": 4, "nowe": True}]})[1]
+        assert [p["id"] for g in r["wyniki"]["205/75 R16C"].values() for p in g] == [2]
+    finally:
+        S.KONTO.pop("katalog", None); S.KONTO.pop("katalog_info", None)
+
+
 def _test_pdf_z_pliku(api):
     assert S.handle("/api/offer", {"oid": "20261106_090000", "pojazdy": [{"rozmiar": "205/55 R16", "ilosc": 4, "nowe": True}],
                                    "wybor": {"205/55 R16": {"x": [270722]}}})[0] == 200
@@ -477,7 +493,7 @@ def test_porownanie_2_3_modele():
 
 
 def test_szukaj_pokazuje_zbyt_maly_stan_z_ostrzezeniem():
-    """Potrzeba 2 szt. -> opona z 1 szt. jest widoczna (na końcu) z oznaczeniem za_malo; rozmiar C osobno."""
+    """Potrzeba 2 szt. -> opona z 1 szt. jest widoczna (na końcu) z oznaczeniem za_malo; rozmiar C razem (znaczek C)."""
     cfg = S.load_cfg()
     baza = [{"id": i, "nazwa": "MARKA%d 225/45 R17 MODEL 91W" % i, "netto": 300 + i, "ilosc": il, "attrs": {"Sezon": "Letnia"}}
             for i, il in ((1, 1), (2, 2), (3, 30))] + [{"id": 4, "nazwa": "MARKA 225/45 R17C MODEL 104T", "netto": 200, "ilosc": 9, "attrs": {"Sezon": "Letnia"}}]
@@ -488,8 +504,8 @@ def test_szukaj_pokazuje_zbyt_maly_stan_z_ostrzezeniem():
     finally:
         S.search_size = stare
     lst = list(r["wyniki"]["225/45 R17"].values())[0]
-    assert [p["id"] for p in lst][-1] == 1 and sorted(p["id"] for p in lst) == [1, 2, 3]   # bez dostawczej R17C
-    assert [p["za_malo"] for p in sorted(lst, key=lambda p: p["id"])] == [True, False, False]
+    assert [p["id"] for p in lst][-1] == 1 and sorted(p["id"] for p in lst) == [1, 2, 3, 4]   # z dostawczą R17C (2026-11-26)
+    assert [p["za_malo"] for p in sorted(lst, key=lambda p: p["id"])] == [True, False, False, False]
     assert S.norm_size("2254517c") == "225/45 R17C" and S.norm_size("225/45 17C") == "225/45 R17C"
 
 

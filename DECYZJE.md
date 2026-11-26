@@ -36,6 +36,7 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Niepełny rozmiar („20555”, „R20”, sama marka/sezon) szukany w kopii pliku xPartner. (2026-11-17)
 - Handlowcy z jednego oddziału widzą i współdzielą oferty (wariant „b”). (2026-11-17)
 - PDF do schowka + WhatsApp. (2026-11-18)
+- Rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C), opony C ze znaczkiem „C”. (2026-11-26)
 - Czujniki TPMS (zakładka 📡): samo wyszukiwanie i koszyk, bez ofert. (2026-11-17)
 
 ## Koszyk i ZAMÓWIENIA xPartner

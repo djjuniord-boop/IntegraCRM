@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.8"
+VERSION = "1.2.9"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.9",
+        "date": "2026-11-26",
+        "changes": [
+            "Oferty: rozmiar wpisany bez „C” (np. 2057516) pokazuje też opony dostawcze tego rozmiaru (205/75 R16C) – oznaczone niebieskim znaczkiem „C” przy nośności; wpisanie „C” (2057516c) dalej pokazuje tylko dostawcze",
+        ],
+    },
     {
         "version": "1.2.8",
         "date": "2026-11-25",
