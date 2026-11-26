@@ -662,12 +662,14 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
 
 // ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
 let TL=[],TQ={ilosc:4},TROD={};
-let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false;
+let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false,FZDJ_PON=false;
 try{FZDJ=JSON.parse(localStorage.getItem('felgi_zdjecia2')||'{}')||{};localStorage.removeItem('felgi_zdjecia')}catch(e){FZDJ={}}   // felgi_zdjecia2: puste wyniki nie są zapamiętywane na stałe
-async function fZdjecia(wymus){const L=fFiltr().slice(0,FPOK).filter(f=>wymus||!(f.id in FZDJ)).map(f=>f.id).slice(0,80);if(!L.length||FZDJ_TRWA)return;FZDJ_TRWA=true;
- try{const r=await api('/api/felgi_zdjecia',{ids:L});if(r.login){msg('#fMsg','Zdjęcia felg: zaloguj się do xPartner w okienku, które się otworzyło (tylko raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);return}
-  for(const[k,v]of Object.entries(r.zdjecia||{}))FZDJ[k]=v;try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia2',JSON.stringify(Object.fromEntries(Object.entries(FZDJ).filter(([,v])=>v&&v.length))))}catch(e){}
-  fRender(true);if(FW)fWybierz(FW.id,true)}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
+async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true;const zrob=new Set();
+ try{while(true){FZDJ_PON=false;const L=fFiltr().slice(0,FPOK).map(f=>f.id).filter(id=>!zrob.has(id)&&(wymus||!(id in FZDJ))).slice(0,30);   // po 30 – wszystkie widoczne felgi, kolejno
+  if(!L.length){if(FZDJ_PON)continue;break}L.forEach(id=>zrob.add(id));
+  const r=await api('/api/felgi_zdjecia',{ids:L});if(r.login){msg('#fMsg','Zdjęcia felg: zaloguj się do xPartner w okienku, które się otworzyło (tylko raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);return}
+  for(const id of L)FZDJ[id]=(r.zdjecia||{})[id]||[];try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia2',JSON.stringify(Object.fromEntries(Object.entries(FZDJ).filter(([,v])=>v&&v.length))))}catch(e){}
+  fRender(true);if(FW)fWybierz(FW.id,true)}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
 const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
 async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fMarza').textContent=r.marza;FPOK=200;
