@@ -19,7 +19,17 @@ def test_okna_ofert_bez_bledow_js():
            "oddzialy_dane": {"Latex Wrocław": {"nazwa": "Latex", "adres": "x", "tel": "1"}}, "ceny_oddzial": "Latex Wrocław",
            "ceny_edycja": False}
     odp = {"/api/cfg": cfg, "/api/history": {"lista": [], "admin": True, "me": "a@b.pl"}, "/api/koszyk/adresy": {"adresy": []},
-           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""}}
+           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""},
+           "/api/felgi_oferta": {"propozycje": [{"nr": 1, "pozycje": [{"k": "felga", "nazwa": "Felga X", "opis": "alu", "q": 4, "c": 523, "w": 2092}], "razem": 2092, "blad": ""},
+                                                {"nr": 2, "pozycje": [{"k": "felga", "nazwa": "Felga Y", "q": 4, "c": 400, "w": 1600}], "razem": 1600, "blad": 'Felga 2 ma 17", opony są R18 – nie pasują.'},
+                                                {"nr": 3, "pozycje": [{"k": "felga", "nazwa": "Felga Z", "q": 4, "c": 400, "w": 1600}], "razem": 1600, "blad": "", "ostrz": "Felga 3 ma 16\""}],
+                                 "edycja": [{"id": 231798, "k": "felga", "nr": 1, "nazwa": "Felga X", "zakup": 462, "auto": 523, "cena": 523, "recznie": False}],
+                                 "wymiany": [{"klucz": "R17|osobowy", "opis": "Montaż R17", "cennik": 50, "auto": 50, "cena": 50, "recznie": False}], "uwagi": []},
+           "/api/felgi_pdf": {"plik": "x.pdf"},
+           "/api/felgi_zdjecia": {"zdjecia": {"231798": ["https://xpartner.net.pl/descriptionFiles/images/1/abc.jpg"]}},
+           "/api/felgi": {"lista": [{"id": 231798, "nazwa": "DIEWE NEVE 7X17 5X112 ET46/57.1", "szer": "7", "sred": "17", "pcd": "5x112", "et": "46",
+                                     "otwor": "57.1", "rodzaj": "aluminiowa", "producent": "DIEWE", "model": "NEVE", "kod": "N", "demo": False,
+                                     "stan": 4, "brutto_zak": 462.14, "cena": 523, "foto": "", "marki": []}], "q": {"ilosc": 4}, "marza": 13, "zrodlo": ""}}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
             "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
     html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
@@ -33,8 +43,16 @@ def test_okna_ofert_bez_bledow_js():
             pg.on("pageerror", lambda e: bledy.append(str(e)))
             pg.goto(p.as_uri())
             pg.wait_for_timeout(600)
-            for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
-                       "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')", "widok('o')"):
+            for js in ("openCfg()", "saveCfg()", "openCfg()", "cTab(document.querySelector('.ctabs button[data-t=fe]'))",
+                       "document.querySelector('input[name=ftryb][value=kwota]').checked=true;drawFProgi()", "FPROGI.push({do:null,kwota:50});drawFProgi()",
+                       "document.querySelector('input[name=ntryb][value=kwota]').checked=true;drawProgi()",
+                       "cTab(document.querySelector('.ctabs button[data-t=pdf]'))", "cTab(document.querySelector('.ctabs button[data-t=ko]'))",
+                       "cTab(document.querySelector('.ctabs button[data-t=og]'))", "saveCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
+                       "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')",
+                       "widok('f')", "fSzukaj()", "fRender()", "fWybierz(231798)", "fLicz()", "fUst('mon',true)", "fUst('rf','10')", "fSetC(231798,'600')", "fSetW('R17|osobowy','40')",
+                       "fWybierzCzujniki()", "tSzukaj()", "fDodajCzujnik(1)", "fWybierzOpony()", "fKompletKoniec()", "fZdjecia(true)",
+                       "fPdf(document.querySelector('#fUl .ulk:not([disabled])'),0)", "fPdf(document.createElement('button'),-1)", "fZapiszUw()",
+                       "fZHist({felgi_dane:[{id:5,nazwa:'GMP',sred:'18'}],ilosc:4,rabat:{f:'5'},typ_oferty:'felgi'},{oid:'x',owner:''})", "fUsun(5)", "fWybierz(231798)", "fWyczysc()", "widok('o')"):
                 try:
                     pg.evaluate(js)
                 except Exception as e:
@@ -307,6 +325,51 @@ def test_bydgoszcz_48h_w_koszyku_i_zamowieniach():
         p.unlink()
 
 
+def test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf():
+    """Recenzja 1.2.21: wpis felg w Historii z podrobionymi danymi nie wykonuje skryptu; zmiana oferty kasuje PDF do WhatsApp."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    zly = '<img src=x onerror="window.__XSS=1">'
+    rec = {"typ_oferty": "felgi", "felgi_dane": [{"id": zly, "nazwa": zly, "stan": zly, "kod": zly}, {"id": 7, "nazwa": "OK", "stan": 4}],
+           "opona": {"id": zly, "nazwa": zly}, "czujnik": {"id": 3, "nazwa": zly, "kod": zly}, "ilosc": 4, "rabat": {"f": zly}, "klient": zly}
+    odp = {"/api/cfg": {"oddzialy": ["Latex Wrocław"], "zamawianie": True, "admin": False, "felgi_max": 3},
+           "/api/history?id": rec, "/api/history": {"lista": [{"id": 5, "oid": "x", "owner": "", "typ": "felgi", "warianty": [], "kto": "a", "klient": zly, "pojazdy": ""}], "admin": False, "me": ""},
+           "/api/felgi_oferta": {"propozycje": [{"nr": 1, "pozycje": [{"k": "felga", "nazwa": zly, "q": 4, "c": 1, "w": 4}], "razem": 4, "blad": ""}],
+                                 "edycja": [{"id": zly, "k": "felga", "nr": 1, "nazwa": zly, "zakup": 1, "auto": 1, "cena": 1, "recznie": True}], "wymiany": [], "uwagi": []}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js2.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            bledy = []
+            pg.on("pageerror", lambda e: bledy.append(str(e)))
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(500)
+            pg.evaluate("openHist()")
+            pg.wait_for_timeout(300)
+            pg.evaluate("restoreHist(5)")
+            pg.wait_for_timeout(800)
+            assert pg.evaluate("window.__XSS") is None, "XSS z Historii ofert felg"
+            assert pg.evaluate("FWS.length") == 1 and pg.evaluate("FOP") is None
+            pg.evaluate("FPDF='stary.pdf';fUst('il','3')")
+            pg.wait_for_timeout(600)
+            assert pg.evaluate("FPDF") == ""
+            pg.evaluate("FPDF='stary.pdf';FOP=null;fWybrane();fLicz()")
+            pg.wait_for_timeout(400)
+            assert pg.evaluate("FPDF") == "" and pg.evaluate("window.__XSS") is None
+            b.close()
+    finally:
+        p.unlink()
+    assert not bledy, bledy
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
@@ -314,4 +377,6 @@ if __name__ == "__main__":
     test_pamiec_pol_numery_uwagi()
     test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu()
     test_bydgoszcz_48h_w_koszyku_i_zamowieniach()
+    test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf()
     print("Okna Ofert bez błędów JS")
+

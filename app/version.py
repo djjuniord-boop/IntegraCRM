@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.9"
-RELEASED = "2026-11-25"
+VERSION = "1.2.21"
+RELEASED = "2026-11-26"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,94 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.21",
+        "date": "2026-11-26",
+        "changes": ["Ustawienia ofert w zakładkach: Ogólne, Oferty opon, Felgi, Koszyk i zamówienia, PDF i oddziały – więcej rzeczy ustawisz sam w programie",
+                    "Felgi: własne ustawienia cen (we Wrocławiu ustawia administrator) – marża % albo stała kwota wg progów, osobna marża na czujniki TPMS, zaokrąglanie, najwyższy rabat; montaż, TPMS i przechowalnia z cennika ofert opon",
+                    "Felgi: w ustawieniach – ile felg w ofercie, co robić przy złej średnicy opon (blokada albo ostrzeżenie), domyślny montaż i rodzaj auta, ukrywanie felg DEMO, kafelków na stronę",
+                    "Opony: zaokrąglanie ceny do 1, 5 albo 10 zł, najwyższe rabaty, liczba wyników na stronę, edycja wszystkich klas marek (premium, średnia, budżetowa)",
+                    "PDF: własne teksty dla każdego oddziału (warunki oferty, napisy w ramce kontaktu i w porównaniach)",
+                    "Koszyk: bezpiecznik – najwięcej sztuk jednej pozycji w koszyku (we Wrocławiu ustawia administrator)",
+                    "Felgi: oferta trafia do Historii dopiero po PDF, WhatsApp albo uwagach (nie po samym kliknięciu felgi); ceny opon i czujników zawsze prosto z xPartner"],
+    },
+    {
+        "version": "1.2.20",
+        "date": "2026-11-26",
+        "changes": ["Felgi: oferta wygląda i działa jak oferta opon – rabaty (felgi, opony, montaż), własne ceny, ilości i usługi, uwagi, Zamów w xPartner, WhatsApp, zapis w Historii ofert (znaczek „felgi”)",
+                    "Felgi: do 3 felg w jednej ofercie – każda to osobna propozycja z własnym PDF, plus PDF „porównanie” (wszystkie felgi na jednej stronie, klient wybiera)",
+                    "Felgi: gdy opony mają inną średnicę niż felga – czerwony komunikat i blokada PDF tej propozycji"],
+    },
+    {
+        "version": "1.2.19",
+        "date": "2026-11-26",
+        "changes": ["Felgi: zdjęcie felgi pojawia się w ofercie PDF (wcześniej puste pole)"],
+    },
+    {
+        "version": "1.2.18",
+        "date": "2026-11-26",
+        "changes": ["Felgi: nowa oferta PDF w układzie jak oferta opon – duże zdjęcie felgi (i miniatury pozostałych zdjęć), parametry (rozmiar, rozstaw, ET, otwór, indeks, kod producenta), cena za sztukę i za komplet, kalkulacja z netto i VAT, numer oferty i termin ważności"],
+    },
+    {
+        "version": "1.2.17",
+        "date": "2026-11-26",
+        "changes": ["Felgi: informacja diagnostyczna o pobieraniu zdjęć z kart produktów xPartner (pod wynikami)"],
+    },
+    {
+        "version": "1.2.16",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: indeks xPartner i kod producenta w wynikach, w ofercie i w PDF (także przy oponach i czujnikach w komplecie)",
+            "Felgi – komplet: opony i czujniki TPMS wybiera się w pełnych zakładkach Opony / Czujniki TPMS (przycisk „➕ do felg”), jak przy zwykłym szukaniu",
+            "Felgi: poprawiony wygląd pola „Montaż i depozyt”; wyniki pokazują się po 20; lista producentów obejmuje wszystkie znalezione felgi (np. GMP przy 5x112)",
+            "Felgi: „stal”, „stalówki”, „alu”, „alufelgi” działają w szybkim poleceniu; marka auta szukana też w modelu felgi",
+            "Felgi – zdjęcia: gdy strona xPartner wymaga zalogowania, program pokazuje okienko logowania zamiast cicho pomijać zdjęcia",
+        ],
+    },
+    {
+        "version": "1.2.15",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: zdjęcia pobierają się dla wszystkich felg na liście (wcześniej tylko dla pierwszych 80)",
+        ],
+    },
+    {
+        "version": "1.2.14",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: więcej zdjęć – gdy konfigurator xPartner nie ma zdjęcia, program bierze je z karty produktu w xPartner; ikona zostaje tylko przy felgach bez żadnego zdjęcia w xPartner",
+        ],
+    },
+    {
+        "version": "1.2.13",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: naprawione pobieranie zdjęć z xPartner (zdjęcia się nie pokazywały, a program niepotrzebnie otwierał okienko logowania)",
+        ],
+    },
+    {
+        "version": "1.2.12",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: zdjęcia z konfiguratora xPartner w wynikach, w ofercie i w PDF dla klienta; za pierwszym razem program może poprosić o zalogowanie do xPartner w osobnym okienku (raz – potem pamięta)",
+        ],
+    },
+    {
+        "version": "1.2.11",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: wpisana marka auta (np. „vw”) jest na początku wyników, felgi marek pokrewnych (Audi, Skoda, Seat) dopiero po nich",
+        ],
+    },
+    {
+        "version": "1.2.10",
+        "date": "2026-11-26",
+        "changes": [
+            "Oferty: nowa zakładka „⚙️ Felgi” – szukanie felg z oferty xPartner po rozstawie, średnicy, ET, otworze, marce auta albo felgi; wyniki jako kafelki",
+            "Oferta na same felgi albo komplet: felgi + opony z oferty opon + czujniki TPMS + montaż + depozyt, z ofertą PDF i dodaniem do koszyka xPartner",
+            "Ustawienia: marża na felgi (domyślnie 13%), we Wrocławiu ustala administrator",
+        ],
+    },
     {
         "version": "1.2.9",
         "date": "2026-11-26",

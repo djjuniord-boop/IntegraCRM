@@ -24,7 +24,7 @@ WZOR_OPIS = re.compile(r"^[a-zA-Z0-9 \-/]*$")
 LIMITY_ADRESU = {"name": (1, 76), "street": (1, 35), "zipCode": (1, 6), "city": (1, 25), "country": (2, 2),
                  "vatin": (0, 13), "email": (0, 40), "phone": (0, 25), "receivingPerson": (0, 76)}
 PL = str.maketrans("ąćęłńóśźżĄĆĘŁŃÓŚŹŻäöüÄÖÜéÉ", "acelnoszzACELNOSZZaouAOUeE")
-MAX_SZT = 200   # bezpiecznik: więcej sztuk jednej opony w koszyku = pomyłka w ilości
+MAX_SZT = 200   # bezpiecznik (domyślny; Ustawienia → Koszyk „koszyk_max_szt”): więcej sztuk jednej opony = pomyłka w ilości
 CZESC_SZT = 50  # tyle sztuk jednej opony w jednym zamówieniu (jak na stronie xPartner) – więcej = kolejne części
 
 
@@ -75,6 +75,7 @@ def adresy(cfg, oddzialy=None):
 # ---------------------------------------------------------------- odświeżenie cen i stanów (getProduct)
 def odswiez(cfg, pozycje, get_product):
     """[{id, ilosc}] -> aktualne dane z xPartner (cena zakupu, stan, magazyny); ok=False gdy za mało lub brak."""
+    mx = int((cfg or {}).get("koszyk_max_szt") or MAX_SZT)
     def jeden(x):
         pid, il = int(x["id"]), int(x.get("ilosc") or 0)
         try:
@@ -88,8 +89,8 @@ def odswiez(cfg, pozycje, get_product):
         obc = any(v >= 50 for v in mag.values()) or (not mag and int(p.get("ilosc") or 0) >= 50)   # „50+” – prawdziwa ilość nieznana
         return {"id": pid, "ilosc": il, "nazwa": p.get("nazwa", ""), "netto": round(float(p["netto"]), 2),
                 "brutto": round(float(p.get("brutto_zak") or p["netto"] * 1.23), 2), "netto_kat": round(float(p.get("netto_kat") or 0), 2),
-                "stan": stan, "magazyny": mag, "obciete": obc, "ok": 1 <= il <= MAX_SZT and (il <= stan or obc),
-                "blad": "Maks. %d szt. jednej pozycji" % MAX_SZT if il > MAX_SZT else ("" if il <= stan or obc else "W xPartner jest tylko %d szt." % stan)}
+                "stan": stan, "magazyny": mag, "obciete": obc, "ok": 1 <= il <= mx and (il <= stan or obc),
+                "blad": "Maks. %d szt. jednej pozycji" % mx if il > mx else ("" if il <= stan or obc else "W xPartner jest tylko %d szt." % stan)}
     with ThreadPoolExecutor(6) as ex:
         return list(ex.map(jeden, pozycje))
 
@@ -118,14 +119,14 @@ def sprawdz_adres(a):
     return out
 
 
-def order_xml(d):
+def order_xml(d, mx=MAX_SZT):
     """Dane z koszyka -> XML metody order (kolejność i nazwy jak w przykładzie dokumentacji)."""
     rid, did = int(d.get("recipientId") or 0), int(d.get("deliveryPlaceId") or 0)
     if rid < 1 or did < 1:
         raise Blad("Wybierz adres dostawy.")
     poz = [(int(p["id"]), int(p["ilosc"])) for p in d.get("pozycje") or []]
-    if not poz or any(pid < 1 or not 1 <= il <= MAX_SZT for pid, il in poz):
-        raise Blad("Koszyk jest pusty albo ma złą ilość (1–%d szt. jednej pozycji)." % MAX_SZT)
+    if not poz or any(pid < 1 or not 1 <= il <= mx for pid, il in poz):
+        raise Blad("Koszyk jest pusty albo ma złą ilość (1–%d szt. jednej pozycji)." % mx)
     comment = re.sub(r"\s+", " ", str(d.get("uwagi") or "")).strip()
     if len(comment) > 255:
         raise Blad("Uwagi są za długie (maks. 255 znaków).")

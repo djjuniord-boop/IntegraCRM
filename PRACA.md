@@ -7,4 +7,3 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| | | | |

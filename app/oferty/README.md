@@ -110,3 +110,21 @@ wyszukiwanie opon ogranicza się do `Asortyment=OPONY` (`okno.TYLKO_OPONY`).
 Kto zamówił (2026-11-18): `zamowienia.dopisz_kto` – numer zamówienia -> osoba z Dziennika zmian (funkcja w bazie
 `zamowienia_kto`, `supabase/zamowienia_kto_2026-11-18.sql`; tylko oddział jak przy ofertach – `oferty_wspolna`). Bez funkcji
 w bazie (`kto_ok=false`) okno działa jak dawniej, bez znaczków i filtra osób.
+
+## Felgi (`felgi.py`, zakładka „⚙️ Felgi”) – od 1.2.10
+Felgi z kopii pliku xPartner (asortyment FELGA: Rozstaw śrub, ET, Otwór centralny, Szerokość, Średnica, Typ, Model).
+`/api/felgi` (szukanie, cena = zakup netto + `marza_felgi` + VAT), `/api/felgi_oferta` (`silnik.felgi_licz`: `felgi` = do 3
+indeksów = propozycje; wspólne: opona z oferty opon z marżą opon, czujnik TPMS z marżą felg, „Koła z TPMS” `il_tp` = obsługa
+TPMS (+ tyle czujników), montaż wg cennika wymiany, depozyt wg cennika przechowalni; `rabat` {f,o,m}, `ceny` {indeks: zł},
+`ceny_wym` {"R18|osobowy": zł} jak w oponach; felga spoza ostatniego wyszukiwania – z kopii pliku (oferta z Historii);
+opona o innej średnicy = `blad` propozycji; zapis w Historii po `oid`, `typ_oferty: "felgi"`), `/api/felgi_pdf` (`nr` –
+PDF jednej propozycji `pdf_felgi.html`; `porownanie` – `pdf_felgi_porownanie.html`, 2–3 felgi na stronie; błąd = odmowa). Zdjęcia (1.2.12): `okno.Api._zdjecia` – ukryte okno konfiguratora xPartner (ta sama domena co `konfigurator-api…/xpartner-product-images/<indeks>`, ciasteczko logowania xPartner w profilu WebView2); serwery xPartner blokują zapytania spoza przeglądarki (także z Supabase). Brak sesji → okno się pokazuje, użytkownik loguje się sam. Adresy zdjęć w `localStorage` (`felgi_zdjecia`); do PDF tylko adresy `xpartner.net.pl/descriptionFiles/…`.
+
+## Ustawienia w zakładkach (od 1.2.21)
+Okno Ustawień (`index.html`: `.ctabs` / `.cpane`, `openCfg` / `saveCfg`). Nowe klucze w `silnik.DEFAULT_CFG` (zakresy pilnuje
+`_normuj_cfg` przy każdym `load_cfg` – zły zapis w bazie nie psuje cen); ceny i reguły w `CENY_WSPOLNE` (Wrocław – admin).
+Ceny: `sell_price` (opony, `zaokr_opony`), `cena_felgi` (felgi: `felgi_tryb` procent/kwota + `felgi_progi`, `zaokr_felgi`),
+`cena_czujnika` (`marza_czujniki`). Felgi w ofercie zawsze przeliczane od zakupu netto wg bieżących ustawień.
+Teksty PDF oddziału (`app_config.oddzialy`: `warunki`, `cta_t`, `cta_p`, `por_t`, `por_p`) – `silnik.teksty_pdf` podmienia je
+po wypełnieniu wzoru, więc wzory (i ich kopia w telefonie `mobile/www/pdf_wzor.js`) zostają bez zmian.
+Koszyk: `koszyk_max_szt` (bezpiecznik ilości); podział zamówienia po 50 szt. to wymóg xPartner – stała `CZESC_SZT`.

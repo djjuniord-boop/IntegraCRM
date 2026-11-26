@@ -1,0 +1,38 @@
+<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>{{nr}}</title>
+<!-- PDF „Porównanie felg” – 2–3 felgi obok siebie na jednej stronie, klient wybiera numer propozycji.
+     Wspólne elementy kompletu (opony, montaż, TPMS, przechowalnia) raz na górze i w cenie każdej kolumny (decyzja właściciela 2026-11-26). -->
+<style>
+@page{size:A4;margin:0}*{box-sizing:border-box}
+body{margin:0;font:9.5pt/1.4 "Segoe UI",Roboto,Arial,sans-serif;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.page{width:210mm;height:296mm;padding:12mm 13mm 11mm;position:relative;overflow:hidden}
+.band{margin:-12mm -13mm 0;padding:7mm 13mm 4mm;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #E30613}
+.band img{height:36px;display:block}.firma{text-align:right;font-size:8pt;color:#555;line-height:1.4}.firma b{color:#141414;font-size:9.5pt}
+.meta{display:flex;gap:8px;margin:9px 0 6px}.meta div{flex:1;border:1px solid #ddd;border-radius:6px;padding:5px 9px;font-size:8.5pt}.meta small{display:block;color:#888;font-size:7pt}
+h1{font-size:15pt;margin:6px 0 2px;color:#141414}.sub{color:#666;font-size:9pt;margin-bottom:6px}
+.wsp{background:#f4f4f5;border-radius:8px;padding:6px 10px;margin-bottom:8px;font-size:8.7pt}.wsp b{color:#141414}
+.cols{display:flex;gap:4mm}.col{flex:1;border:1px solid #ddd;border-top:4px solid #E30613;border-radius:10px;padding:8px 9px;display:flex;flex-direction:column;min-width:0}
+.lv{display:inline-block;font-size:7.5pt;font-weight:800;letter-spacing:.06em;color:#fff;background:#E30613;border-radius:9px;padding:2px 8px;align-self:flex-start}
+.nm{font-size:10.5pt;font-weight:800;color:#141414;margin:5px 0 2px;line-height:1.2;min-height:3.7em}
+.fbig{width:100%;height:56mm;object-fit:contain;background:#f6f6f6;border-radius:8px;display:block;margin:3px 0 5px}
+.fbrak{height:56mm;border-radius:8px;background:#f6f6f6;display:flex;align-items:center;justify-content:center;color:#999;font-size:8.5pt;margin:3px 0 5px}
+.par{font-size:8.3pt}.par div{display:flex;justify-content:space-between;gap:6px;border-bottom:1px solid #eee;padding:2px 0}.par span{color:#888}.par b{text-align:right}
+.kal{font-size:8.3pt;margin-top:6px}.kal div{display:flex;justify-content:space-between;gap:6px;padding:2px 0;border-bottom:1px solid #f2f2f2}.kal b{white-space:nowrap}
+.ce{margin-top:auto;padding-top:8px;text-align:right}.ce small{display:block;color:#777;font-size:7pt;text-transform:uppercase}
+.ce .s{font-size:13pt;font-weight:800;color:#141414}.ce .k{font-size:17pt;font-weight:800;color:#E30613;line-height:1.15}.ce .n{font-size:8pt;color:#666}
+.cta{margin-top:10px;display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;border-radius:10px;padding:9px 15px;border-left:6px solid #E30613}
+.cta b{font-size:11pt}.cta span{color:#666;font-size:8.5pt}.tel{font-size:17pt;font-weight:800;color:#E30613;text-align:right}.kom{font-size:11pt;font-weight:700;color:#141414;text-align:right}
+.foot{position:absolute;left:13mm;right:13mm;bottom:8mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
+</style></head><body><div class="page">
+<div class="band"><img src="{{{logo}}}" alt="Latex"><div class="firma"><b>{{o_nazwa}}</b><br>{{o_adres}}<br>tel. {{o_tel}}<br>{{o_www}}</div></div>
+<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
+<h1>{{tytul_h}} – {{ile}} propozycje do wyboru</h1>
+<div class="sub">Wybierz jedną propozycję{{#komplet}} – pozostałe elementy kompletu są takie same{{/komplet}}. Ceny brutto z VAT {{vat_proc}}%.</div>
+{{#wsp_txt}}<div class="wsp"><b>W każdej propozycji, oprócz felg:</b> {{wsp_txt}}</div>{{/wsp_txt}}
+<div class="cols">{{#kolumny}}<div class="col"><span class="lv">PROPOZYCJA {{nr}}</span><div class="nm">{{tytul}}</div>
+{{#foto}}<img class="fbig" src="{{foto}}" alt="">{{/foto}}{{^foto}}<div class="fbrak">brak zdjęcia w xPartner</div>{{/foto}}
+<div class="par"><div><span>Producent</span><b>{{producent}}</b></div>{{#model}}<div><span>Model</span><b>{{model}}</b></div>{{/model}}<div><span>Rozmiar</span><b>{{rozmiar}}</b></div>{{#pcd}}<div><span>Rozstaw śrub</span><b>{{pcd}}</b></div>{{/pcd}}{{#et}}<div><span>ET</span><b>{{et}}</b></div>{{/et}}{{#otwor}}<div><span>Otwór</span><b>{{otwor}} mm</b></div>{{/otwor}}<div><span>Indeks xPartner</span><b>{{xp_id}}</b></div>{{#kod}}<div><span>Kod producenta</span><b>{{kod}}</b></div>{{/kod}}</div>
+<div class="kal">{{#linie}}<div><span>{{t}}</span><b>{{w}}</b></div>{{/linie}}</div>
+<div class="ce"><small>felga 1 szt. brutto</small><div class="s">{{cena_szt}}</div><small style="margin-top:4px">{{#komplet}}komplet{{/komplet}}{{^komplet}}razem{{/komplet}}</small><div class="k">{{brutto}}</div><div class="n">netto {{netto}}</div></div></div>{{/kolumny}}</div>
+<div class="cta"><div><b>Którą propozycję wybierasz?</b><br><span>Zadzwoń albo odpisz numer propozycji – zamówimy i umówimy montaż</span></div><div><div class="tel">☎ {{o_tel}}</div>{{#o_kom}}<div class="kom">📱 {{t}}</div>{{/o_kom}}</div></div>
+<div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}} lub do wyczerpania zapasów</span></div>
+</div></body></html>

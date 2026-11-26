@@ -39,6 +39,34 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C), opony C ze znaczkiem „C”. (2026-11-26)
 - Czujniki TPMS (zakładka 📡): samo wyszukiwanie i koszyk, bez ofert. (2026-11-17)
 
+## USTAWIENIA OFERT (2026-11-26)
+- Okno Ustawień w zakładkach: Ogólne · Oferty opon · Felgi · Koszyk i zamówienia · PDF i oddziały. **Co się da – ustawiane
+  w programie, nie w kodzie.** Ceny i reguły (marże, progi, zaokrąglanie, limity rabatów, limit felg, reguła średnicy,
+  bezpiecznik koszyka) – w oddziale ze wspólnymi cenami (Latex Wrocław) zmienia administrator; w pozostałych oddziałach
+  każdy u siebie (jak dotąd marża opon). Wygoda (stan, ilość wyników, DEMO, domyślne) – osobiste.
+- Oferta felg trafia do Historii dopiero po PDF / WhatsApp / uwagach; opony i czujniki w ofercie felg zawsze z ceną z xPartner.
+- Zapis ustawień osobistych w bazie scala (nie zastępuje) – stary telefon nie kasuje nowych ustawień z Panelu.
+- Felgi mają **własne ustawienia cen** (marża % albo progi kwotowe, **osobna marża na czujniki TPMS**, zaokrąglanie, rabat
+  max) – **bez własnego cennika usług**: montaż, TPMS i przechowalnia z cennika „Oferty opon”.
+- Zaokrąglanie ceny (1 / 5 / 10 zł) – dla opon i dla felg (każde osobno).
+- **Teksty PDF osobno dla każdego oddziału** (warunki, napisy w ramce kontaktu, napisy w porównaniach) – admin; puste = domyślne.
+- Aplikacja Android nie dostaje tych ustawień (decyzja: wydanie bez telefonu) – przy zaokrągleniu innym niż 1 zł albo
+  własnych tekstach PDF ceny / PDF w telefonie mogą się różnić od Panelu.
+
+## OFERTY NA FELGI (decyzje 2026-11-26)
+- Nowa część OFERT: felgi z pliku oferty xPartner (asortyment FELGA), **zdjęcia z usługi zdjęć xPartner po indeksie**
+  (`konfigurator-api.xpartner.net.pl/xpartner-product-images/<indeks>`) – właściciel ma zgodę xPartner.
+- **Marża na felgi 13%**, ustawia tylko administrator (jak marża opon).
+- Oferta na **same felgi albo komplet**: felgi + opony (z naszej oferty opon) + czujniki TPMS (jako część, z xPartner)
+  + montaż + depozyt (przechowalnia).
+- Wyniki jako **kafelki ze zdjęciem**.
+- **Bez aplikacji Android** (tylko Panel).
+- Oferta felg wygląda i działa jak oferta opon: uwagi wewnętrzne, rabat osobno na felgi / opony / montaż, własne ceny,
+  ilości i usługi, karty propozycji z sumą, PDF, „Zamów w xPartner”, folder, WhatsApp, zapis w Historii ofert ze znaczkiem
+  „felgi”. **Do 3 felg w jednej ofercie** – każda to osobna propozycja (własny PDF) + PDF „porównanie” (wszystkie na jednej
+  stronie, klient wybiera). Opony, czujniki i usługi wspólne dla wszystkich felg; opony o innej średnicy niż felga =
+  czerwony komunikat i blokada PDF tej propozycji i porównania (albo tylko ostrzeżenie – Ustawienia → Felgi). (2026-11-26)
+
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
 - Dostawa tylko na adres oddziału konta.

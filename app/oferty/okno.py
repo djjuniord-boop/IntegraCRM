@@ -261,6 +261,23 @@ class Katalog:
         self.uzyty = True
         return [dict(x) for x in self._tpms]
 
+    _felgi, _felgi_t = None, 0.0
+
+    def felgi(self):
+        """Felgi z kopii pliku (ok. 3 tys. pozycji – całość, filtruje silnik); pamiętane 5 min. None = kopia niedostępna."""
+        if not self.swiezy(self.MAKS_WIEK_WZORCA):
+            return None
+        if self._felgi is None or time.time() - self._felgi_t > 300:
+            rows = []
+            for od in range(0, 20000, 1000):   # baza oddaje najwyżej 1000 wierszy naraz
+                cz = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->attrs->>Asortyment=eq.FELGA&order=id&limit=1000&offset=%d" % od) or []
+                rows += cz
+                if len(cz) < 1000:
+                    break
+            self._felgi, self._felgi_t = [x["dane"] for x in rows if isinstance(x.get("dane"), dict)], time.time()
+        self.uzyty = True
+        return [dict(x) for x in self._felgi]
+
     def produkt(self, kod):
         """Opona po indeksie xPartner (id), kodzie producenta albo EAN – szybkie polecenie. [] = brak / kopia niedostępna."""
         k = re.sub(r"[^0-9A-Za-z\-./]", "", kod or "")[:30]
@@ -327,7 +344,8 @@ def zapisz_oddzialy(dane: dict):
     czyste = {}
     for nazwa, o in (dane or {}).items():
         if isinstance(o, dict) and str(nazwa).strip():
-            czyste[str(nazwa).strip()[:60]] = {k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "kom", "www", "email")}
+            czyste[str(nazwa).strip()[:60]] = dict({k: str(o.get(k) or "").strip()[:120] for k in ("nazwa", "adres", "tel", "kom", "www", "email")},
+                                                   **{k: str(o.get(k) or "").strip()[:400] for k in ("warunki", "cta_t", "cta_p", "por_t", "por_p")})
     _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "oddzialy", "value": czyste}, prefer="resolution=merge-duplicates,return=minimal")
     wczytaj_oddzialy(True)
 
@@ -426,9 +444,160 @@ def logo_uri() -> str:
 
 
 # ---------- funkcje dla strony (window.pywebview.api.*) ----------
+KONFIGURATOR = "https://konfigurator.xpartner.net.pl/"
+# Skrypt w oknie konfiguratora (ta sama domena co usługa zdjęć – jej ciasteczko logowania xPartner).
+# Serwery xPartner blokują zapytania spoza przeglądarki, więc zdjęcia pobiera ukryte okno przeglądarki programu.
+ZDJ_JS = """window.__zdj=null;(async()=>{const A='https://konfigurator-api.xpartner.net.pl/';
+if(location.hostname!=='konfigurator.xpartner.net.pl')return JSON.stringify({login:true});
+const me=await fetch(A+'auth/me',{credentials:'include'}).catch(()=>null);if(!me||me.status!==200)return JSON.stringify({login:true});
+const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch(A+'xpartner-product-images/'+id,{credentials:'include'});
+const j=r.ok?await r.json():null;out[id]=[...new Set(((j&&j.data)||[]).map(x=>x.url).filter(u=>/^https:\\/\\/xpartner\\.net\\.pl\\/descriptionFiles\\//.test(u)))]}catch(e){}}}
+await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out})})().then(x=>{window.__zdj=x},e=>{window.__zdj=JSON.stringify({blad:String(e)})});1"""
+XPARTNER_LISTA = "https://xpartner.net.pl/index.php?a=b2b_products"
+# Karta produktu xPartner (gdy konfigurator nie ma zdjęć): adresy obrazków descriptionFiles z HTML karty, bez rozmiaru miniatury.
+KARTA_JS = """window.__zdj2=null;(async()=>{if(location.hostname!=='xpartner.net.pl')return JSON.stringify({zdjecia:{}});
+const ids=%s,out={};let i=0,login=false;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch('/index.php?a=b2b_products&m=productCart&pid='+id,{credentials:'include'});
+const t=await r.text();if(!/Wyloguj/i.test(t)){login=true;continue}const u=[...t.matchAll(/descriptionFiles\\/images\\/(\\d+)\\/(?:\\d+x\\d+c?\\/)?([0-9a-f]{40}\\.(?:jpe?g|png|webp))/gi)].map(m=>'https://xpartner.net.pl/descriptionFiles/images/'+m[1]+'/'+m[2]);
+out[id]=[...new Set(u)]}catch(e){}}}
+await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out,login:login})})().then(x=>{window.__zdj2=x},e=>{window.__zdj2=JSON.stringify({zdjecia:{}})});1"""
+OBRAZY_JS = """window.__img=null;(async()=>{const out={};for(const u of %s){try{const b=await (await fetch(u,{credentials:'include'})).blob();
+out[u]=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=()=>r('');f.readAsDataURL(b)})}catch(e){}}
+return JSON.stringify(out)})().then(x=>{window.__img=x},e=>{window.__img='{}'});1"""
+# pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
+
+
 class Api:
     def __init__(self):
         self._window = None
+        self._kw = None
+        self._kw_gotowe = threading.Event()
+        self._kw_lock = threading.Lock()
+        self._kw2 = None
+        self._kw2_gotowe = threading.Event()
+
+    def _zdjecia(self, ids):
+        """{id: [adresy zdjęć]} dla felg. Pierwszy raz otwiera ukryte okno konfiguratora xPartner; gdy xPartner
+        prosi o zalogowanie – pokazuje to okno (użytkownik loguje się sam, ciasteczko zostaje w profilu programu)."""
+        import webview
+        ids = [int(x) for x in ids if str(x).isdigit()][:80]
+        if not ids:
+            return {"zdjecia": {}}
+        with self._kw_lock:
+            if self._kw is None:
+                self._kw_gotowe.clear()
+                self._kw = webview.create_window("xPartner – zdjęcia felg (zaloguj się, potem zamknij lub zostaw)", url=KONFIGURATOR,
+                                                 hidden=True, width=1000, height=760)
+                self._kw.events.loaded += lambda: self._kw_gotowe.set()
+                self._kw.events.closed += lambda: setattr(self, "_kw", None)
+        for _ in range(3):   # strona konfiguratora po zalogowaniu przechodzi przez /callback – poczekaj na stronę główną
+            self._kw_gotowe.wait(25)
+            time.sleep(1.5)
+            w = self._kw
+            if w is None:
+                return {"login": True}
+            w.evaluate_js(ZDJ_JS % json.dumps(ids))
+            wynik = None
+            for _ in range(120):   # do ~30 s
+                time.sleep(0.25)
+                wynik = w.evaluate_js("window.__zdj")
+                if wynik:
+                    break
+            try:
+                d = json.loads(wynik) if isinstance(wynik, str) else (wynik or {})
+            except ValueError:
+                d = {}
+            if d.get("zdjecia") is not None:
+                brak = [i for i in ids if not d["zdjecia"].get(str(i))]
+                if brak:   # konfigurator nie ma zdjęć części felg – są na karcie produktu w xPartner
+                    try:
+                        d["zdjecia"].update(self._zdjecia_karta(brak))
+                        d["diag_karta"] = getattr(self, "_karta_diag", "")
+                        if getattr(self, "_karta_login", False):
+                            d["login_karta"] = True
+                    except Exception as e:
+                        d["blad_karta"] = str(e)[:200]
+                return d
+            self._kw_gotowe.clear()
+        try:
+            self._kw.show()
+        except Exception:
+            pass
+        return {"login": True}
+
+    def _wbuduj_zdjecia(self, html):
+        """Adresy zdjęć xPartner w HTML -> obrazki wbudowane (data:), pobrane przez ukryte okno na xpartner.net.pl."""
+        import webview
+        urls = sorted(set(re.findall(r"https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(?:jpe?g|png|webp)", html, re.I)))[:6]
+        if not urls:
+            return html
+        with self._kw_lock:
+            if self._kw2 is None:
+                self._kw2_gotowe.clear()
+                self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
+                self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
+                self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
+        self._kw2_gotowe.wait(25)
+        w = self._kw2
+        if w is None:
+            return html
+        w.evaluate_js(OBRAZY_JS % json.dumps(urls))
+        wynik = None
+        for _ in range(120):
+            time.sleep(0.25)
+            wynik = w.evaluate_js("window.__img")
+            if wynik:
+                break
+        try:
+            mapa = json.loads(wynik) if isinstance(wynik, str) else {}
+        except ValueError:
+            mapa = {}
+        for u, d in mapa.items():
+            if isinstance(d, str) and d.startswith("data:image/"):
+                html = html.replace(u, d)
+        return html
+
+    def _zdjecia_karta(self, ids):
+        """Zdjęcia z karty produktu xPartner (ta sama sesja co konfigurator) – drugie ukryte okno na xpartner.net.pl."""
+        import webview
+        with self._kw_lock:
+            if self._kw2 is None:
+                self._kw2_gotowe.clear()
+                self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
+                self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
+                self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
+        ok = self._kw2_gotowe.wait(25)
+        time.sleep(1)
+        w = self._kw2
+        self._karta_diag = "okno wczytane" if ok else "okno się nie wczytało (25 s)"
+        if w is None:
+            self._karta_diag = "brak okna"
+            return {}
+        w.evaluate_js(KARTA_JS % json.dumps(ids[:40]))
+        wynik = None
+        for _ in range(160):   # do ~40 s
+            time.sleep(0.25)
+            wynik = w.evaluate_js("window.__zdj2")
+            if wynik:
+                break
+        try:
+            d = json.loads(wynik) if isinstance(wynik, str) else {}
+        except ValueError:
+            d = {}
+        try:
+            adres = w.get_current_url()
+        except Exception:
+            adres = "?"
+        self._karta_diag += "; adres: %s; wynik: %s; zdjęć: %d" % (str(adres)[:60], "brak" if not wynik else "jest",
+                                                                   sum(len(v or []) for v in (d.get("zdjecia") or {}).values()))
+        if d.get("login"):   # w xPartner (strona) trzeba się zalogować – pokaż okno, użytkownik loguje się sam
+            self._karta_login = True
+            try:
+                w.show()
+            except Exception:
+                pass
+            return {}
+        self._karta_login = False
+        return {k: v for k, v in (d.get("zdjecia") or {}).items() if v}
 
     def call(self, path, body=None):
         from oferty import silnik
@@ -446,17 +615,28 @@ class Api:
                 return {"code": 200, "body": {"ok": True}}
             except Exception as e:
                 return {"code": 502, "body": {"error": f"Nie zapisano danych oddziałów: {e}"}}
-        if path == "/api/pdf":
+        if path in ("/api/pdf", "/api/felgi_pdf"):
             code, res = silnik.handle(path, dict(body or {}, logo=logo_uri()), open_path=_open_path)
             if code != 200:
                 return {"code": code, "body": res}
+            html = res["html"]
+            if path == "/api/felgi_pdf":
+                try:   # zdjęcia xPartner wbudowane w PDF (Edge bez okna dostaje od xPartner odmowę – serwer blokuje automaty)
+                    html = self._wbuduj_zdjecia(html)
+                except Exception:
+                    pass
             try:
-                plik = zrob_pdf(res["html"], (body or {}).get("nazwa") or "oferta")
+                plik = zrob_pdf(html, (body or {}).get("nazwa") or "oferta")
             except Exception as e:
                 return {"code": 500, "body": {"error": f"Nie udało się zapisać PDF: {e}"}}
             if not (body or {}).get("bez_otwierania"):
                 _open_path(plik)
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        if path == "/api/felgi_zdjecia":   # zdjęcia felg z konfiguratora xPartner (decyzja właściciela 2026-11-26)
+            try:
+                return {"code": 200, "body": self._zdjecia((body or {}).get("ids") or [])}
+            except Exception as e:
+                return {"code": 502, "body": {"error": f"Nie udało się pobrać zdjęć z xPartner: {e}"}}
         if path == "/api/whatsapp":   # PDF do schowka + otwarcie WhatsApp (decyzja właściciela 2026-11-18)
             try:
                 return {"code": 200, "body": whatsapp_pdf((body or {}).get("plik") or "")}
