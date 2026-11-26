@@ -42,7 +42,7 @@ def test_okna_ofert_bez_bledow_js():
             for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
                        "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')",
                        "widok('f')", "fSzukaj()", "fRender()", "fWybierz(231798)", "fLicz()", "$('#fo_mon').checked=true;fLicz()",
-                       "fWezCzujnik(1)", "fZdjecia(true)", "fPdf()", "fDoKoszyka()", "fWyczysc()", "widok('o')"):
+                       "fWybierzCzujniki()", "tSzukaj()", "fDodajCzujnik(1)", "fWybierzOpony()", "fKompletKoniec()", "fZdjecia(true)", "fPdf()", "fDoKoszyka()", "fWyczysc()", "widok('o')"):
                 try:
                     pg.evaluate(js)
                 except Exception as e:

@@ -455,10 +455,10 @@ await Promise.all([w(),w(),w(),w(),w(),w()]);return JSON.stringify({zdjecia:out}
 XPARTNER_LISTA = "https://xpartner.net.pl/index.php?a=b2b_products"
 # Karta produktu xPartner (gdy konfigurator nie ma zdjęć): adresy obrazków descriptionFiles z HTML karty, bez rozmiaru miniatury.
 KARTA_JS = """window.__zdj2=null;(async()=>{if(location.hostname!=='xpartner.net.pl')return JSON.stringify({zdjecia:{}});
-const ids=%s,out={};let i=0;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch('/index.php?a=b2b_products&m=productCart&pid='+id,{credentials:'include'});
-const t=await r.text();const u=[...t.matchAll(/descriptionFiles\\/images\\/(\\d+)\\/(?:\\d+x\\d+c?\\/)?([0-9a-f]{40}\\.(?:jpe?g|png|webp))/gi)].map(m=>'https://xpartner.net.pl/descriptionFiles/images/'+m[1]+'/'+m[2]);
+const ids=%s,out={};let i=0,login=false;async function w(){while(i<ids.length){const id=ids[i++];try{const r=await fetch('/index.php?a=b2b_products&m=productCart&pid='+id,{credentials:'include'});
+const t=await r.text();if(!/Wyloguj/i.test(t)){login=true;continue}const u=[...t.matchAll(/descriptionFiles\\/images\\/(\\d+)\\/(?:\\d+x\\d+c?\\/)?([0-9a-f]{40}\\.(?:jpe?g|png|webp))/gi)].map(m=>'https://xpartner.net.pl/descriptionFiles/images/'+m[1]+'/'+m[2]);
 out[id]=[...new Set(u)]}catch(e){}}}
-await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out})})().then(x=>{window.__zdj2=x},e=>{window.__zdj2=JSON.stringify({zdjecia:{}})});1"""
+await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out,login:login})})().then(x=>{window.__zdj2=x},e=>{window.__zdj2=JSON.stringify({zdjecia:{}})});1"""
 # pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
 
 
@@ -507,8 +507,10 @@ class Api:
                 if brak:   # konfigurator nie ma zdjęć części felg – są na karcie produktu w xPartner
                     try:
                         d["zdjecia"].update(self._zdjecia_karta(brak))
-                    except Exception:
-                        pass
+                        if getattr(self, "_karta_login", False):
+                            d["login_karta"] = True
+                    except Exception as e:
+                        d["blad_karta"] = str(e)[:200]
                 return d
             self._kw_gotowe.clear()
         try:
@@ -539,9 +541,18 @@ class Api:
             if wynik:
                 break
         try:
-            return (json.loads(wynik) if isinstance(wynik, str) else {}).get("zdjecia") or {}
+            d = json.loads(wynik) if isinstance(wynik, str) else {}
         except ValueError:
+            d = {}
+        if d.get("login"):   # w xPartner (strona) trzeba się zalogować – pokaż okno, użytkownik loguje się sam
+            self._karta_login = True
+            try:
+                w.show()
+            except Exception:
+                pass
             return {}
+        self._karta_login = False
+        return {k: v for k, v in (d.get("zdjecia") or {}).items() if v}
 
     def call(self, path, body=None):
         from oferty import silnik

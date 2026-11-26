@@ -71,7 +71,7 @@ def info(p, marza_proc=13.0, vat_proc=23.0):
     cena = float(math.ceil(round(netto * (1 + marza_proc / 100) * (1 + vat_proc / 100), 2) - 1e-9)) if netto > 0 else 0.0
     oe = re.search(r"\b(\d{7,12})\b", n)
     return dict(parametry(p), id=int(p["id"]), nazwa=n, producent=_attr(a, "Producent") or "–", model=_attr(a, "Model"),
-                przeznaczenie=_attr(a, "Przeznaczenie"), rodzaj=rodzaj(p), marki=TP.marki_z_nazwy(n),
+                przeznaczenie=_attr(a, "Przeznaczenie"), rodzaj=rodzaj(p), marki=TP.marki_z_nazwy(n + " " + _attr(a, "Model")),
                 demo=bool(re.search(r"\bDEMO\b", n.upper())), kod=(p.get("kod") or "").strip(), oe=oe.group(1) if oe else "",
                 stan=int(p.get("ilosc") or 0), magazyny=p.get("magazyny") or {}, netto=netto,
                 brutto_zak=float(p.get("brutto_zak") or 0), cena=cena, foto=p.get("foto") or "")
@@ -125,7 +125,8 @@ def zapytanie(txt):
             T = re.sub(r"(?<![A-Z0-9])" + re.escape(TP._up(w)) + r"(?![A-Z0-9])", " ", T)
     pomin = {"FELGA", "FELGI", "FELG", "OBRECZ", "OBRĘCZ", "OBRECZE", "OBRĘCZE", "ALU", "ALUMINIOWE", "ALUMINIOWA", "STALOWE",
              "STALOWA", "STALOWKI", "STALÓWKI", "DEMO", "BEZ", "DO", "POD", "NA", "I", "Z", "W", "KPL", "SZT", "R", "ET", "CB", "FI"}
-    q["slowa"] = [w for w in re.findall(r"[A-Z0-9ĄĆĘŁŃÓŚŹŻ]{3,}", T) if w not in pomin and not w.isdigit()]
+    q["slowa"] = [w for w in re.findall(r"[A-Z0-9ĄĆĘŁŃÓŚŹŻ]{3,}", T) if w not in pomin and not w.isdigit()
+                  and not re.match(r"(STAL|ALU|OBR[EĘ]CZ|FELG|KOŁ|KOL)", w)]   # „stal”, „alufelgi”, „stalówki” = rodzaj, nie słowo z nazwy
     return q
 
 
@@ -156,7 +157,7 @@ def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0):
     lista = [f for f in lista if f["cena"] > 0 and pasuje(f, q)]
     # wpisana marka auta najpierw (VW), dopiero potem pokrewne z tej samej grupy (Audi, Skoda, Seat – ten sam rozstaw)
     lista.sort(key=lambda f: (bool(q["marki"]) and not (set(f["marki"]) & set(q["marki"])), f["stan"] < q["ilosc"], f["cena"], f["nazwa"]))
-    return lista[:400], q
+    return lista[:3000], q   # cała lista (kafelki pokazują się porcjami); filtry producentów z pełnej listy
 
 
 # ---------- oferta (same felgi albo komplet) ----------
@@ -175,11 +176,14 @@ def oferta(cfg, felga, il, opona=None, il_op=0, czujnik=None, il_cz=0, montaz=Fa
     depozyt – '' / 'opony' / 'kola' (przechowalnia wg cennika)."""
     poz = []
     il = max(1, min(40, int(il or 4)))
-    poz.append({"nazwa": "Felga %s" % felga["nazwa"], "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"], "foto": felga.get("foto") or ""})
+    poz.append({"nazwa": "Felga %s" % felga["nazwa"], "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"],
+                "kod": felga.get("kod") or "", "foto": felga.get("foto") or ""})
     if opona and il_op:
-        poz.append({"nazwa": "Opona %s" % opona["nazwa"], "opis": "", "q": int(il_op), "c": float(opona["cena_brutto"]), "id": opona["id"]})
+        poz.append({"nazwa": "Opona %s" % opona["nazwa"], "opis": "", "q": int(il_op), "c": float(opona["cena_brutto"]), "id": opona["id"],
+                    "kod": str(opona.get("kod") or "")})
     if czujnik and il_cz:
-        poz.append({"nazwa": "Czujnik ciśnienia TPMS %s" % czujnik["nazwa"], "opis": "", "q": int(il_cz), "c": float(cena_czujnika), "id": czujnik["id"]})
+        poz.append({"nazwa": "Czujnik ciśnienia TPMS %s" % czujnik["nazwa"], "opis": "", "q": int(il_cz), "c": float(cena_czujnika), "id": czujnik["id"],
+                    "kod": str(czujnik.get("kod") or "")})
         if float(cfg.get("tpms_cena") or 0) > 0:
             poz.append({"nazwa": "Obsługa czujnika ciśnienia TPMS przy montażu", "opis": "", "q": int(il_cz), "c": float(cfg["tpms_cena"])})
     sr = (felga.get("sred") or "").split(".")[0]
@@ -208,8 +212,10 @@ def pdf_html(poz, razem, oddzial, klient="", uwagi="", kto="", logo="", waznosc=
     wiersze = []
     for p in poz:
         img = ('<img src="%s" alt="">' % _e(p["foto"])) if p.get("foto", "").startswith("https://") else ""
-        wiersze.append('<tr><td class="f">%s</td><td><b>%s</b>%s</td><td class="r">%d szt.</td><td class="r">%s</td><td class="r">%s</td></tr>' % (
-            img, _e(p["nazwa"]), ("<br><span class=m>%s</span>" % _e(p["opis"])) if p.get("opis") else "", p["q"], _zl(p["c"]), _zl(p["w"])))
+        ind = " · ".join(x for x in (("Indeks: %s" % p["id"]) if p.get("id") else "", ("Kod producenta: %s" % p["kod"]) if p.get("kod") else "") if x)
+        wiersze.append('<tr><td class="f">%s</td><td><b>%s</b>%s%s</td><td class="r">%d szt.</td><td class="r">%s</td><td class="r">%s</td></tr>' % (
+            img, _e(p["nazwa"]), ("<br><span class=m>%s</span>" % _e(p["opis"])) if p.get("opis") else "",
+            ("<br><span class=m>%s</span>" % _e(ind)) if ind else "", p["q"], _zl(p["c"]), _zl(p["w"])))
     return """<!doctype html><html lang="pl"><head><meta charset="utf-8"><title>Oferta na felgi</title><style>
 @page{size:A4;margin:14mm}body{font-family:"Segoe UI",Arial,sans-serif;color:#141414;font-size:12px}
 .hd{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:3px solid #d81f26;padding-bottom:10px;margin-bottom:14px}

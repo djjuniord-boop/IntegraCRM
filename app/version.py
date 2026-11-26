@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.15"
+VERSION = "1.2.16"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,17 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.16",
+        "date": "2026-11-26",
+        "changes": [
+            "Felgi: indeks xPartner i kod producenta w wynikach, w ofercie i w PDF (także przy oponach i czujnikach w komplecie)",
+            "Felgi – komplet: opony i czujniki TPMS wybiera się w pełnych zakładkach Opony / Czujniki TPMS (przycisk „➕ do felg”), jak przy zwykłym szukaniu",
+            "Felgi: poprawiony wygląd pola „Montaż i depozyt”; wyniki pokazują się po 20; lista producentów obejmuje wszystkie znalezione felgi (np. GMP przy 5x112)",
+            "Felgi: „stal”, „stalówki”, „alu”, „alufelgi” działają w szybkim poleceniu; marka auta szukana też w modelu felgi",
+            "Felgi – zdjęcia: gdy strona xPartner wymaga zalogowania, program pokazuje okienko logowania zamiast cicho pomijać zdjęcia",
+        ],
+    },
     {
         "version": "1.2.15",
         "date": "2026-11-26",
