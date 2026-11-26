@@ -96,9 +96,11 @@ tr.k48 td{background:#fffbeb}
 .fw .nm{font-weight:700;font-size:13px;margin:8px 0 4px;line-height:1.25}.fw .ch{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.fw .ch span{background:#f4f4f5;border-radius:999px;padding:1px 7px;font-size:11px}
 .fw .rw{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-top:4px}.fw .ce{font-size:17px;font-weight:800}
 .fw.malo .st{color:#b45309}.fw .st{color:#166534;font-weight:700}
-.fdod{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px}.fdod>div{border:1px solid #e4e4e7;border-radius:10px;padding:10px}
-.fsel{margin:8px 0;font-size:13px;min-height:22px}.fsel .muted{font-size:12px}.fchk{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:13px}.fchk input{width:auto;margin:0}
-.fpole{display:block;font-size:12px;color:#6b7280;margin-top:8px}.fpole select{display:block;width:100%;margin-top:3px}
+.fdod{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:12px}.fdod>div{border:1px solid #e4e4e7;border-radius:10px;padding:10px}
+.fsel{margin:8px 0;font-size:13px;min-height:22px}.fsel .muted{font-size:12px}
+.fwyb{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}.fwyb .w{display:flex;align-items:center;gap:8px;border:2px solid var(--red);border-radius:10px;padding:6px 10px;background:#fff;font-size:13px}.fwyb img{width:44px;height:44px;object-fit:contain}.fnr{background:var(--red);color:#fff;border-radius:6px;padding:1px 7px;font-size:12px;font-weight:700;margin-right:4px}.fwyb .x{color:var(--muted);cursor:pointer;font-size:16px;margin-left:4px}
+.fw .bw{position:absolute;top:8px;right:8px;font-size:11px;font-weight:700;padding:2px 8px;border-radius:6px;border:1px solid #d4d4d8;background:#fff;z-index:1}.fw.on .bw{background:var(--red);color:#fff;border-color:var(--red)}
+.vcard img.fph{width:100%;height:140px;object-fit:contain;background:#fafafa;border-radius:8px;margin-bottom:6px}.vcard.zle{border-color:#e11d48;background:#fff5f5}.vcard .bl{color:#b00012;font-size:13px;font-weight:600;margin-top:6px}
 .kban{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;border-radius:10px;padding:10px 14px;margin:0 0 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .fpick{max-height:220px;overflow:auto;margin-top:6px;font-size:12px}.fpick div{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-bottom:1px solid #f1f1f1;cursor:pointer}.fpick div:hover{background:#fef2f2}.fpick div.on{background:#fee2e2;font-weight:700}
 @media(max-width:1000px){.fdod{grid-template-columns:1fr}}
@@ -185,21 +187,21 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Otwór<select id="ff_otwor" onchange="fRender()"></select></label><label>Rodzaj<select id="ff_rodzaj" onchange="fRender()"><option value="">wszystkie</option><option value="aluminiowa">aluminiowe</option><option value="stalowa">stalowe</option></select></label>
 <label>Producent<select id="ff_prod" onchange="fRender()"></select></label><label>Min. stan<input id="ff_stan" type="number" min="0" style="width:70px" oninput="fRender()"></label>
 <label>Szukaj w wynikach<input id="ff_t" oninput="fRender()" placeholder="model, kolor, indeks…"></label><button class="sec" onclick="fWyczysc()">Wyczyść filtry</button></div></div>
-<div class="card" id="fCard" style="display:none"><h2><span class="n">🔘</span>Wyniki <span class="muted" style="font-size:13px;font-weight:400">cena oferty = zakup netto + marża <span id="fMarza"></span>% + VAT · kliknij felgę, żeby zrobić ofertę</span></h2><div id="fRes" class="fgrid"></div><div id="fWiecej"></div><div id="fDiag" class="muted" style="font-size:11px;margin-top:6px"></div></div>
-<div class="card" id="fOf" style="display:none"><h2><span class="n">📄</span>Oferta – felgi lub komplet</h2>
-<div id="fWyb"></div>
-<div class="tf" style="margin-top:10px"><label>Ilość felg<input id="fo_il" type="number" min="1" max="40" value="4" style="width:70px" oninput="fLicz()"></label>
-<label>Klient<input id="fo_kl" placeholder="nazwa / telefon"></label><label style="flex:1">Uwagi do oferty<input id="fo_uw" style="width:100%"></label></div>
+<div class="card" id="fCard" style="display:none"><h2><span class="n">🔘</span>Wyniki <span class="muted" style="font-size:13px;font-weight:400">cena oferty = zakup netto + marża <span id="fMarza"></span>% + VAT · kliknij felgi (do 3), żeby zrobić ofertę – każda to osobna propozycja</span></h2><div id="fRes" class="fgrid"></div><div id="fWiecej"></div><div id="fDiag" class="muted" style="font-size:11px;margin-top:6px"></div></div>
+<div class="card" id="fOf" style="display:none"><h2><span class="n">4</span>Oferta – felgi <span class="muted" style="font-size:13px;font-weight:400">do 3 felg – każda to osobna propozycja; opony, czujniki i usługi wspólne</span></h2>
+<div id="fWyb" class="fwyb"></div>
+<div class="uwbox"><b>📝 Uwagi do oferty</b> <span class="muted" style="font-size:12px">– tylko dla nas, nie trafiają do PDF ani do klienta</span> <span id="fuwInfo" class="muted" style="font-size:12px"></span>
+<textarea id="fuw" rows="2" maxlength="1000" placeholder="np. klient waha się między dwiema felgami, termin odbioru" oninput="FUWZM=true" onchange="fZapiszUw()"></textarea>
+<div class="row" style="margin-top:4px;justify-content:flex-end;align-items:center;gap:10px"><span id="fuwMsg" class="muted" style="font-size:12px"></span><button class="sec" onclick="fZapiszUw()">Zapisz uwagi</button></div></div>
+<div class="tf" style="margin-bottom:10px"><label>Klient<input id="fo_kl" placeholder="nazwa / telefon" onchange="fLiczD()"></label></div>
 <div class="fdod">
-<div><b>🛞 Opony do kompletu</b> <span class="muted">z naszej oferty opon</span><div id="fo_opW" class="fsel"></div><button class="sec" onclick="fWybierzOpony()">🔎 Wybierz opony</button></div>
+<div><b>🛞 Opony do kompletu</b> <span class="muted">wspólne dla wszystkich felg</span><div id="fo_opW" class="fsel"></div><button class="sec" onclick="fWybierzOpony()">🔎 Wybierz / zmień opony</button></div>
 <div><b>📡 Czujniki TPMS</b> <span class="muted">część z xPartner</span><div id="fo_czW" class="fsel"></div><button class="sec" onclick="fWybierzCzujniki()">🔎 Wybierz czujniki</button></div>
-<div><b>🔧 Montaż i depozyt</b>
- <label class="fchk"><input type="checkbox" id="fo_mon" onchange="fLicz()"> Montaż / wymiana kół</label>
- <label class="fpole">Rodzaj auta<select id="fo_typ" onchange="fLicz()"><option value="osobowy">osobowe</option><option value="suv">SUV / 4x4</option><option value="dostawczy">dostawcze</option></select></label>
- <label class="fpole">Depozyt (przechowalnia)<select id="fo_dep" onchange="fLicz()"><option value="">bez depozytu</option><option value="kola">kół z felgami</option><option value="opony">samych opon</option></select></label></div>
 </div>
-<div id="fPoz" style="margin-top:12px"></div>
-<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button id="fPdfB" onclick="fPdf()">📄 Oferta PDF</button><button class="sec" onclick="fDoKoszyka()">🛒 Dodaj do koszyka xPartner</button></div><div id="foMsg"></div></div>
+<div id="fEdit" class="edit" style="margin-top:12px"></div><div id="fBlad"></div><div id="fSum"></div>
+<div id="fUl" style="margin:10px 0"></div><div id="fKz" class="kz" style="display:none"></div>
+<div class="row" style="margin:8px 0"><button class="sec" onclick="api('/api/open')">📁 Otwórz folder z ofertą</button><button onclick="fWa(this)" style="background:#25D366;border-color:#25D366;color:#fff" title="Kopiuje PDF oferty do schowka i otwiera WhatsApp – wybierz klienta i wklej Ctrl+V">📱 Wyślij przez WhatsApp</button><span id="fwaInfo" class="muted" style="font-size:12px"></span></div>
+<div id="foMsg"></div></div>
 </main>
 <dialog id="hdlg" style="max-width:1100px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
@@ -389,11 +391,11 @@ async function setStatus(oid,st,sel,owner){sel.disabled=true;try{await api('/api
 function drawHist(){const k=$('#hk')?$('#hk').value:'',st=$('#hs')?$('#hs').value:'',wielu=HADM||new Set(HL.map(h=>h.owner)).size>1;const L=HL.filter(h=>(!k||(k==='__me'?h.owner===ME:h.kto===k))&&(!st||(st==='oddzwon'?h.oddzwon:h.status===st)));
  let sum='';{const by={};for(const h of L){const o=by[h.kto]??={n:0,kl:new Set(),wart:0,mod:{},wys:0,prz:0};o.n++;if(h.status!=='nowa')o.wys++;if(h.status==='przyjeta'||h.status==='zamowiona')o.prz++;if(h.klient)o.kl.add(h.klient);o.wart+=h.razem||0;for(const w of h.warianty)for(const m of(w.modele||'').split(', ').filter(Boolean))o.mod[m]=(o.mod[m]||0)+1}
   sum='<div class="t" style="margin:4px 0">Podsumowanie (wg aktualnego wyszukiwania)</div><table style="margin-bottom:14px"><tr><th>Kto</th><th class="num">Ofert</th><th class="num">Klientów</th><th class="num">Wartość ofert</th><th class="num" title="przyjęte + zamówione / wysłane (wszystkie poza „Nowa”)">Przyjęte</th><th>Najczęściej proponowane</th></tr>'+Object.entries(by).sort((a,b)=>b[1].n-a[1].n).map(([o,v])=>`<tr><td><b>${esc(o)}</b></td><td class="num">${v.n}</td><td class="num">${v.kl.size}</td><td class="num">${zl(v.wart)}</td><td class="num">${v.wys?`<b>${Math.round(100*v.prz/v.wys)}%</b> (${v.prz}/${v.wys})`:'—'}</td><td>${esc(Object.entries(v.mod).sort((a,b)=>b[1]-a[1]).slice(0,3).map(x=>x[0]+' ('+x[1]+')').join(', '))}</td></tr>`).join('')+'</table>'}
- $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(wielu?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${wielu?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}${h.uwagi?`<br><span class="uwh" title="${esc(h.uwagi)}">📝 ${esc(h.uwagi.length>90?h.uwagi.slice(0,90)+'…':h.uwagi)}</span>`:''}</td>
+ $('#hl').innerHTML=sum+(L.length?'<table><tr><th>Data</th>'+(wielu?'<th>Kto</th>':'')+'<th>Klient</th><th>Pojazdy / rozmiary</th><th>Warianty</th><th>Status</th><th></th></tr>'+L.map(h=>`<tr><td style="white-space:nowrap">${esc(h.data)}</td>${wielu?`<td>${esc(h.kto)}</td>`:''}<td><b>${esc(h.klient||'—')}</b></td><td>${h.typ==='felgi'?'<span class="tag" style="background:#fde8e8;color:#b00012;font-weight:700">🛞 felgi</span> ':''}${esc(h.pojazdy)}</td><td>${h.warianty.map(w=>`${esc(w.modele||w.wariant)} – <b>${zl(w.razem)}</b>`).join('<br>')}${h.uwagi?`<br><span class="uwh" title="${esc(h.uwagi)}">📝 ${esc(h.uwagi.length>90?h.uwagi.slice(0,90)+'…':h.uwagi)}</span>`:''}</td>
  <td style="white-space:nowrap">${true?`<select data-oid="${esc(h.oid)}" data-own="${esc(h.owner)}" onchange="setStatus(this.dataset.oid,this.value,this,this.dataset.own)" style="width:auto;font-size:12px">${Object.entries(STATUSY).map(([s,n])=>`<option value="${s}" ${h.status===s?'selected':''}>${n}</option>`).join('')}</select>`:`<span class="sx ${esc(h.status)}">${esc(STATUSY[h.status]||h.status)}</span>`}
  ${h.oddzwon?'<div class="sx" style="background:#fff3cd;color:#7a5900;margin-top:4px">📞 oddzwoń – brak odpowiedzi 2 dni</div>':''}</td>
- <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} </td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
-async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();SAMO=false;const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};
+ <td style="white-space:nowrap"><button onclick="restoreHist(${h.id})">Otwórz i odśwież</button>${CFG.zamawianie?` <button onclick="restoreHist(${h.id}).then(()=>{const k=$('#fKz').offsetParent?$('#fKz'):$('#kz');if(k.style.display!=='none')k.scrollIntoView({behavior:'smooth',block:'center'})})">🛒 Zamów</button>`:''} </td></tr>`).join('')+'</table>':'<p>Brak zapisanych ofert.</p>')}
+async function restoreHist(id){const r=await api('/api/history?id='+id);hdlg.close();const hh=(typeof HL!=='undefined'&&HL||[]).find(x=>x.id===id)||{};if(r.typ_oferty==='felgi')return fZHist(r,hh);SAMO=false;
  $('#klient').value=r.klient||'';$('#veh tbody').innerHTML='';r.pojazdy.forEach(addRow);
  SEL=new Set(r.sel&&r.sel.length?r.sel:Object.entries(r.wybor).flatMap(([s,g])=>Object.entries(g).flatMap(([z,l])=>l.map(id=>s+'|'+z+'|'+id))));
  RES=null;$('#res').innerHTML='<p>Oferta wczytana z historii ('+esc(r.data)+'). Aby wybrać inne opony, kliknij „Szukaj w xPartner”.</p>';$('#resCard').style.display='';
@@ -668,7 +670,7 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
 
 // ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
 let TL=[],TQ={ilosc:4},TROD={};
-let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false,FZDJ_PON=false;
+let FL=[],FQ={ilosc:4},FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false,FZDJ_PON=false;
 try{FZDJ=JSON.parse(localStorage.getItem('felgi_zdjecia2')||'{}')||{};localStorage.removeItem('felgi_zdjecia')}catch(e){FZDJ={}}   // felgi_zdjecia2: puste wyniki nie są zapamiętywane na stałe
 async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true;const zrob=new Set();
  try{while(true){FZDJ_PON=false;const L=fFiltr().slice(0,FPOK).map(f=>f.id).filter(id=>!zrob.has(id)&&(wymus||!(id in FZDJ))).slice(0,30);   // po 30 – wszystkie widoczne felgi, kolejno
@@ -677,7 +679,7 @@ async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true
   if(r.login_karta)msg('#fMsg','Części zdjęć xPartner pokazuje tylko po zalogowaniu na stronie xPartner – zaloguj się w okienku, które się otworzyło (raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);
   if(r.diag_karta||r.blad_karta)console.log('karta',r.diag_karta,r.blad_karta),window.__diag=(r.diag_karta||'')+' '+(r.blad_karta||''),$('#fDiag')&&($('#fDiag').textContent='Zdjęcia z kart produktów: '+window.__diag);
   for(const id of L)FZDJ[id]=(r.zdjecia||{})[id]||[];try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia2',JSON.stringify(Object.fromEntries(Object.entries(FZDJ).filter(([,v])=>v&&v.length))))}catch(e){}
-  fRender(true);if(FW)fWybierz(FW.id,true)}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
+  fRender(true);if(FWS.length){fWybDraw();if(FR){fSumDraw(FR)}}}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
 const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
 async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fMarza').textContent=r.marza;FPOK=20;
@@ -689,33 +691,89 @@ function fWyczysc(){for(const k of['pcd','sred','szer','et','otwor','rodzaj','pr
 function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0;
  return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
- return `<div class="fw${FW&&FW.id===f.id?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})">${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
+ const nw=FWS.findIndex(x=>x.id===f.id);
+ return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''}</span><span class="ce">${zl(f.cena)}</span></div>
  <div class="rw"><span class="muted">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''}</div></div>`}
 function fRender(bez){const L=fFiltr();$('#fIle').textContent=L.length+' z '+FL.length;$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
  $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=20;fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
-function fWybierz(id,odsw){FW=FL.find(f=>f.id===id)||null;if(!odsw){FOP=null;FCZ=null;fWybrane();$('#fo_il').value=FQ.ilosc||4;fRender(true)}if(!FW)return;const zd=FZDJ[FW.id]||[];
- $('#fWyb').innerHTML=`<div style="display:flex;gap:14px;align-items:center">${zd.length?zd.slice(0,4).map(u=>`<img src="${esc(u)}" style="width:110px;height:110px;object-fit:contain;background:#fafafa;border-radius:8px">`).join(''):'<div style="font-size:54px">⚙️</div>'}<div><b>${esc(FW.nazwa)}</b><br><span class="muted">${esc([FW.rodzaj,FW.pcd,FW.et?'ET'+FW.et:'',FW.otwor?'otwór '+FW.otwor:'',FW.producent].filter(Boolean).join(' · '))}</span><br>Indeks xPartner <b>${FW.id}</b>${FW.kod?' · kod producenta <b>'+esc(FW.kod)+'</b>':''}<br>Cena oferty: <b>${zl(FW.cena)}</b> / szt. · stan ${FW.stan>=50?'50+':FW.stan}</div></div>`;
- if(odsw)return;$('#fOf').style.display='';$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
+/* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
+   ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
+let FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
+const FMAX=3;
+function fNowa(){FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||4;FILO=null;FTP=0;FMON=false;FTYP='osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
+ $('#fuw').value='';$('#fuwInfo').textContent='';$('#fuwMsg').textContent='';FUWZM=false;$('#fo_kl').value=''}
+function fWybierz(id){const i=FWS.findIndex(x=>x.id===id);if(i>=0)FWS.splice(i,1);else{if(FWS.length>=FMAX){msg('#fMsg','W jednej ofercie najwyżej '+FMAX+' felgi – usuń jedną (✕ w ofercie albo klik w kafelek), żeby dodać inną.',1);return}
+  const f=FL.find(x=>x.id===id);if(!f)return;if(!FWS.length)fNowa();FWS.push(f)}
+ msg('#fMsg','');fRender(true);fWybrane();if(!FWS.length){$('#fOf').style.display='none';return}const nowa=$('#fOf').style.display==='none';$('#fOf').style.display='';fWybDraw();if(nowa)$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
+function fUsun(id){fWybierz(id)}
+function fWybDraw(){$('#fWyb').innerHTML=FWS.map((f,i)=>`<div class="w"><span class="fnr">${i+1}</span>${fFoto(f)?`<img src="${esc(fFoto(f))}" alt="">`:'<span style="font-size:30px">⚙️</span>'}<span><b>${esc(f.nazwa)}</b><br><span class="muted">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''} · stan ${f.stan>=50?'50+':f.stan}</span></span><span class="x" title="Usuń z oferty" onclick="fUsun(${f.id})">✕</span></div>`).join('')+
+ (FWS.length<FMAX?`<span class="muted" style="align-self:center;font-size:12px">Możesz dodać jeszcze ${FMAX-FWS.length} – kliknij kafelek w wynikach.</span>`:'')}
 let KOMPLET='';   // '' / 'o' (wybór opon do felg) / 't' (wybór czujników do felg)
-function kBaner(){document.querySelectorAll('.kban').forEach(e=>e.remove());if(!KOMPLET||!FW)return;const m=KOMPLET==='o'?$('#mainO'):$('#mainT'),d=document.createElement('div');d.className='kban';
- d.innerHTML=`<b>Wybierasz ${KOMPLET==='o'?'opony':'czujniki TPMS'} do kompletu z felgą:</b> ${esc(FW.nazwa)}${KOMPLET==='o'&&FW.sred?` · <span>szukaj rozmiaru R${esc(FW.sred)}</span>`:''}<span style="flex:1"></span><button class="sec" onclick="fKompletKoniec()">↩ Wróć do felg bez wyboru</button>`;m.prepend(d)}
-function fWybierzOpony(){if(!FW)return;KOMPLET='o';widok('o');kBaner();if(RES)render();try{$('#quick').focus()}catch(e){}}
-function fWybierzCzujniki(){if(!FW)return;KOMPLET='t';widok('t');kBaner();if(TL.length)tRender()}
+function fSrednice(){return [...new Set(FWS.map(f=>String(f.sred||'').split('.')[0]).filter(Boolean))]}
+function kBaner(){document.querySelectorAll('.kban').forEach(e=>e.remove());if(!KOMPLET||!FWS.length)return;const m=KOMPLET==='o'?$('#mainO'):$('#mainT'),d=document.createElement('div');d.className='kban';const sr=fSrednice();
+ d.innerHTML=`<b>Wybierasz ${KOMPLET==='o'?'opony':'czujniki TPMS'} do kompletu z felgami:</b> ${esc(FWS.map(f=>f.nazwa).join(' · '))}${KOMPLET==='o'&&sr.length?` · <span>szukaj rozmiaru R${esc(sr.join(' / R'))}</span>`:''}<span style="flex:1"></span><button class="sec" onclick="fKompletKoniec()">↩ Wróć do felg bez wyboru</button>`;m.prepend(d)}
+function fWybierzOpony(){if(!FWS.length)return;KOMPLET='o';widok('o');kBaner();if(RES)render();try{$('#quick').focus()}catch(e){}}
+function fWybierzCzujniki(){if(!FWS.length)return;KOMPLET='t';widok('t');kBaner();if(TL.length)tRender()}
 function fKompletKoniec(){const k=KOMPLET;KOMPLET='';kBaner();if(k==='o'&&RES)render();if(k==='t'&&TL.length)tRender();widok('f');fWybrane();fLicz();$('#fOf').scrollIntoView({behavior:'smooth'})}
 function fZnajdzOpone(id){for(const g of Object.values((RES&&RES.wyniki)||{}))for(const l of Object.values(g))for(const p of l)if(p.id===id)return p;return null}
-function fDodajOpone(id){const p=fZnajdzOpone(id);if(!p)return;FOP={id:p.id,nazwa:p.nazwa,netto:p.netto,kod:p.kod||'',opis:[p.producent,p.model,p.rozmiar,p.sezon,p.klasa].filter(Boolean).join(' · '),cena:p.cena_brutto};fKompletKoniec()}
-function fDodajCzujnik(id){const x=TL.find(c=>c.id===id);if(!x)return;FCZ={id:x.id,nazwa:x.nazwa,netto:x.netto,kod:x.kod||'',opis:[x.producent,(TROD&&TROD[x.rodzaj])||x.rodzaj].filter(Boolean).join(' · ')};fKompletKoniec()}
+function fDodajOpone(id){const p=fZnajdzOpone(id);if(!p)return;FOP={id:p.id,nazwa:p.nazwa,netto:p.netto,kod:p.kod||'',rozmiar:p.rozmiar||'',opis:[p.producent,p.model,p.rozmiar,p.sezon,p.klasa].filter(Boolean).join(' · '),cena:p.cena_brutto};FILO=null;fKompletKoniec()}
+function fDodajCzujnik(id){const x=TL.find(c=>c.id===id);if(!x)return;FCZ={id:x.id,nazwa:x.nazwa,netto:x.netto,kod:x.kod||'',opis:[x.producent,(TROD&&TROD[x.rodzaj])||x.rodzaj].filter(Boolean).join(' · ')};if(!FTP)FTP=FIL;fKompletKoniec()}
 function fWybrane(){const w=(x,f)=>x?`<div><b>${esc(x.nazwa)}</b><br><span class="muted">Indeks ${x.id}${x.kod?' · kod '+esc(x.kod):''}${x.opis?' · '+esc(x.opis):''}</span> <a href="#" onclick="${f}=null;fWybrane();fLicz();return false">usuń</a></div>`:'<span class="muted">nie wybrano</span>';
  $('#fo_opW').innerHTML=w(FOP,'FOP');$('#fo_czW').innerHTML=w(FCZ,'FCZ')}
-function fCialo(){const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));return {felga:FW&&FW.id,foto:FW?fFoto(FW):'',fotos:FW?(FZDJ[FW.id]||[]).slice(0,4):[],ilosc:il,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto,kod:FOP.kod}:null,il_op:FOP?il:0,czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto,kod:FCZ.kod}:null,il_cz:FCZ?il:0,
- montaz:$('#fo_mon').checked,typ:$('#fo_typ').value,depozyt:$('#fo_dep').value,klient:$('#fo_kl').value.trim(),uwagi:$('#fo_uw').value.trim(),oddzial:typeof OODD!=='undefined'?OODD:''}}
-async function fLicz(){if(!FW)return;try{const r=await api('/api/felgi_oferta',fCialo());
- $('#fPoz').innerHTML=`<table class="tbl"><tr><th>Pozycja</th><th style="text-align:right">Ilość</th><th style="text-align:right">Cena brutto</th><th style="text-align:right">Wartość</th></tr>${r.pozycje.map(p=>`<tr><td>${esc(p.nazwa)}${p.opis?`<br><span class="muted">${esc(p.opis)}</span>`:''}${p.id?`<br><span class="muted">Indeks ${p.id}${p.kod?' · kod '+esc(p.kod):''}</span>`:''}</td><td style="text-align:right">${p.q}</td><td style="text-align:right">${zl(p.c)}</td><td style="text-align:right"><b>${zl(p.w)}</b></td></tr>`).join('')}<tr><td colspan="3" style="text-align:right"><b>Razem brutto</b></td><td style="text-align:right;font-size:16px"><b>${zl(r.razem)}</b></td></tr></table>`;msg('#foMsg','')}
+function fCialo(){const fotos={};for(const f of FWS){const z=(FZDJ[f.id]||[]).slice(0,4);if(!z.length&&f.foto)z.push(f.foto);if(z.length)fotos[f.id]=z}
+ return {felgi:FWS.map(f=>f.id),fotos,ilosc:FIL,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto,kod:FOP.kod,rozmiar:FOP.rozmiar||''}:null,il_op:FOP?(FILO??FIL):0,
+  czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto,kod:FCZ.kod}:null,il_tp:FTP,montaz:FMON,typ:FTYP,depozyt:FDEP,ceny:FCENY,ceny_wym:FCENYW,rabat:FRAB,
+  klient:$('#fo_kl').value.trim(),oid:FOID,owner:FOWNER,oddzial:typeof OODD!=='undefined'?OODD:''}}
+function fLiczD(){clearTimeout(FLT);FLT=setTimeout(fLicz,300)}
+function fUst(k,v){const n=x=>Math.max(0,Math.min(40,parseInt(x)||0));if(k==='il')FIL=Math.max(1,n(v)||1);else if(k==='ilo')FILO=n(v);else if(k==='tp')FTP=n(v);else if(k==='mon')FMON=!!v;else if(k==='typ')FTYP=v;else if(k==='dep')FDEP=v;
+ else if(k[0]==='r')FRAB[k.slice(1)]=String(v).replace(',','.').trim();FPDF='';fLiczD()}
+function fSetC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0||isNaN(+v))delete FCENY[id];else FCENY[id]=Math.ceil(+v);FPDF='';fLiczD()}
+function fSetW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete FCENYW[k];else FCENYW[k]=Math.ceil(+v);FPDF='';fLiczD()}
+async function fLicz(){if(!FWS.length)return;try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
  catch(e){msg('#foMsg',e.message,1)}}
-async function fPdf(){const b=$('#fPdfB');b.disabled=true;msg('#foMsg','Tworzę PDF…');try{const r=await api('/api/felgi_pdf',Object.assign(fCialo(),{nazwa:'Oferta felgi '+($('#fo_kl').value.trim()||FW.id)}));msg('#foMsg','Zapisano: '+r.plik)}catch(e){msg('#foMsg',e.message,1)}finally{b.disabled=false}}
-function fDoKoszyka(){if(!FW)return;const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));kDodaj(FW.id,il,FW.nazwa);if(FOP)kDodaj(FOP.id,il,FOP.nazwa);if(FCZ)kDodaj(FCZ.id,il,FCZ.nazwa)}
+function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
+ const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label>Rabat na felgi % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label>Rabat na opony % <input type="number" step="0.5" min="0" max="90" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label>Rabat na montaż % <input type="number" step="1" min="0" max="100" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
+ <div class="t" style="margin-top:8px">Ceny w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
+ r.edycja.map(u=>`<div class="r"><b style="min-width:380px">${u.nr?`<span class="fnr">${u.nr}</span>`:''}${esc(u.nazwa)}</b>${u.zakup?`<span class="tag buy">zakup ${zl(u.zakup)}</span>`:''}<span class="tag">wyliczona ${zl(u.auto)}</span>
+ <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="fSetC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="fSetC(${u.id},'')">↺ przywróć</button>`:''}${u.zakup&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
+ const wy=(r.wymiany||[]).length?'<div class="t" style="margin-top:8px">Ceny montażu (brutto za 1 koło) – wpisz własną, aby nadpisać; puste = z cennika'+(+FRAB.m?' minus rabat':'')+'</div>'+r.wymiany.map(w=>`<div class="r"><b style="min-width:380px">${esc(w.opis)}</b><span class="tag">cennik ${zl(w.cennik)}</span>${+FRAB.m?`<span class="tag">po rabacie ${zl(w.auto)}</span>`:''}
+ <label>Cena <input class="pr-in ${w.recznie?'man':''}" type="number" min="0" step="1" placeholder="${w.auto}" value="${w.recznie?w.cena:''}" data-k="${esc(w.klucz)}" onchange="fSetW(this.dataset.k,this.value)"> zł</label>${w.recznie?`<button class="sec" style="padding:2px 10px" data-k="${esc(w.klucz)}" onclick="fSetW(this.dataset.k,'')">↺ przywróć</button>`:''}</div>`).join(''):'';
+ $('#fEdit').innerHTML=top+wy+'<div class="t" style="margin-top:8px">Ilość i usługi – wspólne dla wszystkich propozycji, zmiana od razu przelicza ofertę</div>'+
+ `<div class="r"><label>Ilość felg <input type="number" min="1" max="40" value="${FIL}" onchange="fUst('il',this.value)"></label>${FOP?`<label>Ilość opon <input type="number" min="0" max="40" value="${FILO??FIL}" onchange="fUst('ilo',this.value)"></label>`:''}
+ <label><input type="checkbox" ${FMON?'checked':''} onchange="fUst('mon',this.checked)">Montaż / wymiana</label><select onchange="fUst('typ',this.value)" style="width:auto">${sel(FTYP,[['osobowy','osobowe'],['suv','SUV / 4x4'],['dostawczy','dostawcze']])}</select>
+ <label title="Ile kół ma czujniki ciśnienia – obsługa TPMS przy montażu${FCZ?' i tyle czujników':''}">Koła z TPMS <input type="number" min="0" max="40" value="${FTP}" onchange="fUst('tp',this.value)"></label>
+ <label>Przechowalnia <select onchange="fUst('dep',this.value)">${sel(FDEP,[['','—'],['kola','koła z felgami'],['opony','same opony']])}</select></label></div>`}
+const FKAT={felga:'Felgi',opona:'Opony',czujnik:'Czujniki TPMS',tpms:'Obsługa TPMS'};
+function fSumDraw(r){const zle=r.propozycje.filter(p=>p.blad);$('#fBlad').innerHTML=zle.length?`<div class="msg e">⛔ ${zle.map(p=>esc(p.blad)).join('<br>⛔ ')}<br><span style="font-size:12px">PDF tej propozycji i porównanie są zablokowane, dopóki felga i opony nie będą pasować.</span></div>`:'';
+ $('#fSum').innerHTML='<div class="vcards">'+r.propozycje.map((p,i)=>{const f=FWS[i]||{};return `<div class="vcard${p.blad?' zle':''}"><div class="t">Propozycja ${p.nr}</div><div class="m">${esc(f.nazwa||'')}${FOP?' + '+esc(FOP.nazwa):''}</div>${fFoto(f)?`<img class="fph" src="${esc(fFoto(f))}" alt="">`:''}
+ ${p.pozycje.map(x=>`<div class="l"><span>${FKAT[x.k]?FKAT[x.k]+' ('+x.q+' szt.)':esc(x.nazwa)}</span><span>${zl(x.w)}</span></div>`).join('')}<div class="tot"><span>RAZEM brutto</span><b>${zl(p.razem)}</b></div>${p.blad?`<div class="bl">⛔ ${esc(p.blad)}</div>`:''}</div>`}).join('')+'</div>'}
+function fUlDraw(r){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';const P=r.propozycje,zle=P.some(p=>p.blad),kpl=FOP?'komplet':'razem';
+ $('#fUl').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">każda propozycja osobno, duże zdjęcie felgi · dane Twojego oddziału</span>'+
+ (od.length>1?` <label style="font-size:12px;color:var(--muted)">Oddział na PDF <select onchange="setOdd(this.value)" style="width:auto">${od.map(o=>`<option ${o===OODD?'selected':''}>${esc(o)}</option>`).join('')}</select></label>`:'')+'<br>'+
+ (P.length>=2?`<button class="ulk" style="border-color:var(--red);font-weight:700" ${zle?'disabled title="Najpierw usuń felgę, do której nie pasują opony"':''} onclick="fPdf(this,-1)">⚖ Porównanie ${P.length} felg (1 strona) – klient wybiera</button>`:'')+
+ P.map((p,i)=>`<button class="ulk" ${p.blad?'disabled title="Opony nie pasują do tej felgi"':''} onclick="fPdf(this,${i})">📄 ${p.nr} · ${esc((FWS[i]||{}).nazwa||'')} – ${kpl} <span>${zl(p.razem)}</span></button>`).join('')+
+ (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')}
+function fKzDraw(r){const b=$('#fKz');if(!CFG.zamawianie){b.style.display='none';return}b.style.display='';const ilo=FILO??FIL;
+ const bt=(id,n,q,pre)=>`<button class="sec" onclick='kDodaj(${id},${q},${esc(JSON.stringify(n))});openKosz()'>🛒 ${pre||''}${esc(n)} · <b>${q} szt.</b></button>`;
+ b.innerHTML='<b>🛒 Zamów w xPartner:</b>'+FWS.map((f,i)=>bt(f.id,f.nazwa,FIL,(i+1)+' · ')).join('')+(FOP&&ilo?bt(FOP.id,FOP.nazwa,ilo):'')+(FCZ&&FTP?bt(FCZ.id,FCZ.nazwa,FTP):'')+
+ '<span class="muted" style="font-size:12px;flex-basis:100%">Kliknij to, co wybrał klient (jedną felgę i opony) – trafi do koszyka z ilością z oferty, ceny i stany sprawdzę na żywo.</span>'}
+async function fPdf(b,nr){b.disabled=true;msg('#foMsg','Tworzę PDF…');try{const por=nr<0;const nz=por?'porownanie '+FWS.length+' felg':(nr+1)+' '+FWS[nr].nazwa;
+ const r=await api('/api/felgi_pdf',Object.assign(fCialo(),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+' '+nz}));if(r.pdf)FPDF=r.plik;$('#fwaInfo').textContent=r.pdf?'WhatsApp wyśle: '+r.plik.split(/[\\/]/).pop():'';
+ msg('#foMsg',(r.pdf===false?'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ':'Zapisano PDF: ')+r.plik,r.pdf===false)}catch(e){msg('#foMsg',e.message,1)}finally{b.disabled=false}}
+async function fWa(b){b.disabled=true;try{if(!FPDF){if(!FR||!FR.propozycje.length)throw new Error('Najpierw wybierz felgę.');const P=FR.propozycje,por=P.length>1&&!P.some(p=>p.blad),nr=P.findIndex(p=>!p.blad);
+  if(!por&&nr<0)throw new Error('Opony nie pasują do felg – popraw ofertę.');msg('#foMsg','Tworzę PDF…');
+  const j=await api('/api/felgi_pdf',Object.assign(fCialo(),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+(por?' porownanie':' '+(nr+1)),bez_otwierania:1}));if(!j.pdf)throw new Error('Nie udało się utworzyć PDF (brak Edge) – utwórz PDF przyciskiem wyżej.');FPDF=j.plik}
+ const r=await api('/api/whatsapp',{plik:FPDF});const nz=FPDF.split(/[\\/]/).pop();const gdzie=r.whatsapp==='web'?'WhatsApp Web w przeglądarce':'WhatsApp';
+ msg('#foMsg',r.schowek?`📱 PDF „${nz}” jest w schowku. Otworzyłem ${gdzie} – wybierz klienta i naciśnij Ctrl+V, potem Enter.`:`Otworzyłem ${gdzie} – przeciągnij plik „${nz}” z folderu ofert do czatu.`);
+ if(FOID)try{await api('/api/status',{oid:FOID,status:'wyslana',owner:FOWNER})}catch(e){}}catch(e){msg('#foMsg',e.message,1)}b.disabled=false}
+async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:FOID,owner:FOWNER,uwagi:$('#fuw').value});FUWZM=false;m.textContent='✔ zapisane';$('#fuwInfo').textContent=''}catch(e){m.textContent='';msg('#foMsg',e.message,1)}}
+function fUwPo(){if(FUWZM&&$('#fuw').value.trim())fZapiszUw()}
+async function fZHist(r,hh){widok('f');FWS=(r.felgi_dane||[]).slice(0,FMAX);FOP=r.opona||null;FCZ=r.czujnik||null;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
+ FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
+ $('#fo_kl').value=r.klient||'';$('#fuw').value=hh.uwagi||'';FUWZM=false;$('#fuwMsg').textContent='';$('#fuwInfo').textContent=hh.uwagi_at?'· ostatnia zmiana: '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+ msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny i stany odświeżone z aktualnej kopii xPartner.');if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();$('#fOf').scrollIntoView({behavior:'smooth'})}
 function widok(v){$('#mainO').style.display=v==='o'?'':'none';$('#mainT').style.display=v==='t'?'':'none';$('#mainF').style.display=v==='f'?'':'none';$('#segO').classList.toggle('on',v==='o');$('#segT').classList.toggle('on',v==='t');$('#segF').classList.toggle('on',v==='f');if(v==='f'){$('#fq').focus()}try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
 async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
  const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};

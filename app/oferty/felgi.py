@@ -162,34 +162,52 @@ def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0):
 
 # ---------- oferta (same felgi albo komplet) ----------
 def oferta(cfg, felga, il, opona=None, il_op=0, czujnik=None, il_cz=0, montaz=False, typ="osobowy", depozyt="",
-           cena_czujnika=0.0):
-    """Pozycje oferty (ceny brutto). felga – z info(); opona – opona z oferty opon (enrich: nazwa, cena_brutto);
-    czujnik – z tpms.info() z ceną cena_czujnika; montaz – wymiana wg cennika usług (średnica felgi, typ auta);
-    depozyt – '' / 'opony' / 'kola' (przechowalnia wg cennika)."""
+           cena_czujnika=0.0, cena_montazu=None):
+    """Pozycje jednej propozycji (ceny brutto). felga – z info() (cena już po rabacie / ręczna); opona – z oferty opon
+    (nazwa, cena_brutto); il_cz – koła z czujnikami TPMS: obsługa TPMS (cennik usług) i – gdy wybrany czujnik – czujniki;
+    montaz – wymiana za koło: cena_montazu albo cennik usług (średnica felgi, typ auta); depozyt – '' / 'opony' / 'kola'.
+    Każda pozycja ma rodzaj „k”: felga / opona / czujnik / tpms / montaz / przech."""
     poz = []
     il = max(1, min(40, int(il or 4)))
-    poz.append({"nazwa": "Felga %s" % felga["nazwa"], "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"],
+    poz.append({"k": "felga", "nazwa": "Felga %s" % felga["nazwa"], "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"],
                 "kod": felga.get("kod") or "", "foto": felga.get("foto") or ""})
     if opona and il_op:
-        poz.append({"nazwa": "Opona %s" % opona["nazwa"], "opis": "", "q": int(il_op), "c": float(opona["cena_brutto"]), "id": opona["id"],
+        poz.append({"k": "opona", "nazwa": "Opona %s" % opona["nazwa"], "opis": "", "q": int(il_op), "c": float(opona["cena_brutto"]), "id": opona["id"],
                     "kod": str(opona.get("kod") or "")})
+    il_cz = max(0, min(40, int(il_cz or 0)))
     if czujnik and il_cz:
-        poz.append({"nazwa": "Czujnik ciśnienia TPMS %s" % czujnik["nazwa"], "opis": "", "q": int(il_cz), "c": float(cena_czujnika), "id": czujnik["id"],
-                    "kod": str(czujnik.get("kod") or "")})
-        if float(cfg.get("tpms_cena") or 0) > 0:
-            poz.append({"nazwa": "Obsługa czujnika ciśnienia TPMS przy montażu", "opis": "", "q": int(il_cz), "c": float(cfg["tpms_cena"])})
-    sr = (felga.get("sred") or "").split(".")[0]
+        poz.append({"k": "czujnik", "nazwa": "Czujnik ciśnienia TPMS %s" % czujnik["nazwa"], "opis": "", "q": il_cz, "c": float(cena_czujnika),
+                    "id": czujnik["id"], "kod": str(czujnik.get("kod") or "")})
+    if il_cz and float(cfg.get("tpms_cena") or 0) > 0:
+        poz.append({"k": "tpms", "nazwa": "Obsługa czujnika ciśnienia TPMS przy montażu", "opis": "", "q": il_cz, "c": float(cfg["tpms_cena"])})
+    sr = sred(felga)
     if montaz:
-        cen = cfg["wymiana_suv"] if typ == "suv" else cfg["wymiana_dost"] if typ == "dostawczy" else cfg["wymiana_kolo"]
-        c = float(cen.get(sr, 0) or 0)
-        poz.append({"nazwa": "Montaż / wymiana kół (R%s)" % sr, "opis": "" if c else "brak ceny w cenniku usług", "q": il, "c": c})
+        if cena_montazu is None:
+            cen = cfg["wymiana_suv"] if typ == "suv" else cfg["wymiana_dost"] if typ == "dostawczy" else cfg["wymiana_kolo"]
+            cena_montazu = float(cen.get(sr, 0) or 0)
+        poz.append({"k": "montaz", "nazwa": "Montaż / wymiana kół (R%s)" % sr, "opis": "" if cena_montazu else "brak ceny w cenniku usług",
+                    "q": il, "c": float(cena_montazu)})
     if depozyt in ("opony", "kola"):
         big = sr.isdigit() and int(sr) > 19
-        poz.append({"nazwa": "Przechowalnia %s – sezon" % ("opon" if depozyt == "opony" else "kół z felgami"), "opis": "",
+        poz.append({"k": "przech", "nazwa": "Przechowalnia %s – sezon" % ("opon" if depozyt == "opony" else "kół z felgami"), "opis": "",
                     "q": 1, "c": float(cfg["przech_%s_%s" % (depozyt, "pow19" if big else "do19")])})
     for p in poz:
         p["w"] = round(p["q"] * p["c"], 2)
     return poz, round(sum(p["w"] for p in poz), 2)
+
+
+def sred(f):
+    """Średnica felgi jako tekst bez części ułamkowej („17.0” -> „17”)."""
+    return (f.get("sred") or "").split(".")[0]
+
+
+def sred_opony(opona):
+    """Średnica opony z rozmiaru albo nazwy: „225/40 R18”, „225/40ZR18”, „215/65 R16C” -> „18”, „16”."""
+    for t in ((opona or {}).get("rozmiar") or "", (opona or {}).get("nazwa") or ""):
+        m = re.search(r"\d{3}/\d{2}\s*Z?R\s*F?\s*(\d{2})", t.upper()) or re.search(r"\bR\s*(\d{2})C?\b", t.upper())
+        if m:
+            return m.group(1)
+    return ""
 
 
 def opis_felgi(f):

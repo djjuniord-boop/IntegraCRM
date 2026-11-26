@@ -409,14 +409,68 @@ def test_felgi_parametry_szukanie_oferta_pdf():
         st, r = S.handle("/api/felgi", {"q": "5x112"})
         assert st == 200 and [x["id"] for x in r["lista"]] == [231798] and r["marza"] == 13
         st, r = S.handle("/api/felgi_oferta", {"felga": 231798, "ilosc": 4, "montaz": True})
-        assert st == 200 and r["razem"] == r["pozycje"][0]["w"] + r["pozycje"][1]["w"]
+        p = r["propozycje"][0]
+        assert st == 200 and p["razem"] == p["pozycje"][0]["w"] + p["pozycje"][1]["w"]
         st, r = S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "klient": "<Jan>"})
         assert st == 200 and "DIEWE NEVE" in r["html"] and "&lt;Jan&gt;" in r["html"] and "<Jan>" not in r["html"]
         u = "https://xpartner.net.pl/descriptionFiles/images/10837/abc123.jpg"
-        assert u in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "foto": u})[1]["html"]
-        assert "evil" not in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "foto": "https://evil.pl/x.jpg"})[1]["html"]
+        assert u in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "fotos": {"231798": [u]}})[1]["html"]
+        assert "evil" not in S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "fotos": {"231798": ["https://evil.pl/x.jpg"]}})[1]["html"]
     finally:
         S.KONTO.pop("katalog", None)
+
+
+def test_felgi_kilka_propozycji_ceny_porownanie_historia():
+    """2026-11-26: do 3 felg w ofercie (propozycje), wspólne opony i usługi, rabaty felgi/opony/montaż, ceny ręczne,
+    felga spoza ostatniego wyszukiwania (z Historii), opony R18 do felgi 17" = błąd i blokada PDF, porównanie, zapis w historii."""
+    from oferty import felgi as FG
+    _setup()
+    alu = {"id": 231798, "attrs": {"Typ": "ALUMINIOWA", "Średnica": '17"', "Szerokość": '7"'}, "ilosc": 4,
+           "nazwa": "DIEWE NEVE 7X17 5X112 ET46/57.1 CZARNY", "netto": 375.72, "brutto_zak": 462.14}
+    b18 = {"id": 5, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "GMP ATOM 8X18 5X112 ET35/66.5", "netto": 500.0, "ilosc": 8}
+    c18 = {"id": 6, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "OEM AUDI 8.5X18 5X112 ET43/57.1", "netto": 900.0, "ilosc": 8}
+    zapisane = {}
+    class H:
+        def save(self, oid, klient, rec, hay, owner=""):
+            zapisane[oid] = (rec, hay)
+    S.HIST = H()
+    S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(alu), dict(b18), dict(c18)]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    try:
+        S.FELGI_OSTATNIE.clear()   # oferta z Historii – felg nie ma w ostatnim wyszukiwaniu
+        assert FG.sred_opony({"rozmiar": "225/40 R18"}) == "18" and FG.sred_opony({"nazwa": "DUNLOP 215/65R16C 109T"}) == "16"
+        op = {"id": 9, "nazwa": "WINDFORCE 225/40 R18 92W", "netto": 150.0, "rozmiar": "225/40 R18"}
+        body = {"felgi": [5, 6, 231798, 99], "ilosc": 4, "opona": op, "montaz": True, "typ": "osobowy", "il_tp": 4, "depozyt": "kola",
+                "rabat": {"f": "10", "o": "0", "m": "50"}, "ceny": {"6": "1500"}, "ceny_wym": {"R18|osobowy": "30"}, "oid": "20261126_101010", "klient": "Kowalski"}
+        st, r = S.handle("/api/felgi_oferta", body)
+        assert st == 200 and [p["nr"] for p in r["propozycje"]] == [1, 2, 3]   # najwyżej 3 felgi (czwarta pominięta)
+        p1, p2, p3 = r["propozycje"]
+        f1 = p1["pozycje"][0]
+        assert f1["k"] == "felga" and f1["c"] == S.cena_po_rabacie(FG.info(b18)["cena"], 10)   # rabat 10% na felgi
+        assert p2["pozycje"][0]["c"] == 1500.0   # cena wpisana ręcznie wygrywa z rabatem
+        assert [x["k"] for x in p1["pozycje"]] == ["felga", "opona", "tpms", "montaz", "przech"]
+        mont = [x for x in p1["pozycje"] if x["k"] == "montaz"][0]
+        assert mont["c"] == 30.0 and mont["q"] == 4   # ręczna cena montażu R18
+        assert not p1["blad"] and not p2["blad"] and 'Felga 3 ma 17"' in p3["blad"]
+        e = {(x["k"], x["id"]): x for x in r["edycja"]}
+        assert e[("felga", 6)]["recznie"] and e[("opona", 9)]["auto"] == S.sell_price(S.load_cfg(), 150.0)
+        assert {w["klucz"] for w in r["wymiany"]} == {"R18|osobowy", "R17|osobowy"}
+        rec, hay = zapisane["20261126_101010"]
+        assert rec["typ_oferty"] == "felgi" and [f["id"] for f in rec["felgi_dane"]] == [5, 6, 231798] and "felgi" in hay and "kowalski" in hay
+        assert len(rec["warianty"]) == 3 and rec["warianty"][0]["modele"] == [b18["nazwa"], op["nazwa"]]
+        st, r = S.handle("/api/felgi_pdf", dict(body, porownanie=1))
+        assert st != 200 and "nie pasują" in r["error"]   # porównanie zablokowane, dopóki opony nie pasują do każdej felgi
+        st, r = S.handle("/api/felgi_pdf", dict(body, nr=2))
+        assert st != 200 and "nie pasują" in r["error"]
+        st, r = S.handle("/api/felgi_pdf", dict(body, nr=1))
+        assert st == 200 and "OEM AUDI" in r["html"] and "1 500,00" in r["html"]
+        st, r = S.handle("/api/felgi_pdf", dict(body, felgi=[5, 6], porownanie=1))
+        assert st == 200 and "PROPOZYCJA 1" in r["html"] and "PROPOZYCJA 2" in r["html"] and "GMP ATOM" in r["html"] and "Koła kompletne" in r["html"]
+        assert "W każdej propozycji" in r["html"] and "WINDFORCE" in r["html"]
+        st, r = S.handle("/api/felgi_pdf", dict(body, felgi=[5], porownanie=1))
+        assert st != 200   # porównanie potrzebuje 2 felg
+    finally:
+        S.KONTO.pop("katalog", None)
+        S.HIST = _Hist()
 
 
 def test_rozmiar_bez_c_pokazuje_tez_dostawcze():
@@ -627,7 +681,7 @@ def test_uwagi_do_oferty_zapis():
         S.HIST = H()
         code, _ = S.handle("/api/uwagi", {"oid": "20261116_082600", "uwagi": "Dla p. Kowalskiego" + "x" * 2000})
         assert code == 200 and zap[0][2] == "20261116_082600" and len(zap[0][0]) == 1000
-        S.HIST = None
+        S.HIST = _Hist()
         assert S.handle("/api/uwagi", {"oid": "x", "uwagi": "a"})[0] == 400
     finally:
         S.HIST = stary

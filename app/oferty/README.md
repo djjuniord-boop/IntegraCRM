@@ -113,6 +113,9 @@ w bazie (`kto_ok=false`) okno działa jak dawniej, bez znaczków i filtra osób.
 
 ## Felgi (`felgi.py`, zakładka „⚙️ Felgi”) – od 1.2.10
 Felgi z kopii pliku xPartner (asortyment FELGA: Rozstaw śrub, ET, Otwór centralny, Szerokość, Średnica, Typ, Model).
-`/api/felgi` (szukanie, cena = zakup netto + `marza_felgi` + VAT), `/api/felgi_oferta` (same felgi albo komplet: opona z oferty
-opon z marżą opon, czujnik TPMS z marżą felg + obsługa TPMS, montaż wg cennika wymiany, depozyt wg cennika przechowalni),
-`/api/felgi_pdf`. Zdjęcia (1.2.12): `okno.Api._zdjecia` – ukryte okno konfiguratora xPartner (ta sama domena co `konfigurator-api…/xpartner-product-images/<indeks>`, ciasteczko logowania xPartner w profilu WebView2); serwery xPartner blokują zapytania spoza przeglądarki (także z Supabase). Brak sesji → okno się pokazuje, użytkownik loguje się sam. Adresy zdjęć w `localStorage` (`felgi_zdjecia`); do PDF tylko adresy `xpartner.net.pl/descriptionFiles/…`.
+`/api/felgi` (szukanie, cena = zakup netto + `marza_felgi` + VAT), `/api/felgi_oferta` (`silnik.felgi_licz`: `felgi` = do 3
+indeksów = propozycje; wspólne: opona z oferty opon z marżą opon, czujnik TPMS z marżą felg, „Koła z TPMS” `il_tp` = obsługa
+TPMS (+ tyle czujników), montaż wg cennika wymiany, depozyt wg cennika przechowalni; `rabat` {f,o,m}, `ceny` {indeks: zł},
+`ceny_wym` {"R18|osobowy": zł} jak w oponach; felga spoza ostatniego wyszukiwania – z kopii pliku (oferta z Historii);
+opona o innej średnicy = `blad` propozycji; zapis w Historii po `oid`, `typ_oferty: "felgi"`), `/api/felgi_pdf` (`nr` –
+PDF jednej propozycji `pdf_felgi.html`; `porownanie` – `pdf_felgi_porownanie.html`, 2–3 felgi na stronie; błąd = odmowa). Zdjęcia (1.2.12): `okno.Api._zdjecia` – ukryte okno konfiguratora xPartner (ta sama domena co `konfigurator-api…/xpartner-product-images/<indeks>`, ciasteczko logowania xPartner w profilu WebView2); serwery xPartner blokują zapytania spoza przeglądarki (także z Supabase). Brak sesji → okno się pokazuje, użytkownik loguje się sam. Adresy zdjęć w `localStorage` (`felgi_zdjecia`); do PDF tylko adresy `xpartner.net.pl/descriptionFiles/…`.

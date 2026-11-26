@@ -910,6 +910,7 @@ def list_hist(q=""):
             continue
         out.append({"id": row.get("id"), "kto": row.get("kto") or row.get("owner") or "", "owner": row.get("owner") or "",
                     "oid": r["oid"], "data": r.get("data"), "klient": r.get("klient", ""),
+                    "typ": r.get("typ_oferty") or "",
                     "pojazdy": ", ".join(" ".join(x for x in (v.get("rej"), v.get("pojazd")) if x) or v.get("rozmiar", "") for v in r.get("pojazdy", [])),
                     "warianty": [{"wariant": w["wariant"], "modele": ", ".join(w["modele"]), "razem": w["razem"]} for w in r.get("warianty", [])],
                     "razem": max([w.get("razem", 0) for w in r.get("warianty", [])] or [0]),
@@ -1289,8 +1290,124 @@ def polacz_strony(strony):
 FELGI_OSTATNIE = {}   # id -> kafelek z ostatniego wyszukiwania (oferta liczy cenę z tej samej kopii)
 
 
+def _proc(v, mx):
+    try:
+        return max(0.0, min(float(mx), float(str(v or 0).replace(",", "."))))
+    except ValueError:
+        return 0.0
+
+
+def _felga_po_id(kat, fid, m, vat):
+    """Felga z ostatniego wyszukiwania, a gdy jej tam nie ma (oferta z Historii) – z kopii pliku, z aktualną ceną."""
+    from oferty import felgi as FG
+    f = FELGI_OSTATNIE.get(fid)
+    if f:
+        return f
+    for p in (kat.felgi() if kat and hasattr(kat, "felgi") else None) or []:
+        if int(p.get("id") or 0) == fid:
+            f = FG.info(p, m, vat)
+            FELGI_OSTATNIE[fid] = f
+            return f
+    return None
+
+
+def felgi_licz(cfg, body):
+    """Oferta felg: 1–3 felgi = 1–3 propozycje; opony, czujniki, montaż i przechowalnia wspólne. Ceny jak w ofercie opon:
+    wyliczona (po rabacie) albo wpisana ręcznie; rabat osobno na felgi, opony i montaż (decyzja właściciela 2026-11-26)."""
+    from oferty import felgi as FG
+    import math
+    kat = KONTO.get("katalog")
+    m, vat = float(cfg.get("marza_felgi") or 13), float(cfg.get("vat_proc") or 23)
+    ids = [int(x) for x in (body.get("felgi") or ([body["felga"]] if body.get("felga") else [])) if str(x).strip().isdigit()][:3]
+    if not ids:
+        raise ApiError("Wybierz felgę z wyników wyszukiwania.")
+    felgi = []
+    for fid in ids:
+        f = _felga_po_id(kat, fid, m, vat)
+        if not f:
+            raise ApiError("Felgi o indeksie %d nie ma już w ofercie xPartner – usuń ją z oferty." % fid)
+        felgi.append(f)
+    rab = body.get("rabat") if isinstance(body.get("rabat"), dict) else {}
+    rf, ro = _proc(rab.get("f"), 90), _proc(rab.get("o"), 90)
+    rw, over_w = rabat_wymiany({"rabat_wym": rab.get("m"), "ceny_wym": body.get("ceny_wym") or {}})
+    over = {}
+    for k, v in (body.get("ceny") or {}).items():
+        try:
+            if float(str(v).replace(",", ".")) > 0:
+                over[str(k)] = float(math.ceil(float(str(v).replace(",", "."))))
+        except ValueError:
+            pass
+    il = max(1, min(40, int(body.get("ilosc") or 4)))
+    edycja = []
+    op = body.get("opona") or None
+    if op and float(op.get("netto") or 0) > 0:
+        auto = cena_po_rabacie(sell_price(cfg, float(op["netto"])), ro)
+        op = dict(op, cena_brutto=over.get(str(op.get("id")), auto))
+        edycja.append({"id": op["id"], "k": "opona", "nazwa": "Opona " + str(op.get("nazwa") or ""), "zakup": round(float(op["netto"]) * (1 + vat / 100), 2),
+                       "auto": auto, "cena": op["cena_brutto"], "recznie": str(op.get("id")) in over})
+    else:
+        op = None
+    cz = body.get("czujnik") or None
+    c_cz = 0.0
+    if cz and float(cz.get("netto") or 0) > 0:
+        auto = float(math.ceil(round(float(cz["netto"]) * (1 + m / 100) * (1 + vat / 100), 2) - 1e-9))
+        c_cz = over.get(str(cz.get("id")), auto)
+        edycja.append({"id": cz["id"], "k": "czujnik", "nazwa": "Czujnik TPMS " + str(cz.get("nazwa") or ""), "zakup": round(float(cz["netto"]) * (1 + vat / 100), 2),
+                       "auto": auto, "cena": c_cz, "recznie": str(cz.get("id")) in over})
+    else:
+        cz = None
+    il_op = max(0, min(40, int(body.get("il_op") if body.get("il_op") not in (None, "") else il))) if op else 0
+    il_tp = max(0, min(40, int(body.get("il_tp") or 0)))
+    typ = body.get("typ") if body.get("typ") in ("osobowy", "suv", "dostawczy") else "osobowy"
+    montaz, depozyt = bool(body.get("montaz")), body.get("depozyt") or ""
+    cennik = cfg["wymiana_suv"] if typ == "suv" else cfg["wymiana_dost"] if typ == "dostawczy" else cfg["wymiana_kolo"]
+    fotos = body.get("fotos") if isinstance(body.get("fotos"), dict) else {}
+    sr_op = FG.sred_opony(op) if op else ""
+    props, wymiany, ef = [], {}, []
+    for i, f in enumerate(felgi):
+        auto = cena_po_rabacie(f["cena"], rf)
+        fe = dict(f, cena=over.get(str(f["id"]), auto))
+        zd = [u for u in (fotos.get(str(f["id"])) or []) if isinstance(u, str) and FOTO_XP.match(u)][:4]
+        if zd:
+            fe["foto"] = zd[0]
+        ef.append({"id": f["id"], "k": "felga", "nr": i + 1, "nazwa": "Felga " + f["nazwa"], "zakup": f.get("brutto_zak") or 0,
+                   "auto": auto, "cena": fe["cena"], "recznie": str(f["id"]) in over})
+        sr = FG.sred(f)
+        kw = "R%s|%s" % (sr, typ)
+        c0 = float(cennik.get(sr, 0) or 0)
+        c_w = over_w.get(kw, cena_po_rabacie(c0, rw))
+        if montaz and kw not in wymiany:
+            wymiany[kw] = {"klucz": kw, "opis": "Montaż / wymiana R%s (%s)" % (sr, TYPY.get(typ, typ)), "cennik": c0,
+                           "auto": cena_po_rabacie(c0, rw), "cena": c_w, "recznie": kw in over_w}
+        poz, razem = FG.oferta(cfg, fe, il, op, il_op, cz, il_tp, montaz, typ, depozyt, c_cz, c_w)
+        blad = ""
+        if op and sr_op and sr and sr != sr_op:
+            blad = 'Felga %d ma %s", opony są R%s – nie pasują. Usuń tę felgę albo zmień opony.' % (i + 1, sr, sr_op)
+        props.append({"nr": i + 1, "felga": fe, "fotos": zd, "pozycje": poz, "razem": razem, "blad": blad})
+    return {"props": props, "edycja": ef + edycja, "wymiany": list(wymiany.values()), "opona": op, "czujnik": cz, "il": il,
+            "il_op": il_op, "il_tp": il_tp, "montaz": montaz, "typ": typ, "depozyt": depozyt, "vat": vat, "marza": m,
+            "rabat": {"f": rf, "o": ro, "m": rw}}
+
+
+def felgi_zapisz_hist(body, w):
+    """Oferta felg w Historii ofert (ten sam wpis przy każdym przeliczeniu – po oid), ze znaczkiem „felgi”."""
+    if not HIST or not body.get("oid"):
+        return
+    oid = safe_oid(body.get("oid"))
+    op = w["opona"]
+    warianty = [{"wariant": "Felgi – propozycja %d" % p["nr"], "modele": [p["felga"]["nazwa"]] + ([op["nazwa"]] if op else []),
+                 "razem": p["razem"]} for p in w["props"]]
+    pola = ("felgi", "ilosc", "opona", "il_op", "czujnik", "il_tp", "montaz", "typ", "depozyt", "ceny", "ceny_wym", "rabat")
+    rec = dict({k: body.get(k) for k in pola}, typ_oferty="felgi", oid=oid, data=datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
+               klient=body.get("klient") or "", oddzial=body.get("oddzial") or "", pojazdy=[], warianty=warianty,
+               felgi_dane=[{k: p["felga"].get(k) for k in ("id", "nazwa", "szer", "sred", "pcd", "et", "otwor", "rodzaj", "producent",
+                                                             "model", "kod", "stan", "brutto_zak", "cena", "demo")} for p in w["props"]])
+    hay = ("felgi " + rec["klient"] + " " + " ".join(m_ for x in warianty for m_ in x["modele"])).lower()
+    HIST.save(oid, rec["klient"], rec, hay, owner=str(body.get("owner") or "").lower())
+
+
 def felgi_route(cfg, route, body):
-    """Zakładka „Felgi”: wyszukiwanie w kopii pliku, oferta (same felgi albo komplet) i jej PDF."""
+    """Zakładka „Felgi”: wyszukiwanie w kopii pliku, oferta (1–3 felgi, same albo komplet), PDF propozycji i porównanie."""
     from oferty import felgi as FG
     kat = KONTO.get("katalog")
     m, vat = float(cfg.get("marza_felgi") or 13), float(cfg.get("vat_proc") or 23)
@@ -1302,40 +1419,80 @@ def felgi_route(cfg, route, body):
         FELGI_OSTATNIE.clear(); FELGI_OSTATNIE.update({f["id"]: f for f in lista})
         info = KONTO.get("katalog_info")
         return 200, {"lista": lista, "q": q, "marza": m, "zrodlo": info() if info else ""}
-    f = FELGI_OSTATNIE.get(int(body.get("felga") or 0))
-    if not f:
-        raise ApiError("Wybierz felgę z wyników wyszukiwania.")
-    foto = str(body.get("foto") or "")
-    if FOTO_XP.match(foto):
-        f = dict(f, foto=foto)   # zdjęcie z konfiguratora xPartner – tylko z ich serwera zdjęć
-    op = body.get("opona") or None
-    if op:   # opona z oferty opon: cena oferty liczona tu, z marżą opon
-        op = dict(op, cena_brutto=sell_price(cfg, float(op.get("netto") or 0))) if float(op.get("netto") or 0) > 0 else None
-    cz = body.get("czujnik") or None
-    c_cz = 0.0
-    if cz and float(cz.get("netto") or 0) > 0:
-        import math
-        c_cz = float(math.ceil(round(float(cz["netto"]) * (1 + m / 100) * (1 + vat / 100), 2) - 1e-9))
-    poz, razem = FG.oferta(cfg, f, body.get("ilosc") or 4, op, int(body.get("il_op") or 0), cz, int(body.get("il_cz") or 0),
-                           bool(body.get("montaz")), body.get("typ") or "osobowy", body.get("depozyt") or "", c_cz)
+    w = felgi_licz(cfg, body)
     if route == "/api/felgi_oferta":
-        return 200, {"pozycje": poz, "razem": razem}
+        uwagi = []
+        try:
+            felgi_zapisz_hist(body, w)
+        except Exception as e:
+            uwagi.append("Nie zapisano oferty w historii: %s" % e)
+        return 200, {"propozycje": [{k: p[k] for k in ("nr", "pozycje", "razem", "blad")} for p in w["props"]],
+                     "edycja": w["edycja"], "wymiany": w["wymiany"], "uwagi": uwagi}
     o, dane = oddzial_oferty(body)
     if not all((dane.get(k) or "").strip() for k in ("nazwa", "adres", "tel")):
         raise ApiError("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.")
-    return 200, {"html": felgi_pdf_html(cfg, body, f, poz, razem, dane, vat), "oddzial": o}
+    if body.get("porownanie"):
+        if len(w["props"]) < 2:
+            raise ApiError("Porównanie potrzebuje co najmniej 2 felg.")
+        zle = [p["blad"] for p in w["props"] if p["blad"]]
+        if zle:
+            raise ApiError(zle[0])
+        return 200, {"html": felgi_porownanie_html(cfg, body, w, dane), "oddzial": o}
+    nr = max(0, min(len(w["props"]) - 1, int(body.get("nr") or 0)))
+    p = w["props"][nr]
+    if p["blad"]:
+        raise ApiError(p["blad"])
+    return 200, {"html": felgi_pdf_html(cfg, body, p["felga"], p["pozycje"], p["razem"], dane, vat, p["fotos"]), "oddzial": o}
 
 
 FOTO_XP = re.compile(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", re.I)
 PDF_FELGI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi.html")
 
 
-def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat):
+def _ctx_oddzial(cfg, body, oddzial):
+    import datetime
+    teraz = datetime.datetime.now()
+    oid = teraz.strftime("%Y%m%d_%H%M%S")
+    return {"logo": body.get("logo") or "", "nr": "OF/%s/%s/%s-%s" % (oid[0:4], oid[4:6], oid[6:8], oid[9:13]),
+            "data": teraz.strftime("%d.%m.%Y"), "wazna": (teraz + datetime.timedelta(days=int(cfg.get("waznosc_dni") or 7))).strftime("%d.%m.%Y"),
+            "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
+            "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
+            "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
+            "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or ""}
+
+
+PDF_FELGI_POR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi_porownanie.html")
+
+
+def felgi_porownanie_html(cfg, body, w, oddzial):
+    """PDF „porównanie”: wybrane felgi obok siebie na jednej stronie, wspólne elementy kompletu raz na górze;
+    każda kolumna ma pełną cenę kompletu (decyzja właściciela 2026-11-26)."""
+    vat = w["vat"]
+    wsp, kol = [], []
+    for x in w["props"][0]["pozycje"]:
+        if x["k"] != "felga":
+            wsp.append({"t": "%s – %d %s" % (x["nazwa"], x["q"], "kpl." if x["k"] == "przech" else "szt.")})
+    for p in w["props"]:
+        f = p["felga"]
+        kol.append({"nr": p["nr"], "tytul": f["nazwa"], "foto": f.get("foto") or "", "producent": f.get("producent") or "",
+                    "model": f.get("model") or "", "rozmiar": ('%s x %s"' % (f["szer"], f["sred"])) if f.get("szer") and f.get("sred") else (f.get("sred") or ""),
+                    "pcd": f.get("pcd") or "", "et": f.get("et") or "", "otwor": f.get("otwor") or "", "xp_id": str(f["id"]), "kod": f.get("kod") or "",
+                    "linie": [{"t": ("Felgi %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "felga" else ("Opony %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "opona"
+                               else x["nazwa"].replace("Montaż / wymiana kół", "Montaż").replace("Obsługa czujnika ciśnienia TPMS przy montażu", "Obsługa TPMS")
+                               .replace("Czujnik ciśnienia TPMS", "Czujniki TPMS"), "w": pl(x["w"])} for x in p["pozycje"]],
+                    "cena_szt": pl(f["cena"]), "brutto": pl(p["razem"]), "netto": pl(round(p["razem"] / (1 + vat / 100), 2))})
+    ctx = dict(_ctx_oddzial(cfg, body, oddzial), kolumny=kol, wsp_txt=" · ".join(x["t"] for x in wsp), ile=len(kol), komplet=bool(w["opona"]),
+               tytul_h="Koła kompletne" if w["opona"] else "Felgi", vat_proc=("%g" % vat).replace(".", ","))
+    with open(PDF_FELGI_POR, encoding="utf-8") as fh:
+        return wypelnij(fh.read(), ctx)
+
+
+def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
     """PDF oferty na felgi – układ jak oferta opon: duże zdjęcie felgi (+ miniatury), parametry, ceny, kalkulacja."""
     import datetime
     teraz = datetime.datetime.now()
     oid = teraz.strftime("%Y%m%d_%H%M%S")
-    fotki = [u for u in (body.get("fotos") or []) if isinstance(u, str) and FOTO_XP.match(u)]
+    fotki = [u for u in (fotos if fotos is not None else (body.get("fotos") or [])) if isinstance(u, str) and FOTO_XP.match(u)]
     glowne = f.get("foto") or (fotki[0] if fotki else "")
     netto = round(razem / (1 + vat / 100), 2)
     rodz = {"aluminiowa": "FELGA ALUMINIOWA", "stalowa": "FELGA STALOWA"}.get(f.get("rodzaj"), "FELGA")

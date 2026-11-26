@@ -47,6 +47,11 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   + montaż + depozyt (przechowalnia).
 - Wyniki jako **kafelki ze zdjęciem**.
 - **Bez aplikacji Android** (tylko Panel).
+- Oferta felg wygląda i działa jak oferta opon: uwagi wewnętrzne, rabat osobno na felgi / opony / montaż, własne ceny,
+  ilości i usługi, karty propozycji z sumą, PDF, „Zamów w xPartner”, folder, WhatsApp, zapis w Historii ofert ze znaczkiem
+  „felgi”. **Do 3 felg w jednej ofercie** – każda to osobna propozycja (własny PDF) + PDF „porównanie” (wszystkie na jednej
+  stronie, klient wybiera). Opony, czujniki i usługi wspólne dla wszystkich felg; opony o innej średnicy niż felga =
+  czerwony komunikat i blokada PDF tej propozycji i porównania. (2026-11-26)
 
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
