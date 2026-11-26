@@ -154,7 +154,8 @@ def szukaj(items, txt, marza_proc=13.0, vat_proc=23.0):
     q = zapytanie(txt)
     lista = [info(p, marza_proc, vat_proc) for p in items]
     lista = [f for f in lista if f["cena"] > 0 and pasuje(f, q)]
-    lista.sort(key=lambda f: (f["stan"] < q["ilosc"], f["cena"], f["nazwa"]))
+    # wpisana marka auta najpierw (VW), dopiero potem pokrewne z tej samej grupy (Audi, Skoda, Seat – ten sam rozstaw)
+    lista.sort(key=lambda f: (bool(q["marki"]) and not (set(f["marki"]) & set(q["marki"])), f["stan"] < q["ilosc"], f["cena"], f["nazwa"]))
     return lista[:400], q
 
 

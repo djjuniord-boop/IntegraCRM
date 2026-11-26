@@ -394,6 +394,9 @@ def test_felgi_parametry_szukanie_oferta_pdf():
     assert [x["id"] for x in FG.szukaj([alu, stal], "diewe neve")[0]] == [231798]
     assert [x["id"] for x in FG.szukaj([alu, stal], "190362")[0]] == [190362]
     assert FG.szukaj([alu, stal], "5x120")[0] == []
+    vw = {"id": 7, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "OEM VW GOLF 6X17 5X112 ET48/57.1", "netto": 400.0, "ilosc": 8}
+    au = {"id": 8, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "OEM AUDI A3 6X17 5X112 ET48/57.1", "netto": 100.0, "ilosc": 8}
+    assert [x["id"] for x in FG.szukaj([au, vw], "vw alu")[0]] == [7, 8]   # wpisana marka przed pokrewną, mimo wyższej ceny
     _setup()
     cfg = S.load_cfg()
     poz, razem = FG.oferta(cfg, f, 4, {"id": 1, "nazwa": "OPONA X", "cena_brutto": 400.0}, 4, {"id": 2, "nazwa": "CZ"}, 4, True, "osobowy", "kola", 120.0)
