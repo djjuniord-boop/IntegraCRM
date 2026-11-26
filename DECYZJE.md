@@ -39,6 +39,15 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C), opony C ze znaczkiem „C”. (2026-11-26)
 - Czujniki TPMS (zakładka 📡): samo wyszukiwanie i koszyk, bez ofert. (2026-11-17)
 
+## OFERTY NA FELGI (w przygotowaniu, decyzje 2026-11-26)
+- Nowa część OFERT: felgi z pliku oferty xPartner (asortyment FELGA), **zdjęcia z usługi zdjęć xPartner po indeksie**
+  (`konfigurator-api.xpartner.net.pl/xpartner-product-images/<indeks>`) – właściciel ma zgodę xPartner.
+- **Marża na felgi 13%**, ustawia tylko administrator (jak marża opon).
+- Oferta na **same felgi albo komplet**: felgi + opony (z naszej oferty opon) + czujniki TPMS (jako część, z xPartner)
+  + montaż + depozyt (przechowalnia).
+- Wyniki jako **kafelki ze zdjęciem**.
+- **Bez aplikacji Android** (tylko Panel).
+
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
 - Dostawa tylko na adres oddziału konta.
