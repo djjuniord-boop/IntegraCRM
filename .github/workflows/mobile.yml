@@ -1,9 +1,12 @@
-name: Aplikacja Android (Oferty opon)
+name: Aplikacja Android (Latex Serwis)
 
-# ZAWIESZONE (decyzja właściciela 2026-11-09): aplikacja nie jest aktualizowana. Budowa tylko ręcznie
-# (Actions → Run workflow). Żeby wznowić: przywróć wyzwalacz push na main/beta (paths: mobile/**).
+# Wznowiona (decyzja właściciela 2026-11-25): Wyniki, Oferta opon, Depozyt. Beta → wydanie „aplikacja-android-beta”
+# (pre-release, link do pobrania na telefonie), main → „aplikacja-android” (stały adres aktualizacji).
 on:
   workflow_dispatch:
+  push:
+    branches: [main, beta]
+    paths: ["mobile/**", ".github/workflows/mobile.yml"]
 
 permissions:
   contents: write
@@ -28,8 +31,9 @@ jobs:
           pip install openpyxl > /dev/null
           python3 mobile/test/zgodnosc.py
           pip install playwright > /dev/null && python3 -m playwright install --with-deps chromium > /dev/null
-          python3 mobile/test/zamowienia_zgodnosc.py
           TZ=Europe/Warsaw python3 mobile/test/zgodnosc_wyniki.py
+          python3 mobile/test/zgodnosc_depozyt.py
+          python3 mobile/test/ekran.py "$RUNNER_TEMP/zrzuty"
       - name: Klucz podpisu
         env:
           KS_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
@@ -44,6 +48,20 @@ jobs:
           mobile/build_apk.sh "$PWD/LatexOferty-$V.apk"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
         with: { name: "LatexOferty-${{ env.V }}", path: "LatexOferty-*.apk" }
+      - name: Wydanie testowe (beta) – link do pobrania na telefonie
+        if: github.ref_name == 'beta'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          R=aplikacja-android-beta; cp "LatexOferty-$V.apk" LatexSerwis-beta.apk
+          if gh release view $R > /dev/null 2>&1; then
+            ok=0; for i in 1 2 3; do gh release upload $R LatexSerwis-beta.apk --clobber && { ok=1; break; }; sleep $((15*i)); done
+            [ $ok = 1 ] || { echo "::error::Nie udało się wgrać APK"; exit 1; }
+          else
+            gh release create $R LatexSerwis-beta.apk --target beta --prerelease --latest=false --title "Aplikacja Android – BETA" \
+              --notes "Wersja testowa aplikacji. Pobierz LatexSerwis-beta.apk na telefonie i otwórz (zezwól na instalację z tego źródła)."
+          fi
+          gh release edit $R --prerelease --title "Aplikacja Android – BETA $V"
       - name: Wydanie (tylko main) – stały adres aktualizacji aplikacji
         if: github.ref_name == 'main'
         env:
@@ -56,10 +74,10 @@ jobs:
           if gh release view $R > /dev/null 2>&1; then
             gh release upload $R "$A" LatexOferty.apk aplikacja.json --clobber
           else
-            gh release create $R "$A" LatexOferty.apk aplikacja.json --target main --latest=false --title "Aplikacja Android – Oferty opon" \
+            gh release create $R "$A" LatexOferty.apk aplikacja.json --target main --latest=false --title "Aplikacja Android – Latex Serwis" \
               --notes "Instalacja: pobierz LatexOferty.apk na telefonie i otwórz (zezwól na instalację z tego źródła). Logowanie tym samym kontem co Panel."
           fi
-          gh release edit $R --draft=false --latest=false --title "Aplikacja Android – Oferty opon $V"
+          gh release edit $R --draft=false --latest=false --title "Aplikacja Android – Latex Serwis $V"
           # zostają tylko: bieżąca wersja, LatexOferty.apk, aplikacja.json
           for a in $(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$R" --jq '.assets[] | "\(.id)|\(.name)"'); do
             id=${a%%|*}; n=${a#*|}

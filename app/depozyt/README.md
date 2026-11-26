@@ -6,7 +6,7 @@ w oddziale. Moduł uprawnień `depozyt` (UŻYTKOWNICY), oddział konta = oddzia�
 - `zakladka.py` – `DepozytMixin` (część `App` w `gui.py`): tabela spisu, odhaczanie „przywiezione” (dwuklik / spacja /
   Enter przy jednym wyniku; data, godzina i kto zapisują się w bazie), komentarz, „do wyjaśnienia”, zmiana
   lokalizacji/numeru/marki, historia zmian, duplikaty, eksport do Excela (czerwone/pomarańczowe wiersze jak w starym
-  pliku), „Dodaj pozycję”. Odświeżanie co minutę, gdy zakładka jest otwarta. `PrzygotowanieOkno` – lista z raportu Integry.
+  pliku), „Dodaj pozycję”. Gdy zakładka jest otwarta: co 10 s pobiera tylko pozycje zmienione od ostatniego razu (kolumna `zmieniono`), co 10 min – całość. `PrzygotowanieOkno` – lista z raportu Integry.
 - `szukaj.py` – wyszukiwanie odporne na literówki (znaki mylone O/0/D, I/1, B/8…, 1–2 inne znaki, numery w uwagach),
   `klucz_lokalizacji` – kolejność obchodu magazynu: regały K, potem M, potem pozostałe (KPOK, KWEJ, MAGOPIS…).
 - `raport.py` – PDF przechowalni z Integry (FastReport; „Rejestr przechowalni opon”, „Rejestr opon do wydania wg
@@ -25,3 +25,12 @@ jednorazowy plik SQL poza repozytorium (dane klientów).
 
 Testy: `tests/test_depozyt.py` (szukanie, raport w układzie Integry na zmyślonych danych, lista, filtry) i kontrola
 `depozyt_spis_i_szukanie` w `tests/ui_smoke.py`.
+
+Arkusz Google: `tools/arkusz_depozyt.gs` (Apps Script) – synchronizacja dwustronna; baza powiadamia arkusz od razu
+(wyzwalacz `depozyt_do_arkusza` + pg_net, konfiguracja w `depozyt_arkusz_cfg`), zapas – co minutę.
+
+Ustawienia oddziału (`depozyt_ustawienia`, okno `UstawieniaOkno`, tylko admin): sezon na start, ukryte sezony,
+trasa (kolejność regałów, `szukaj.TRASA`), uprawnienia cofania i edycji numeru/lokalizacji – sprawdza `depozyt_zmien`.
+Oznaczenie „do wyjaśnienia” (pomarańczowe) wycofane 2026-11-25; kolumna `wyjasnic` zostaje w bazie, nieużywana.
+Lista do przygotowania po wczytaniu raportu trafia do `depozyt_listy` (jedna aktualna na oddział, bez nazw klientów) –
+czyta ją aplikacja Android (`dane.lista_do_bazy`, `depozyt_zapisz_liste`).

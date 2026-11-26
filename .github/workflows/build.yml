@@ -249,7 +249,15 @@ jobs:
             # więc zwykłe instalacje (releases/latest/...) go nie widzą.
             gh release view kanal-beta 2>$null
             if ($LASTEXITCODE -eq 0) {
-              gh release upload kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
+              # błąd GitHuba (np. HTTP 500) przy wgrywaniu = do 3 prób; potem przerwanie budowy (inaczej kanał
+              # zostaje ze starym version.json, a sprzątanie usuwało paczkę – 2026-11-25)
+              $ok = $false
+              foreach ($proba in 1..3) {
+                gh release upload kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --clobber
+                if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+                Start-Sleep -Seconds (15 * $proba)
+              }
+              if (-not $ok) { Write-Error "Nie udało się wgrać plików na kanał beta"; exit 1 }
               gh release edit kanal-beta --prerelease --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/$env:GITHUB_REPOSITORY/releases/download/kanal-beta/version.json"
             } else {
               gh release create kanal-beta "IntegraCRM-$v-exe.zip" IntegraCRM-setup.exe "integra-$v.zip" version.json --target beta --prerelease --latest=false --title "IntegraCRM BETA $v" --notes "Kanał testowy. Źródło aktualizacji: https://github.com/$env:GITHUB_REPOSITORY/releases/download/kanal-beta/version.json"

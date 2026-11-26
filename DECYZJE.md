@@ -6,7 +6,9 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 ## Jak pracujemy
 - **Wydanie tylko przez `tools/wydaj.sh`** (testy → beta + main → czekanie na budowę tej zmiany → sprawdzenie wydania).
   Nigdy ręczne `git push` na beta/main. „Wydane” mówimy dopiero, gdy skrypt skończył się ✅. (2026-11-24)
-- Po skończonej zmianie od razu wydanie oficjalne, chyba że właściciel powie „najpierw beta”; kilka poprawek w jednym
+- **Od 2026-11-25: po skończonej i przetestowanej zmianie od razu wydanie na kanał beta** (bez pytania); wydanie
+  oficjalne dopiero na „wydaj official”. (zastępuje zasadę z 2026-11-09)
+- (2026-11-09, zastąpione) Po skończonej zmianie od razu wydanie oficjalne, chyba że właściciel powie „najpierw beta”; kilka poprawek w jednym
   wydaniu zamiast wielu małych. (2026-11-09)
 - **Najpierw propozycja / makieta, potem wdrażanie** – przy nowych funkcjach i zmianach wyglądu.
 - Zanim opiszesz właścicielowi, jak coś działa – sprawdź w kodzie, że to jest naprawdę używane (nie martwy kod).
@@ -34,6 +36,7 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Niepełny rozmiar („20555”, „R20”, sama marka/sezon) szukany w kopii pliku xPartner. (2026-11-17)
 - Handlowcy z jednego oddziału widzą i współdzielą oferty (wariant „b”). (2026-11-17)
 - PDF do schowka + WhatsApp. (2026-11-18)
+- Rozmiar bez „C” pokazuje też wersję dostawczą (R16 + R16C), opony C ze znaczkiem „C”. (2026-11-26)
 - Czujniki TPMS (zakładka 📡): samo wyszukiwanie i koszyk, bez ofert. (2026-11-17)
 
 ## Koszyk i ZAMÓWIENIA xPartner
@@ -52,3 +55,9 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   z datą, godziną i nazwiskiem z konta. Pozycje odhaczone w Excelu mają „wg Excela” (bez godziny). (2026-11-25)
 - Raport przechowalni z Integry: program daje wynik zależny od raportu – dzień do przodu = lista do przygotowania
   (trasa po regałach K → M → reszta), dni minione = kontrola rozbieżności, okres = jedno i drugie. (2026-11-25)
+- Pomarańczowe w starym Excelu = przywiezione bez wymiany, nowa lokalizacja. W programie **bez oznaczenia
+  pomarańczowego** – informacja w komentarzu. (2026-11-25)
+- Ustawienia depozytu (sezon na start, archiwum sezonów, trasa regałów, uprawnienia cofania/edycji) zmienia
+  administrator w programie; domyślnie cofanie „przywiezione” tylko admin, numer/lokalizację – wszyscy. (2026-11-25)
+- Aplikacja Android wznowiona: Wyniki, Oferta opon, Depozyt (zakładki wg modułów konta; magazynier – sam Depozyt).
+  Zamówień w telefonie nie ma. Lista do przygotowania: wczytywana w Panelu, zapisywana w bazie, otwierana w telefonie. (2026-11-25)

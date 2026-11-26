@@ -725,7 +725,10 @@ def do_search(cfg, req):
                         "wiecej": len(found[s]) >= WZOR_POBIERZ}
             items = items[:WZOR_LIMIT]
         else:
-            items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) == s and p["netto"] > 0]
+            # rozmiar bez „C” pokazuje też wersję dostawczą (205/75 R16 + R16C) – decyzja właściciela 2026-11-26;
+            # opony C oznaczone znaczkiem (inna nośność). Wpisane „C” = tylko dostawcze.
+            ok = {s} if s.endswith("C") else {s, s + "C"}
+            items = [enrich(cfg, p) for p in found[s] if norm_size(p["nazwa"]) in ok and p["netto"] > 0]
         for p in items:
             p["rozmiar"] = norm_size(p["nazwa"]) or s
         ucz_marki(nazwy=[p["producent"] for p in items])  # cena 0 = niedostępne do zamówienia

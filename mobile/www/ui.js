@@ -1,4 +1,4 @@
-// Oferty opon – ekran telefonu. Logika jak w Panelu (app/oferty/index.html), silnik w silnik.js (Silnik.handle).
+// Aplikacja Latex Serwis – ekran telefonu (Oferta, Historia, Wyniki, Depozyt). Logika jak w Panelu (app/oferty/index.html), silnik w silnik.js (Silnik.handle).
 const $ = (s) => document.querySelector(s);
 let CFG = {}, RES = null, VEH = [], SEL = new Set(), PAGE = {}, SORT = "", OID = null, ORABAT = "", CENY = {}, ULS = [], OSOBNO = null, ORABW = "", CENYW = {}, WYMS = [];
 const F = { wet: "", rr: "", noise: "", hom: "", demo: "", txt: "", spd: "", li: "" };
@@ -15,7 +15,7 @@ const LSx = { get(k) { try { return localStorage.getItem(k); } catch (e) { retur
 function pokaz(zalogowany) {
   $("#vLogin").hidden = zalogowany;
   for (const id of ["#top", "#tabs"]) $(id).hidden = !zalogowany;
-  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vWyn", "#vZam", "#vUst"]) $(v).hidden = true; $("#selBar").hidden = true; }
+  if (zalogowany) go(document.querySelector("#tabs button.on")); else { for (const v of ["#vOferta", "#vHist", "#vWyn", "#vDep", "#vUst"]) $(v).hidden = true; depStop(); $("#selBar").hidden = true; }
 }
 async function startApp() {
   $("#lVer").textContent = "Wersja aplikacji: " + Aplikacja.wersja();
@@ -27,9 +27,9 @@ async function startApp() {
     const M = Aplikacja.moze;   // zakładki wg uprawnień (jak w Panelu)
     for (const v of ["vOferta", "vHist"]) document.querySelector(`#tabs button[data-v="${v}"]`).hidden = !M.oferty;
     document.querySelector('#tabs button[data-v="vWyn"]').hidden = !M.wyniki;
-    document.querySelector('#tabs button[data-v="vZam"]').hidden = !M.zamowienia; $("#zbF").hidden = p.role !== "admin";
+    document.querySelector('#tabs button[data-v="vDep"]').hidden = !M.depozyt;
     $("#ustOferty").hidden = !M.oferty; $("#top .icon").hidden = !M.oferty;
-    $("#tTitle").textContent = M.oferty ? "Oferty opon" : "Wyniki marży";
+    $("#tTitle").textContent = M.oferty ? "Oferty opon" : M.wyniki ? "Wyniki marży" : "Depozyt opon";
     const on = document.querySelector("#tabs button.on");
     if (!on || on.hidden) document.querySelectorAll("#tabs button").forEach((b) => b.classList.toggle("on", b === pierwszaZakladka()));
     pokaz(true); if (M.oferty) { await loadCfg(); if (!VEH.length) { addVeh({}); drawVeh(); } }
@@ -45,11 +45,13 @@ async function zaloguj() {
 async function wyloguj() { if (!confirm("Wylogować z aplikacji?")) return; await Aplikacja.logout(); location.reload(); }
 function go(b) {
   document.querySelectorAll("#tabs button").forEach((x) => x.classList.toggle("on", x === b));
-  for (const v of ["vOferta", "vHist", "vWyn", "vZam", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
+  for (const v of ["vOferta", "vHist", "vWyn", "vDep", "vUst"]) $("#" + v).hidden = v !== b.dataset.v;
   updCnt();
   if (b.dataset.v === "vHist") loadHist();
   if (b.dataset.v === "vWyn") loadWyn();
-  if (b.dataset.v === "vZam" && !ZD) zLoad();
+  if (b.dataset.v === "vDep") depStart(); else depStop();
+  const M = Aplikacja.moze || {};
+  $("#tTitle").textContent = b.dataset.v === "vDep" ? "Depozyt opon" : b.dataset.v === "vWyn" ? "Wyniki marży" : M.oferty ? "Oferty opon" : M.wyniki ? "Wyniki marży" : "Depozyt opon";
   if (b.dataset.v === "vUst" && Aplikacja.moze.oferty) openCfg();
   window.scrollTo(0, 0);
 }
@@ -83,7 +85,7 @@ function drawVeh() {
       <label>Rejestracja<input value="${esc(v.rej)}" autocapitalize="characters" onchange="setVeh(${i},'rej',this.value.toUpperCase(),1)"></label>
       <label>Ilość opon<input type="number" inputmode="numeric" min="0" max="20" value="${v.ilosc}" onchange="setVeh(${i},'ilosc',+this.value||0)"></label>
       <label>Typ<select onchange="setVeh(${i},'typ',this.value)">${o("osobowy", "osobowy", v.typ)}${o("suv", "SUV / 4x4", v.typ)}${o("dostawczy", "dostawczy", v.typ)}</select></label>
-      <label>Czujniki TPMS<input type="number" inputmode="numeric" min="0" max="8" value="${v.tpms || 0}" onchange="setVeh(${i},'tpms',+this.value||0)"></label>
+      <label title="Ile kół ma czujniki ciśnienia – dopłata za obsługę czujnika przy wymianie">Koła z TPMS<input type="number" inputmode="numeric" min="0" max="8" value="${v.tpms || 0}" onchange="setVeh(${i},'tpms',+this.value||0)"></label>
       <label>Przechowalnia<select onchange="setVeh(${i},'przech',this.value)">${o("", "—", v.przech)}${o("opony", "opony", v.przech)}${o("kola", "koła z felgami", v.przech)}</select></label>
       <label class="chk full"><input type="checkbox" ${v.wymiana ? "checked" : ""} onchange="setVeh(${i},'wymiana',this.checked)">Wymiana (montaż i wyważenie)</label>
     </div></div>`).join("");
@@ -97,10 +99,13 @@ async function quick() {
   const b = $("#bQ"); b.disabled = true;
   try {
     const j = await api("/api/quick", { text: $("#quick").value });
-    if (!j.pojazdy.length) throw new Error("Nie rozpoznałem rozmiaru opony (np. 205/55 R16).");
+    if (!j.pojazdy.length) throw new Error("Nie rozpoznałem rozmiaru, marki, sezonu ani indeksu / kodu producenta – wpisz np. 205/55 R16 albo 2055516.");
     VEH = []; j.pojazdy.forEach(addVeh); drawVeh();
     setChips("sez", j.sezony); setChips("kl", j.klasy); $("#rf").checked = j.runflat; setProd(j.producenci); F.demo = j.demo || ""; F.li = j.nosnosc ? String(j.nosnosc) : ""; F.spd = j.predkosc || "";
-    msg("#qMsg", ""); await search();
+    SZUK = j.szukany ? j.szukany.id : 0;
+    await search();
+    if (j.szukany) { msg("#qMsg", "🔎 Znaleziona po indeksie / kodzie: " + j.szukany.nazwa + " – podświetlona w wynikach."); const r = document.querySelector(".prod.szuk"); if (r) r.scrollIntoView({ block: "center" }); }
+    else msg("#qMsg", "");
   } catch (e) { msg("#qMsg", e.message, 1); }
   b.disabled = false;
 }
@@ -131,6 +136,7 @@ async function search() {
   } catch (e) { msg("#sMsg", e.message, 1); }
   b.disabled = false;
 }
+let SZUK = 0;   // opona z szybkiego polecenia po indeksie/kodzie (podświetlenie)
 const lab = (x) => (x ? x.charCodeAt(0) : 99);
 const SK = { producent: (p) => p.producent, klasa: (p) => ({ PREMIUM: 0, MIDDLE: 1, BUDGET: 2 }[p.klasa] ?? 3), dot: (p) => -(+p.dot || 0), mokra: (p) => lab(p.mokra), halas: (p) => p.halas || 99, stan: (p) => -p.ilosc, cena: (p) => p.cena_brutto };
 function sorted(l) { if (!SORT) return l; const d = SORT[0] === "-" ? -1 : 1, k = SORT.replace("-", ""), f = SK[k] || SK[k.replace("dot", "dot")]; const sgn = k === "dot" || k === "stan" ? 1 : d;
@@ -151,9 +157,9 @@ function render() {
     for (const p of l.slice(pg * PER, pg * PER + PER)) {
       const key = s + "|" + sez + "|" + p.id;
       const et = [p.mokra && "mokra " + p.mokra, p.opory && "opory " + p.opory, p.halas && p.halas + " dB"].filter(Boolean).join(" · ");
-      h += `<label class="prod ${p.ok_stan ? "" : "bad"}"><span class="ck"><input type="checkbox" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key) ? "checked" : ""}></span>
-        <span class="b"><div class="t1">${esc(p.producent)} ${esc(p.model)}${p.demo ? ' <span class="demo">DEMO</span>' : ""}</div>
-        <div class="t2"><span>${esc(p.sezon)}</span><span>${esc(p.indeks)}</span><span>${esc(p.klasa)}</span>${p.dot ? `<span>DOT ${esc(p.dot)}</span>` : ""}${et ? `<span>${esc(et)}</span>` : ""}${p.homol.filter((x) => x !== "FR").length ? `<span>${esc(p.homol.filter((x) => x !== "FR").join(" "))}</span>` : ""}<span class="muted">ind. ${p.id}</span></div></span>
+      h += `<label class="prod ${p.ok_stan ? "" : "bad"}${SZUK && p.id === SZUK ? " szuk" : ""}"><span class="ck"><input type="checkbox" data-k="${esc(key)}" onchange="tog(this)" ${SEL.has(key) ? "checked" : ""}></span>
+        <span class="b"><div class="t1">${esc(p.producent)} ${esc(p.model)}${p.demo ? ' <span class="demo">DEMO</span>' : ""}${p.standard === false ? ' <span class="rft">RUN FLAT</span>' : ""}</div>
+        <div class="t2"><span>${esc(p.sezon)}</span><span>${esc(p.indeks)}${/C$/.test(p.rozmiar || "") ? " C" : ""}</span><span>${esc(p.klasa)}</span>${p.dot ? `<span>DOT ${esc(p.dot)}</span>` : ""}${et ? `<span>${esc(et)}</span>` : ""}${p.homol_kod || p.homol.filter((x) => x !== "FR").length ? `<span>${esc(p.homol_kod || p.homol.filter((x) => x !== "FR").join(" "))}</span>` : ""}<span class="muted">ind. ${p.id}</span></div></span>
         <span class="pr"><b>${zl(p.cena_brutto)}</b><small class="${p.ok_stan ? "ok" : ""}">stan ${p.ilosc}</small><br><small class="buy">zakup ${zl(p.brutto_zak)}</small></span></label>`;
     }
     if (pages > 1) h += `<div class="pager"><button class="btn sec sm" ${pg ? "" : "disabled"} onclick="pg(${g},-1)">◀ poprzednie</button><span class="small">${pg + 1} / ${pages}</span><button class="btn sec sm" ${pg < pages - 1 ? "" : "disabled"} onclick="pg(${g},1)">następne ▶</button></div>`;
@@ -198,7 +204,7 @@ function drawProd() {
 }
 function grpProd(k, on) { const q = $("#pSearch").value.trim().toUpperCase(); [...brandGroups()[k]].filter((b) => !q || b.includes(q)).forEach((b) => (on ? PSEL.add(b) : PSEL.delete(b))); drawProd(); }
 function drawTitle() { $("#pTitle").textContent = "Producenci (" + (PSEL.size ? "wybrano " + PSEL.size : "wszyscy") + ")"; }
-const HOM = { MO: "Mercedes (MO)", AO: "Audi (AO/RO)", "*": "BMW (*)", N: "Porsche (N0–N9)", VOL: "Volvo (VOL)", T0: "Tesla (T0)", J: "Jaguar (J)", LR: "Land Rover (LR)", VW: "VW", FR: "rant ochronny felgi" };
+const HOM = { MO: "Mercedes (MO)", AO: "Audi (AO/RO)", "*": "BMW (*)", N: "Porsche (N0, NC0, NF0…)", VOL: "Volvo (VOL)", T0: "Tesla (T0)", J: "Jaguar (J)", LR: "Land Rover (LR)", VW: "VW", FR: "rant ochronny felgi" };
 function openFil() {
   const have = new Set(); if (RES) for (const g of Object.values(RES.wyniki)) for (const l of Object.values(g)) for (const p of l) p.homol.forEach((h) => have.add(h));
   const o = (v, t, c) => `<option value="${esc(v)}" ${c === v ? "selected" : ""}>${esc(t)}</option>`;
@@ -230,13 +236,13 @@ async function offer(quiet) {
     const j = await api("/api/offer", { oddzial: OODD, osobno: OSOBNO, oid: OID, sel: [...SEL], klient: $("#klient").value, pojazdy: vehicles(), wybor, marza: "", rabat: ORABAT, ceny: CENY, rabat_wym: ORABW, ceny_wym: CENYW, porownaj: HSNAP || undefined });
     ULS = j.ulotki; WYMS = j.wymiany || [];
     $("#zmBox").innerHTML = j.zmiany && j.zmiany.length ? `<div class="msg w"><b>⚠ Od zapisania (${esc(HDATA)}) zmieniło się w xPartner:</b>${j.zmiany.map((z) => `<div>• ${esc(z.nazwa)}: <b style="color:${z.w_gore ? "#b00012" : "#1b6b2a"}">${esc(z.co)}</b></div>`).join("")}<div class="small">Oferta ma już aktualne ceny i stany.</div></div>` : "";
-    msg("#oMsg", j.uwagi.length ? "⚠ " + j.uwagi.join("\n⚠ ") : quiet ? "" : "Zapisano w historii.", j.uwagi.length > 0);
+    msg("#oMsg", j.uwagi.length ? "⚠ " + j.uwagi.join("\n⚠ ") : quiet ? "" : "Oferta zapisana w historii. Wyślij klientowi PDF poniżej.", j.uwagi.length > 0);
     $("#sum").innerHTML = j.warianty.map((v) => `<div class="vcard"><div class="t">${esc(v.wariant)}</div><div class="m">${esc(v.modele.join(", "))}</div>
       <div class="l"><span>Opony</span><span>${zl(v.opony)}</span></div>${v.wymiana ? `<div class="l"><span>Wymiana</span><span>${zl(v.wymiana)}</span></div>` : ""}
-      ${v.tpms ? `<div class="l"><span>Czujniki TPMS</span><span>${zl(v.tpms)}</span></div>` : ""}${v.przech ? `<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>` : ""}
+      ${v.tpms ? `<div class="l"><span>Obsługa TPMS</span><span>${zl(v.tpms)}</span></div>` : ""}${v.przech ? `<div class="l"><span>Przechowalnia</span><span>${zl(v.przech)}</span></div>` : ""}
       <div class="tot"><span>RAZEM brutto</span><b>${zl(v.razem)}</b></div></div>`).join("");
     drawUl();
-    $("#email").value = j.email; drawEdit();
+    drawEdit();
     const first = $("#outCard").hidden; $("#outCard").hidden = false; if (!quiet || first) $("#outCard").scrollIntoView({ behavior: "smooth" });
   } catch (e) { msg("#oMsg", e.message, 1); $("#outCard").hidden = false; }
   b.disabled = false;
@@ -252,16 +258,6 @@ function drawUl() {
     ULS.map((u) => `<button class="ulk" data-id="${u.id}" data-n="${esc(u.nazwa)}" onclick="pdfOferta(this)"><span>📄 ${esc(u.nazwa)}</span><b>${zl(u.cena)}</b></button>`).join("") +
     (ULS.length >= 2 && ULS.length <= 3 ? `<button class="btn sec wide" style="margin-top:6px" onclick="pdfOferta(this, 2)">⚖ Porównanie ${ULS.length} opon (1 strona)</button>` : "");
 }
-async function linkKlient(b) {
-  b.disabled = true; $("#linkBox").innerHTML = '<p class="muted small">Tworzę link…</p>';
-  try {
-    const j = await api("/api/link", { oddzial: OODD });
-    $("#linkBox").innerHTML = `<div class="msg ok">Oferta ważna do ${esc(j.wazna)} (status „Wysłana”).<div class="small" style="word-break:break-all;margin:6px 0">${esc(j.url)}</div>
-      <div class="row"><a class="btn grow" href="sms:?body=${encodeURIComponent(j.sms)}">✉ Wyślij SMS</a><button class="btn sec grow" data-t="${esc(j.sms)}" onclick="kopiuj(this)">📋 Kopiuj</button></div></div>`;
-  } catch (e) { $("#linkBox").innerHTML = `<div class="msg e">${esc(e.message)}</div>`; }
-  b.disabled = false;
-}
-function kopiuj(b) { const t = b.dataset.t; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Skopiowano."), () => toast("Nie udało się skopiować.")); }
 async function pdfOferta(b, wszystkie) {
   b.disabled = true; toast("Tworzę PDF…");
   try {
@@ -295,18 +291,17 @@ function drawEdit() {
       <div class="row"><input class="pr-in grow ${u.recznie ? "man" : ""}" type="number" inputmode="numeric" min="1" step="1" placeholder="własna cena (zł/szt.)" value="${u.recznie ? u.cena : ""}" onchange="setC(${u.id},this.value)">${u.recznie ? `<button class="btn sec" onclick="setC(${u.id},'')">↺</button>` : ""}</div></div>`).join("") +
     V.map(([v, i]) => `<div class="r"><div class="nm">${esc([v.pojazd, v.rej].filter(Boolean).join(" ") || "Pojazd " + (i + 1))} <span class="tag">${esc(v.rozmiar)}</span></div>
       <div class="row2"><label class="fld">Ilość opon<input type="number" inputmode="numeric" min="0" value="${v.ilosc}" onchange="setVeh(${i},'ilosc',+this.value||0);drawVeh()"></label>
-      <label class="fld">TPMS<input type="number" inputmode="numeric" min="0" max="8" value="${v.tpms || 0}" onchange="setVeh(${i},'tpms',+this.value||0);drawVeh()"></label>
+      <label class="fld">Koła z TPMS<input type="number" inputmode="numeric" min="0" max="8" value="${v.tpms || 0}" onchange="setVeh(${i},'tpms',+this.value||0);drawVeh()"></label>
       <label class="fld">Przechowalnia<select onchange="setVeh(${i},'przech',this.value);drawVeh()">${o("", "—", v.przech)}${o("opony", "opony", v.przech)}${o("kola", "koła", v.przech)}</select></label>
       <label class="tgl"><input type="checkbox" ${v.wymiana ? "checked" : ""} onchange="setVeh(${i},'wymiana',this.checked);drawVeh()"><span>Wymiana</span></label></div></div>`).join("") + "</details>";
   const d = $("#edit details"); if (drawEdit.open) d.open = true; d.addEventListener("toggle", () => (drawEdit.open = d.open));
 }
-function copyMail() { const t = $("#email").value; (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast("Skopiowano."), () => { $("#email").select(); document.execCommand("copy"); toast("Skopiowano."); }); }
 function nowaOferta() {
   if (SEL.size && !confirm("Wyczyścić bieżącą ofertę? (zapisana jest w Historii)")) return;
   for (const id of ["#klient", "#paste", "#quick"]) $(id).value = "";
   VEH = []; addVeh({}); drawVeh(); setChips("sez", []); setChips("kl", []); $("#rf").checked = false; setProd(""); $("#minstan").value = CFG.min_stan;
   for (const k in F) F[k] = "";
-  RES = null; SEL = new Set(); PAGE = {}; OID = null; HSNAP = null; $("#zmBox").innerHTML = ""; ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
+  RES = null; SEL = new Set(); PAGE = {}; OID = null; HSNAP = null; SZUK = 0; $("#zmBox").innerHTML = ""; ORABAT = ""; CENY = {}; ORABW = ""; CENYW = {}; OSOBNO = null; $("#res").innerHTML = ""; $("#resCard").hidden = true; $("#outCard").hidden = true;
   ["#sMsg", "#oMsg", "#qMsg"].forEach((x) => msg(x, "")); updCnt(); go(document.querySelector('#tabs button[data-v="vOferta"]'));
 }
 
@@ -338,8 +333,8 @@ function drawHist() {
     <div class="k">${esc(h.klient || "—")}</div><div class="small muted">${esc(h.pojazdy)}</div>
     <div class="w">${h.warianty.map((w) => `${esc(w.modele || w.wariant)} – <b>${zl(w.razem)}</b>`).join("<br>")}</div>
     <div class="row" style="margin-top:6px">${h.owner === ME ? `<select class="sm" data-oid="${esc(h.oid)}" onchange="setStatus(this.dataset.oid,this.value,this)">${Object.entries(STATUSY).map(([s, n]) => `<option value="${s}" ${h.status === s ? "selected" : ""}>${n}</option>`).join("")}</select>` : `<span class="st">${esc(STATUSY[h.status] || h.status)}</span>`}
-      ${h.oddzwon ? '<span class="st" style="background:#fff3cd;color:#7a5900">📞 oddzwoń</span>' : ""}${h.link ? `<span class="small muted">🔗${h.otwarta ? " 👁 otwarty" : " nieotwarty"}</span>` : ""}</div>
-    ${h.odp ? `<div class="msg ok small">✅ <b>${esc(h.odp.wybor)}</b>${h.odp.tel ? ` · <a href="tel:${esc(String(h.odp.tel).replace(/[^0-9+]/g, ""))}">☎ ${esc(h.odp.tel)}</a>` : ""}${h.odp.uwagi ? `<br>„${esc(h.odp.uwagi)}”` : ""}</div>` : ""}
+      ${h.oddzwon ? '<span class="st" style="background:#fff3cd;color:#7a5900">📞 oddzwoń</span>' : ""}</div>
+    ${h.uwagi ? `<div class="small" style="margin-top:4px">💬 ${esc(h.uwagi)}${h.uwagi_kto ? ` <span class="muted">– ${esc(h.uwagi_kto)}</span>` : ""}</div>` : ""}
     <div class="row"><button class="btn sec sm" onclick="restoreHist(${+h.id})">Otwórz i odśwież ceny</button></div></div>`).join("") : '<p class="muted" style="padding:0 6px">Brak zapisanych ofert.</p>');
 }
 async function restoreHist(id) {
@@ -363,23 +358,29 @@ async function loadCfg() {
 let WT = {}, WCUR = "wymiana_kolo", PROGI = [];
 function readW() { WT[WCUR] = Object.fromEntries([...document.querySelectorAll("#c_wym input")].filter((i) => i.value !== "").map((i) => [i.dataset.d, +i.value])); }
 function drawW() { const W = WT[WCUR] || {}; $("#c_wym").innerHTML = Array.from({ length: 12 }, (_, i) => String(i + 12)).map((d) => `<div class="w"><b>R${d}</b><input type="number" inputmode="numeric" min="0" data-d="${d}" value="${W[d] ?? ""}" placeholder="—"><small>${W[d] != null ? "×4 = " + W[d] * 4 : "brak"}</small></div>`).join(""); }
-function wTab(b) { readW(); WCUR = b.dataset.t; document.querySelectorAll("#wtabs button").forEach((x) => x.classList.toggle("on", x === b)); drawW(); }
+function wTab(b) { readW(); WCUR = b.dataset.t; document.querySelectorAll("#wtabs button").forEach((x) => x.classList.toggle("on", x === b)); drawW(); cenyBlok(); }
 function drawProgi() {
   const k = document.querySelector("input[name=ntryb]:checked")?.value || "procent"; $("#lblMarza").style.visibility = k === "procent" ? "" : "hidden";
   if (k !== "kwota") return ($("#progiBox").innerHTML = "");
   $("#progiBox").innerHTML = '<div class="progi"><div class="pr small muted"><span>Zakup brutto do (zł)</span><span>Doliczyć (zł)</span><span></span></div>' +
     PROGI.map((p, i) => `<div class="pr"><input type="number" inputmode="numeric" min="0" value="${p.do ?? ""}" placeholder="powyżej" onchange="PROGI[${i}].do=this.value===''?null:+this.value"><input type="number" inputmode="numeric" min="0" value="${p.kwota ?? ""}" onchange="PROGI[${i}].kwota=+this.value"><button class="btn sec sm" onclick="PROGI.splice(${i},1);drawProgi()">✕</button></div>`).join("") +
     '</div><button class="btn sec sm" style="margin-top:6px" onclick="PROGI.splice(Math.max(0,PROGI.length-1),0,{do:null,kwota:0});drawProgi()">+ próg</button><p class="hint">Puste „do” = wszystkie droższe. Cena = zakup brutto + kwota, w górę do pełnych zł.</p>';
+  if (CFG.ceny_edycja === false) cenyBlok();
 }
 function openCfg() {
-  for (const k of ["marza_proc", "vat_proc", "min_stan", "kola_na_auto", "waznosc_dni", "podpis", "tpms_cena", "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19"]) $("#c_" + k).value = CFG[k] ?? "";
+  for (const k of ["marza_proc", "vat_proc", "min_stan", "kola_na_auto", "waznosc_dni", "tpms_cena", "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19"]) $("#c_" + k).value = CFG[k] ?? "";
   WT = { wymiana_kolo: { ...CFG.wymiana_kolo }, wymiana_suv: { ...CFG.wymiana_suv }, wymiana_dost: { ...CFG.wymiana_dost } }; WCUR = "wymiana_kolo";
   document.querySelectorAll("#wtabs button").forEach((b) => b.classList.toggle("on", b.dataset.t === WCUR)); drawW();
   $("#c_premium").value = (CFG.premium || []).join(", "); PROGI = JSON.parse(JSON.stringify(CFG.progi || []));
-  document.querySelectorAll("input[name=ntryb]").forEach((r) => (r.checked = r.value === (CFG.narzut_tryb || "procent"))); drawProgi(); msg("#cMsg", "");
+  document.querySelectorAll("input[name=ntryb]").forEach((r) => (r.checked = r.value === (CFG.narzut_tryb || "procent"))); drawProgi(); msg("#cMsg", ""); cenyBlok();
+}
+function cenyBlok() {   // marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (jak w Panelu)
+  const o = CFG.ceny_oddzial, e = CFG.ceny_edycja !== false;
+  document.querySelectorAll("#progiBox input, #progiBox button, input[name=ntryb], #c_marza_proc, #c_wym input, .usl input").forEach((x) => (x.disabled = !e));
+  document.querySelectorAll(".uslInfo").forEach((x) => (x.textContent = o ? (e ? " – wspólne dla oddziału " + o + " (zmieniasz dla wszystkich)" : " – ustala administrator") : ""));
 }
 async function saveCfg() {
-  const c = { podpis: $("#c_podpis").value };
+  const c = {};
   for (const k of ["marza_proc", "vat_proc", "min_stan", "kola_na_auto", "waznosc_dni"]) c[k] = +$("#c_" + k).value;
   readW(); Object.assign(c, WT);
   for (const k of ["tpms_cena", "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19"]) c[k] = +$("#c_" + k).value || 0;
@@ -455,52 +456,149 @@ window.onBack = function () {
   return false;
 };
 
+
+// ------------------------------------------------ depozyt (spis opon w przechowalni; zapis tylko funkcją bazy depozyt_zmien)
+const DEP = { branch: "", rows: [], ust: {}, sezon: "", ostatnio: "", timer: null, ok: false, limit: 50, busy: 0, lista: null, widok: "spis" };
+const DEP_LIMIT = 50;   // tyle kart naraz – spis ma ~1800 pozycji
+function depWidoczny() { return !$("#vDep").hidden && !document.hidden; }
+function depStart() {
+  if (!DEP.ok) depLoad(); else depDraw();
+  if (!DEP.timer) DEP.timer = setInterval(() => { if (depWidoczny()) depOdswiez(); }, 10000);   // co 10 s – tylko zmiany
+}
+function depStop() { if (DEP.timer) { clearInterval(DEP.timer); DEP.timer = null; } }
+async function depLoad(force) {
+  const odd = Aplikacja.depOddzialy();
+  if (!odd.length) { $("#dL").innerHTML = '<div class="msg e">Twoje konto nie ma przypisanego oddziału – poproś administratora.</div>'; return; }
+  if (!odd.includes(DEP.branch)) DEP.branch = odd[0];
+  $("#dOdd").hidden = odd.length < 2;
+  $("#dOdd").innerHTML = odd.map((o) => `<option ${o === DEP.branch ? "selected" : ""}>${esc(o)}</option>`).join("");
+  if (!DEP.ok) $("#dL").innerHTML = '<p class="muted" style="padding:0 6px">Wczytuję spis…</p>';
+  const br = DEP.branch;
+  try {
+    const [rows, ust, lista] = await Promise.all([Aplikacja.depPozycje(br), Aplikacja.depUstawienia(br), Aplikacja.depLista(br)]);
+    if (br !== DEP.branch) return;   // w trakcie wybrano inny oddział
+    DEP.rows = rows; DEP.ust = ust || {}; DEP.ostatnio = Depozyt.najnowsza_zmiana(rows); DEP.ok = true;
+    depUstawLista(lista);
+    depSezony(); depDraw(); if (force) toast("Odświeżono.");
+  } catch (e) { $("#dL").innerHTML = `<div class="msg e">Nie udało się wczytać spisu: ${esc(e.message)}</div>`; }
+}
+function depSezony() {
+  const l = Depozyt.sezony_widoczne(DEP.rows, DEP.ust);
+  if (!l.includes(DEP.sezon)) { const d = DEP.ust.sezon_domyslny || ""; DEP.sezon = l.includes(d) ? d : l[0] || ""; }
+  $("#dSez").innerHTML = l.length ? l.map((x) => `<option ${x === DEP.sezon ? "selected" : ""}>${esc(x || "(bez sezonu)")}</option>`).join("") : "<option>brak spisu</option>";
+}
+function depOddzial(v) { DEP.branch = v; DEP.ok = false; DEP.rows = []; DEP.sezon = ""; depLoad(); }
+function depSezon(v) { DEP.sezon = v === "(bez sezonu)" ? "" : v; DEP.limit = DEP_LIMIT; depDraw(); }
+async function depOdswiez() {
+  if (!DEP.ok || DEP.busy) return;
+  const br = DEP.branch;
+  DEP.tik = (DEP.tik || 0) + 1;
+  if (DEP.tik % 6 === 0) {   // co minutę: czy w Panelu wczytano nową listę do przygotowania
+    Aplikacja.depLista(br).then((l) => { if (br === DEP.branch && (!l || !DEP.lista || l.utworzono !== DEP.lista.utworzono)) { depUstawLista(l); if (DEP.widok === "lista") depDraw(true); } });
+  }
+  try {
+    const zm = await Aplikacja.depZmiany(br, DEP.ostatnio || "1970-01-01T00:00:00Z");
+    if (!zm.length || br !== DEP.branch) return;
+    depPodmien(zm); depSezony(); depDraw(true);
+  } catch (e) { /* brak sieci – spróbujemy za 10 s */ }
+}
+function depPodmien(zm) {   // podmiana po id (nowe pozycje – na koniec)
+  const ix = new Map(DEP.rows.map((r, i) => [r.id, i]));
+  for (const r of zm) { if (ix.has(r.id)) DEP.rows[ix.get(r.id)] = r; else { ix.set(r.id, DEP.rows.length); DEP.rows.push(r); } }
+  const n = Depozyt.najnowsza_zmiana(zm); if (n > DEP.ostatnio) DEP.ostatnio = n;
+}
+function depKarta(p, fz) {
+  const il = String(p.ilosc ?? "").trim(), sez = Depozyt.sezon_opon(p), st = Depozyt.opis_przywiezienia(p);
+  return `<div class="dk${p.przywiezione ? " jest" : ""}" data-id="${+p.id}">
+    <div class="dlok">${esc(p.lok || "—")}</div>
+    <div class="dnr">${esc(p.nr || "(bez numeru)")}${fz ? ' <span class="tag">≈ możliwa literówka</span>' : ""}</div>
+    <div class="dinf">${esc([p.marka, p.marka2].filter(Boolean).join(" ") || "—")} · <b>${il ? esc(il) + " szt." : "komplet"}</b>${sez ? " · " + esc(sez) : ""}</div>
+    ${p.uwagi ? `<div class="small">Uwagi: ${esc(p.uwagi)}</div>` : ""}${p.komentarz ? `<div class="small dkom">💬 ${esc(p.komentarz)}</div>` : ""}
+    ${st ? `<div class="dst">✓ przywiezione ${esc(st)}</div>` : ""}
+    <div class="row gap" style="margin-top:8px">${p.przywiezione ? `<button class="btn sec grow" onclick="depPrzyw(${+p.id},false)">↺ Cofnij przywiezione</button>` : `<button class="btn big grow dok" onclick="depPrzyw(${+p.id},true)">✓ Przywiezione</button>`}</div>
+    <div class="row gap" style="margin-top:6px"><button class="btn sec grow sm" onclick="depEdytuj(${+p.id},'komentarz')">💬 Komentarz</button><button class="btn sec grow sm" onclick="depEdytuj(${+p.id},'lok')">📍 Zmień lokalizację</button></div>
+  </div>`;
+}
+function depDraw(cicho) {
+  if (!DEP.ok) return;
+  $("#vDep .dep-top").hidden = DEP.widok === "lista";   // na liście: bez szukania i filtrów (wraca „← Spis”)
+  if (DEP.widok === "lista") return depListaDraw(cicho);
+  const rows = DEP.rows.filter((p) => (p.sezon || "") === DEP.sezon), s = Depozyt.statystyki(rows);
+  $("#dCnt").innerHTML = `<span>wszystkie <b>${s.wszystkie}</b></span><span>przywiezione <b>${s.przywiezione}</b></span><span>zostało <b>${s.zostalo}</b></span><span>dziś <b>${s.dzis}</b></span>`;
+  const f = $("#dFil").value, q = $("#dq").value.trim();
+  const l0 = rows.filter((p) => !f || (f === "nie" ? !p.przywiezione : f === "tak" ? p.przywiezione : f === "dzis" ? Depozyt.dzis(p) : !!p.komentarz));
+  let l, hint = "";
+  if (q) l = Depozyt.szukaj(l0, q).map(([p, , fz]) => [p, fz]);
+  else { l = (f ? l0 : l0.filter((p) => !p.przywiezione)).map((p) => [p, false]); hint = `<p class="muted small" style="padding:0 6px">Wpisz numer rejestracyjny (literówki też znajdzie). Poniżej ${f ? "pozycje z filtra" : "nieprzywiezione"}${l.length > DEP.limit ? ` – pierwsze ${DEP.limit} z ${l.length}` : ""}.</p>`; }
+  const y = window.scrollY;
+  $("#dL").innerHTML = hint + (l.length ? l.slice(0, DEP.limit).map(([p, fz]) => depKarta(p, fz)).join("") : `<p class="muted" style="padding:0 6px">${q ? "Nie znaleziono „" + esc(q) + "” w tym spisie." : "Brak pozycji."}</p>`) +
+    (l.length > DEP.limit ? `<button class="btn sec wide" onclick="DEP.limit+=${DEP_LIMIT};depDraw()">Pokaż więcej (${l.length - DEP.limit})</button>` : "");
+  if (cicho) window.scrollTo(0, y);
+}
+async function depZapisz(id, pole, wartosc) {
+  DEP.busy++;
+  try { const r = await Aplikacja.depZmien(id, pole, wartosc); if (r && r.id) depPodmien([r]); msg("#dMsg", ""); depDraw(true); return true; }
+  catch (e) { msg("#dMsg", e.message, 1); toast(e.message); return false; }   // komunikat bazy (np. cofnąć może tylko administrator)
+  finally { DEP.busy--; }
+}
+async function depPrzyw(id, tak) {
+  const p = DEP.rows.find((r) => r.id === id); if (!p) return;
+  if (!tak && !confirm(`Cofnąć „przywiezione” dla ${p.nr || "tej pozycji"}?`)) return;
+  if (await depZapisz(id, "przywiezione", tak) && tak) toast("✓ " + (p.nr || "") + " – przywiezione");
+}
+function depEdytuj(id, pole) {
+  const p = DEP.rows.find((r) => r.id === id); if (!p) return;
+  const t = pole === "lok" ? "Nowa lokalizacja" : "Komentarz";
+  openSheet(`<div class="h">${t} – ${esc(p.nr || "")}</div><label class="fld">${t}<input id="dEd" value="${esc(p[pole] || "")}" ${pole === "lok" ? 'autocapitalize="characters"' : ""} maxlength="200"></label>
+    <div class="row" style="margin-top:12px"><button class="btn sec grow" onclick="closeSheet()">Anuluj</button><button class="btn grow" onclick="depEdZapisz(${+id},'${pole}')">Zapisz</button></div>`);
+  setTimeout(() => $("#dEd") && $("#dEd").focus(), 50);
+}
+async function depEdZapisz(id, pole) { const v = $("#dEd").value.trim(); closeSheet(); if (await depZapisz(id, pole, pole === "lok" ? v.toUpperCase() : v)) toast("Zapisano."); }
+// ---- lista do przygotowania (z Panelu: depozyt_listy) – trasa po regałach, „Przygotowane” zapisuje kto i kiedy
+function depUstawLista(l) {
+  DEP.lista = l && Array.isArray(l.wiersze) && l.wiersze.length ? l : null;
+  const b = $("#dLista");
+  b.hidden = !DEP.lista;
+  if (DEP.lista) b.textContent = "📋 Lista " + depOkres(DEP.lista);
+  if (!DEP.lista && DEP.widok === "lista") DEP.widok = "spis";
+}
+function depOkres(l) { const f = (d) => (d || "").split("-").reverse().slice(0, 2).join("."); return l.od === l.do ? f(l.od) : f(l.od) + "–" + f(l.do); }
+async function depLista() {
+  msg("#dMsg", "");
+  DEP.widok = DEP.widok === "lista" ? "spis" : "lista";
+  if (DEP.widok === "lista") { const l = await Aplikacja.depLista(DEP.branch); if (l) depUstawLista(l); }
+  depDraw(); window.scrollTo(0, 0);
+}
+function depPozycjeListy(w) { return (w.ids || []).map((id) => DEP.rows.find((r) => r.id === id)).filter(Boolean); }
+function depListaDraw(cicho) {
+  const l = DEP.lista; if (!l) { DEP.widok = "spis"; return depDraw(cicho); }
+  const y = window.scrollY;
+  const gotowe = (w) => { const p = depPozycjeListy(w); return p.length && p.every((r) => r.przygotowane_at); };
+  const ile = l.wiersze.filter((w) => (w.ids || []).length).length, got = l.wiersze.filter(gotowe).length;
+  const karta = (w, i) => {
+    const poz = depPozycjeListy(w), g = gotowe(w), uw = (w.uwagi || []).filter((u) => !/^brak opon w depozycie/.test(u));
+    const kto = poz.map((r) => r.przygotowane_kto).filter(Boolean)[0];
+    return `<div class="dk${g ? " jest" : ""}${poz.length ? "" : " brak"}">
+      <div class="row gap"><div class="dlok grow">${esc(w.lok || "—")}</div>${w.godzina ? `<div class="dnr">${esc(w.godzina)}</div>` : ""}</div>
+      <div class="dnr">${esc(w.nr || "")}</div>
+      <div class="dinf"><b>${esc(w.szt || "—")}</b>${w.sezon ? " · " + esc(w.sezon) : ""}${w.godzina ? "" : w.dzien ? " · " + esc(w.dzien) : ""}</div>
+      ${uw.length ? `<div class="small dkom">⚠ ${esc(uw.join(" · "))}</div>` : ""}
+      ${poz.length ? (g ? `<div class="dst">✓ przygotowane${kto ? " – " + esc(kto) : ""}</div><div class="row gap" style="margin-top:6px"><button class="btn sec grow sm" onclick="depPrzyg(${i},false)">↺ Cofnij przygotowane</button></div>`
+                        : `<div class="row gap" style="margin-top:8px"><button class="btn big grow dok" onclick="depPrzyg(${i},true)">✓ Przygotowane</button></div>`)
+                   : `<div class="small muted">Brak w spisie – szukaj ręcznie.</div>`}
+    </div>`;
+  };
+  $("#dL").innerHTML = `<div class="card"><div class="row gap"><div class="grow"><div class="h" style="margin:0">📋 Do przygotowania ${esc(depOkres(l))}</div>
+      <div class="small muted">${esc(l.tytul || "")} · gotowe ${got} z ${ile}${l.kto ? " · wczytał " + esc(l.kto) : ""}</div></div>
+      <button class="btn sec sm" onclick="depLista()">← Spis</button></div></div>` + l.wiersze.map(karta).join("");
+  if (cicho) window.scrollTo(0, y);
+}
+async function depPrzyg(i, tak) {
+  const w = DEP.lista && DEP.lista.wiersze[i]; if (!w) return;
+  for (const id of w.ids || []) if (!(await depZapisz(id, "przygotowane", tak))) return;
+  if (tak) toast("✓ " + (w.nr || "") + " – przygotowane");
+}
+document.addEventListener("visibilitychange", () => { if (depWidoczny()) depOdswiez(); });
+
 drawChips();
 startApp();
-
-// ------------------------------------------------ zamówienia xPartner (tylko podgląd; faktury – administrator)
-let ZD = null, ZH = null, ZT = "z";
-const zIso = (d) => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
-function zKto() { const D = ZT === "h" ? ZH : ZD; if (!D) return; const k = [...new Set(D.zamowienia.map((z) => z.kto).filter(Boolean))].sort(); let zap = ""; try { zap = localStorage.getItem("zam_kto") || ""; } catch (e) {}
-  $("#zkto").innerHTML = '<option value="">wszyscy</option>' + k.map((x) => `<option>${esc(x)}</option>`).join(""); if (k.includes(zap)) $("#zkto").value = zap; }
-const zzl = (v) => Number(v || 0).toLocaleString("pl-PL", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " zł";
-function zTab(b) { ZT = b.dataset.z; document.querySelectorAll("#zTabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#zZ").hidden = ZT === "f"; $("#zF").hidden = ZT !== "f"; $("#zDaty").hidden = ZT !== "h";
-  if (ZT === "f" && !$("#fL").innerHTML) zFak();
-  else if (ZT === "h" && !ZH) { const d = new Date(); $("#hdo").value = zIso(d); d.setDate(d.getDate() - 30); $("#hod").value = zIso(d); zLoad(); }
-  else if (ZT !== "f") { zKto(); zDraw(); } }
-async function zLoad(force) {
-  if (ZT === "f") return zFak();
-  const h = ZT === "h";
-  $("#zL").innerHTML = h ? '<p class="muted">Szukam zamówień po fakturach… (pierwszy raz może potrwać kilkanaście sekund)</p>' : '<p class="muted">Wczytuję zamówienia…</p>'; $("#zSum").innerHTML = "";
-  const [k, j] = await Silnik.handle(h ? "/api/zamkniete?od=" + encodeURIComponent($("#hod").value) + "&do=" + encodeURIComponent($("#hdo").value) : "/api/zamowienia", null);
-  if (k !== 200) { if (h) ZH = null; else ZD = null; $("#zL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
-  if (h) { ZH = j; $("#hod").value = j.od; $("#hdo").value = j.do; } else ZD = j;
-  zKto(); zDraw(); if (force) toast("Odświeżono (" + j.czas + ").");
-}
-function zDraw() {
-  const D = ZT === "h" ? ZH : ZD; if (!D) return; 
-  const q = $("#zq").value.trim().toLowerCase(), kto = $("#zkto").value, st = ZT === "h" && $("#zst").value === "otw" ? "" : $("#zst").value;
-  const l = D.zamowienia.filter((z) => (!kto || z.kto === kto) && (!st || (st === "otw" ? z.status !== 6 : String(z.status) === st)) &&
-    (!q || [z.nr, z.nr_erp, z.kto, z.komentarz, ...z.pozycje.map((p) => p.nazwa)].join(" ").toLowerCase().includes(q)));
-  const bl = l.filter((z) => z.status === 5).length;
-  $("#zSum").innerHTML = `${l.length} zamówień · ${l.reduce((a, z) => a + z.szt, 0)} szt. · do wydania ${l.reduce((a, z) => a + z.do_wydania, 0)} szt. · ${zzl(l.reduce((a, z) => a + z.netto, 0))} netto` + (bl ? ` · <b class="err">błędy: ${bl}</b>` : "") + (D.oddzialy ? ` · tylko oddział: ${esc(D.oddzialy.join(", ") || "brak – poproś administratora")}` + (D.ukryte ? ` (innych: ${D.ukryte})` : "") : "") + (ZT === "h" ? ` · faktur: ${D.faktur}` + (D.bledy ? ` · <b class="err">nie pobrano: ${D.bledy}</b>` : "") : "");
-  $("#zL").innerHTML = l.length ? l.map((z) => `<div class="card zk${z.status === 5 ? " zerr" : ""}"><div class="row"><b class="grow">${esc(z.nr)}${z.nr_erp ? " · " + esc(z.nr_erp) : ""}</b><span class="st s${z.status}">${esc(z.status_txt)}</span></div>
-    <div class="small muted">${esc(z.data)}${z.kto ? " · " + esc(z.kto) : ""}${z.magazyn ? " · " + esc(z.magazyn) : ""} · <b>${zzl(z.netto)}</b> netto</div>
-    ${z.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} szt.${p.zostalo ? ` · do wydania ${p.zostalo}` : ""}${p.zostalo && p.dostepne < p.zostalo ? ` · <b class="err">dostępne ${p.dostepne}</b>` : ""}</span></div>`).join("")}
-    ${z.komentarz ? `<div class="small muted">💬 ${esc(z.komentarz)}</div>` : ""}${z.poz_z_faktury ? `<div class="small muted">Pozycje z faktury${z.poz_z_faktury === "wspolna" ? " (faktura obejmuje kilka zamówień)" : ""}</div>` : ""}${z.faktury && z.faktury.length ? `<div class="small muted">🧾 ${z.faktury.map(esc).join(", ")}</div>` : ""}</div>`).join("") : '<p class="muted">Brak zamówień' + (ZT === "h" ? " na fakturach z tego okresu" : "") + ".</p>";
-}
-async function zFak() {
-  $("#fL").innerHTML = '<p class="muted">Wczytuję faktury…</p>';
-  const [k, j] = await Silnik.handle("/api/faktury?od=" + encodeURIComponent($("#fod").value) + "&do=" + encodeURIComponent($("#fdo").value), null);
-  if (k !== 200) { $("#fL").innerHTML = `<p class="err">${esc(j.error || "Błąd")}</p>`; return; }
-  $("#fod").value = j.od; $("#fdo").value = j.do;
-  $("#fL").innerHTML = j.faktury.length ? j.faktury.map((f) => `<div class="card zk" data-nr="${esc(f.nr)}" onclick="zFakSz(this, this.dataset.nr)"><div class="row"><b class="grow">${esc(f.nr)}</b><span class="small">${esc(f.data)}</span></div><div class="small muted">${esc(f.platnosc)}${f.magazyn ? " · " + esc(f.magazyn) : ""}</div><div class="fs"></div></div>`).join("") : '<p class="muted">Brak faktur w tym okresie.</p>';
-}
-async function zFakSz(el, nr) {
-  const d = el.querySelector(".fs"); if (d.innerHTML) { d.innerHTML = ""; return; }
-  d.innerHTML = '<p class="muted small">Wczytuję…</p>';
-  const [k, f] = await Silnik.handle("/api/faktura?nr=" + encodeURIComponent(nr), null);
-  if (k !== 200) { d.innerHTML = `<p class="err small">${esc(f.error || "Błąd")}</p>`; return; }
-  d.innerHTML = f.pozycje.map((p) => `<div class="zp"><span class="grow">${esc(p.nazwa)}</span><span>${p.ilosc} × ${zzl(p.cena)}</span></div>`).join("") +
-    `<div class="small" style="margin-top:6px">Netto ${zzl(f.netto)} · VAT ${zzl(f.vat)} · <b>brutto ${zzl(f.brutto)}</b>${f.termin ? " · termin " + esc(f.termin) : ""}${f.zamowienie ? " · zam. " + esc(f.zamowienie) : ""}</div>`;
-}

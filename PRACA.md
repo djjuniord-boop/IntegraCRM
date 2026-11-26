@@ -7,4 +7,4 @@ powiedz właścicielowi.
 
 | Od kiedy | Rozmowa (temat) | Gałąź robocza | Moduły / pliki |
 |---|---|---|---|
-| 2026-11-25 | DEPOZYT OPON (spis przechowalni + lista do przygotowania z raportu Integry) | praca/depozyt | app/depozyt/ (nowy), supabase/depozyt_*, app/gui.py, app/cloud.py (MODULES), app/dzis (kafel), tests |
+| | | | |

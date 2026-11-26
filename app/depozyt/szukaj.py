@@ -100,10 +100,33 @@ def szukaj(pozycje: list, zapytanie: str) -> list:
     return out
 
 
+TRASA: list = []   # kolejność regałów z ustawień depozytu (np. ["K", "KB", "M", "KPOK"]); pusta = K, M, reszta
+
+
+def regal(lok: str) -> str:
+    """Oznaczenie regału z lokalizacji: „K12.3” → „K”, „KPOK” → „KPOK”, „M8/10” → „M”."""
+    m = re.match(r"\s*([A-Z]+)", str(lok or "").upper())
+    return m.group(1) if m else ""
+
+
+def trasa_dla(lokalizacje, zapisana=None) -> list:
+    """Pełna kolejność regałów: zapisana w ustawieniach + nowe oznaczenia z danych (na końcu, wg kolejności domyślnej)."""
+    zapisana = [r for r in (zapisana or []) if r]
+    nowe = sorted({regal(x) for x in lokalizacje if regal(x)} - set(zapisana),
+                  key=lambda r: ({"K": 0, "M": 1}.get(r, 2), r))
+    return zapisana + nowe
+
+
 def klucz_lokalizacji(lok: str) -> tuple:
-    """Kolejność obchodu magazynu: regały K, potem M, potem pozostałe (KPOK, KWEJ, MAGOPIS…), numerami rosnąco."""
+    """Kolejność obchodu magazynu: wg TRASA z ustawień, a bez ustawień – regały K, potem M, potem pozostałe
+    (KPOK, KWEJ, MAGOPIS…); w obrębie regału numerami rosnąco."""
     m = re.match(r"\s*([A-Z]+)\s*(\d+)?\D*(\d+)?", str(lok or "").upper())
     if not m:
-        return (9, "", 0, 0)
-    grupa = {"K": 0, "M": 1}.get(m.group(1), 2)
-    return (grupa, m.group(1), int(m.group(2) or 0), int(m.group(3) or 0))
+        return (999, "", 0, 0)
+    r = m.group(1)
+    grupa = TRASA.index(r) if r in TRASA else len(TRASA) + {"K": 0, "M": 1}.get(r, 2)
+    return (grupa, r, int(m.group(2) or 0), int(m.group(3) or 0))
+
+
+def opis_trasy() -> str:
+    return " → ".join(TRASA) if TRASA else "K → M → pozostałe"

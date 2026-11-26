@@ -21,7 +21,7 @@ w Supabase (projekt `latex-serwis-qr`, id `nlrwulrtaocuemfmlfav`). Właściciel 
 | **WYNIKI** | `app/wyniki/` | → [`app/wyniki/README.md`](app/wyniki/README.md) – wyniki marży dla handlowców |
 | **SERWIS QR** | `app/serwis/` | → [`app/serwis/README.md`](app/serwis/README.md) – **wygaszony w programie** (`konfig.SERWIS_WYGASZONY`, decyzja 2026-11-16); strona z kodów QR działa |
 | **OFERTY OPON** | `app/oferty/` | → [`app/oferty/README.md`](app/oferty/README.md) – oferty na opony z xPartner, koszyk i zamówienia |
-| **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – oferty opon i wyniki marży na telefonie – **zawieszona** |
+| **Aplikacja Android** | `mobile/` | → [`mobile/README.md`](mobile/README.md) – wyniki, oferty opon i depozyt na telefonie |
 | **DEPOZYT** | `app/depozyt/` | → [`app/depozyt/README.md`](app/depozyt/README.md) – spis opon w przechowalni, odhaczanie, lista dla magazyniera z raportu Integry |
 | **Użytkownicy** | `app/uzytkownicy/` | → [`app/uzytkownicy/README.md`](app/uzytkownicy/README.md) |
 | Baza i serwer | `supabase/` | → [`supabase/README.md`](supabase/README.md) |
@@ -53,9 +53,10 @@ Metody mixinów korzystają z pól okna (`self.session`, `self.fonts`, `self.pag
    „najpierw beta”. Wydanie oficjalne = jeden krok: commit na `beta`, merge do `main` i push obu naraz (budują się
    równolegle; `main` i tak przechodzi wszystkie testy na Windows przed wydaniem) – bez czekania na osobną budowę bety.
    Recenzent tylko przy dużych zmianach (nowa funkcja, baza, bezpieczeństwo); przy drobnych poprawkach wystarczą testy.
-8. **Aplikacja Android – ZAWIESZONA (decyzja właściciela 2026-11-09).** Zmian z Panelu nie przenosimy do `mobile/`,
-   nie podnosimy `mobile/VERSION`, budowa aplikacji (`mobile.yml`) tylko ręcznie. Test zgodności Python/JS
-   (`mobile/test/zgodnosc.py`) może się rozjechać – nie blokuje wydań Panelu. Wznowienie tylko na polecenie właściciela.
+8. **Aplikacja Android – WZNOWIONA (decyzja właściciela 2026-11-25):** zakładki Wyniki, Oferta opon, Depozyt
+   (Zamówień w telefonie nie ma). Zmiana silnika ofert, wzorów WYNIKÓW albo wyszukiwania DEPOZYTU w Panelu = ta sama
+   zmiana w `mobile/` (testy zgodności Python↔JS). Push na `beta` buduje APK testowe (wydanie `aplikacja-android-beta`),
+   na `main` – oficjalne (`aplikacja-android`); podnieś `mobile/VERSION` przy każdej zmianie aplikacji.
 
 ## Jak pracujemy (kontroler + agenci)
 
