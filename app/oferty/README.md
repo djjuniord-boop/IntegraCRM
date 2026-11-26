@@ -110,3 +110,9 @@ wyszukiwanie opon ogranicza się do `Asortyment=OPONY` (`okno.TYLKO_OPONY`).
 Kto zamówił (2026-11-18): `zamowienia.dopisz_kto` – numer zamówienia -> osoba z Dziennika zmian (funkcja w bazie
 `zamowienia_kto`, `supabase/zamowienia_kto_2026-11-18.sql`; tylko oddział jak przy ofertach – `oferty_wspolna`). Bez funkcji
 w bazie (`kto_ok=false`) okno działa jak dawniej, bez znaczków i filtra osób.
+
+## Felgi (`felgi.py`, zakładka „⚙️ Felgi”) – od 1.2.10
+Felgi z kopii pliku xPartner (asortyment FELGA: Rozstaw śrub, ET, Otwór centralny, Szerokość, Średnica, Typ, Model).
+`/api/felgi` (szukanie, cena = zakup netto + `marza_felgi` + VAT), `/api/felgi_oferta` (same felgi albo komplet: opona z oferty
+opon z marżą opon, czujnik TPMS z marżą felg + obsługa TPMS, montaż wg cennika wymiany, depozyt wg cennika przechowalni),
+`/api/felgi_pdf`. Zdjęcia: pole `foto` (na razie puste – usługa zdjęć xPartner wymaga logowania, w przygotowaniu).

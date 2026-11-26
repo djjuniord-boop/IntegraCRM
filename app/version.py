@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.9"
+VERSION = "1.2.10"
 RELEASED = "2026-11-25"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.10",
+        "date": "2026-11-26",
+        "changes": [
+            "Oferty: nowa zakładka „⚙️ Felgi” – szukanie felg z oferty xPartner po rozstawie, średnicy, ET, otworze, marce auta albo felgi; wyniki jako kafelki",
+            "Oferta na same felgi albo komplet: felgi + opony z oferty opon + czujniki TPMS + montaż + depozyt, z ofertą PDF i dodaniem do koszyka xPartner",
+            "Ustawienia: marża na felgi (domyślnie 13%), we Wrocławiu ustala administrator",
+        ],
+    },
     {
         "version": "1.2.9",
         "date": "2026-11-26",

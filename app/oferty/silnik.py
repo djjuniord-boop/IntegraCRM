@@ -37,6 +37,7 @@ DEFAULT_CFG = {
     "wymiana_suv": {"15": 55, "16": 55, "17": 60, "18": 65, "19": 70, "20": 80, "21": 90, "22": 100},
     "wymiana_dost": {"14": 55, "15": 60, "16": 65, "17": 70},
     "tpms_cena": 150,
+    "marza_felgi": 13,   # felgi i czujniki do kompletu: zakup netto + marża + VAT (decyzja właściciela 2026-11-26)
     "bydgoszcz_dostawa": "ok. 48 h",   # czas dostawy z dalekiego magazynu (koszyk, zamówienia)
     "przech_opony_do19": 120, "przech_opony_pow19": 160,
     "przech_kola_do19": 150, "przech_kola_pow19": 200,
@@ -66,7 +67,7 @@ def load_cfg():
 CENY_USLUG = ("wymiana_kolo", "wymiana_suv", "wymiana_dost", "tpms_cena",
               "przech_opony_do19", "przech_opony_pow19", "przech_kola_do19", "przech_kola_pow19")
 # marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (usługi: decyzja właściciela 2026-11-24)
-CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi") + CENY_USLUG
+CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi", "marza_felgi") + CENY_USLUG
 ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą i cenami usług ustalaną przez administratora (decyzja właściciela 2026-11-12)
 
 
@@ -1285,6 +1286,46 @@ def polacz_strony(strony):
     styl = "<style>.page{break-after:page}.page:last-of-type{break-after:auto}</style>"
     return glowa.replace("</head>", styl + "</head>", 1) + "<body>" + "".join(srodki) + "</body></html>"
 
+FELGI_OSTATNIE = {}   # id -> kafelek z ostatniego wyszukiwania (oferta liczy cenę z tej samej kopii)
+
+
+def felgi_route(cfg, route, body):
+    """Zakładka „Felgi”: wyszukiwanie w kopii pliku, oferta (same felgi albo komplet) i jej PDF."""
+    from oferty import felgi as FG
+    kat = KONTO.get("katalog")
+    m, vat = float(cfg.get("marza_felgi") or 13), float(cfg.get("vat_proc") or 23)
+    if route == "/api/felgi":
+        items = kat.felgi() if kat and hasattr(kat, "felgi") else None
+        if items is None:
+            raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
+        lista, q = FG.szukaj(items, body.get("q") or "", m, vat)
+        FELGI_OSTATNIE.clear(); FELGI_OSTATNIE.update({f["id"]: f for f in lista})
+        info = KONTO.get("katalog_info")
+        return 200, {"lista": lista, "q": q, "marza": m, "zrodlo": info() if info else ""}
+    f = FELGI_OSTATNIE.get(int(body.get("felga") or 0))
+    if not f:
+        raise ApiError("Wybierz felgę z wyników wyszukiwania.")
+    op = body.get("opona") or None
+    if op:   # opona z oferty opon: cena oferty liczona tu, z marżą opon
+        op = dict(op, cena_brutto=sell_price(cfg, float(op.get("netto") or 0))) if float(op.get("netto") or 0) > 0 else None
+    cz = body.get("czujnik") or None
+    c_cz = 0.0
+    if cz and float(cz.get("netto") or 0) > 0:
+        import math
+        c_cz = float(math.ceil(round(float(cz["netto"]) * (1 + m / 100) * (1 + vat / 100), 2) - 1e-9))
+    poz, razem = FG.oferta(cfg, f, body.get("ilosc") or 4, op, int(body.get("il_op") or 0), cz, int(body.get("il_cz") or 0),
+                           bool(body.get("montaz")), body.get("typ") or "osobowy", body.get("depozyt") or "", c_cz)
+    if route == "/api/felgi_oferta":
+        return 200, {"pozycje": poz, "razem": razem}
+    o, dane = oddzial_oferty(body)
+    if not all((dane.get(k) or "").strip() for k in ("nazwa", "adres", "tel")):
+        raise ApiError("Brak danych oddziału (nazwa, adres, telefon) – administrator uzupełnia je w Panelu: Ustawienia → Oddziały.")
+    import datetime
+    return 200, {"html": FG.pdf_html(poz, razem, dane, body.get("klient") or "", body.get("uwagi") or "", KONTO.get("kto") or "",
+                                     body.get("logo") or "", cfg.get("waznosc_dni") or 7, datetime.date.today().strftime("%d.%m.%Y")),
+                 "oddzial": o}
+
+
 def oddzial_oferty(req):
     """Oddział do PDF: tylko z przypisanych do konta (KONTO['oddzialy']); przy kilku – wybrany w ofercie."""
     moje = KONTO.get("oddzialy") or []
@@ -1465,6 +1506,8 @@ def handle(path, body=None, open_path=None):
             info = KONTO.get("katalog_info")
             return 200, {"lista": lista, "q": q, "rodzaje": TP.RODZAJE,
                          "zrodlo": (info() if info else "").replace("w ofercie – na żywo", "w koszyku – na żywo")}
+        if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf"):
+            return felgi_route(cfg, route, body)
         if route == "/api/quick":
             q = parse_quick(body.get("text", ""))
             if not q["pojazdy"]:

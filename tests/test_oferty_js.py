@@ -19,7 +19,12 @@ def test_okna_ofert_bez_bledow_js():
            "oddzialy_dane": {"Latex Wrocław": {"nazwa": "Latex", "adres": "x", "tel": "1"}}, "ceny_oddzial": "Latex Wrocław",
            "ceny_edycja": False}
     odp = {"/api/cfg": cfg, "/api/history": {"lista": [], "admin": True, "me": "a@b.pl"}, "/api/koszyk/adresy": {"adresy": []},
-           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""}}
+           "/api/koszyk/odswiez": {"pozycje": [], "czas": "10:00"}, "/api/zamowienia": {"zamowienia": [], "oddzialy": [], "czas": "10:00"}, "/api/tpms": {"lista": [{"id": 1, "nazwa": "TPMS CZUJNIK KIA", "producent": "CUB", "rodzaj": "zam", "demo": False, "marki": ["KIA"], "zawor": "", "stan": 5, "magazyny": {"Opole": 5}, "netto": 90, "brutto_zak": 110.7, "netto_kat": 90, "grupa": 1}], "q": {"ilosc": 4, "marki": ["KIA"], "slowa": []}, "rodzaje": {"zam": "zamiennik"}, "zrodlo": ""},
+           "/api/felgi_oferta": {"pozycje": [{"nazwa": "Felga X", "opis": "alu", "q": 4, "c": 523, "w": 2092}], "razem": 2092},
+           "/api/felgi_pdf": {"plik": "x.pdf"},
+           "/api/felgi": {"lista": [{"id": 231798, "nazwa": "DIEWE NEVE 7X17 5X112 ET46/57.1", "szer": "7", "sred": "17", "pcd": "5x112", "et": "46",
+                                     "otwor": "57.1", "rodzaj": "aluminiowa", "producent": "DIEWE", "model": "NEVE", "kod": "N", "demo": False,
+                                     "stan": 4, "brutto_zak": 462.14, "cena": 523, "foto": "", "marki": []}], "q": {"ilosc": 4}, "marza": 13, "zrodlo": ""}}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
             "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
     html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
@@ -34,7 +39,9 @@ def test_okna_ofert_bez_bledow_js():
             pg.goto(p.as_uri())
             pg.wait_for_timeout(600)
             for js in ("openCfg()", "saveCfg()", "openCfg()", "dlg.close()", "openHist()", "hdlg.close()", "openKosz()", "kdlg.close()", "openZam()",
-                       "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')", "widok('o')"):
+                       "zapTog()", "zapTog()", "widok('t')", "tSzukaj()", "tRender()", "kDodaj(1,4,'TPMS CZUJNIK KIA')",
+                       "widok('f')", "fSzukaj()", "fRender()", "fWybierz(231798)", "fLicz()", "$('#fo_mon').checked=true;fLicz()",
+                       "fWezCzujnik(1)", "fPdf()", "fDoKoszyka()", "fWyczysc()", "widok('o')"):
                 try:
                     pg.evaluate(js)
                 except Exception as e:

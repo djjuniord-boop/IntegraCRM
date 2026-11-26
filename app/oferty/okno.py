@@ -261,6 +261,23 @@ class Katalog:
         self.uzyty = True
         return [dict(x) for x in self._tpms]
 
+    _felgi, _felgi_t = None, 0.0
+
+    def felgi(self):
+        """Felgi z kopii pliku (ok. 3 tys. pozycji – całość, filtruje silnik); pamiętane 5 min. None = kopia niedostępna."""
+        if not self.swiezy(self.MAKS_WIEK_WZORCA):
+            return None
+        if self._felgi is None or time.time() - self._felgi_t > 300:
+            rows = []
+            for od in range(0, 20000, 1000):   # baza oddaje najwyżej 1000 wierszy naraz
+                cz = _db("GET", "/rest/v1/xp_oferta?select=dane&dane->attrs->>Asortyment=eq.FELGA&order=id&limit=1000&offset=%d" % od) or []
+                rows += cz
+                if len(cz) < 1000:
+                    break
+            self._felgi, self._felgi_t = [x["dane"] for x in rows if isinstance(x.get("dane"), dict)], time.time()
+        self.uzyty = True
+        return [dict(x) for x in self._felgi]
+
     def produkt(self, kod):
         """Opona po indeksie xPartner (id), kodzie producenta albo EAN – szybkie polecenie. [] = brak / kopia niedostępna."""
         k = re.sub(r"[^0-9A-Za-z\-./]", "", kod or "")[:30]
@@ -446,7 +463,7 @@ class Api:
                 return {"code": 200, "body": {"ok": True}}
             except Exception as e:
                 return {"code": 502, "body": {"error": f"Nie zapisano danych oddziałów: {e}"}}
-        if path == "/api/pdf":
+        if path in ("/api/pdf", "/api/felgi_pdf"):
             code, res = silnik.handle(path, dict(body or {}, logo=logo_uri()), open_path=_open_path)
             if code != 200:
                 return {"code": code, "body": res}

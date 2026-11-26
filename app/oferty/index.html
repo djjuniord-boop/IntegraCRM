@@ -89,12 +89,22 @@ dialog{border:none;border-radius:10px;padding:20px;max-width:620px;width:95%}dia
 .bdg48{display:inline-block;background:#fef3c7;color:#b45309;border:1px solid #fcd34d;border-radius:999px;padding:0 7px;font-size:11px;font-weight:700;white-space:nowrap}
 .bdg48.m{background:#f4f4f5;color:#52525b;border-color:#d4d4d8;font-weight:600}
 tr.k48 td{background:#fffbeb}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}.tbl th{text-align:left;color:#6b7280;font-weight:600;border-bottom:1px solid #e4e4e7;padding:6px}.tbl td{border-bottom:1px solid #f1f1f1;padding:6px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fw{border:1px solid #e4e4e7;border-radius:12px;padding:10px;cursor:pointer;background:#fff;position:relative}.fw:hover{border-color:#d81f26}.fw.on{outline:2px solid #d81f26}
+.fw .ph{width:100%;height:160px;object-fit:contain;background:#fafafa;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#9ca3af;font-size:44px}
+.fw .nm{font-weight:700;font-size:13px;margin:8px 0 4px;line-height:1.25}.fw .ch{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.fw .ch span{background:#f4f4f5;border-radius:999px;padding:1px 7px;font-size:11px}
+.fw .rw{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;margin-top:4px}.fw .ce{font-size:17px;font-weight:800}
+.fw.malo .st{color:#b45309}.fw .st{color:#166534;font-weight:700}
+.fdod{display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;margin-top:12px}.fdod>div{border:1px solid #e4e4e7;border-radius:10px;padding:10px}
+.fpick{max-height:220px;overflow:auto;margin-top:6px;font-size:12px}.fpick div{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-bottom:1px solid #f1f1f1;cursor:pointer}.fpick div:hover{background:#fef2f2}.fpick div.on{background:#fee2e2;font-weight:700}
+@media(max-width:1000px){.fdod{grid-template-columns:1fr}}
 .oc{display:inline-block;background:#e0e7ff;color:#3730a3;border:1px solid #a5b4fc;border-radius:999px;padding:0 6px;font-size:10px;font-weight:700;vertical-align:1px}
 .rft{display:inline-block;background:#fee2e2;color:#b91c1c;border:1px solid #fca5a5;border-radius:999px;padding:0 6px;font-size:10px;font-weight:700;vertical-align:1px}
 .szuk td{background:#dbeafe!important;font-weight:600}
 .ban48{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 </style></head><body><button id="kFab" onclick="openKosz()" style="display:none"></button><div id="kToast"></div>
-<header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button></div><span class="sp"></span>
+<header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button><button id="segF" onclick="widok('f')">⚙️ Felgi</button></div><span class="sp"></span>
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main id="mainO">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
@@ -161,6 +171,29 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <label>Cena zakupu brutto do<input id="tf_c" type="number" min="0" style="width:90px" placeholder="zł" oninput="tRender()"></label>
 <label>Szukaj w wynikach<input id="tf_t" oninput="tRender()" placeholder="nazwa, indeks…"></label><button class="sec" onclick="tWyczysc()">Wyczyść filtry</button></div></div>
 <div class="card" id="tCard" style="display:none"><h2><span class="n">📡</span>Wyniki <span id="tIle" class="muted" style="font-size:13px;font-weight:400"></span></h2><div id="tRes"></div></div>
+</main>
+<main id="mainF" style="display:none">
+<div class="card"><h2><span class="n">⚡</span>Szybkie polecenie – felgi</h2>
+<div style="display:flex;gap:10px"><input id="fq" placeholder="np. 5x112 R17 ET46 · alu 7x17 5x114.3 · stalowe peugeot 4x108 16 · 190362" onkeydown="if(event.key==='Enter')fSzukaj()" style="flex:1"><button id="fB" onclick="fSzukaj()">🔎 Szukaj felg</button></div>
+<div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: rozstaw śrub („5x112”), średnicę („R17”), szerokość („7x17”, „6.5J16”), ET („ET46”, „ET32/65.1”), otwór centralny („57.1”), „stalowe” / „alu”, markę auta („peugeot”) albo felgi („diewe neve”), indeks xPartner, ilość („4 szt”), „bez demo”.</div><div id="fMsg"></div></div>
+<div class="card" id="fFilt" style="display:none"><h2><span class="n">⚙</span>Filtry <span id="fIle" class="muted" style="font-size:13px;font-weight:400"></span></h2>
+<div class="tf"><label>Rozstaw śrub<select id="ff_pcd" onchange="fRender()"></select></label><label>Średnica<select id="ff_sred" onchange="fRender()"></select></label>
+<label>Szerokość<select id="ff_szer" onchange="fRender()"></select></label><label>ET<select id="ff_et" onchange="fRender()"></select></label>
+<label>Otwór<select id="ff_otwor" onchange="fRender()"></select></label><label>Rodzaj<select id="ff_rodzaj" onchange="fRender()"><option value="">wszystkie</option><option value="aluminiowa">aluminiowe</option><option value="stalowa">stalowe</option></select></label>
+<label>Producent<select id="ff_prod" onchange="fRender()"></select></label><label>Min. stan<input id="ff_stan" type="number" min="0" style="width:70px" oninput="fRender()"></label>
+<label>Szukaj w wynikach<input id="ff_t" oninput="fRender()" placeholder="model, kolor, indeks…"></label><button class="sec" onclick="fWyczysc()">Wyczyść filtry</button></div></div>
+<div class="card" id="fCard" style="display:none"><h2><span class="n">🔘</span>Wyniki <span class="muted" style="font-size:13px;font-weight:400">cena oferty = zakup netto + marża <span id="fMarza"></span>% + VAT · kliknij felgę, żeby zrobić ofertę</span></h2><div id="fRes" class="fgrid"></div><div id="fWiecej"></div></div>
+<div class="card" id="fOf" style="display:none"><h2><span class="n">📄</span>Oferta – felgi lub komplet</h2>
+<div id="fWyb"></div>
+<div class="tf" style="margin-top:10px"><label>Ilość felg<input id="fo_il" type="number" min="1" max="40" value="4" style="width:70px" oninput="fLicz()"></label>
+<label>Klient<input id="fo_kl" placeholder="nazwa / telefon"></label><label style="flex:1">Uwagi do oferty<input id="fo_uw" style="width:100%"></label></div>
+<div class="fdod"><div><b>🛞 Opony do kompletu</b> <span class="muted">z naszej oferty opon</span><div style="display:flex;gap:6px;margin-top:6px"><input id="fo_roz" placeholder="rozmiar, np. 225/45 R17" style="flex:1" onkeydown="if(event.key==='Enter')fOpony()"><button class="sec" onclick="fOpony()">Szukaj opon</button></div><div id="fo_opL"></div></div>
+<div><b>📡 Czujniki TPMS</b> <span class="muted">część z xPartner</span><div style="display:flex;gap:6px;margin-top:6px"><input id="fo_czq" placeholder="marka i model auta, np. kia sportage" style="flex:1" onkeydown="if(event.key==='Enter')fCzujniki()"><button class="sec" onclick="fCzujniki()">Szukaj czujników</button></div><div id="fo_czL"></div></div>
+<div><b>🔧 Montaż i depozyt</b><div class="tf" style="margin-top:6px"><label><input type="checkbox" id="fo_mon" onchange="fLicz()"> montaż / wymiana kół</label>
+<label>Auto<select id="fo_typ" onchange="fLicz()"><option value="osobowy">osobowe</option><option value="suv">SUV / 4x4</option><option value="dostawczy">dostawcze</option></select></label>
+<label>Depozyt<select id="fo_dep" onchange="fLicz()"><option value="">bez</option><option value="kola">przechowalnia kół z felgami</option><option value="opony">przechowalnia opon</option></select></label></div></div></div>
+<div id="fPoz" style="margin-top:12px"></div>
+<div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap"><button id="fPdfB" onclick="fPdf()">📄 Oferta PDF</button><button class="sec" onclick="fDoKoszyka()">🛒 Dodaj do koszyka xPartner</button></div><div id="foMsg"></div></div>
 </main>
 <dialog id="hdlg" style="max-width:1100px;padding:0">
 <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 18px;border-bottom:1px solid var(--line)"><b style="font-size:16px">Historia ofert</b><button class="sec" onclick="hdlg.close()" style="padding:2px 10px">✕</button></div>
@@ -229,7 +262,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <div style="grid-column:1/3" id="cenyBox"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Jak liczyć cenę opony w ofercie <b id="cenyInfo"></b></div>
 <label class="chips" style="flex-direction:row;gap:16px;color:#111;font-size:14px"><span><input type="radio" name="ntryb" value="procent" onchange="drawProgi()"> marża % od ceny zakupu</span><span><input type="radio" name="ntryb" value="kwota" onchange="drawProgi()"> stała kwota wg ceny zakupu brutto</span></label>
 <div id="progiBox" style="margin-top:6px"></div></div>
-<label id="lblMarza">Marża %<input id="c_marza_proc" type="number" step="0.1"></label><label>VAT %<input id="c_vat_proc" type="number"></label>
+<label id="lblMarza">Marża %<input id="c_marza_proc" type="number" step="0.1"></label><label>VAT %<input id="c_vat_proc" type="number"></label><label class="usl" title="Felgi i czujniki do kompletu z felgami: zakup netto + marża + VAT">Marża na felgi %<input id="c_marza_felgi" type="number" step="0.1"></label>
 <label>Domyślny min. stan<input id="c_min_stan" type="number"></label>
 <label>Kół na auto<input id="c_kola_na_auto" type="number"></label><label>Ważność oferty (dni)<input id="c_waznosc_dni" type="number"></label>
 <div style="grid-column:1/3"><div style="font-size:12px;color:var(--muted);margin-bottom:4px">Cennik wymiany – cena brutto za 1 koło (demontaż, montaż, wyważenie)<b class="uslInfo"></b></div>
@@ -501,13 +534,13 @@ let PROGI=[];
 function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';
  if(k!=='kwota'){$('#progiBox').innerHTML='';return}
  $('#progiBox').innerHTML='<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+PROGI.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="PROGI[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="PROGI[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="PROGI.splice(${i},1);drawProgi()">✕</button></td></tr>`).join('')+'</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="PROGI.splice(PROGI.length-1,0,{do:null,kwota:0});drawProgi()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, w górę do pełnych zł.</span>'}
-function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])$('#c_'+k).value=CFG[k]??'';
+function openCfg(){for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi'])$('#c_'+k).value=CFG[k]??'';
  WT={wymiana_kolo:{...CFG.wymiana_kolo},wymiana_suv:{...CFG.wymiana_suv},wymiana_dost:{...CFG.wymiana_dost}};WCUR='wymiana_kolo';document.querySelectorAll('.wtabs button').forEach(b=>b.classList.toggle('on',b.dataset.t==WCUR));drawW();
  for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])$('#c_'+k).value=CFG[k]??'';$('#c_bydgoszcz_dostawa').value=CFG.bydgoszcz_dostawa||'ok. 48 h';$('#c_premium').value=CFG.premium.join(', ');PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));drawProgi();drawOddz();msg('#cMsg','');cenyBlok();dlg.showModal()}
 function cenyBlok(){const o=CFG.ceny_oddzial,ed=CFG.ceny_edycja;$('#cenyInfo').textContent=o?(ed?'– wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':'– ustala administrator dla oddziału '+o):'';
  document.querySelectorAll('#cenyBox input,#cenyBox button,#c_marza_proc,#c_wym input,.usl input').forEach(e=>e.disabled=!ed);
  document.querySelectorAll('.uslInfo').forEach(e=>e.textContent=o?(ed?' – wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':' – ustala administrator'):'')}
-async function saveCfg(){const c={};for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni'])c[k]=+$('#c_'+k).value;
+async function saveCfg(){const c={};for(const k of['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi'])c[k]=+$('#c_'+k).value;
  readW();Object.assign(c,WT);for(const k of['tpms_cena','przech_opony_do19','przech_opony_pow19','przech_kola_do19','przech_kola_pow19'])c[k]=+$('#c_'+k).value||0;c.bydgoszcz_dostawa=$('#c_bydgoszcz_dostawa').value.trim().slice(0,30)||'ok. 48 h';
  c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=PROGI.filter(p=>p.kwota!==undefined&&p.kwota!=='').map(p=>({do:p.do===null||p.do===''?null:+p.do,kwota:+p.kwota}));
  c.premium=$('#c_premium').value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);
@@ -629,7 +662,46 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
 
 // ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
 let TL=[],TQ={ilosc:4},TROD={};
-function widok(v){$('#mainO').style.display=v==='t'?'none':'';$('#mainT').style.display=v==='t'?'':'none';$('#segO').classList.toggle('on',v!=='t');$('#segT').classList.toggle('on',v==='t');try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
+let FL=[],FQ={ilosc:4},FW=null,FOP=null,FCZ=null,FPOK=200;
+const FPH='<div class="ph">⚙️</div>';
+async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fMarza').textContent=r.marza;FPOK=200;
+ msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
+ catch(e){msg('#fMsg',e.message,1)}finally{b.disabled=false}}
+function fOpcje(){const ust=(id,k,lab,sort)=>{const v=[...new Set(FL.map(f=>f[k]).filter(Boolean))].sort(sort||((a,b)=>parseFloat(a)-parseFloat(b)||String(a).localeCompare(b)));$(id).innerHTML=`<option value="">${lab}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join('')};
+ ust('#ff_pcd','pcd','wszystkie',(a,b)=>a.localeCompare(b,'pl',{numeric:true}));ust('#ff_sred','sred','wszystkie');ust('#ff_szer','szer','wszystkie');ust('#ff_et','et','wszystkie');ust('#ff_otwor','otwor','wszystkie');ust('#ff_prod','producent','wszyscy',(a,b)=>a.localeCompare(b,'pl'))}
+function fWyczysc(){for(const k of['pcd','sred','szer','et','otwor','rodzaj','prod','stan','t'])$('#ff_'+k).value='';fRender()}
+function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0;
+ return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
+function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
+ return `<div class="fw${FW&&FW.id===f.id?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})">${f.foto?`<img class="ph" src="${esc(f.foto)}" alt="" loading="lazy">`:FPH}
+ <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
+ <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''} <span class="muted">· ${f.id}</span></span><span class="ce">${zl(f.cena)}</span></div>
+ <div class="rw"><span class="muted">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div></div>`}
+function fRender(){const L=fFiltr();$('#fIle').textContent=L.length+' z '+FL.length;$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
+ $('#fWiecej').innerHTML=L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=200;fRender()">Pokaż kolejne (${L.length-FPOK})</button>`:''}
+function fWybierz(id){FW=FL.find(f=>f.id===id)||null;FOP=null;FCZ=null;$('#fo_opL').innerHTML='';$('#fo_czL').innerHTML='';$('#fo_il').value=FQ.ilosc||4;fRender();if(!FW)return;
+ $('#fWyb').innerHTML=`<div style="display:flex;gap:14px;align-items:center">${FW.foto?`<img src="${esc(FW.foto)}" style="width:110px;height:110px;object-fit:contain">`:'<div style="font-size:54px">⚙️</div>'}<div><b>${esc(FW.nazwa)}</b><br><span class="muted">${esc([FW.rodzaj,FW.pcd,FW.et?'ET'+FW.et:'',FW.otwor?'otwór '+FW.otwor:'',FW.producent].filter(Boolean).join(' · '))}</span><br>Cena oferty: <b>${zl(FW.cena)}</b> / szt. · stan ${FW.stan>=50?'50+':FW.stan}</div></div>`;
+ $('#fo_roz').value=FW.sred?'R'+FW.sred:'';$('#fOf').style.display='';$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
+async function fOpony(){const r=$('#fo_roz').value.trim();if(!r)return;$('#fo_opL').innerHTML='<div class="muted">Szukam…</div>';
+ try{const q=await api('/api/quick',{text:r});const roz=(q.pojazdy||[])[0];if(!roz){$('#fo_opL').innerHTML='<div class="warn">Nie rozpoznałem rozmiaru – wpisz np. 225/45 R17</div>';return}
+  const w=await api('/api/search',{pojazdy:[{rozmiar:roz.rozmiar,ilosc:+$('#fo_il').value||4,nowe:true}],sezony:q.sezony||[],klasy:q.klasy||[],producenci:q.producenci||''});
+  const L=[];for(const g of Object.values(w.wyniki||{}))for(const l of Object.values(g))for(const p of l)if(!L.some(x=>x.id===p.id))L.push(p);L.sort((a,b)=>a.cena_brutto-b.cena_brutto);
+  window._FOPL=L;$('#fo_opL').innerHTML=L.length?`<div class="fpick">${L.slice(0,60).map(p=>`<div onclick="fWezOpone(${p.id})" class="${FOP&&FOP.id===p.id?'on':''}"><span>${esc(p.producent+' '+p.model)} <span class="muted">${esc(p.rozmiar||'')} ${esc(p.sezon)} · ${esc(p.klasa)} · stan ${p.ilosc>=50?'50+':p.ilosc}</span></span><b>${zl(p.cena_brutto)}</b></div>`).join('')}</div>`:'<div class="warn">Brak opon w tym rozmiarze.</div>'}
+ catch(e){$('#fo_opL').innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
+function fWezOpone(id){const p=(window._FOPL||[]).find(x=>x.id===id);FOP=FOP&&FOP.id===id?null:p;document.querySelectorAll('#fo_opL .fpick div').forEach(d=>d.classList.toggle('on',FOP&&d.getAttribute('onclick')===`fWezOpone(${id})`));fLicz()}
+async function fCzujniki(){const q=$('#fo_czq').value.trim();if(!q)return;$('#fo_czL').innerHTML='<div class="muted">Szukam…</div>';
+ try{const r=await api('/api/tpms',{q});const L=(r.lista||[]).filter(x=>x.rodzaj!=='nar'&&x.netto>0);window._FCZL=L;
+  $('#fo_czL').innerHTML=L.length?`<div class="fpick">${L.slice(0,60).map(x=>`<div onclick="fWezCzujnik(${x.id})"><span>${esc(x.nazwa)} <span class="muted">${esc((TROD&&TROD[x.rodzaj])||x.rodzaj)} · stan ${x.stan>=50?'50+':x.stan}</span></span><b>${zl(Math.ceil(x.netto*(1+(+$('#fMarza').textContent||13)/100)*(1+(CFG.vat_proc||23)/100)-1e-9))}</b></div>`).join('')}</div>`:'<div class="warn">Nie znalazłem czujników – wpisz markę i model auta.</div>'}
+ catch(e){$('#fo_czL').innerHTML=`<div class="warn">${esc(e.message)}</div>`}}
+function fWezCzujnik(id){const x=(window._FCZL||[]).find(c=>c.id===id);FCZ=FCZ&&FCZ.id===id?null:x;document.querySelectorAll('#fo_czL .fpick div').forEach(d=>d.classList.toggle('on',FCZ&&d.getAttribute('onclick')===`fWezCzujnik(${id})`));fLicz()}
+function fCialo(){const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));return {felga:FW&&FW.id,ilosc:il,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto}:null,il_op:FOP?il:0,czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto}:null,il_cz:FCZ?il:0,
+ montaz:$('#fo_mon').checked,typ:$('#fo_typ').value,depozyt:$('#fo_dep').value,klient:$('#fo_kl').value.trim(),uwagi:$('#fo_uw').value.trim(),oddzial:typeof OODD!=='undefined'?OODD:''}}
+async function fLicz(){if(!FW)return;try{const r=await api('/api/felgi_oferta',fCialo());
+ $('#fPoz').innerHTML=`<table class="tbl"><tr><th>Pozycja</th><th style="text-align:right">Ilość</th><th style="text-align:right">Cena brutto</th><th style="text-align:right">Wartość</th></tr>${r.pozycje.map(p=>`<tr><td>${esc(p.nazwa)}${p.opis?`<br><span class="muted">${esc(p.opis)}</span>`:''}</td><td style="text-align:right">${p.q}</td><td style="text-align:right">${zl(p.c)}</td><td style="text-align:right"><b>${zl(p.w)}</b></td></tr>`).join('')}<tr><td colspan="3" style="text-align:right"><b>Razem brutto</b></td><td style="text-align:right;font-size:16px"><b>${zl(r.razem)}</b></td></tr></table>`;msg('#foMsg','')}
+ catch(e){msg('#foMsg',e.message,1)}}
+async function fPdf(){const b=$('#fPdfB');b.disabled=true;msg('#foMsg','Tworzę PDF…');try{const r=await api('/api/felgi_pdf',Object.assign(fCialo(),{nazwa:'Oferta felgi '+($('#fo_kl').value.trim()||FW.id)}));msg('#foMsg','Zapisano: '+r.plik)}catch(e){msg('#foMsg',e.message,1)}finally{b.disabled=false}}
+function fDoKoszyka(){if(!FW)return;const il=Math.max(1,Math.min(40,+$('#fo_il').value||4));kDodaj(FW.id,il,FW.nazwa);if(FOP)kDodaj(FOP.id,il,FOP.nazwa);if(FCZ)kDodaj(FCZ.id,il,FCZ.nazwa)}
+function widok(v){$('#mainO').style.display=v==='o'?'':'none';$('#mainT').style.display=v==='t'?'':'none';$('#mainF').style.display=v==='f'?'':'none';$('#segO').classList.toggle('on',v==='o');$('#segT').classList.toggle('on',v==='t');$('#segF').classList.toggle('on',v==='f');if(v==='f'){$('#fq').focus()}try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
 async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
  const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};
  opt('#tf_m',[...new Set(TL.flatMap(x=>x.marki))].sort(),'wszystkie');opt('#tf_p',[...new Set(TL.map(x=>x.producent))].sort(),'wszyscy');opt('#tf_g',[...new Set(TL.flatMap(x=>Object.keys(x.magazyny||{})))].sort(),'wszystkie');
@@ -648,5 +720,5 @@ function tRender(){const f=k=>$('#tf_'+k).value,mag=f('g'),ms=+f('s')||0,cm=+f('
   h+=`<tr class="${wk?'wk':''}"><td style="font-variant-numeric:tabular-nums">${x.id}</td><td>${esc(x.nazwa)}</td><td><span class="tg ${x.rodzaj}">${esc(TROD[x.rodzaj]||x.rodzaj)}</span>${x.demo?' <span class="tg demo" title="z demontażu">DEMO</span>':''}</td><td>${esc(x.marki.join(', ')||(x.rodzaj==='uni'?'wiele marek':'–'))}</td><td>${esc(x.producent)}</td><td class="num ${s<(TQ.ilosc||1)?'warn':'ok'}" title="${esc(mags)}">${s<(TQ.ilosc||1)?'⚠ tylko '+s:s}</td><td class="num">${zl(x.netto)}</td><td class="num"><b>${zl(x.brutto_zak)}</b></td>`
    +(CFG.zamawianie?(wk?`<td class="num">${wk}</td><td><button class="sec kin" style="padding:2px 8px;white-space:nowrap" title="W koszyku – kliknij, żeby otworzyć koszyk" onclick="openKosz()">✓ ${wk} szt.</button></td>`:`<td class="num"><input id="ti_${x.id}" type="number" min="1" max="200" value="${Math.min(TQ.ilosc||4,200)}" style="width:58px"></td><td><button class="sec" style="padding:2px 8px" title="Dodaj do koszyka xPartner" onclick='kDodaj(${x.id},Math.max(1,Math.min(200,+$("#ti_${x.id}").value||1)),${esc(JSON.stringify(x.nazwa))})'>🛒</button></td>`):'')+'</tr>'}
  $('#tRes').innerHTML=h+'</table>'+(CFG.zamawianie?'':'<p class="muted" style="font-size:12px">Zamawianie wymaga uprawnienia „Zamawianie w xPartner”.</p>')}
-addRow();loadCfg().catch(()=>{}).then(()=>{try{if(localStorage.getItem('oferty_widok')==='t')widok('t')}catch(e){}});
+addRow();loadCfg().catch(()=>{}).then(()=>{try{{const w=localStorage.getItem('oferty_widok');if(w==='t'||w==='f')widok(w)}}catch(e){}});
 </script></body></html>

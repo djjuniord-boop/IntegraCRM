@@ -4,6 +4,7 @@
 #
 #   tools/wydaj.sh            – testy + wydanie (commit z VERSION i CHANGELOG musi już być na gałęzi praca/…)
 #   tools/wydaj.sh --tylko-testy
+#   tools/wydaj.sh --beta        – testy + wydanie tylko na kanał testowy (beta), bez main i bez podnoszenia min_version
 #
 # Środowisko jak w CLAUDE.md („Sprawdzanie”): /tmp/venv z Pythonem 3.12, xvfb-run, systemowy python3 z Playwright.
 set -euo pipefail
@@ -53,6 +54,26 @@ grep -q "pominięty" /tmp/wydaj_js.log && stop "testy JS pominięte (brak Playwr
 tail -1 /tmp/wydaj_js.log
 
 [[ ${1:-} == --tylko-testy ]] && { echo; echo "✅ Testy przeszły (bez wydania)."; exit 0; }
+
+if [[ ${1:-} == --beta ]]; then
+  krok "Wysyłka: tylko beta"
+  git checkout -q beta && git pull -q --ff-only origin beta 2>/dev/null
+  git merge -q --ff-only "$GAL" || { git checkout -q "$GAL"; stop "beta nie da się przewinąć do $GAL"; }
+  SHA=$(git rev-parse HEAD)
+  git push -q origin beta "$GAL" 2>&1 | grep -viE "moved|location|acknowledg|negotiation|github.com" || true
+  git checkout -q "$GAL"
+  [[ $(git ls-remote origin refs/heads/beta | cut -f1) == "$SHA" ]] || stop "push beta się nie udał"
+  krok "Budowa bety (Windows) dla $SHA"
+  RUN=""
+  for _ in $(seq 60); do
+    RUN=$(gh run list -R $REPO -b beta -c "$SHA" -w "Zbuduj IntegraCRM.exe" -L 1 --json databaseId -q '.[0].databaseId' 2>/dev/null || true)
+    [[ -n $RUN ]] && break; sleep 5
+  done
+  [[ -n $RUN ]] || stop "nie znalazłem budowy bety dla $SHA"
+  gh run watch "$RUN" -R $REPO --exit-status > /dev/null 2>&1 || stop "budowa bety $RUN się nie udała (gh run view $RUN -R $REPO --log-failed)"
+  gh api repos/$REPO/releases/tags/kanal-beta -q '.name + " " + .body' | grep -q "$V" || stop "budowa przeszła, ale kanał beta nie pokazuje wersji $V"
+  echo; echo "✅ Wersja $V wydana na kanał BETA (budowa $RUN, testy na Windows przeszły)."; exit 0
+fi
 
 krok "Wysyłka: beta + main"
 git checkout -q beta && git pull -q --ff-only origin beta 2>/dev/null

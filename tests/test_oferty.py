@@ -377,6 +377,42 @@ def test_wyszukiwanie_z_pliku_i_etykieta_eprel():
         S.KONTO.pop("katalog", None); S.KONTO.pop("katalog_info", None)
 
 
+def test_felgi_parametry_szukanie_oferta_pdf():
+    """2026-11-26: felgi z pliku xPartner – parametry z cech („17\"”, „57,1”) i z nazwy, szybkie polecenie, komplet, PDF."""
+    from oferty import felgi as FG
+    alu = {"id": 231798, "kod": "NEV17", "attrs": {"ET": "46", "Typ": "ALUMINIOWA", "Model": "NEVE CZARNY", "Producent": "DIEWE",
+           "Średnica": '17"', "Szerokość": '7"', "Rozstaw śrub": "5X112", "Otwór centralny": "57,1"},
+           "ilosc": 4, "nazwa": "DIEWE NEVE 7X17 5X112 ET46/57.1 CZARNY", "netto": 375.72, "brutto_zak": 462.14}
+    stal = {"id": 190362, "attrs": {}, "nazwa": "9832165180 OBRĘCZ PEUGEOT 6.5X16 4X108 ET32/65.1 STRUKTURA", "netto": 300.0, "ilosc": 1}
+    f = FG.info(alu, 13, 23)
+    assert (f["szer"], f["sred"], f["pcd"], f["et"], f["otwor"], f["rodzaj"]) == ("7", "17", "5x112", "46", "57.1", "aluminiowa")
+    assert f["cena"] == 523.0   # 375,72 × 1,13 × 1,23 = 522,23 → w górę
+    g = FG.info(stal)
+    assert (g["pcd"], g["et"], g["otwor"], g["rodzaj"], g["oe"], g["marki"]) == ("4x108", "32", "65.1", "stalowa", "9832165180", ["Peugeot"])
+    assert [x["id"] for x in FG.szukaj([alu, stal], "5x112 r17 et46")[0]] == [231798]
+    assert [x["id"] for x in FG.szukaj([alu, stal], "stalowe peugeot 16")[0]] == [190362]
+    assert [x["id"] for x in FG.szukaj([alu, stal], "diewe neve")[0]] == [231798]
+    assert [x["id"] for x in FG.szukaj([alu, stal], "190362")[0]] == [190362]
+    assert FG.szukaj([alu, stal], "5x120")[0] == []
+    _setup()
+    cfg = S.load_cfg()
+    poz, razem = FG.oferta(cfg, f, 4, {"id": 1, "nazwa": "OPONA X", "cena_brutto": 400.0}, 4, {"id": 2, "nazwa": "CZ"}, 4, True, "osobowy", "kola", 120.0)
+    nazwy = [p["nazwa"] for p in poz]
+    assert nazwy[0].startswith("Felga DIEWE") and nazwy[1] == "Opona OPONA X" and nazwy[2].startswith("Czujnik")
+    assert any(n.startswith("Obsługa czujnika") for n in nazwy) and any(n.startswith("Montaż") for n in nazwy) and any("Przechowalnia kół" in n for n in nazwy)
+    assert razem == round(sum(p["w"] for p in poz), 2) and poz[0]["w"] == 4 * 523.0
+    S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(alu), dict(stal)]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    try:
+        st, r = S.handle("/api/felgi", {"q": "5x112"})
+        assert st == 200 and [x["id"] for x in r["lista"]] == [231798] and r["marza"] == 13
+        st, r = S.handle("/api/felgi_oferta", {"felga": 231798, "ilosc": 4, "montaz": True})
+        assert st == 200 and r["razem"] == r["pozycje"][0]["w"] + r["pozycje"][1]["w"]
+        st, r = S.handle("/api/felgi_pdf", {"felga": 231798, "ilosc": 4, "klient": "<Jan>"})
+        assert st == 200 and "DIEWE NEVE" in r["html"] and "&lt;Jan&gt;" in r["html"] and "<Jan>" not in r["html"]
+    finally:
+        S.KONTO.pop("katalog", None)
+
+
 def test_rozmiar_bez_c_pokazuje_tez_dostawcze():
     """2026-11-26: „2057516” – 3 osobowe + 119 dostawczych R16C; razem, opony C z rozmiarem „R16C”. Wpisane C = tylko C."""
     _setup()
