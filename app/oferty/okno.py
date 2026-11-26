@@ -507,6 +507,7 @@ class Api:
                 if brak:   # konfigurator nie ma zdjęć części felg – są na karcie produktu w xPartner
                     try:
                         d["zdjecia"].update(self._zdjecia_karta(brak))
+                        d["diag_karta"] = getattr(self, "_karta_diag", "")
                         if getattr(self, "_karta_login", False):
                             d["login_karta"] = True
                     except Exception as e:
@@ -528,10 +529,12 @@ class Api:
                 self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
                 self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
                 self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
-        self._kw2_gotowe.wait(25)
+        ok = self._kw2_gotowe.wait(25)
         time.sleep(1)
         w = self._kw2
+        self._karta_diag = "okno wczytane" if ok else "okno się nie wczytało (25 s)"
         if w is None:
+            self._karta_diag = "brak okna"
             return {}
         w.evaluate_js(KARTA_JS % json.dumps(ids[:40]))
         wynik = None
@@ -544,6 +547,12 @@ class Api:
             d = json.loads(wynik) if isinstance(wynik, str) else {}
         except ValueError:
             d = {}
+        try:
+            adres = w.get_current_url()
+        except Exception:
+            adres = "?"
+        self._karta_diag += "; adres: %s; wynik: %s; zdjęć: %d" % (str(adres)[:60], "brak" if not wynik else "jest",
+                                                                   sum(len(v or []) for v in (d.get("zdjecia") or {}).values()))
         if d.get("login"):   # w xPartner (strona) trzeba się zalogować – pokaż okno, użytkownik loguje się sam
             self._karta_login = True
             try:
