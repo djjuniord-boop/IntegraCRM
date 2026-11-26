@@ -54,7 +54,6 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 {{#pozycje}}<tr class="p"><td>{{nazwa}}{{#opis}}<small>{{opis}}</small>{{/opis}}{{#ind}}<small>{{ind}}</small>{{/ind}}</td><td class="c">{{ilosc}}</td><td class="r">{{cena}}</td><td class="r">{{wartosc}}</td></tr>{{/pozycje}}
 <tr class="s"><td colspan="3">Razem netto</td><td class="r">{{netto}}</td></tr><tr class="s"><td colspan="3">VAT {{vat_proc}}%</td><td class="r">{{vat}}</td></tr>
 <tr class="sum"><td colspan="3">DO ZAPŁATY BRUTTO</td><td class="r">{{brutto}}</td></tr></table>
-{{#uwagi}}<div class="war"><b>Uwagi:</b> {{uwagi}}</div>{{/uwagi}}
 <div class="war">Oferta ważna do {{wazna}} lub do wyczerpania zapasów. Ceny zawierają VAT {{vat_proc}}%. Termin montażu do uzgodnienia telefonicznie.</div>
 <div class="cta"><div><b>Zarezerwuj termin montażu</b><br><span>Zadzwoń – dobierzemy dogodną godzinę</span></div><div class="tels"><div class="tel">☎ {{o_tel}}</div>{{#o_kom}}<div class="kom">📱 {{t}}</div>{{/o_kom}}</div></div>
 <div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}}</span></div>

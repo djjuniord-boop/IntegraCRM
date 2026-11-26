@@ -435,12 +435,18 @@ def test_felgi_kilka_propozycji_ceny_porownanie_historia():
             zapisane[oid] = (rec, hay)
     S.HIST = H()
     S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(alu), dict(b18), dict(c18)]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    stary_gp = S.get_product
+    S.get_product = lambda cfg, pid: {9: {"id": 9, "nazwa": "WINDFORCE 225/40 R18 92W", "netto": 150.0, "kod": "W1"}}.get(pid)
+    S.CZESCI_XP.clear()
     try:
         S.FELGI_OSTATNIE.clear()   # oferta z Historii – felg nie ma w ostatnim wyszukiwaniu
         assert FG.sred_opony({"rozmiar": "225/40 R18"}) == "18" and FG.sred_opony({"nazwa": "DUNLOP 215/65R16C 109T"}) == "16"
         op = {"id": 9, "nazwa": "WINDFORCE 225/40 R18 92W", "netto": 150.0, "rozmiar": "225/40 R18"}
         body = {"felgi": [5, 6, 231798, 99], "ilosc": 4, "opona": op, "montaz": True, "typ": "osobowy", "il_tp": 4, "depozyt": "kola",
                 "rabat": {"f": "10", "o": "0", "m": "50"}, "ceny": {"6": "1500"}, "ceny_wym": {"R18|osobowy": "30"}, "oid": "20261126_101010", "klient": "Kowalski"}
+        st, r = S.handle("/api/felgi_oferta", body)
+        assert st == 200 and not zapisane   # samo przeliczenie (klik w felgę) nie zapisuje w Historii
+        body["zapisz"] = 1
         st, r = S.handle("/api/felgi_oferta", body)
         assert st == 200 and [p["nr"] for p in r["propozycje"]] == [1, 2, 3]   # najwyżej 3 felgi (czwarta pominięta)
         p1, p2, p3 = r["propozycje"]
@@ -462,15 +468,32 @@ def test_felgi_kilka_propozycji_ceny_porownanie_historia():
         st, r = S.handle("/api/felgi_pdf", dict(body, nr=2))
         assert st != 200 and "nie pasują" in r["error"]
         st, r = S.handle("/api/felgi_pdf", dict(body, nr=1))
-        assert st == 200 and "OEM AUDI" in r["html"] and "1 500,00" in r["html"]
+        assert st == 200 and "OEM AUDI" in r["html"] and "1 500,00" in r["html"] and "Felga FELGA" not in r["html"]
         st, r = S.handle("/api/felgi_pdf", dict(body, felgi=[5, 6], porownanie=1))
         assert st == 200 and "PROPOZYCJA 1" in r["html"] and "PROPOZYCJA 2" in r["html"] and "GMP ATOM" in r["html"] and "Koła kompletne" in r["html"]
         assert "W każdej propozycji" in r["html"] and "WINDFORCE" in r["html"]
         st, r = S.handle("/api/felgi_pdf", dict(body, felgi=[5], porownanie=1))
         assert st != 200   # porównanie potrzebuje 2 felg
+        # opona z okna z podrobioną nazwą / ceną – liczy się tylko indeks, reszta z xPartner (XSS w Historii, ceny)
+        zapisane.clear()
+        zly = dict(body, zapisz=1, opona={"id": 9, "nazwa": "<img src=x onerror=alert(1)>", "netto": 1}, felgi=[5])
+        st, r = S.handle("/api/felgi_oferta", zly)
+        rec, _ = zapisane["20261126_101010"]
+        assert rec["opona"]["nazwa"] == "WINDFORCE 225/40 R18 92W" and rec["opona"]["netto"] == 150.0
+        assert r["propozycje"][0]["pozycje"][1]["c"] == S.sell_price(S.load_cfg(), 150.0)
+        st, r = S.handle("/api/felgi_oferta", dict(body, opona={"id": "<b>"}, felgi=[5]))
+        assert st == 200 and [x["k"] for x in r["propozycje"][0]["pozycje"]][:2] == ["felga", "tpms"]   # zły indeks = bez opon
+        st, r = S.handle("/api/felgi_oferta", dict(body, opona={"id": 77}, felgi=[5]))
+        assert st != 200 and "nie ma już w xPartner" in r["error"]
+        # felga bez ceny w pliku – błąd zamiast oferty za 0 zł
+        S.FELGI_OSTATNIE.clear()
+        S.KONTO["katalog"] = type("K", (), {"felgi": lambda self: [dict(b18, netto=0)]})()
+        st, r = S.handle("/api/felgi_oferta", {"felgi": [5], "ilosc": 4})
+        assert st != 200 and "nie ma ceny" in r["error"]
     finally:
         S.KONTO.pop("katalog", None)
         S.HIST = _Hist()
+        S.get_product = stary_gp
 
 
 def test_rozmiar_bez_c_pokazuje_tez_dostawcze():
@@ -826,13 +849,19 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
         S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(alu), dict(b18)]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
         S.FELGI_OSTATNIE.clear()
         S.KONTO["ceny_oddz"] = {"Latex Wrocław": dict(stare["Latex Wrocław"], rabat_max_felgi=5, felgi_max=1, felgi_srednica="ostrzez")}
-        op = {"id": 9, "nazwa": "OPONA 225/40 R18", "netto": 150.0, "rozmiar": "225/40 R18"}
+        op = {"id": 9}
+        stary_gp = S.get_product
+        S.get_product = lambda cfg, pid: {"id": 9, "nazwa": "OPONA 225/40 R18 92W", "netto": 150.0} if pid == 9 else None
+        S.CZESCI_XP.clear()
         st, r = S.handle("/api/felgi_oferta", {"felgi": [1, 2], "ilosc": 4, "opona": op, "rabat": {"f": 50}})
+        S.get_product = stary_gp
         assert st == 200 and len(r["propozycje"]) == 1   # limit felg z ustawień
         p = r["propozycje"][0]
         assert p["pozycje"][0]["c"] == S.cena_po_rabacie(S.cena_felgi(S.load_cfg(), 300.0), 5)   # rabat 50% obcięty do 5%
         assert not p["blad"] and 'Felga 1 ma 17"' in p["ostrz"]
+        S.get_product = lambda cfg, pid: {"id": 9, "nazwa": "OPONA 225/40 R18 92W", "netto": 150.0}
         st, r = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op})
+        S.get_product = stary_gp
         assert st == 200   # „tylko ostrzeżenie” – PDF powstaje
         # teksty PDF oddziału (puste = domyślne, {data} i {vat}, zabezpieczone znaki)
         odd = dict(ODDZ["Latex Wrocław"], warunki="Ważna do {data}, VAT {vat} <b>", cta_t="Umów się", por_t="Wybierz numer")

@@ -83,8 +83,13 @@ def _normuj_cfg(c):
     c["felgi_demo"] = c.get("felgi_demo") if c.get("felgi_demo") in ("pokaz", "ukryj") else "pokaz"
     c["felgi_montaz_dom"] = bool(c.get("felgi_montaz_dom"))
     c["ponizej_zakupu"] = c.get("ponizej_zakupu") is not False
-    if not isinstance(c.get("felgi_progi"), list):
-        c["felgi_progi"] = json.loads(json.dumps(DEFAULT_CFG["felgi_progi"]))
+    pr = []
+    for x in c.get("felgi_progi") if isinstance(c.get("felgi_progi"), list) else []:
+        try:
+            pr.append({"do": None if x.get("do") in (None, "") else float(x["do"]), "kwota": float(x.get("kwota") or 0)})
+        except (TypeError, ValueError, AttributeError):
+            pass
+    c["felgi_progi"] = pr or json.loads(json.dumps(DEFAULT_CFG["felgi_progi"]))
     return c
 
 
@@ -1399,6 +1404,28 @@ def _felga_po_id(kat, fid, m, vat, cena=None):
     return None
 
 
+CZESCI_XP = {}   # id -> (czas, produkt): opony i czujniki do oferty felg, sprawdzone w xPartner (2 min)
+
+
+def _czesc_xp(cfg, x, co):
+    """Opona / czujnik do kompletu z felgami: z okna przychodzi tylko indeks – nazwa, kod i cena zakupu z xPartner."""
+    if not isinstance(x, dict) or not str(x.get("id") or "").strip().isdigit():
+        return None
+    pid = int(x["id"])
+    t, p = CZESCI_XP.get(pid, (0, None))
+    if not p or time.time() - t > 120:
+        try:
+            p = get_product(cfg, pid)
+        except Exception:
+            raise ApiError("Nie udało się sprawdzić ceny %s w xPartner – spróbuj za chwilę." % co)
+        CZESCI_XP[pid] = (time.time(), p)
+    if not p or float(p.get("netto") or 0) <= 0:
+        raise ApiError("%s o indeksie %d nie ma już w xPartner (albo nie ma ceny) – zmień %s." % ("Opony" if co == "opony" else "Czujnika", pid, "opony" if co == "opony" else "czujnik"))
+    roz = find_sizes(p.get("nazwa") or "")
+    return {"id": pid, "nazwa": str(p.get("nazwa") or "")[:200], "kod": str(p.get("kod") or "")[:60], "netto": float(p["netto"]),
+            "rozmiar": roz[0] if roz else ""}
+
+
 def felgi_licz(cfg, body):
     """Oferta felg: 1–3 felgi = 1–3 propozycje; opony, czujniki, montaż i przechowalnia wspólne. Ceny jak w ofercie opon:
     wyliczona (po rabacie) albo wpisana ręcznie; rabat osobno na felgi, opony i montaż (decyzja właściciela 2026-11-26)."""
@@ -1412,11 +1439,11 @@ def felgi_licz(cfg, body):
     felgi = []
     for fid in ids:
         f = _felga_po_id(kat, fid, m, vat, lambda n: cena_felgi(cfg, n))
-        if f:
-            f = dict(f, cena=cena_felgi(cfg, float(f.get("netto") or 0)))   # zawsze wg aktualnych Ustawień → Felgi
         if not f:
             raise ApiError("Felgi o indeksie %d nie ma już w ofercie xPartner – usuń ją z oferty." % fid)
-        felgi.append(f)
+        if float(f.get("netto") or 0) <= 0:
+            raise ApiError("Felga o indeksie %d nie ma ceny w xPartner – usuń ją z oferty." % fid)
+        felgi.append(dict(f, cena=cena_felgi(cfg, float(f["netto"]))))   # zawsze wg aktualnych Ustawień → Felgi
     rab = body.get("rabat") if isinstance(body.get("rabat"), dict) else {}
     rf, ro = _proc(rab.get("f"), cfg["rabat_max_felgi"]), _proc(rab.get("o"), cfg["rabat_max_opony"])
     rw, over_w = rabat_wymiany({"rabat_wym": rab.get("m"), "ceny_wym": body.get("ceny_wym") or {}}, cfg["rabat_max_wym"])
@@ -1429,17 +1456,17 @@ def felgi_licz(cfg, body):
             pass
     il = max(1, min(40, int(body.get("ilosc") or 4)))
     edycja = []
-    op = body.get("opona") or None
-    if op and float(op.get("netto") or 0) > 0:
+    op = _czesc_xp(cfg, body.get("opona"), "opony")   # cena i nazwa z xPartner, nie z okna
+    if op:
         auto = cena_po_rabacie(sell_price(cfg, float(op["netto"])), ro)
         op = dict(op, cena_brutto=over.get(str(op.get("id")), auto))
         edycja.append({"id": op["id"], "k": "opona", "nazwa": "Opona " + str(op.get("nazwa") or ""), "zakup": round(float(op["netto"]) * (1 + vat / 100), 2),
                        "auto": auto, "cena": op["cena_brutto"], "recznie": str(op.get("id")) in over})
     else:
         op = None
-    cz = body.get("czujnik") or None
+    cz = _czesc_xp(cfg, body.get("czujnik"), "czujnika")
     c_cz = 0.0
-    if cz and float(cz.get("netto") or 0) > 0:
+    if cz:
         auto = cena_czujnika(cfg, float(cz["netto"]))
         c_cz = over.get(str(cz.get("id")), auto)
         edycja.append({"id": cz["id"], "k": "czujnik", "nazwa": "Czujnik TPMS " + str(cz.get("nazwa") or ""), "zakup": round(float(cz["netto"]) * (1 + vat / 100), 2),
@@ -1460,7 +1487,7 @@ def felgi_licz(cfg, body):
         zd = [u for u in (fotos.get(str(f["id"])) or []) if isinstance(u, str) and FOTO_XP.match(u)][:4]
         if zd:
             fe["foto"] = zd[0]
-        ef.append({"id": f["id"], "k": "felga", "nr": i + 1, "nazwa": "Felga " + f["nazwa"], "zakup": f.get("brutto_zak") or 0,
+        ef.append({"id": f["id"], "k": "felga", "nr": i + 1, "nazwa": FG.nazwa_poz(f), "zakup": f.get("brutto_zak") or 0,
                    "auto": auto, "cena": fe["cena"], "recznie": str(f["id"]) in over})
         sr = FG.sred(f)
         kw = "R%s|%s" % (sr, typ)
@@ -1491,8 +1518,13 @@ def felgi_zapisz_hist(body, w):
     op = w["opona"]
     warianty = [{"wariant": "Felgi – propozycja %d" % p["nr"], "modele": [p["felga"]["nazwa"]] + ([op["nazwa"]] if op else []),
                  "razem": p["razem"]} for p in w["props"]]
-    pola = ("felgi", "ilosc", "opona", "il_op", "czujnik", "il_tp", "montaz", "typ", "depozyt", "ceny", "ceny_wym", "rabat")
-    rec = dict({k: body.get(k) for k in pola}, typ_oferty="felgi", oid=oid, data=datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
+    czysc = lambda x: {k: x[k] for k in ("id", "nazwa", "kod", "netto", "rozmiar")} if x else None   # tylko dane z xPartner
+    num = lambda d: {str(k): v for k, v in (d or {}).items() if isinstance(v, (int, float))} if isinstance(d, dict) else {}
+    rab = body.get("rabat") if isinstance(body.get("rabat"), dict) else {}
+    rec = dict(felgi=[p["felga"]["id"] for p in w["props"]], ilosc=w["il"], opona=czysc(op), il_op=w["il_op"], czujnik=czysc(w["czujnik"]),
+               il_tp=w["il_tp"], montaz=w["montaz"], typ=w["typ"], depozyt=w["depozyt"] if w["depozyt"] in ("opony", "kola") else "",
+               ceny=num(body.get("ceny")), ceny_wym=num(body.get("ceny_wym")),
+               rabat={k: str(rab.get(k) or "")[:6] for k in ("f", "o", "m")}, typ_oferty="felgi", oid=oid, data=datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
                klient=body.get("klient") or "", oddzial=body.get("oddzial") or "", pojazdy=[], warianty=warianty,
                felgi_dane=[{k: p["felga"].get(k) for k in ("id", "nazwa", "szer", "sred", "pcd", "et", "otwor", "rodzaj", "producent",
                                                              "model", "kod", "stan", "brutto_zak", "cena", "demo")} for p in w["props"]])
@@ -1517,13 +1549,17 @@ def felgi_route(cfg, route, body):
         if cfg.get("zaokr_felgi", 1) != 1:
             wzor += ", w górę do %d zł" % cfg["zaokr_felgi"]
         return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else ""}
-    w = felgi_licz(cfg, body)
-    if route == "/api/felgi_oferta":
-        uwagi = []
+    try:
+        w = felgi_licz(cfg, body)
+    except (ValueError, TypeError, AttributeError):
+        raise ApiError("Złe dane oferty felg – odśwież okno i spróbuj ponownie.")
+    uwagi = []
+    if body.get("zapisz") or route == "/api/felgi_pdf":   # do Historii dopiero PDF / WhatsApp / uwagi – nie samo kliknięcie felgi
         try:
             felgi_zapisz_hist(body, w)
         except Exception as e:
             uwagi.append("Nie zapisano oferty w historii: %s" % e)
+    if route == "/api/felgi_oferta":
         return 200, {"propozycje": [{k: p[k] for k in ("nr", "pozycje", "razem", "blad", "ostrz")} for p in w["props"]],
                      "edycja": w["edycja"], "wymiany": w["wymiany"], "uwagi": uwagi}
     o, dane = oddzial_oferty(body)
@@ -1601,7 +1637,7 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
         "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
         "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
         "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
-        "klient": (body.get("klient") or "").strip(), "uwagi": (body.get("uwagi") or "").strip(), "kto": KONTO.get("kto") or "",
+        "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or "",
         "tag": rodz + (" · " + (f.get("przeznaczenie") or "").upper() if f.get("przeznaczenie") else "") + (" · DEMO" if f.get("demo") else "") + (" · KOMPLET" if komplet else ""),
         "tytul": f["nazwa"], "producent": f.get("producent") or "", "model": f.get("model") or "",
         "rozmiar": ('%s x %s"' % (f["szer"], f["sred"])) if f.get("szer") and f.get("sred") else (f.get("sred") or ""),

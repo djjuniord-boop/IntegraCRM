@@ -173,7 +173,7 @@ def oferta(cfg, felga, il, opona=None, il_op=0, czujnik=None, il_cz=0, montaz=Fa
     Każda pozycja ma rodzaj „k”: felga / opona / czujnik / tpms / montaz / przech."""
     poz = []
     il = max(1, min(40, int(il or 4)))
-    poz.append({"k": "felga", "nazwa": "Felga %s" % felga["nazwa"], "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"],
+    poz.append({"k": "felga", "nazwa": nazwa_poz(felga), "opis": opis_felgi(felga), "q": il, "c": felga["cena"], "id": felga["id"],
                 "kod": felga.get("kod") or "", "foto": felga.get("foto") or ""})
     if opona and il_op:
         poz.append({"k": "opona", "nazwa": "Opona %s" % opona["nazwa"], "opis": "", "q": int(il_op), "c": float(opona["cena_brutto"]), "id": opona["id"],
@@ -198,6 +198,12 @@ def oferta(cfg, felga, il, opona=None, il_op=0, czujnik=None, il_cz=0, montaz=Fa
     for p in poz:
         p["w"] = round(p["q"] * p["c"], 2)
     return poz, round(sum(p["w"] for p in poz), 2)
+
+
+def nazwa_poz(f):
+    """„Felga …” w ofercie – bez dubla, gdy nazwa xPartner już zaczyna się od FELGA / OBRĘCZ."""
+    n = f.get("nazwa") or ""
+    return n if re.match(r"(FELGA|OBR[EĘ]CZ)\b", n.upper()) else "Felga " + n
 
 
 def sred(f):

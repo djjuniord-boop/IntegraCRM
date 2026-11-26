@@ -325,6 +325,51 @@ def test_bydgoszcz_48h_w_koszyku_i_zamowieniach():
         p.unlink()
 
 
+def test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf():
+    """Recenzja 1.2.21: wpis felg w Historii z podrobionymi danymi nie wykonuje skryptu; zmiana oferty kasuje PDF do WhatsApp."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    zly = '<img src=x onerror="window.__XSS=1">'
+    rec = {"typ_oferty": "felgi", "felgi_dane": [{"id": zly, "nazwa": zly, "stan": zly, "kod": zly}, {"id": 7, "nazwa": "OK", "stan": 4}],
+           "opona": {"id": zly, "nazwa": zly}, "czujnik": {"id": 3, "nazwa": zly, "kod": zly}, "ilosc": 4, "rabat": {"f": zly}, "klient": zly}
+    odp = {"/api/cfg": {"oddzialy": ["Latex Wrocław"], "zamawianie": True, "admin": False, "felgi_max": 3},
+           "/api/history?id": rec, "/api/history": {"lista": [{"id": 5, "oid": "x", "owner": "", "typ": "felgi", "warianty": [], "kto": "a", "klient": zly, "pojazdy": ""}], "admin": False, "me": ""},
+           "/api/felgi_oferta": {"propozycje": [{"nr": 1, "pozycje": [{"k": "felga", "nazwa": zly, "q": 4, "c": 1, "w": 4}], "razem": 4, "blad": ""}],
+                                 "edycja": [{"id": zly, "k": "felga", "nr": 1, "nazwa": zly, "zakup": 1, "auto": 1, "cena": 1, "recznie": True}], "wymiany": [], "uwagi": []}}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
+            "({code:200,body:ODP[Object.keys(ODP).find(k=>p.startsWith(k))]||{}})}};" % json.dumps(odp))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js2.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            bledy = []
+            pg.on("pageerror", lambda e: bledy.append(str(e)))
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(500)
+            pg.evaluate("openHist()")
+            pg.wait_for_timeout(300)
+            pg.evaluate("restoreHist(5)")
+            pg.wait_for_timeout(800)
+            assert pg.evaluate("window.__XSS") is None, "XSS z Historii ofert felg"
+            assert pg.evaluate("FWS.length") == 1 and pg.evaluate("FOP") is None
+            pg.evaluate("FPDF='stary.pdf';fUst('il','3')")
+            pg.wait_for_timeout(600)
+            assert pg.evaluate("FPDF") == ""
+            pg.evaluate("FPDF='stary.pdf';FOP=null;fWybrane();fLicz()")
+            pg.wait_for_timeout(400)
+            assert pg.evaluate("FPDF") == "" and pg.evaluate("window.__XSS") is None
+            b.close()
+    finally:
+        p.unlink()
+    assert not bledy, bledy
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
@@ -332,4 +377,6 @@ if __name__ == "__main__":
     test_pamiec_pol_numery_uwagi()
     test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu()
     test_bydgoszcz_48h_w_koszyku_i_zamowieniach()
+    test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf()
     print("Okna Ofert bez błędów JS")
+

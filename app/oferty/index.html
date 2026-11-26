@@ -566,14 +566,15 @@ const ODD_POLA=[['nazwa','Nazwa na PDF'],['adres','Adres'],['tel','Telefon'],['k
 const ODD_TEKSTY=[['warunki','Warunki pod kalkulacją (puste = „Oferta ważna do {data} lub do wyczerpania zapasów. Ceny zawierają VAT {vat}. Termin montażu do uzgodnienia telefonicznie.”)'],
  ['cta_t','Napis w ramce kontaktu (puste = „Zarezerwuj termin montażu”)'],['cta_p','Podpis pod napisem (puste = „Zadzwoń – dobierzemy dogodną godzinę”)'],
  ['por_t','Napis w ramce kontaktu – porównania opon i felg (puste = tekst domyślny)'],['por_p','Podpis – porównania (puste = tekst domyślny)']];
-function drawOddz(){if(!CFG.admin){$('#oddzBox').innerHTML='<div class="cinfo">Dane oddziałów i teksty na PDF ustawia administrator.</div>';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
+function drawOddz(){ODDZ_ZAP='';if(!CFG.admin){$('#oddzBox').innerHTML='<div class="cinfo">Dane oddziałów i teksty na PDF ustawia administrator.</div>';return}const D=CFG.oddzialy_dane||{};const L=[...new Set(['Latex Wrocław','Latex Opole',...Object.keys(D)])];
  $('#oddzBox').innerHTML='<h3 style="margin:4px 0 4px">Dane oddziałów na PDF <span class="tag">tylko administrator · wspólne dla wszystkich</span></h3><div style="font-size:12px;color:var(--muted)">Pracownik dostaje na PDF dane oddziału przypisanego do jego konta. Oddział bez nazwy, adresu i telefonu nie wygeneruje PDF.</div>'+
  L.map(o=>`<div class="row" style="flex-wrap:wrap;gap:6px;margin-top:10px"><b style="min-width:120px">${esc(o)}</b>${ODD_POLA.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${t}" title="${t}" value="${esc((D[o]||{})[k]||'')}" style="width:${k==='adres'?'260px':'170px'}">`).join('')}</div>
  <div style="margin:6px 0 0 126px;display:grid;gap:4px"><span style="font-size:12px;color:var(--muted)">Teksty na PDF tego oddziału (opony i felgi) – w warunkach możesz użyć {data} i {vat}</span>${ODD_TEKSTY.map(([k,t])=>`<input class="oddz" data-o="${esc(o)}" data-k="${k}" placeholder="${esc(t)}" title="${esc(t)}" maxlength="400" value="${esc((D[o]||{})[k]||'')}">`).join('')}</div>`).join('')+
- '<button class="sec" style="margin-top:6px" onclick="saveOddz()">Zapisz dane oddziałów</button>'}
-async function saveOddz(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o[i.dataset.o]??={})[i.dataset.k]=i.value.trim()});
- for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];
- try{await api('/api/oddzialy',{oddzialy:o});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
+ '<button class="sec" style="margin-top:6px" onclick="saveOddz()">Zapisz dane oddziałów</button>';ODDZ_ZAP=JSON.stringify(oddzDane())}
+function oddzDane(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o[i.dataset.o]??={})[i.dataset.k]=i.value.trim()});
+ for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];return o}
+let ODDZ_ZAP='';   // stan pól oddziałów po wczytaniu – dolne „Zapisz” zapisuje je tylko, gdy coś zmieniono
+async function saveOddz(){try{await api('/api/oddzialy',{oddzialy:oddzDane()});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
 async function loadCfg(){CFG=await api('/api/cfg');PER=Math.max(5,+CFG.wynikow_na_strone||20);$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 setTimeout(badgeStart,1500);
 let WT={},WCUR='wymiana_kolo';
@@ -606,7 +607,8 @@ async function saveCfg(){const c={};for(const k of CNUM)if($('#c_'+k).value!==''
  c.narzut_tryb=document.querySelector('input[name=ntryb]:checked')?.value||'procent';c.progi=progiCzyste(PROGI);
  c.felgi_tryb=document.querySelector('input[name=ftryb]:checked')?.value||'procent';c.felgi_progi=progiCzyste(FPROGI);
  for(const k of['premium','srednie','budzet'])c[k]=$('#c_'+k).value.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean);c.klasy_ver=CFG.klasy_ver;
- try{await api('/api/cfg',c);await loadCfg();msg('#cMsg','Zapisano.');if(typeof FR!=='undefined'&&FR&&FWS.length)fLicz()}catch(e){msg('#cMsg',e.message,1)}}
+ const od=CFG.admin&&document.querySelector('.oddz')?JSON.stringify(oddzDane()):'';
+ try{await api('/api/cfg',c);if(od&&od!==ODDZ_ZAP)await api('/api/oddzialy',{oddzialy:JSON.parse(od)});await loadCfg();drawOddz();msg('#cMsg','Zapisano.');if(typeof FR!=='undefined'&&FR&&FWS.length)fLicz()}catch(e){msg('#cMsg',e.message,1)}}
 async function testApi(){await saveCfg();msg('#cMsg','Łączę…');try{const j=await api('/api/test',{});msg('#cMsg',j.msg)}catch(e){msg('#cMsg',e.message,1)}}
 
 // ---------------------------------------------------------------- KOSZYK xPartner (zamawianie; uprawnienie „Zamawianie w xPartner”)
@@ -748,7 +750,7 @@ function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=
  return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&!(ud&&f.demo)&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
  const nw=FWS.findIndex(x=>x.id===f.id);
- return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
+ return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${+f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''}</span><span class="ce">${zl(f.cena)}</span></div>
  <div class="rw"><span class="muted">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''}</div></div>`}
@@ -756,15 +758,15 @@ function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).leng
  $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
 /* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
    ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
-let FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
+let FZAP=false,FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
 const fMax=()=>Math.max(1,Math.min(3,+CFG.felgi_max||3));
-function fNowa(){FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||+CFG.kola_na_auto||4;FILO=null;FTP=0;FMON=!!CFG.felgi_montaz_dom;FTYP=CFG.felgi_typ_dom||'osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
+function fNowa(){FZAP=false;FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||+CFG.kola_na_auto||4;FILO=null;FTP=0;FMON=!!CFG.felgi_montaz_dom;FTYP=CFG.felgi_typ_dom||'osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
  $('#fuw').value='';$('#fuwInfo').textContent='';$('#fuwMsg').textContent='';FUWZM=false;$('#fo_kl').value=''}
 function fWybierz(id){const i=FWS.findIndex(x=>x.id===id);if(i>=0)FWS.splice(i,1);else{if(FWS.length>=fMax()){msg('#fMsg','W jednej ofercie najwyżej '+fMax()+' felgi – usuń jedną (✕ w ofercie albo klik w kafelek), żeby dodać inną.',1);return}
   const f=FL.find(x=>x.id===id);if(!f)return;if(!FWS.length)fNowa();FWS.push(f)}
  msg('#fMsg','');fRender(true);fWybrane();if(!FWS.length){$('#fOf').style.display='none';return}const nowa=$('#fOf').style.display==='none';$('#fOf').style.display='';fWybDraw();if(nowa)$('#fOf').scrollIntoView({behavior:'smooth'});fLicz()}
 function fUsun(id){fWybierz(id)}
-function fWybDraw(){$('#fWyb').innerHTML=FWS.map((f,i)=>`<div class="w"><span class="fnr">${i+1}</span>${fFoto(f)?`<img src="${esc(fFoto(f))}" alt="">`:'<span style="font-size:30px">⚙️</span>'}<span><b>${esc(f.nazwa)}</b><br><span class="muted">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''} · stan ${f.stan>=50?'50+':f.stan}</span></span><span class="x" title="Usuń z oferty" onclick="fUsun(${f.id})">✕</span></div>`).join('')+
+function fWybDraw(){$('#fWyb').innerHTML=FWS.map((f,i)=>`<div class="w"><span class="fnr">${i+1}</span>${fFoto(f)?`<img src="${esc(fFoto(f))}" alt="">`:'<span style="font-size:30px">⚙️</span>'}<span><b>${esc(f.nazwa)}</b><br><span class="muted">Indeks ${+f.id}${f.kod?' · kod '+esc(f.kod):''} · stan ${+f.stan>=50?'50+':+f.stan||0}</span></span><span class="x" title="Usuń z oferty" onclick="fUsun(${+f.id})">✕</span></div>`).join('')+
  (FWS.length<fMax()?`<span class="muted" style="align-self:center;font-size:12px">Możesz dodać jeszcze ${fMax()-FWS.length} – kliknij kafelek w wynikach.</span>`:'')}
 let KOMPLET='';   // '' / 'o' (wybór opon do felg) / 't' (wybór czujników do felg)
 function fSrednice(){return [...new Set(FWS.map(f=>String(f.sred||'').split('.')[0]).filter(Boolean))]}
@@ -776,24 +778,24 @@ function fKompletKoniec(){const k=KOMPLET;KOMPLET='';kBaner();if(k==='o'&&RES)re
 function fZnajdzOpone(id){for(const g of Object.values((RES&&RES.wyniki)||{}))for(const l of Object.values(g))for(const p of l)if(p.id===id)return p;return null}
 function fDodajOpone(id){const p=fZnajdzOpone(id);if(!p)return;FOP={id:p.id,nazwa:p.nazwa,netto:p.netto,kod:p.kod||'',rozmiar:p.rozmiar||'',opis:[p.producent,p.model,p.rozmiar,p.sezon,p.klasa].filter(Boolean).join(' · '),cena:p.cena_brutto};FILO=null;fKompletKoniec()}
 function fDodajCzujnik(id){const x=TL.find(c=>c.id===id);if(!x)return;FCZ={id:x.id,nazwa:x.nazwa,netto:x.netto,kod:x.kod||'',opis:[x.producent,(TROD&&TROD[x.rodzaj])||x.rodzaj].filter(Boolean).join(' · ')};if(!FTP)FTP=FIL;fKompletKoniec()}
-function fWybrane(){const w=(x,f)=>x?`<div><b>${esc(x.nazwa)}</b><br><span class="muted">Indeks ${x.id}${x.kod?' · kod '+esc(x.kod):''}${x.opis?' · '+esc(x.opis):''}</span> <a href="#" onclick="${f}=null;fWybrane();fLicz();return false">usuń</a></div>`:'<span class="muted">nie wybrano</span>';
+function fWybrane(){const w=(x,f)=>x?`<div><b>${esc(x.nazwa)}</b><br><span class="muted">Indeks ${+x.id}${x.kod?' · kod '+esc(x.kod):''}${x.opis?' · '+esc(x.opis):''}</span> <a href="#" onclick="${f}=null;fWybrane();fLicz();return false">usuń</a></div>`:'<span class="muted">nie wybrano</span>';
  $('#fo_opW').innerHTML=w(FOP,'FOP');$('#fo_czW').innerHTML=w(FCZ,'FCZ')}
 function fCialo(){const fotos={};for(const f of FWS){const z=(FZDJ[f.id]||[]).slice(0,4);if(!z.length&&f.foto)z.push(f.foto);if(z.length)fotos[f.id]=z}
  return {felgi:FWS.map(f=>f.id),fotos,ilosc:FIL,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto,kod:FOP.kod,rozmiar:FOP.rozmiar||''}:null,il_op:FOP?(FILO??FIL):0,
   czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto,kod:FCZ.kod}:null,il_tp:FTP,montaz:FMON,typ:FTYP,depozyt:FDEP,ceny:FCENY,ceny_wym:FCENYW,rabat:FRAB,
-  klient:$('#fo_kl').value.trim(),oid:FOID,owner:FOWNER,oddzial:typeof OODD!=='undefined'?OODD:''}}
+  klient:$('#fo_kl').value.trim(),oid:FOID,owner:FOWNER,oddzial:typeof OODD!=='undefined'?OODD:'',zapisz:FZAP?1:0}}
 function fLiczD(){clearTimeout(FLT);FLT=setTimeout(fLicz,300)}
 function fUst(k,v){const n=x=>Math.max(0,Math.min(40,parseInt(x)||0));if(k==='il')FIL=Math.max(1,n(v)||1);else if(k==='ilo')FILO=n(v);else if(k==='tp')FTP=n(v);else if(k==='mon')FMON=!!v;else if(k==='typ')FTYP=v;else if(k==='dep')FDEP=v;
  else if(k[0]==='r')FRAB[k.slice(1)]=String(v).replace(',','.').trim();FPDF='';fLiczD()}
 function fSetC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0||isNaN(+v))delete FCENY[id];else FCENY[id]=Math.ceil(+v);FPDF='';fLiczD()}
 function fSetW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete FCENYW[k];else FCENYW[k]=Math.ceil(+v);FPDF='';fLiczD()}
-async function fLicz(){if(!FWS.length)return;try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
+async function fLicz(){if(!FWS.length)return;FPDF='';$('#fwaInfo').textContent='';try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
  catch(e){msg('#foMsg',e.message,1)}}
 function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
  const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label>Rabat na felgi % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_felgi??90}" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label>Rabat na opony % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_opony??90}" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label>Rabat na montaż % <input type="number" step="1" min="0" max="${CFG.rabat_max_wym??100}" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
  r.edycja.map(u=>`<div class="r"><b style="min-width:380px">${u.nr?`<span class="fnr">${u.nr}</span>`:''}${esc(u.nazwa)}</b>${u.zakup?`<span class="tag buy">zakup ${zl(u.zakup)}</span>`:''}<span class="tag">wyliczona ${zl(u.auto)}</span>
- <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="fSetC(${u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="fSetC(${u.id},'')">↺ przywróć</button>`:''}${CFG.ponizej_zakupu!==false&&u.zakup&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
+ <label>Cena <input class="pr-in ${u.recznie?'man':''}" type="number" min="1" step="1" placeholder="${u.auto}" value="${u.recznie?u.cena:''}" onchange="fSetC(${+u.id},this.value)"> zł</label>${u.recznie?`<button class="sec" style="padding:2px 10px" onclick="fSetC(${+u.id},'')">↺ przywróć</button>`:''}${CFG.ponizej_zakupu!==false&&u.zakup&&u.cena<u.zakup?'<span class="tag buy" style="background:#fde8e8;color:#b00012">⚠ poniżej ceny zakupu</span>':''}</div>`).join('');
  const wy=(r.wymiany||[]).length?'<div class="t" style="margin-top:8px">Ceny montażu (brutto za 1 koło) – wpisz własną, aby nadpisać; puste = z cennika'+(+FRAB.m?' minus rabat':'')+'</div>'+r.wymiany.map(w=>`<div class="r"><b style="min-width:380px">${esc(w.opis)}</b><span class="tag">cennik ${zl(w.cennik)}</span>${+FRAB.m?`<span class="tag">po rabacie ${zl(w.auto)}</span>`:''}
  <label>Cena <input class="pr-in ${w.recznie?'man':''}" type="number" min="0" step="1" placeholder="${w.auto}" value="${w.recznie?w.cena:''}" data-k="${esc(w.klucz)}" onchange="fSetW(this.dataset.k,this.value)"> zł</label>${w.recznie?`<button class="sec" style="padding:2px 10px" data-k="${esc(w.klucz)}" onclick="fSetW(this.dataset.k,'')">↺ przywróć</button>`:''}</div>`).join(''):'';
  $('#fEdit').innerHTML=top+wy+'<div class="t" style="margin-top:8px">Ilość i usługi – wspólne dla wszystkich propozycji, zmiana od razu przelicza ofertę</div>'+
@@ -804,7 +806,7 @@ function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v=
 const FKAT={felga:'Felgi',opona:'Opony',czujnik:'Czujniki TPMS',tpms:'Obsługa TPMS'};
 function fSumDraw(r){const zle=r.propozycje.filter(p=>p.blad),ost=r.propozycje.filter(p=>p.ostrz);$('#fBlad').innerHTML=(zle.length?`<div class="msg e">⛔ ${zle.map(p=>esc(p.blad)).join('<br>⛔ ')}<br><span style="font-size:12px">PDF tej propozycji i porównanie są zablokowane, dopóki felga i opony nie będą pasować.</span></div>`:'')+
  (ost.length?`<div class="msg w">⚠ ${ost.map(p=>esc(p.ostrz)).join('<br>⚠ ')}</div>`:'');
- $('#fSum').innerHTML='<div class="vcards">'+r.propozycje.map((p,i)=>{const f=FWS[i]||{};return `<div class="vcard${p.blad?' zle':''}"><div class="t">Propozycja ${p.nr}</div><div class="m">${esc(f.nazwa||'')}${FOP?' + '+esc(FOP.nazwa):''}</div>${fFoto(f)?`<img class="fph" src="${esc(fFoto(f))}" alt="">`:''}
+ $('#fSum').innerHTML='<div class="vcards">'+r.propozycje.map((p,i)=>{const f=FWS[i]||{};return `<div class="vcard${p.blad?' zle':''}"><div class="t">Propozycja ${p.nr}</div><div class="m">${esc(f.nazwa||'')}${FOP?' + '+esc(FOP.nazwa):''}</div>${fFoto(f)?`<img class="fph" src="${esc(fFoto(f))}" alt="">`:''}${f.stan!=null&&+f.stan<FIL?`<div class="bl" style="color:#92400e;margin:0 0 6px">⚠ w xPartner tylko ${+f.stan} szt. felgi</div>`:''}
  ${p.pozycje.map(x=>`<div class="l"><span>${FKAT[x.k]?FKAT[x.k]+' ('+x.q+' szt.)':esc(x.nazwa)}</span><span>${zl(x.w)}</span></div>`).join('')}<div class="tot"><span>RAZEM brutto</span><b>${zl(p.razem)}</b></div>${p.blad?`<div class="bl">⛔ ${esc(p.blad)}</div>`:''}${p.ostrz?`<div class="bl" style="color:#92400e">⚠ ${esc(p.ostrz)}</div>`:''}</div>`}).join('')+'</div>'}
 function fUlDraw(r){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||'';const P=r.propozycje,zle=P.some(p=>p.blad),kpl=FOP?'komplet':'razem';
  $('#fUl').innerHTML='<b style="font-size:16px">PDF oferty dla klienta</b> <span class="tag">każda propozycja osobno, duże zdjęcie felgi · dane Twojego oddziału</span>'+
@@ -813,24 +815,25 @@ function fUlDraw(r){const od=CFG.oddzialy||[];if(!od.includes(OODD))OODD=od[0]||
  P.map((p,i)=>`<button class="ulk" ${p.blad?'disabled title="Opony nie pasują do tej felgi"':''} onclick="fPdf(this,${i})">📄 ${p.nr} · ${esc((FWS[i]||{}).nazwa||'')} – ${kpl} <span>${zl(p.razem)}</span></button>`).join('')+
  (od.length?'':'<div class="msg e">Twoje konto nie ma przypisanego oddziału – PDF nie powstanie. Poproś administratora (UŻYTKOWNICY → konto → oddziały).</div>')}
 function fKzDraw(r){const b=$('#fKz');if(!CFG.zamawianie){b.style.display='none';return}b.style.display='';const ilo=FILO??FIL;
- const bt=(id,n,q,pre)=>`<button class="sec" onclick='kDodaj(${id},${q},${esc(JSON.stringify(n))});openKosz()'>🛒 ${pre||''}${esc(n)} · <b>${q} szt.</b></button>`;
+ const bt=(id,n,q,pre)=>`<button class="sec" onclick='kDodaj(${+id},${+q},${esc(JSON.stringify(String(n)))});openKosz()'>🛒 ${pre||''}${esc(n)} · <b>${q} szt.</b></button>`;
  b.innerHTML='<b>🛒 Zamów w xPartner:</b>'+FWS.map((f,i)=>bt(f.id,f.nazwa,FIL,(i+1)+' · ')).join('')+(FOP&&ilo?bt(FOP.id,FOP.nazwa,ilo):'')+(FCZ&&FTP?bt(FCZ.id,FCZ.nazwa,FTP):'')+
  '<span class="muted" style="font-size:12px;flex-basis:100%">Kliknij to, co wybrał klient (jedną felgę i opony) – trafi do koszyka z ilością z oferty, ceny i stany sprawdzę na żywo.</span>'}
-async function fPdf(b,nr){b.disabled=true;msg('#foMsg','Tworzę PDF…');try{const por=nr<0;const nz=por?'porownanie '+FWS.length+' felg':(nr+1)+' '+FWS[nr].nazwa;
+async function fPdf(b,nr){b.disabled=true;msg('#foMsg','Tworzę PDF…');FZAP=true;try{const por=nr<0;const nz=por?'porownanie '+FWS.length+' felg':(nr+1)+' '+FWS[nr].nazwa;
  const r=await api('/api/felgi_pdf',Object.assign(fCialo(),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+' '+nz}));if(r.pdf)FPDF=r.plik;$('#fwaInfo').textContent=r.pdf?'WhatsApp wyśle: '+r.plik.split(/[\\/]/).pop():'';
  msg('#foMsg',(r.pdf===false?'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ':'Zapisano PDF: ')+r.plik,r.pdf===false)}catch(e){msg('#foMsg',e.message,1)}finally{b.disabled=false}}
-async function fWa(b){b.disabled=true;try{if(!FPDF){if(!FR||!FR.propozycje.length)throw new Error('Najpierw wybierz felgę.');const P=FR.propozycje,por=P.length>1&&!P.some(p=>p.blad),nr=P.findIndex(p=>!p.blad);
+async function fWa(b){b.disabled=true;FZAP=true;try{if(!FPDF){if(!FR||!FR.propozycje.length)throw new Error('Najpierw wybierz felgę.');const P=FR.propozycje,por=P.length>1&&!P.some(p=>p.blad),nr=P.findIndex(p=>!p.blad);
   if(!por&&nr<0)throw new Error('Opony nie pasują do felg – popraw ofertę.');msg('#foMsg','Tworzę PDF…');
   const j=await api('/api/felgi_pdf',Object.assign(fCialo(),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+(por?' porownanie':' '+(nr+1)),bez_otwierania:1}));if(!j.pdf)throw new Error('Nie udało się utworzyć PDF (brak Edge) – utwórz PDF przyciskiem wyżej.');FPDF=j.plik}
  const r=await api('/api/whatsapp',{plik:FPDF});const nz=FPDF.split(/[\\/]/).pop();const gdzie=r.whatsapp==='web'?'WhatsApp Web w przeglądarce':'WhatsApp';
  msg('#foMsg',r.schowek?`📱 PDF „${nz}” jest w schowku. Otworzyłem ${gdzie} – wybierz klienta i naciśnij Ctrl+V, potem Enter.`:`Otworzyłem ${gdzie} – przeciągnij plik „${nz}” z folderu ofert do czatu.`);
  if(FOID)try{await api('/api/status',{oid:FOID,status:'wyslana',owner:FOWNER})}catch(e){}}catch(e){msg('#foMsg',e.message,1)}b.disabled=false}
-async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.textContent='zapisuję…';try{await api('/api/uwagi',{oid:FOID,owner:FOWNER,uwagi:$('#fuw').value});FUWZM=false;m.textContent='✔ zapisane';$('#fuwInfo').textContent=''}catch(e){m.textContent='';msg('#foMsg',e.message,1)}}
+async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.textContent='zapisuję…';try{if(!FZAP){FZAP=true;await api('/api/felgi_oferta',fCialo())}await api('/api/uwagi',{oid:FOID,owner:FOWNER,uwagi:$('#fuw').value});FUWZM=false;m.textContent='✔ zapisane';$('#fuwInfo').textContent=''}catch(e){m.textContent='';msg('#foMsg',e.message,1)}}
 function fUwPo(){if(FUWZM&&$('#fuw').value.trim())fZapiszUw()}
-async function fZHist(r,hh){widok('f');FWS=(r.felgi_dane||[]).slice(0,fMax());FOP=r.opona||null;FCZ=r.czujnik||null;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
+async function fZHist(r,hh){widok('f');const czysc=x=>x&&+x.id>0?{id:+x.id,nazwa:String(x.nazwa||''),kod:String(x.kod||''),netto:+x.netto||0,rozmiar:String(x.rozmiar||'')}:null;
+ FWS=(r.felgi_dane||[]).filter(f=>f&&+f.id>0).slice(0,fMax()).map(f=>({...f,id:+f.id,stan:+f.stan||0,cena:+f.cena||0,brutto_zak:+f.brutto_zak||0,nazwa:String(f.nazwa||''),kod:String(f.kod||''),sred:String(f.sred||''),foto:''}));FOP=czysc(r.opona);FCZ=czysc(r.czujnik);FZAP=true;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
  FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
  $('#fo_kl').value=r.klient||'';$('#fuw').value=hh.uwagi||'';FUWZM=false;$('#fuwMsg').textContent='';$('#fuwInfo').textContent=hh.uwagi_at?'· ostatnia zmiana: '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
- msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny i stany odświeżone z aktualnej kopii xPartner.');if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();$('#fOf').scrollIntoView({behavior:'smooth'})}
+ msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny felg z aktualnej kopii xPartner, opon i czujników prosto z xPartner.');if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();$('#fOf').scrollIntoView({behavior:'smooth'})}
 function widok(v){$('#mainO').style.display=v==='o'?'':'none';$('#mainT').style.display=v==='t'?'':'none';$('#mainF').style.display=v==='f'?'':'none';$('#segO').classList.toggle('on',v==='o');$('#segT').classList.toggle('on',v==='t');$('#segF').classList.toggle('on',v==='f');if(v==='f'){$('#fq').focus()}try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
 async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
  const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};
