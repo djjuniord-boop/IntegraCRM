@@ -1009,6 +1009,30 @@ def test_szybkie_polecenie_felg_z_autem():
         S.KONTO.pop("katalog", None)
 
 
+def test_generacja_z_polecenia_na_przelomie_lat():
+    """2026-11-27: „vw golf 7 r18 2013” – rok 2013 to Golf Mk6 i Mk7; „7” wybiera Mk7 i nie trafia do szukania felg."""
+    from oferty import auto as AU
+    assert AU.pasuje_gen("7", "Mk7 (5G)") and AU.pasuje_gen("mk7", "Mk7 (5G)") and AU.pasuje_gen("7", "VII")
+    assert not AU.pasuje_gen("7", "Mk6 (5K)") and AU.pasuje_gen("b9", "B9 (8W)") and not AU.pasuje_gen("r18", "Mk7 (5G)")
+    def rek(gen, felga, sred):
+        return {"slug": gen, "generation": {"name": gen}, "technical": {"bolt_pattern": "5x112", "centre_bore": "57.1"},
+                "wheels": [{"is_stock": True, "front": {"rim_diameter": sred, "rim_width": 7.5, "rim_offset": 49, "rim": felga, "tire": "225/40R18"}}]}
+    dane = {"data": [rek("Mk6 (5K)", "7.5Jx18 ET49 mk6", 18), rek("Mk7 (5G)", "7.5Jx18 ET49 mk7", 18)]}
+    a = AU.auto_wiele(dane, "Volkswagen Golf (2013)", wskazowki=["r18", "7"])
+    assert "Mk7" in a["nazwa"] and "Mk6" not in a["nazwa"] and a["kola"][0]["przod"]["felga"].endswith("mk7")
+    a = AU.auto_wiele(dane, "Volkswagen Golf (2013)")
+    assert "Mk6 (5K) / Mk7 (5G)" in a["nazwa"] and len(a["kola"]) == 2   # bez wskazówki widać obie generacje
+    _setup()
+    S.KONTO.update(ws=lambda m, par: {"makes": {"data": [{"slug": "volkswagen", "name": "Volkswagen"}]},
+                                      "models": {"data": [{"slug": "golf", "name": "Golf"}]}}.get(m, dane))
+    S.AUTO_PAMIEC.clear()
+    try:
+        a, reszta = S.auto_z_tekstu("vw golf 7 r18 2013")
+        assert "Mk7" in a["nazwa"] and reszta == "r18"
+    finally:
+        S.KONTO.pop("ws", None)
+
+
 def test_licznik_zapytan_wheel_size():
     """2026-11-27: licznik zapytań doboru po aucie – ostrzeżenie przy 80%, raport i limit tylko dla administratora."""
     _setup()

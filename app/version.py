@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.26"
+VERSION = "1.2.27"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,11 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.27",
+        "date": "2026-11-27",
+        "changes": ["Felgi – szybkie polecenie z autem: numer generacji jest brany pod uwagę („vw golf 7 2013” = Golf Mk7, a nie Mk6), a gdy rok obejmuje dwie generacje bez numeru, widać obie w nazwie auta"],
+    },
     {
         "version": "1.2.26",
         "date": "2026-11-27",
