@@ -1007,3 +1007,31 @@ def test_szybkie_polecenie_felg_z_autem():
     finally:
         S.KONTO.pop("ws", None)
         S.KONTO.pop("katalog", None)
+
+
+def test_licznik_zapytan_wheel_size():
+    """2026-11-27: licznik zapytań doboru po aucie – ostrzeżenie przy 80%, raport i limit tylko dla administratora."""
+    _setup()
+    S.AUTO_PAMIEC.clear()
+    S.KONTO.update(ws=lambda m, par: {"data": [{"slug": "audi", "name": "Audi"}], "_licznik": {"suma": 250, "limit": 300}},
+                   ws_raport=lambda dni: {"dzis": 250, "limit": 300, "osoby": [], "dni": []}, admin=False)
+    ustaw = []
+    S.KONTO["ws_limit"] = ustaw.append
+    try:
+        st, r = S.handle("/api/auto", {"m": "makes"})
+        assert st == 200 and "250 z 300" in r["ostrzezenie"]
+        S.KONTO["ws_licznik"] = {"suma": 10, "limit": 300}
+        assert S.licznik_ws() == ""
+        st, r = S.handle("/api/ws_raport", {})
+        assert st != 200 and "administrator" in r["error"]   # pracownik nie widzi raportu
+        S.KONTO["admin"] = True
+        st, r = S.handle("/api/ws_raport", {"dni": 7})
+        assert st == 200 and r["limit"] == 300
+        st, r = S.handle("/api/ws_limit", {"limit": "abc"})
+        assert st != 200 and not ustaw
+        st, r = S.handle("/api/ws_limit", {"limit": 5000})
+        assert st == 200 and ustaw == [5000]
+    finally:
+        for k in ("ws", "ws_raport", "ws_limit", "ws_licznik"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False

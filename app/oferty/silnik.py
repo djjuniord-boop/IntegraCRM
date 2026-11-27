@@ -1548,8 +1548,22 @@ def _ws(m, par):
     t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
     if wynik is None or time.time() - t > 12 * 3600:
         wynik = ws(m, par)
+        if isinstance(wynik, dict) and isinstance(wynik.get("_licznik"), dict):
+            KONTO["ws_licznik"] = wynik["_licznik"]   # ile zapytań dziś zużyto (cała firma) – ostrzeżenie przy 80%
         AUTO_PAMIEC[klucz] = (time.time(), wynik)
     return wynik
+
+
+def licznik_ws():
+    """Ostrzeżenie dla pracownika, gdy dzienny limit doboru po aucie jest prawie wyczerpany (80%)."""
+    lic = KONTO.get("ws_licznik") or {}
+    try:
+        suma, limit = int(lic.get("suma") or 0), int(lic.get("limit") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if limit and suma >= 0.8 * limit:
+        return "Zostało mało zapytań doboru po aucie na dziś (%d z %d) – dobieraj po aucie tylko w razie potrzeby." % (suma, limit)
+    return ""
 
 
 def auto_z_tekstu(txt):
@@ -1595,9 +1609,6 @@ def auto_z_tekstu(txt):
 def auto_route(cfg, body):
     """Dobór po aucie: marki → modele → lata → wersje → rozmiary (wheel-size przez funkcję serwera)."""
     from oferty import auto as AU
-    ws = KONTO.get("ws")
-    if not ws:
-        raise ApiError("Dobór po aucie nie jest jeszcze dostępny – zaloguj się ponownie.")
     m = body.get("m")
     pola = {"makes": (), "models": ("make",), "years": ("make", "model"), "modifications": ("make", "model", "year"),
             "by_model": ("make", "model", "modification")}
@@ -1612,7 +1623,7 @@ def auto_route(cfg, body):
     klucz = json.dumps([m, par], sort_keys=True)
     t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
     if wynik is None or time.time() - t > 12 * 3600:
-        dane = ws(m, par)
+        dane = _ws(m, par)
         if m == "by_model":
             wynik = AU.auto(dane, par["modification"])
             if not wynik:
@@ -1621,7 +1632,7 @@ def auto_route(cfg, body):
         else:
             wynik = AU.wersje(dane) if m == "modifications" else AU.lista(dane)
         AUTO_PAMIEC[klucz] = (time.time(), wynik)
-    return 200, {"lista": wynik} if m != "by_model" else {"auto": wynik}
+    return 200, dict({"lista": wynik} if m != "by_model" else {"auto": wynik}, ostrzezenie=licznik_ws())
 
 
 def felgi_route(cfg, route, body):
@@ -1654,7 +1665,8 @@ def felgi_route(cfg, route, body):
                                                           for p in cfg["felgi_progi"])) if cfg["felgi_tryb"] == "kwota" else "cena oferty = zakup netto + marża %g%% + VAT" % m
         if cfg.get("zaokr_felgi", 1) != 1:
             wzor += ", w górę do %d zł" % cfg["zaokr_felgi"]
-        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else "", "auto": a_txt}
+        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else "", "auto": a_txt,
+                     "ostrzezenie": licznik_ws() if a_txt else ""}
     try:
         w = felgi_licz(cfg, body)
     except (ValueError, TypeError, AttributeError):
@@ -1949,6 +1961,18 @@ def handle(path, body=None, open_path=None):
             return felgi_route(cfg, route, body)
         if route == "/api/auto":
             return auto_route(cfg, body)
+        if route in ("/api/ws_raport", "/api/ws_limit"):
+            if not KONTO.get("admin"):
+                raise ApiError("Tylko administrator.")
+            if route == "/api/ws_limit":
+                try:
+                    lim = int(body.get("limit"))
+                except (TypeError, ValueError):
+                    raise ApiError("Podaj limit jako liczbę zapytań dziennie.")
+                if not 1 <= lim <= 1000000:
+                    raise ApiError("Limit musi być od 1 do 1 000 000.")
+                KONTO["ws_limit"](lim)
+            return 200, KONTO["ws_raport"](int(body.get("dni") or 7)) or {}
         if route == "/api/quick":
             q = parse_quick(body.get("text", ""))
             if not q["pojazdy"]:

@@ -74,6 +74,8 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   dalej nie pasuje (zakresy w Ustawieniach → Felgi, admin). Inny rozstaw / za mały otwór = nie pasuje; większy otwór = pierścień.
 - „Dobrane do: …” na PDF **z przełącznikiem** przy ofercie. Dla mechanika: mocowanie, moment, ciśnienie (tylko w Panelu).
 - Plan API: **na razie darmowy (testy, 300 zapytań dziennie)**; do pracy na co dzień – decyzja o Basic po testach.
+- Licznik zapytań w bazie (`ws_licznik`, cała firma, doba UTC); administrator widzi zużycie i ustawia limit w Ustawieniach →
+  Felgi; 80% = ostrzeżenie dla pracownika, 100% = blokada do następnego dnia. (2026-11-27)
 
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)

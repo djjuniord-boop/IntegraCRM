@@ -172,6 +172,17 @@ def posrednik_ws(m, params, timeout=25):
         raise silnik.ApiError("Brak połączenia z serwerem doboru po aucie (%s)" % e.__class__.__name__)
 
 
+def ws_raport(dni=7):
+    """Zużycie doboru po aucie (wheel-size) – tylko administrator (funkcja bazy ws_licznik_raport)."""
+    return _db("POST", "/rest/v1/rpc/ws_licznik_raport", {"p_dni": int(dni)})
+
+
+def ws_limit(limit):
+    """Dzienny limit zapytań wheel-size (app_config 'wheel_size') – zapis tylko administrator (RLS)."""
+    _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "wheel_size", "value": {"limit": int(limit)}},
+        prefer="resolution=merge-duplicates,return=minimal")
+
+
 def wczytaj_konto():
     """Login API i ustawienia zalogowanego użytkownika -> silnik.KONTO."""
     from oferty import silnik
@@ -182,7 +193,7 @@ def wczytaj_konto():
     from oferty import xp
     xp.POSREDNIK = posrednik_xpartner
     silnik.KONTO.update(login=r.get("xp_login") or "", password="",
-                        ustawienia=r.get("ustawienia") or {}, ws=posrednik_ws,
+                        ustawienia=r.get("ustawienia") or {}, ws=posrednik_ws, ws_raport=ws_raport, ws_limit=ws_limit,
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
     from oferty import zamowienia as _zam   # „kto zamówił” – z Dziennika zmian, tylko oddział (funkcja w bazie)
     _zam.KTO = lambda nry: _db("POST", "/rest/v1/rpc/zamowienia_kto", {"p_nry": list(nry)})

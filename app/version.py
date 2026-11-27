@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.23"
+VERSION = "1.2.24"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,12 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.24",
+        "date": "2026-11-27",
+        "changes": ["Dobór po aucie: licznik zapytań API dla całej firmy – administrator widzi w Ustawieniach → Felgi zużycie dziś (kto ile) i z 7 dni oraz ustawia dzienny limit",
+                    "Dobór po aucie: przy 80% dziennego limitu ostrzeżenie dla pracownika, po limicie jasny komunikat zamiast błędu"],
+    },
     {
         "version": "1.2.23",
         "date": "2026-11-27",

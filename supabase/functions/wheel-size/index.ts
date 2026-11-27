@@ -2,6 +2,8 @@
 // funkcja czyta go z sekretu WHEELSIZE_API_KEY. Dostęp: zalogowany użytkownik z modułem „oferty” (sprawdza baza).
 // Wejście: POST {m: "makes"|"models"|..., params: {...}}. Wyjście: JSON z wheel-size albo {error}.
 // Dozwolone tylko metody odczytu z listy i parametry z listy; region domyślnie eudm (Europa).
+// Dzienny limit planu API: przed zapytaniem ws_licznik_dodaj() (baza liczy dzień, osobę, odmawia po limicie z app_config
+// 'wheel_size'); odpowiedź dostaje pole _licznik {suma, limit} – Panel ostrzega przy 80% (od 2026-11-27).
 import { createClient } from "npm:@supabase/supabase-js@2.45.4";
 
 const URL = Deno.env.get("SUPABASE_URL")!;
@@ -39,6 +41,10 @@ Deno.serve(async (req) => {
     q.set(k, String(v).slice(0, 80));
   }
   if (!["regions", "upsteps"].includes(m) && !q.has("region") && !q.has("modification")) q.set("region", "eudm");
+  const { data: lic, error: eLic } = await asUser.rpc("ws_licznik_dodaj");
+  if (eLic) return json({ error: "Nie udało się sprawdzić dziennego limitu zapytań." }, 500);
+  const L = lic as { ok: boolean; suma: number; limit: number };
+  if (!L.ok) return json({ error: `Wyczerpany dzienny limit doboru po aucie (${L.suma} z ${L.limit}) – spróbuj jutro albo poproś administratora.`, licznik: L }, 429);
   q.set("user_key", KEY);
   const ctl = new AbortController();
   const stop = setTimeout(() => ctl.abort(), 20_000);
@@ -46,7 +52,10 @@ Deno.serve(async (req) => {
     const odp = await fetch(API + METODY[m] + "?" + q, { headers: { "Accept": "application/json", "User-Agent": "PanelLatexSerwis" }, signal: ctl.signal });
     const txt = await odp.text();
     if (!odp.ok) return json({ error: "wheel-size odpowiedział " + odp.status, szczegoly: txt.replaceAll(KEY, "***").slice(0, 300) }, 502);
-    return new Response(txt, { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
+    let out: unknown;
+    try { out = JSON.parse(txt); } catch { return json({ error: "wheel-size: nieczytelna odpowiedź" }, 502); }
+    if (out && typeof out === "object" && !Array.isArray(out)) (out as Record<string, unknown>)._licznik = { suma: L.suma, limit: L.limit };
+    return json(out);
   } catch (e) {
     return json({ error: "Brak połączenia z wheel-size (" + (e as Error).name + ")" }, 502);
   } finally { clearTimeout(stop); }
