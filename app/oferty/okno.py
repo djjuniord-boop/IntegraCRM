@@ -587,8 +587,10 @@ class Api:
         if brak and silnik.KONTO.get("admin"):
             if not self._xp_lock.acquire(timeout=3):   # tło pobiera partię – Panel nie czeka, felgi „wkrótce”
                 return wynik
-            try:
-                d = self._zdjecia_do_bazy(brak, pokaz=True)
+            try:   # tło mogło właśnie zapisać część tych felg – nie pobieramy ich drugi raz
+                juz, brak = self.foto().miniatury(brak)
+                wynik["zdjecia"].update({str(k): v for k, v in juz.items()})
+                d = self._zdjecia_do_bazy(brak, pokaz=True) if brak else {"zdjecia": {}}
             finally:
                 self._xp_lock.release()
             wynik["zdjecia"].update(d.get("zdjecia") or {})
