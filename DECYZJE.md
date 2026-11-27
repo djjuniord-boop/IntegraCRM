@@ -82,6 +82,10 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   dobór po aucie) i **„tpms”** (czujniki TPMS). Felgi, TPMS, zamówienia i zamawianie – tylko razem z „Oferty – opony”.
   Kto miał „oferty”, dostał oba nowe (bez zmiany tego, co widzi). Nazwa zakładki: **„Oferty”** (nie „Oferty opon”).
 - Ukrycie felg / TPMS w programie to porządek – dane felg i czujników w kopii pliku xPartner czyta każdy z modułem „oferty”.
+- Dalsze uprawnienia (2026-11-27): **„ceny”** (własne ceny i rabaty w ofercie; bez – tylko ceny wyliczone), **„dobor”** (dobór
+  po aucie – płatne API; sprawdza też serwer), **najwyższy rabat osoby** (app_users.rabat_max, ustawia admin; niższy z
+  dwóch wygrywa, administrator bez limitu), **„Kopiuj uprawnienia z konta”**. Ceny zakupu widzi każdy (przełącznik „ukryj
+  ceny zakupu” zostaje – na pokazanie ekranu klientowi). Historia: jak dotąd – swoje, z filtrem na innych użytkowników.
 
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)

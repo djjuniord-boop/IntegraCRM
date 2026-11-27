@@ -363,6 +363,8 @@ def wczytaj_oddzialy(admin=False):
                         zamowienia="zamowienia" in (me.get("modules") or []),
                         zamawianie="zamawianie" in (me.get("modules") or []),
                         felgi="felgi" in (me.get("modules") or []), tpms="tpms" in (me.get("modules") or []),
+                        ceny="ceny" in (me.get("modules") or []), dobor="dobor" in (me.get("modules") or []),
+                        rabat_osoby=me.get("rabat_max"),
                         oddzialy_konta=list(me.get("branches") or []), ceny_oddz=ceny, zapisz_ceny=zapisz_ceny)   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
 
 
@@ -670,6 +672,8 @@ class Api:
             if not (body or {}).get("bez_otwierania"):
                 _open_path(plik)
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        if path == "/api/felgi_zdjecia" and not silnik.modul("felgi"):
+            return {"code": 403, "body": {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}}
         if path == "/api/felgi_zdjecia":   # zdjęcia felg z konfiguratora xPartner (decyzja właściciela 2026-11-26)
             try:
                 return {"code": 200, "body": self._zdjecia((body or {}).get("ids") or [])}

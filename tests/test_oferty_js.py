@@ -384,7 +384,7 @@ def test_dobor_po_aucie_w_oknie():
             "kola": [{"oe": True, "przod": {"sred": 17.0, "szer": 7.5, "et": 51.0, "felga": "7.5Jx17 ET51", "opona": "225/45ZR17", "opona_txt": "225/45ZR17 91W", "cisn": 2.4},
                       "tyl": None, "zima": False, "rf": False, "xl": False, "stal": False}], "kola_opony": ["225/45 R17"]}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const AUTO=%s;window.pywebview={api:{call:async(p,b)=>{"
-            "if(p.startsWith('/api/cfg'))return{code:200,body:{oddzialy:['Latex Wrocław'],felgi_max:3}};"
+            "if(p.startsWith('/api/cfg'))return{code:200,body:{oddzialy:['Latex Wrocław'],felgi_max:3,mod_ceny:false}};"
             "if(p.startsWith('/api/auto')){const m=b.m;return{code:200,body:m==='by_model'?{auto:AUTO}:{lista:[{slug:'x1',name:m+' '+'%s'}]}}}"
             "if(p.startsWith('/api/felgi'))return{code:200,body:{lista:[{id:2,nazwa:'FELGA',sred:'17',szer:'7.5',pcd:'5x112',et:'51',otwor:'57.1',stan:8,cena:500,brutto_zak:400,ocena:'ok',ocena_txt:'pasuje fabrycznie',kod:'',producent:'X',model:''},"
             "{id:3,nazwa:'FELGA2',sred:'17',pcd:'5x108',stan:8,cena:400,brutto_zak:300,ocena:'nie',ocena_txt:'inny rozstaw',kod:'',producent:'X',model:''}],q:{ilosc:4},wzor:'w'}};"
@@ -416,6 +416,8 @@ def test_dobor_po_aucie_w_oknie():
             pg.evaluate("fWybierz(2)")
             pg.wait_for_timeout(400)
             assert "Dobrane do" in pg.inner_text("#fOfAuto") and pg.evaluate("fCialo().auto_pdf") == 1
+            assert pg.evaluate("document.body.classList.contains('bezCen')")   # bez uprawnienia do cen – pola cen ukryte
+            assert pg.evaluate("[...document.querySelectorAll('#fEdit .cenaEd')].every(e=>getComputedStyle(e).display==='none')")
             pg.evaluate("aOtworz('o')")
             pg.wait_for_timeout(300)
             pg.evaluate("aWczytaj(0)")

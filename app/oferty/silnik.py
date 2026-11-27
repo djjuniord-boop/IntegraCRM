@@ -113,6 +113,13 @@ def load_cfg():
     if o:   # marża wspólna oddziału – nadpisuje ustawienia osobiste
         cfg.update({k: v for k, v in ((KONTO.get("ceny_oddz") or {}).get(o) or {}).items() if k in CENY_WSPOLNE})
     _normuj_cfg(cfg)
+    r_os = KONTO.get("rabat_osoby")   # najwyższy rabat tej osoby (UŻYTKOWNICY) – niższy z dwóch wygrywa; administrator bez limitu
+    if r_os not in (None, "") and not KONTO.get("admin"):
+        try:
+            for k in ("rabat_max_opony", "rabat_max_felgi", "rabat_max_wym"):
+                cfg[k] = min(cfg[k], max(0.0, float(r_os)))
+        except (TypeError, ValueError):
+            pass
     cfg["login"], cfg["password"] = KONTO.get("login") or "", KONTO.get("password") or ""
     return cfg
 
@@ -1537,6 +1544,7 @@ def felgi_zapisz_hist(body, w):
 
 
 AUTO_PAMIEC = {}   # (metoda, parametry) -> (czas, wynik) – mniej zapytań do wheel-size (darmowy plan: 300 dziennie)
+AUTO_BLAD = [0.0, ""]   # ostatni błąd serwera doboru (czas, treść) – przez 5 min bez ponawiania
 
 
 def _ws(m, par):
@@ -1547,7 +1555,15 @@ def _ws(m, par):
     klucz = json.dumps(["surowe", m, par], sort_keys=True)
     t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
     if wynik is None or time.time() - t > 12 * 3600:
-        wynik = ws(m, par)
+        if time.time() - AUTO_BLAD[0] < 300:   # serwer niedawno nie odpowiedział / limit – nie czekamy przy każdym szukaniu
+            raise ApiError(AUTO_BLAD[1])
+        try:
+            wynik = ws(m, par)
+        except ApiError as e:
+            AUTO_BLAD[:] = [time.time(), str(e)]
+            raise
+        if len(AUTO_PAMIEC) > 500:
+            AUTO_PAMIEC.clear()
         if isinstance(wynik, dict) and isinstance(wynik.get("_licznik"), dict):
             KONTO["ws_licznik"] = wynik["_licznik"]   # ile zapytań dziś zużyto (cała firma) – ostrzeżenie przy 80%
         AUTO_PAMIEC[klucz] = (time.time(), wynik)
@@ -1570,8 +1586,11 @@ def auto_z_tekstu(txt):
     """Szybkie polecenie felg z autem („audi a4 b9 2021 alu”, „vw golf 2019”): (auto, reszta polecenia) albo (None, txt).
     Potrzebna marka + model + rok albo generacja – wtedy wszystkie rozmiary kół auta z wheel-size."""
     from oferty import auto as AU
-    if not KONTO.get("ws") or not re.search(r"[a-ząćęłńóśźż]{2}", (txt or "").lower()):
+    if not KONTO.get("ws") or not modul("dobor") or not re.search(r"[a-ząćęłńóśźż]{2}", (txt or "").lower()):
         return None, txt
+    from oferty import tpms as TP
+    if not TP.marki_z_nazwy(txt) and not re.search(r"\b(mercedes|merc|alfa|skoda|land|range)\b", (txt or "").lower()):
+        return None, txt   # bez marki auta w poleceniu – żadnych zapytań do wheel-size
     try:
         marki = AU.lista(_ws("makes", {}))
         mk, i = AU.znajdz_marke(txt, marki)
@@ -1867,6 +1886,9 @@ def handle(path, body=None, open_path=None):
     route = u.path
     cfg = load_cfg()
     ucz_marki(cfg)
+    if body and route in ("/api/offer", "/api/pdf", "/api/felgi_oferta", "/api/felgi_pdf") and not modul("ceny"):
+        # bez uprawnienia „Oferty – własne ceny i rabaty”: tylko ceny wyliczone (2026-11-27)
+        body = dict(body, ceny={}, ceny_wym={}, rabat={} if route.startswith("/api/felgi") else 0, rabat_wym=0, marza=None)
     try:
         if route.startswith("/api/koszyk/"):
             return koszyk_route(route, body or {}, cfg)
@@ -1879,7 +1901,7 @@ def handle(path, body=None, open_path=None):
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 c["zamawianie"] = moze_zamawiac()
-                c["mod_felgi"], c["mod_tpms"] = modul("felgi"), modul("tpms")
+                c["mod_felgi"], c["mod_tpms"], c["mod_ceny"], c["mod_dobor"] = modul("felgi"), modul("tpms"), modul("ceny"), modul("dobor")
                 c["ceny_oddzial"] = oddzial_cen() or ""
                 c["ceny_edycja"] = bool(not c["ceny_oddzial"] or KONTO.get("admin"))
                 return 200, c
@@ -1953,7 +1975,7 @@ def handle(path, body=None, open_path=None):
             return 200, {"ok": True}
         if route == "/api/tpms" and not modul("tpms"):
             return 403, {"error": "Brak dostępu do czujników TPMS – poproś administratora (UŻYTKOWNICY → Oferty – czujniki TPMS)."}
-        if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf", "/api/felgi_zdjecia") and not modul("felgi"):
+        if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf") and not modul("felgi"):
             return 403, {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}
         if route == "/api/tpms":   # zakładka „Czujniki TPMS”: samo wyszukiwanie w kopii pliku + wspólny koszyk (2026-11-17)
             from oferty import tpms as TP
@@ -1971,6 +1993,8 @@ def handle(path, body=None, open_path=None):
         if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf"):
             return felgi_route(cfg, route, body)
         if route == "/api/auto":
+            if not modul("dobor"):
+                return 403, {"error": "Brak dostępu do doboru po aucie – poproś administratora (UŻYTKOWNICY → Oferty – dobór po aucie)."}
             return auto_route(cfg, body)
         if route in ("/api/ws_raport", "/api/ws_limit"):
             if not KONTO.get("admin"):

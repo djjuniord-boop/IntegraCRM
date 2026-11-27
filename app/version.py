@@ -14,7 +14,10 @@ CHANGELOG = [
     {
         "version": "1.2.25",
         "date": "2026-11-27",
-        "changes": ["Uprawnienia: Oferty włączane osobno – opony, felgi (z doborem po aucie) i czujniki TPMS; nowa grupa „Oferty i xPartner” w oknie konta",
+        "changes": ["Uprawnienia: Oferty włączane osobno – opony, felgi, czujniki TPMS, własne ceny i rabaty, dobór po aucie; nowa grupa „Oferty i xPartner” w oknie konta",
+                    "Uprawnienia: najwyższy rabat w ofertach dla każdej osoby (ustawia administrator; niższy z dwóch wygrywa) i „Kopiuj uprawnienia z konta”",
+                    "Oferty: bez uprawnienia do cen – w ofercie tylko ceny wyliczone (pola cen i rabatów ukryte)",
+                    "Dobór po aucie: licznik zapytań liczony tylko przez serwer, szybkie polecenie felg pyta wheel-size tylko, gdy wpiszesz markę auta",
                     "Zakładka „Oferty opon” nazywa się teraz „Oferty” (opony, felgi, czujniki TPMS)",
                     "Pomoc: opis felg i doboru po aucie"],
     },

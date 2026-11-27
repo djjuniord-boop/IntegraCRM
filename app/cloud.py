@@ -18,7 +18,8 @@ SESSION_FILE = paths.DATA_DIR / "sesja.json"
 
 MODULES = [("crm", "Kontrola CRM"), ("historia", "Historia"), ("marza", "MARŻA"),
            ("wyniki", "Wyniki"), ("serwis", "SERWIS QR (wygaszony)"), ("oferty", "Oferty – opony"),
-           ("felgi", "Oferty – felgi (+ dobór po aucie)"), ("tpms", "Oferty – czujniki TPMS"),
+           ("felgi", "Oferty – felgi"), ("tpms", "Oferty – czujniki TPMS"),
+           ("ceny", "Oferty – własne ceny i rabaty"), ("dobor", "Oferty – dobór po aucie (płatne API)"),
            ("zamowienia", "Zamówienia xPartner (z Ofertami)"),
            ("zamawianie", "Zamawianie w xPartner (koszyk)"), ("depozyt", "Depozyt opon (przechowalnia)")]
 BRANCHES = ["Latex Wrocław", "Latex Opole", "Stangum Opole"]
@@ -198,6 +199,10 @@ class Session:
             if _czas_iso(u.get("last_seen")) > _czas_iso(u["last_active"]):
                 u["last_active"], u["active_version"] = u.get("last_seen"), u.get("app_version") or a.get("app_version")
         return users
+
+    def set_rabat_max(self, email, rabat):
+        """Administrator: najwyższy rabat w ofertach dla tej osoby (None = jak w Ustawieniach ofert)."""
+        self.rpc("admin_set_rabat_max", p_email=email, p_rabat=rabat)
 
     def set_user(self, email, name, role, modules, branches, active):
         self.rpc("admin_set_user", p_email=email, p_name=name, p_role=role,

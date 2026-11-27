@@ -1053,3 +1053,29 @@ def test_moduly_felgi_tpms():
             S.KONTO.pop(k, None)
         S.KONTO["admin"] = False
     assert S.modul("felgi")   # bez danych o koncie (stare okno, testy) – jak dotąd
+
+
+def test_uprawnienia_ceny_dobor_rabat_osoby():
+    """2026-11-27: „Oferty – własne ceny i rabaty” (bez niego tylko ceny wyliczone), „dobór po aucie” osobno,
+    najwyższy rabat osoby (niższy z dwóch wygrywa, administrator bez limitu)."""
+    _setup()
+    felgi = [{"id": 2, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "FELGA ALU 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8}]
+    S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T",
+                   admin=False, ceny=False, dobor=False)
+    S.FELGI_OSTATNIE.clear()
+    try:
+        st, r = S.handle("/api/felgi_oferta", {"felgi": [2], "ilosc": 4, "ceny": {"2": "100"}, "rabat": {"f": "20"}})
+        auto = S.cena_felgi(S.load_cfg(), 400.0)
+        assert st == 200 and r["propozycje"][0]["pozycje"][0]["c"] == auto   # bez uprawnienia: cena i rabat z okna pominięte
+        assert S.handle("/api/auto", {"m": "makes"})[0] == 403
+        assert S.auto_z_tekstu("audi a4 2021") == (None, "audi a4 2021")
+        S.KONTO.update(ceny=True, rabat_osoby=5)
+        st, r = S.handle("/api/felgi_oferta", {"felgi": [2], "ilosc": 4, "rabat": {"f": "20"}})
+        assert r["propozycje"][0]["pozycje"][0]["c"] == S.cena_po_rabacie(auto, 5)   # rabat obcięty do limitu osoby
+        assert S.load_cfg()["rabat_max_opony"] == 5
+        S.KONTO["admin"] = True
+        assert S.load_cfg()["rabat_max_opony"] == 90   # administrator bez limitu osoby
+    finally:
+        for k in ("katalog", "ceny", "dobor", "rabat_osoby"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False
