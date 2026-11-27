@@ -894,3 +894,76 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
     finally:
         S.KONTO.pop("katalog", None)
         S.KONTO.update(admin=False, oddzialy_konta=[], ceny_oddz={}, ustawienia={})
+
+
+WS_GOLF = {"data": [{"slug": "abc123", "name": "1.5 eTSI", "trim": "1.5 eTSI", "start_year": 2019, "end_year": 2024,
+                     "make": {"slug": "volkswagen", "name": "Volkswagen"}, "model": {"slug": "golf", "name": "Golf"},
+                     "generation": {"slug": "mk8", "name": "Mk8 (CD1)", "start": 2019, "end": 2024},
+                     "engine": {"fuel": "Petrol", "capacity": "1.5", "power": {"kW": 110, "PS": 150, "hp": 148}},
+                     "technical": {"wheel_fasteners": {"type": "Lug bolts", "thread_size": "M14 x 1.5"}, "wheel_tightening_torque": "140 Nm",
+                                   "bolt_pattern": "5x112", "centre_bore": "57.1", "pcd": 112, "stud_holes": 5},
+                     "wheels": [
+                         {"is_stock": True, "showing_fp_only": True, "front": {"rim": "7.5Jx17 ET51", "rim_diameter": 17.0, "rim_width": 7.5, "rim_offset": 51.0,
+                                                                               "tire_full": "225/45ZR17 91W", "tire": "225/45ZR17", "load_index": 91, "speed_index": "W",
+                                                                               "tire_pressure": {"bar": 2.4, "psi": 35, "kPa": 240}}, "rear": {}},
+                         {"is_stock": True, "showing_fp_only": True, "front": {"rim": "7Jx16 ET48", "rim_diameter": 16.0, "rim_width": 7.0, "rim_offset": 48.0,
+                                                                               "tire": "205/55R16", "load_index": 91, "speed_index": "V"}, "rear": {}},
+                         {"is_stock": False, "is_recommended_for_winter": True, "showing_fp_only": True,
+                          "front": {"rim": "7.5Jx18 ET51", "rim_diameter": 18.0, "rim_width": 7.5, "rim_offset": 51.0, "tire": "225/40ZR18", "load_index": 92,
+                                    "speed_index": "Y"}, "rear": {}}]}]}
+
+
+def test_dobor_po_aucie_wheel_size():
+    """2026-11-27: dobór po aucie – odpowiedzi wheel-size → dane auta, ocena felg (ET ±5 pasuje, ±15 sprawdź), trasa /api/auto
+    z pamięcią (mniej zapytań), felgi z oceną, „Dobrane do” na PDF tylko z przełącznikiem."""
+    from oferty import auto as AU
+    _setup()
+    a = AU.auto(WS_GOLF, "abc123")
+    assert a["pcd"] == "5x112" and a["cb"] == 57.1 and a["gwint"] == "M14 x 1.5" and a["mocowanie"] == "śruby" and a["moment"] == "140 Nm"
+    assert "Volkswagen Golf Mk8" in a["nazwa"] and "110 kW (150 KM)" in a["nazwa"]
+    assert [k["oe"] for k in a["kola"]] == [True, True, False] and a["kola"][0]["przod"]["sred"] == 16.0   # fabryczne najpierw, rosnąco
+    assert a["kola"][1]["przod"]["cisn"] == 2.4 and a["kola"][2]["zima"]
+    assert AU.rozmiar_opony("225/45ZR17") == "225/45 R17" and AU.rozmiar_opony("215/65R16C") == "215/65 R16C"
+    assert AU.wersje({"data": [WS_GOLF["data"][0]]})[0]["name"].startswith("1.5 eTSI 110 kW (150 KM)")
+    assert AU.lista({"data": [{"slug": 2021, "name": 2021}, {"slug": None}]}) == [{"slug": "2021", "name": "2021"}]
+    f = lambda **k: dict({"pcd": "5x112", "otwor": "57.1", "sred": "17", "szer": "7.5", "et": "51"}, **k)
+    assert AU.ocena(f(), a)[0] == "ok"
+    assert AU.ocena(f(otwor="66.5"), a) == ("zm", "pasuje (jak 7.5Jx17 ET51) · pierścień 66.5→57.1")
+    assert AU.ocena(f(et="47"), a)[0] == "zm" and AU.ocena(f(et="45"), a)[0] == "uw" and AU.ocena(f(et="40"), a)[0] == "uw" and AU.ocena(f(et="30"), a)[0] == "nie"
+    assert AU.ocena(f(pcd="5x108"), a)[0] == "nie" and AU.ocena(f(otwor="54.1"), a)[0] == "nie"
+    assert AU.ocena(f(sred="20"), a)[0] == "uw" and AU.ocena(f(et=""), a)[0] == "uw"
+    assert AU.ocena(f(et="40"), a, et_ok=12)[0] == "zm"   # zakres z Ustawień
+    # trasa /api/auto z pamięcią
+    wolane = []
+    def ws(m, par):
+        wolane.append(m)
+        return {"makes": {"data": [{"slug": "volkswagen", "name": "Volkswagen"}]}, "by_model": WS_GOLF}.get(m, {"data": []})
+    S.KONTO["ws"] = ws
+    S.AUTO_PAMIEC.clear()
+    try:
+        st, r = S.handle("/api/auto", {"m": "makes"})
+        assert st == 200 and r["lista"][0]["slug"] == "volkswagen"
+        S.handle("/api/auto", {"m": "makes"})
+        assert wolane == ["makes"]   # drugi raz z pamięci
+        st, r = S.handle("/api/auto", {"m": "by_model", "make": "volkswagen", "model": "golf", "modification": "abc123"})
+        assert st == 200 and r["auto"]["kola_opony"] == ["205/55 R16", "225/45 R17", "225/40 R18"]
+        st, r = S.handle("/api/auto", {"m": "by_model", "make": "volkswagen", "model": "golf", "modification": "abc&x=1"})
+        assert st != 200   # parametry tylko z dozwolonych znaków
+        st, r = S.handle("/api/auto", {"m": "usun"})
+        assert st != 200
+        # felgi z oceną (pasujące najpierw, niezaufane dane auta nie wywracają wyszukiwania)
+        felgi = [{"id": 1, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X108", "ET": "45", "Otwór centralny": "63,4"}, "nazwa": "FELGA ALU 7X17 5X108 ET45/63.4", "netto": 300.0, "ilosc": 8},
+                 {"id": 2, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "51", "Otwór centralny": "57,1"}, "nazwa": "FELGA ALU 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8}]
+        S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+        st, r = S.handle("/api/felgi", {"q": "R17", "auto": a})
+        assert st == 200 and [(x["id"], x["ocena"]) for x in r["lista"]] == [(2, "ok"), (1, "nie")]
+        st, r = S.handle("/api/felgi", {"q": "R17", "auto": {"kola": [{"przod": None}], "pcd": 5}})
+        assert st == 200 and len(r["lista"]) == 2
+        S.FELGI_OSTATNIE.clear()
+        h = S.handle("/api/felgi_pdf", {"felgi": [2], "ilosc": 4, "auto": {"nazwa": "VW Golf <8>"}, "auto_pdf": 1})[1]["html"]
+        assert "Dobrane do" in h and "VW Golf &lt;8&gt;" in h
+        h = S.handle("/api/felgi_pdf", {"felgi": [2], "ilosc": 4, "auto": {"nazwa": "VW Golf 8"}})[1]["html"]
+        assert "Dobrane do" not in h   # przełącznik wyłączony
+    finally:
+        S.KONTO.pop("ws", None)
+        S.KONTO.pop("katalog", None)

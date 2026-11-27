@@ -1,7 +1,7 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.21"
-RELEASED = "2026-11-26"
+VERSION = "1.2.22"
+RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
 # w Ustawieniach (data/config.json -> update_source). Puste = aktualizacje wyłączone.
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.22",
+        "date": "2026-11-27",
+        "changes": ["🚗 Dobierz po aucie (felgi i opony): marka, model, rok, wersja → rozstaw śrub, otwór, mocowanie, moment dokręcenia, ciśnienie, rozmiary fabryczne i zamienniki",
+                    "Felgi: wyszukiwanie dla wybranego auta – przy każdej felgi ocena: pasuje fabrycznie / pasuje (z pierścieniem) / sprawdź ET / nie pasuje; niepasujące ukryte",
+                    "Oferta felg: „Dobrane do: …” na PDF z przełącznikiem, dane dla mechanika na karcie oferty",
+                    "Oferta opon: rozmiar z auta od razu do szybkiego polecenia, auto do oferty (Pojazd na PDF)"],
+    },
     {
         "version": "1.2.21",
         "date": "2026-11-26",

@@ -370,6 +370,64 @@ def test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf():
     assert not bledy, bledy
 
 
+def test_dobor_po_aucie_w_oknie():
+    """2026-11-27: okno „Dobierz po aucie” (felgi i opony) – listy, rozmiary, szukanie felg z oceną, opony do szybkiego polecenia."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    zly = '<img src=x onerror="window.__XSS=1">'
+    auto = {"nazwa": "VW Golf " + zly, "pcd": "5x112", "cb": 57.1, "gwint": "M14 x 1.5", "mocowanie": "Lug bolts", "moment": "140 Nm", "lata": "2019–2024",
+            "kola": [{"oe": True, "przod": {"sred": 17.0, "szer": 7.5, "et": 51.0, "felga": "7.5Jx17 ET51", "opona": "225/45ZR17", "opona_txt": "225/45ZR17 91W", "cisn": 2.4},
+                      "tyl": None, "zima": False, "rf": False, "xl": False, "stal": False}], "kola_opony": ["225/45 R17"]}
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const AUTO=%s;window.pywebview={api:{call:async(p,b)=>{"
+            "if(p.startsWith('/api/cfg'))return{code:200,body:{oddzialy:['Latex Wrocław'],felgi_max:3}};"
+            "if(p.startsWith('/api/auto')){const m=b.m;return{code:200,body:m==='by_model'?{auto:AUTO}:{lista:[{slug:'x1',name:m+' '+'%s'}]}}}"
+            "if(p.startsWith('/api/felgi'))return{code:200,body:{lista:[{id:2,nazwa:'FELGA',sred:'17',szer:'7.5',pcd:'5x112',et:'51',otwor:'57.1',stan:8,cena:500,brutto_zak:400,ocena:'ok',ocena_txt:'pasuje fabrycznie',kod:'',producent:'X',model:''},"
+            "{id:3,nazwa:'FELGA2',sred:'17',pcd:'5x108',stan:8,cena:400,brutto_zak:300,ocena:'nie',ocena_txt:'inny rozstaw',kod:'',producent:'X',model:''}],q:{ilosc:4},wzor:'w'}};"
+            "if(p.startsWith('/api/quick'))return{code:200,body:{pojazdy:[{rozmiar:'225/45 R17',ilosc:4}],sezony:[],klasy:[],producenci:[]}};"
+            "return{code:200,body:{}}}}};" % (json.dumps(auto), zly.replace("'", "\\'")))
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js3.html"
+    p.write_text(html, encoding="utf-8")
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            bledy = []
+            pg.on("pageerror", lambda e: bledy.append(str(e)))
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(500)
+            for js in ("widok('f')", "aOtworz('f')", "$('#a_make').value='x1';aZmiana('make')", "$('#a_model').value='x1';aZmiana('model')",
+                       "$('#a_year').value='x1';aZmiana('year')", "$('#a_mod').value='x1';aZmiana('mod')"):
+                pg.evaluate(js)
+                pg.wait_for_timeout(250)
+            assert "225/45ZR17 91W" in pg.inner_text("#aWyn") and "140 Nm" in pg.inner_text("#aWyn")
+            pg.evaluate("aFelgi(0)")
+            pg.wait_for_timeout(500)
+            assert pg.evaluate("$('#fq').value").startswith("5x112 R17")
+            assert pg.evaluate("document.querySelectorAll('#fRes .fw').length") == 1   # niepasująca ukryta
+            assert "pasuje fabrycznie" in pg.inner_text("#fRes")
+            pg.evaluate("ATYLKO=false;fRender(true)")
+            assert pg.evaluate("document.querySelectorAll('#fRes .fw').length") == 2
+            pg.evaluate("fWybierz(2)")
+            pg.wait_for_timeout(400)
+            assert "Dobrane do" in pg.inner_text("#fOfAuto") and pg.evaluate("fCialo().auto_pdf") == 1
+            pg.evaluate("aOtworz('o')")
+            pg.wait_for_timeout(300)
+            pg.evaluate("aWczytaj(0)")
+            pg.wait_for_timeout(400)
+            pg.evaluate("aOpony(0)")
+            pg.wait_for_timeout(600)
+            assert pg.evaluate("$('#quick').value").startswith("225/45 R17")
+            assert pg.evaluate("window.__XSS") is None
+            b.close()
+    finally:
+        p.unlink()
+    assert not bledy, bledy
+
+
 if __name__ == "__main__":
     test_okna_ofert_bez_bledow_js()
     test_niepelny_rozmiar_w_oknie()
@@ -378,5 +436,6 @@ if __name__ == "__main__":
     test_faktura_bez_subkonta_widoczna_przy_filtrze_oddzialu()
     test_bydgoszcz_48h_w_koszyku_i_zamowieniach()
     test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf()
+    test_dobor_po_aucie_w_oknie()
     print("Okna Ofert bez błędów JS")
 

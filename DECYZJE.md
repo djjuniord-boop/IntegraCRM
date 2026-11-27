@@ -67,6 +67,14 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   stronie, klient wybiera). Opony, czujniki i usługi wspólne dla wszystkich felg; opony o innej średnicy niż felga =
   czerwony komunikat i blokada PDF tej propozycji i porównania (albo tylko ostrzeżenie – Ustawienia → Felgi). (2026-11-26)
 
+## DOBÓR PO AUCIE (wheel-size.com, decyzje 2026-11-27)
+- Dane aut z API wheel-size.com przez funkcję serwera `wheel-size` – **klucz tylko w sekrecie Supabase** (`WHEELSIZE_API_KEY`),
+  nigdy w programie ani w repozytorium. Nie budujemy własnej bazy z ich danych (regulamin) – tylko krótka pamięć w programie.
+- „🚗 Dobierz po aucie” **w felgach i w ofercie opon**. Ocena felgi: ET ±5 mm od fabrycznego = pasuje, do ±15 = sprawdź,
+  dalej nie pasuje (zakresy w Ustawieniach → Felgi, admin). Inny rozstaw / za mały otwór = nie pasuje; większy otwór = pierścień.
+- „Dobrane do: …” na PDF **z przełącznikiem** przy ofercie. Dla mechanika: mocowanie, moment, ciśnienie (tylko w Panelu).
+- Plan API: **na razie darmowy (testy, 300 zapytań dziennie)**; do pracy na co dzień – decyzja o Basic po testach.
+
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
 - Dostawa tylko na adres oddziału konta.

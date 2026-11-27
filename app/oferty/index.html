@@ -103,6 +103,11 @@ tr.k48 td{background:#fffbeb}
 .vcard img.fph{width:100%;height:140px;object-fit:contain;background:#fafafa;border-radius:8px;margin-bottom:6px}.vcard.zle{border-color:#e11d48;background:#fff5f5}.vcard .bl{color:#b00012;font-size:13px;font-weight:600;margin-top:6px}
 .ctabs{display:flex;gap:6px;flex-wrap:wrap;border-bottom:2px solid var(--line);padding-bottom:8px;margin-bottom:12px}.ctabs .on{background:var(--red);color:#fff;border-color:var(--red)}
 .cpane{display:none}.cpane.on{display:grid}.cpane[data-t=pdf].on{display:block}.csek{font-size:12px;color:var(--muted);margin:6px 0 2px;font-weight:600}.cinfo{background:#eef6ff;border:1px solid #bfdbfe;border-radius:8px;padding:8px 10px;font-size:13px}
+.asel{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.asel label{font-size:12px;color:var(--muted);display:flex;flex-direction:column;gap:3px}
+.atech{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0}.atech div{background:#f4f4f5;border-radius:8px;padding:6px 10px}.atech small{display:block;color:var(--muted);font-size:11px}
+.aoe{background:#dcfce7;color:#166534;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700}.azm{background:#e0e7ff;color:#3730a3;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:700}
+.fauto{background:#eef6ff;border:1px solid #bfdbfe;border-radius:10px;padding:8px 12px;margin-top:10px;font-size:13px;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.foc{display:inline-block;border-radius:6px;padding:2px 7px;font-size:11px;font-weight:700;margin-top:4px}.foc.ok{background:#dcfce7;color:#166534}.foc.zm{background:#e0e7ff;color:#3730a3}.foc.uw{background:#fef3c7;color:#92400e}.foc.nie{background:#fde8e8;color:#b00012}
 .kban{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;border-radius:10px;padding:10px 14px;margin:0 0 14px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .fpick{max-height:220px;overflow:auto;margin-top:6px;font-size:12px}.fpick div{display:flex;justify-content:space-between;gap:8px;padding:4px 6px;border-bottom:1px solid #f1f1f1;cursor:pointer}.fpick div:hover{background:#fef2f2}.fpick div.on{background:#fee2e2;font-weight:700}
 @media(max-width:1000px){.fdod{grid-template-columns:1fr}}
@@ -115,7 +120,7 @@ tr.k48 td{background:#fffbeb}
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main id="mainO">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
-<div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button><button class="sec" onclick="clearAll()" title="Czyści polecenie, zapytanie klienta, wyniki, zaznaczenia i ofertę">🧹 Wyczyść wszystko</button></div>
+<div class="row"><input id="quick" style="flex:1;min-width:300px" placeholder="np. 205/55 r16 3 oferty premium średnia budżet zimowe 4 szt" onkeydown="if(event.key==='Enter')quick()"><button onclick="quick()" id="bQ">Zrób ofertę</button><button class="sec" onclick="aOtworz('o')" title="Marka, model, rok, wersja → rozmiary fabryczne i zamienniki">🚗 Dobierz po aucie</button><button class="sec" onclick="clearAll()" title="Czyści polecenie, zapytanie klienta, wyniki, zaznaczenia i ofertę">🧹 Wyczyść wszystko</button></div>
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: indeks xPartner albo kod producenta (np. 258797, 3940900 – pokaże tę oponę wśród ofert), rozmiar(y) w dowolnym zapisie (205/55 R16, 205/55 16, 2055516), też niepełny („20555”, „R20”) albo samą markę / sezon („zima pirelli”), ilość („8 szt”), sezon (zimowe / całoroczne / letnie), klasy (premium / średnia / budżet, bez podania = wszystkie), marki, „runflat”, „suv”, „dostawczy”, „z wymianą”, „4 czujniki”, „przechowalnia opon/kół”.</div><div id="qMsg"></div></div>
 <div class="card"><h2 class="tog" onclick="zapTog()"><span class="n">1</span>Zapytanie klienta <span class="muted" style="font-size:13px;font-weight:400">· pojazdy, rozmiary, usługi – ręcznie</span><span class="chev" id="zapChev">▸ Rozwiń</span></h2>
 <div id="zapBody" style="display:none">
@@ -181,7 +186,8 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 </main>
 <main id="mainF" style="display:none">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie – felgi</h2>
-<div style="display:flex;gap:10px"><input id="fq" placeholder="np. 5x112 R17 ET46 · alu 7x17 5x114.3 · stalowe peugeot 4x108 16 · 190362" onkeydown="if(event.key==='Enter')fSzukaj()" style="flex:1"><button id="fB" onclick="fSzukaj()">🔎 Szukaj felg</button></div>
+<div style="display:flex;gap:10px"><input id="fq" placeholder="np. 5x112 R17 ET46 · alu 7x17 5x114.3 · stalowe peugeot 4x108 16 · 190362" onkeydown="if(event.key==='Enter')fSzukaj()" style="flex:1"><button id="fB" onclick="fSzukaj()">🔎 Szukaj felg</button><button class="sec" onclick="aOtworz('f')" title="Marka, model, rok, wersja → rozmiary, rozstaw, ET i ocena felg">🚗 Dobierz po aucie</button></div>
+<div id="fAuto" style="display:none" class="fauto"></div>
 <div style="font-size:12px;color:#6b7785;margin-top:6px">Rozumie: rozstaw śrub („5x112”), średnicę („R17”), szerokość („7x17”, „6.5J16”), ET („ET46”, „ET32/65.1”), otwór centralny („57.1”), „stalowe” / „alu”, markę auta („peugeot”) albo felgi („diewe neve”), indeks xPartner, ilość („4 szt”), „bez demo”.</div><div id="fMsg"></div></div>
 <div class="card" id="fFilt" style="display:none"><h2><span class="n">⚙</span>Filtry <span id="fIle" class="muted" style="font-size:13px;font-weight:400"></span></h2>
 <div class="tf"><label>Rozstaw śrub<select id="ff_pcd" onchange="fRender()"></select></label><label>Średnica<select id="ff_sred" onchange="fRender()"></select></label>
@@ -195,7 +201,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div class="uwbox"><b>📝 Uwagi do oferty</b> <span class="muted" style="font-size:12px">– tylko dla nas, nie trafiają do PDF ani do klienta</span> <span id="fuwInfo" class="muted" style="font-size:12px"></span>
 <textarea id="fuw" rows="2" maxlength="1000" placeholder="np. klient waha się między dwiema felgami, termin odbioru" oninput="FUWZM=true" onchange="fZapiszUw()"></textarea>
 <div class="row" style="margin-top:4px;justify-content:flex-end;align-items:center;gap:10px"><span id="fuwMsg" class="muted" style="font-size:12px"></span><button class="sec" onclick="fZapiszUw()">Zapisz uwagi</button></div></div>
-<div class="tf" style="margin-bottom:10px"><label>Klient<input id="fo_kl" placeholder="nazwa / telefon" onchange="fLiczD()"></label></div>
+<div class="tf" style="margin-bottom:10px"><label>Klient<input id="fo_kl" placeholder="nazwa / telefon" onchange="fLiczD()"></label></div><div id="fOfAuto"></div>
 <div class="fdod">
 <div><b>🛞 Opony do kompletu</b> <span class="muted">wspólne dla wszystkich felg</span><div id="fo_opW" class="fsel"></div><button class="sec" onclick="fWybierzOpony()">🔎 Wybierz / zmień opony</button></div>
 <div><b>📡 Czujniki TPMS</b> <span class="muted">część z xPartner</span><div id="fo_czW" class="fsel"></div><button class="sec" onclick="fWybierzCzujniki()">🔎 Wybierz czujniki</button></div>
@@ -266,6 +272,11 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 .pmore{color:var(--red);cursor:pointer;font-size:13px}
 @media(max-width:700px){.pgrid{grid-template-columns:repeat(2,1fr)}}
 </style>
+<dialog id="adlg" style="max-width:1000px;width:96vw"><h2 style="margin-top:0">🚗 Dobierz po aucie <span class="muted" style="font-size:12px;font-weight:400">dane: wheel-size.com · rynek europejski</span></h2>
+<div class="asel"><label>Marka<select id="a_make" onchange="aZmiana('make')"></select></label><label>Model<select id="a_model" onchange="aZmiana('model')"></select></label>
+<label>Rok<select id="a_year" onchange="aZmiana('year')"></select></label><label>Wersja (silnik)<select id="a_mod" onchange="aZmiana('mod')"></select></label></div>
+<div id="aOst" style="margin-top:6px"></div><div id="aMsg"></div><div id="aWyn"></div>
+<div class="row" style="margin-top:12px;justify-content:flex-end"><button class="sec" onclick="adlg.close()">Zamknij</button></div></dialog>
 <dialog id="dlg"><h2>Ustawienia</h2>
 <p style="font-size:12px;color:#6b7785;margin-top:0" id="c_info">Ustawienia zapisują się na Twoim koncie (w bazie). Login API xPartner wpisuje administrator w zakładce UŻYTKOWNICY.</p>
 <div class="ctabs"><button type="button" class="sec" data-t="og" onclick="cTab(this)">Ogólne</button><button type="button" class="sec" data-t="op" onclick="cTab(this)">Oferty opon</button><button type="button" class="sec" data-t="fe" onclick="cTab(this)">Felgi</button><button type="button" class="sec" data-t="ko" onclick="cTab(this)">Koszyk i zamówienia</button><button type="button" class="sec" data-t="pdf" onclick="cTab(this)">PDF i oddziały</button></div>
@@ -309,6 +320,9 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <label class="usl">Opony o innej średnicy niż felga<select id="c_felgi_srednica"><option value="blokuj">błąd – blokuj PDF tej propozycji</option><option value="ostrzez">tylko ostrzeżenie</option></select></label>
 <label>Montaż w nowej ofercie<select id="c_felgi_montaz_dom"><option value="0">niezaznaczony</option><option value="1">zaznaczony</option></select></label>
 <label>Domyślny rodzaj auta<select id="c_felgi_typ_dom"><option value="osobowy">osobowe</option><option value="suv">SUV / 4x4</option><option value="dostawczy">dostawcze</option></select></label>
+<div class="csek" style="grid-column:1/3">Dobór po aucie – ocena felgi (różnica ET od fabrycznego)</div>
+<label class="usl">„Pasuje” do ± mm<input id="c_auto_et_ok" type="number" min="0" max="50"></label>
+<label class="usl">„Sprawdź” do ± mm (dalej: nie pasuje)<input id="c_auto_et_ostrz" type="number" min="0" max="80"></label>
 <div class="csek" style="grid-column:1/3">Wyszukiwanie</div>
 <label>Felgi DEMO (z demontażu)<select id="c_felgi_demo"><option value="pokaz">pokazuj</option><option value="ukryj">ukrywaj (chyba że wpiszesz „demo”)</option></select></label>
 <label>Kafelków na stronę<input id="c_felgi_na_stronie" type="number" min="4" max="200"></label>
@@ -582,7 +596,7 @@ function readW(){WT[WCUR]=Object.fromEntries([...document.querySelectorAll('#c_w
 function drawW(){const W=WT[WCUR];$('#c_wym').innerHTML=Array.from({length:12},(_,i)=>String(i+12)).map(d=>`<div class="w"><b>R${d}</b><input type="number" min="0" step="1" data-d="${d}" value="${W[d]??''}" placeholder="—" oninput="this.nextElementSibling.textContent=this.value?'4 koła: '+(this.value*4)+' zł':'brak ceny'"><small>${W[d]!=null?'4 koła: '+(W[d]*4)+' zł':'brak ceny'}</small></div>`).join('')}
 function wTab(b){readW();WCUR=b.dataset.t;document.querySelectorAll('.wtabs button').forEach(x=>x.classList.toggle('on',x===b));drawW();if(!CFG.ceny_edycja)document.querySelectorAll('#c_wym input').forEach(e=>e.disabled=true)}
 let PROGI=[],FPROGI=[];
-const CNUM=['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi','marza_czujniki','rabat_max_opony','rabat_max_wym','wynikow_na_strone','rabat_max_felgi','felgi_max','felgi_na_stronie','felgi_min_stan','koszyk_max_szt'];
+const CNUM=['marza_proc','vat_proc','min_stan','kola_na_auto','waznosc_dni','marza_felgi','marza_czujniki','rabat_max_opony','rabat_max_wym','wynikow_na_strone','rabat_max_felgi','felgi_max','felgi_na_stronie','felgi_min_stan','koszyk_max_szt','auto_et_ok','auto_et_ostrz'];
 const CSEL=['zaokr_opony','zaokr_felgi','felgi_srednica','felgi_typ_dom','felgi_demo'];
 function progiHtml(arr,nazwa){const rys=nazwa==='PROGI'?'drawProgi':'drawFProgi';return '<table style="width:auto"><tr><th>Cena zakupu brutto do (zł)</th><th>Doliczyć (zł brutto)</th><th></th></tr>'+arr.map((p,i)=>`<tr><td><input type="number" min="0" style="width:120px" value="${p.do??''}" placeholder="powyżej" onchange="${nazwa}[${i}].do=this.value===''?null:+this.value"></td><td><input type="number" min="0" style="width:100px" value="${p.kwota??''}" onchange="${nazwa}[${i}].kwota=+this.value"></td><td><button type="button" class="sec" style="padding:2px 8px" onclick="${nazwa}.splice(${i},1);${rys}()">✕</button></td></tr>`).join('')+`</table><button type="button" class="sec" style="padding:3px 10px;margin-top:4px" onclick="${nazwa}.splice(${nazwa}.length-1,0,{do:null,kwota:0});${rys}()">+ próg</button> <span style="font-size:12px;color:var(--muted)">Puste „do” = wszystkie droższe. Cena oferty = zakup brutto + kwota, potem zaokrąglenie.</span>`}
 function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';$('#progiBox').innerHTML=k==='kwota'?progiHtml(PROGI,'PROGI'):'';cenyBlok()}
@@ -738,7 +752,7 @@ async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true
   fRender(true);if(FWS.length){fWybDraw();if(FR){fSumDraw(FR)}}}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
 const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
-async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fWzor').textContent=r.wzor||('cena oferty = zakup netto + marża '+r.marza+'% + VAT');
+async function fSzukaj(){const b=$('#fB');b.disabled=true;msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value,auto:FAUTO});FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fWzor').textContent=r.wzor||('cena oferty = zakup netto + marża '+r.marza+'% + VAT');
  FPOK=fNaStr();$('#ff_stan').value=+CFG.felgi_min_stan||'';msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
  catch(e){msg('#fMsg',e.message,1)}finally{b.disabled=false}}
 function fOpcje(){const ust=(id,k,lab,sort)=>{const v=[...new Set(FL.map(f=>f[k]).filter(Boolean))].sort(sort||((a,b)=>parseFloat(a)-parseFloat(b)||String(a).localeCompare(b)));$(id).innerHTML=`<option value="">${lab}</option>`+v.map(x=>`<option>${esc(x)}</option>`).join('')};
@@ -747,14 +761,14 @@ function fWyczysc(){for(const k of['pcd','sred','szer','et','otwor','rodzaj','pr
 const fNaStr=()=>Math.max(4,+CFG.felgi_na_stronie||20);
 const fDemoUkryj=()=>CFG.felgi_demo==='ukryj'&&FQ.demo!=='tylko';
 function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=+g('stan')||0,ud=fDemoUkryj();
- return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&!(ud&&f.demo)&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
+ return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&!(ud&&f.demo)&&!(FAUTO&&ATYLKO&&f.ocena==='nie')&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
  const nw=FWS.findIndex(x=>x.id===f.id);
  return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${+f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''}</span><span class="ce">${zl(f.cena)}</span></div>
- <div class="rw"><span class="muted buy">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${f.id}${f.kod?' · kod '+esc(f.kod):''}</div></div>`}
-function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).length:0;$('#fIle').textContent=L.length+' z '+FL.length+(nd?' · ukryto '+nd+' felg DEMO (wpisz „demo” w poleceniu albo zmień w Ustawieniach → Felgi)':'');$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
+ <div class="rw"><span class="muted buy">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${+f.id}${f.kod?' · kod '+esc(f.kod):''}</div>${f.ocena&&FAUTO?`<span class="foc ${esc(f.ocena)}">${{ok:'✔ ',zm:'✔ ',uw:'⚠ ',nie:'✖ '}[f.ocena]||''}${esc(f.ocena_txt||'')}</span>`:''}</div>`}
+function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).length:0,nn=FAUTO&&ATYLKO?FL.filter(f=>f.ocena==='nie').length:0;$('#fIle').textContent=L.length+' z '+FL.length+(nn?' · ukryto '+nn+' niepasujących do auta':'')+(nd?' · ukryto '+nd+' felg DEMO (wpisz „demo” w poleceniu albo zmień w Ustawieniach → Felgi)':'');$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
  $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
 /* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
    ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
@@ -783,7 +797,7 @@ function fWybrane(){const w=(x,f)=>x?`<div><b>${esc(x.nazwa)}</b><br><span class
 function fCialo(){const fotos={};for(const f of FWS){const z=(FZDJ[f.id]||[]).slice(0,4);if(!z.length&&f.foto)z.push(f.foto);if(z.length)fotos[f.id]=z}
  return {felgi:FWS.map(f=>f.id),fotos,ilosc:FIL,opona:FOP?{id:FOP.id,nazwa:FOP.nazwa,netto:FOP.netto,kod:FOP.kod,rozmiar:FOP.rozmiar||''}:null,il_op:FOP?(FILO??FIL):0,
   czujnik:FCZ?{id:FCZ.id,nazwa:FCZ.nazwa,netto:FCZ.netto,kod:FCZ.kod}:null,il_tp:FTP,montaz:FMON,typ:FTYP,depozyt:FDEP,ceny:FCENY,ceny_wym:FCENYW,rabat:FRAB,
-  klient:$('#fo_kl').value.trim(),oid:FOID,owner:FOWNER,oddzial:typeof OODD!=='undefined'?OODD:'',zapisz:FZAP?1:0}}
+  klient:$('#fo_kl').value.trim(),oid:FOID,owner:FOWNER,oddzial:typeof OODD!=='undefined'?OODD:'',zapisz:FZAP?1:0,auto:FAUTO,auto_pdf:FAUTO&&FAUTOPDF?1:0}}
 function fLiczD(){clearTimeout(FLT);FLT=setTimeout(fLicz,300)}
 function fUst(k,v){const n=x=>Math.max(0,Math.min(40,parseInt(x)||0));if(k==='il')FIL=Math.max(1,n(v)||1);else if(k==='ilo')FILO=n(v);else if(k==='tp')FTP=n(v);else if(k==='mon')FMON=!!v;else if(k==='typ')FTYP=v;else if(k==='dep')FDEP=v;
  else if(k[0]==='r')FRAB[k.slice(1)]=String(v).replace(',','.').trim();FPDF='';fLiczD()}
@@ -791,7 +805,10 @@ function fSetC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0||isNaN
 function fSetW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete FCENYW[k];else FCENYW[k]=Math.ceil(+v);FPDF='';fLiczD()}
 async function fLicz(){if(!FWS.length)return;FPDF='';$('#fwaInfo').textContent='';try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
  catch(e){msg('#foMsg',e.message,1)}}
-function fEditDraw(r){const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
+function fOfAutoDraw(){const a=FAUTO;$('#fOfAuto').innerHTML=a?`<div class="fauto" style="margin:0 0 10px">🚗 Dobrane do: <b>${esc(a.nazwa)}</b>
+ <label style="font-size:13px"><input type="checkbox" style="width:auto" ${FAUTOPDF?'checked':''} onchange="FAUTOPDF=this.checked;FPDF='';fLiczD()"> pokaż auto na PDF</label>
+ <span class="muted" style="flex-basis:100%">Dla mechanika: ${esc([a.gwint,a.moment,a.wybrane&&a.wybrane.cisn?'ciśnienie '+String(a.wybrane.cisn).replace('.',',')+' bar':''].filter(Boolean).join(' · ')||'brak danych')}</span></div>`:''}
+function fEditDraw(r){fOfAutoDraw();const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
  const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label>Rabat na felgi % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_felgi??90}" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label>Rabat na opony % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_opony??90}" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label>Rabat na montaż % <input type="number" step="1" min="0" max="${CFG.rabat_max_wym??100}" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div>`+
  r.edycja.map(u=>`<div class="r"><b style="min-width:380px">${u.nr?`<span class="fnr">${u.nr}</span>`:''}${esc(u.nazwa)}</b>${u.zakup?`<span class="tag buy">zakup ${zl(u.zakup)}</span>`:''}<span class="tag">wyliczona ${zl(u.auto)}</span>
@@ -831,9 +848,50 @@ async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.t
 function fUwPo(){if(FUWZM&&$('#fuw').value.trim())fZapiszUw()}
 async function fZHist(r,hh){widok('f');const czysc=x=>x&&+x.id>0?{id:+x.id,nazwa:String(x.nazwa||''),kod:String(x.kod||''),netto:+x.netto||0,rozmiar:String(x.rozmiar||'')}:null;
  FWS=(r.felgi_dane||[]).filter(f=>f&&+f.id>0).slice(0,fMax()).map(f=>({...f,id:+f.id,stan:+f.stan||0,cena:+f.cena||0,brutto_zak:+f.brutto_zak||0,nazwa:String(f.nazwa||''),kod:String(f.kod||''),sred:String(f.sred||''),foto:''}));FOP=czysc(r.opona);FCZ=czysc(r.czujnik);FZAP=true;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
- FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
+ FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FAUTO=r.auto&&typeof r.auto==='object'?r.auto:null;FAUTOPDF=r.auto_pdf!==false;fAutoDraw();FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
  $('#fo_kl').value=r.klient||'';$('#fuw').value=hh.uwagi||'';FUWZM=false;$('#fuwMsg').textContent='';$('#fuwInfo').textContent=hh.uwagi_at?'· ostatnia zmiana: '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
  if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();if(!$('#foMsg').textContent)msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny felg z aktualnej kopii xPartner, opon i czujników prosto z xPartner.');$('#fOf').scrollIntoView({behavior:'smooth'})}
+/* Dobór po aucie (2026-11-27): wheel-size przez funkcję serwera. Kontekst: 'f' – felgi (rozstaw, średnica, ocena felg),
+   'o' – oferta opon (rozmiar do szybkiego polecenia, auto do wiersza pojazdu z przełącznikiem). */
+let ACTX='f',AW=null,FAUTO=null,FAUTOPDF=true,ATYLKO=true;
+const aSel=(id,l,ph)=>{$(id).innerHTML=`<option value="">${ph}</option>`+l.map(x=>`<option value="${esc(x.slug)}">${esc(x.name)}</option>`).join('');$(id).disabled=!l.length};
+function aOstatnie(){let l=[];try{l=JSON.parse(localStorage.getItem('auto_ostatnie')||'[]')}catch(e){}return Array.isArray(l)?l:[]}
+async function aOtworz(ctx){ACTX=ctx;msg('#aMsg','');$('#aWyn').innerHTML='';adlg.showModal();
+ const o=aOstatnie();$('#aOst').innerHTML=o.length?'<span class="muted" style="font-size:12px">Ostatnie: </span>'+o.map((x,i)=>`<button class="sec" style="padding:2px 8px;font-size:12px" onclick="aWczytaj(${i})">${esc(x.nazwa)}</button>`).join(' '):'';
+ if(!$('#a_make').options.length||$('#a_make').options.length<2){aSel('#a_make',[],'wczytuję…');try{aSel('#a_make',(await api('/api/auto',{m:'makes'})).lista,'— marka —')}catch(e){msg('#aMsg',e.message,1)}}
+ if(!$('#a_model').options.length){aSel('#a_model',[],'— model —');aSel('#a_year',[],'— rok —');aSel('#a_mod',[],'— wersja —')}}
+async function aZmiana(k){const g=x=>$('#a_'+x).value;$('#aWyn').innerHTML='';msg('#aMsg','');try{
+ if(k==='make'){aSel('#a_model',[],'wczytuję…');aSel('#a_year',[],'— rok —');aSel('#a_mod',[],'— wersja —');if(g('make'))aSel('#a_model',(await api('/api/auto',{m:'models',make:g('make')})).lista,'— model —')}
+ if(k==='model'){aSel('#a_year',[],'wczytuję…');aSel('#a_mod',[],'— wersja —');if(g('model'))aSel('#a_year',(await api('/api/auto',{m:'years',make:g('make'),model:g('model')})).lista.sort((a,b)=>b.name-a.name),'— rok —')}
+ if(k==='year'){aSel('#a_mod',[],'wczytuję…');if(g('year'))aSel('#a_mod',(await api('/api/auto',{m:'modifications',make:g('make'),model:g('model'),year:g('year')})).lista,'— wersja —')}
+ if(k==='mod'&&g('mod'))await aRozmiary({make:g('make'),model:g('model'),modification:g('mod'),rok:g('year')})}catch(e){msg('#aMsg',e.message,1)}}
+async function aRozmiary(p){msg('#aMsg','Wczytuję rozmiary…');const r=await api('/api/auto',{m:'by_model',make:p.make,model:p.model,modification:p.modification});msg('#aMsg','');
+ AW=Object.assign(r.auto,{rok:p.rok||'',params:p});AW.nazwa=AW.nazwa+(p.rok?' ('+p.rok+')':'');
+ try{const o=aOstatnie().filter(x=>x.params&&x.params.modification!==p.modification);o.unshift({nazwa:AW.nazwa,params:p});localStorage.setItem('auto_ostatnie',JSON.stringify(o.slice(0,8)))}catch(e){}aRysuj()}
+async function aWczytaj(i){const x=aOstatnie()[i];if(!x)return;try{await aRozmiary(x.params)}catch(e){msg('#aMsg',e.message,1)}}
+function aRysuj(){const a=AW,f=v=>v==null||v===''?'<span class="muted">brak danych</span>':esc(String(v));const p0=(a.kola[0]||{}).przod||{};
+ const cis=k=>k.cisn?String(k.cisn).replace('.',','):'';
+ $('#aWyn').innerHTML=`<div style="margin-top:10px"><b style="font-size:16px">${esc(a.nazwa)}</b></div><div class="atech">
+ <div><small>Rozstaw śrub</small><b>${f(a.pcd)}</b></div><div><small>Otwór centralny</small><b>${a.cb?esc(String(a.cb).replace('.',','))+' mm':f('')}</b></div><div><small>Mocowanie</small><b>${f([a.mocowanie,a.gwint].filter(Boolean).join(' '))}</b></div>
+ <div><small>Moment dokręcenia</small><b>${f(a.moment)}</b></div><div><small>Ciśnienie (fabryczne koło)</small><b>${p0.cisn?esc(cis(p0))+' bar':f('')}</b></div><div><small>Lata produkcji</small><b>${f(a.lata)}</b></div></div>
+ ${ACTX==='o'?`<label style="font-size:13px"><input type="checkbox" id="a_poj" checked style="width:auto"> wpisz auto do oferty (pokaże się na PDF jako „Pojazd”)</label>`:''}
+ <table style="margin-top:8px"><tr><th>Rodzaj</th><th>Felga</th><th>Opona</th><th>Ciśnienie</th><th>Uwagi</th><th></th></tr>`+
+ a.kola.map((k,i)=>{const t=k.tyl;return `<tr><td><span class="${k.oe?'aoe':'azm'}">${k.oe?'fabryczny':'zamiennik'}</span></td><td>${esc(k.przod.felga)}${t?'<br><span class="muted">tył: '+esc(t.felga)+'</span>':''}</td>
+ <td>${esc(k.przod.opona_txt)}${t?'<br><span class="muted">tył: '+esc(t.opona_txt)+'</span>':''}</td><td>${k.przod.cisn?esc(cis(k.przod))+' bar':''}</td>
+ <td>${[k.zima?'zalecane na zimę':'',k.rf?'run flat':'',k.xl?'XL':'',k.stal?'felga stalowa':''].filter(Boolean).map(x=>`<span class="tag">${x}</span>`).join(' ')}</td>
+ <td style="white-space:nowrap">${ACTX==='f'?`<button class="sec" style="padding:3px 9px" onclick="aFelgi(${i})">🛞 Szukaj felg</button> `:''}${a.kola_opony[i]?`<button class="sec" style="padding:3px 9px" onclick="aOpony(${i})">🔎 Szukaj opon</button>`:''}</td></tr>`}).join('')+'</table>'+
+ (a.kola.length?'':'<div class="msg e">Brak rozmiarów kół w danych tej wersji.</div>')}
+function aAutoDane(i){const a=AW,k=a.kola[i];return {nazwa:a.nazwa,pcd:a.pcd,cb:a.cb,gwint:[a.mocowanie,a.gwint].filter(Boolean).join(' '),moment:a.moment,
+ kola:a.kola.map(x=>({oe:x.oe,przod:{sred:x.przod.sred,szer:x.przod.szer,et:x.przod.et,felga:x.przod.felga,opona:x.przod.opona,cisn:x.przod.cisn}})),
+ wybrane:{felga:k.przod.felga,opona:k.przod.opona_txt,cisn:k.przod.cisn,sred:k.przod.sred},opona:a.kola_opony[i]||''}}
+function aFelgi(i){FAUTO=aAutoDane(i);adlg.close();widok('f');const k=FAUTO.wybrane;$('#fq').value=[FAUTO.pcd,k.sred?'R'+Math.round(k.sred):'',(FQ.ilosc||4)+' szt'].filter(Boolean).join(' ');fAutoDraw();fSzukaj()}
+function aOpony(i){const roz=AW.kola_opony[i];if(!roz)return;const poj=ACTX==='o'&&$('#a_poj')&&$('#a_poj').checked?AW.nazwa:'';if(ACTX==='f')FAUTO=aAutoDane(i);adlg.close();
+ if(ACTX==='f'&&FWS.length){fWybierzOpony();$('#quick').value=roz+' '+(FIL||4)+' szt';quick();return}
+ widok('o');$('#quick').value=roz+' 4 szt';quick().then(()=>{if(poj){const e=document.querySelector('#veh tbody tr .poj');if(e&&!e.value)e.value=poj}})}
+function fAutoDraw(){const b=$('#fAuto');if(!FAUTO){b.style.display='none';b.innerHTML='';return}b.style.display='';
+ b.innerHTML=`🚗 <b>${esc(FAUTO.nazwa)}</b><span class="muted">${esc(FAUTO.pcd||'')}${FAUTO.cb?' · otwór '+esc(String(FAUTO.cb)):''}${FAUTO.wybrane&&FAUTO.wybrane.felga?' · fabrycznie '+esc(FAUTO.wybrane.felga):''}</span>
+ <label style="font-size:13px"><input type="checkbox" style="width:auto" ${ATYLKO?'checked':''} onchange="ATYLKO=this.checked;fRender(true)"> tylko pasujące</label>
+ <button class="sec" style="padding:2px 9px" onclick="aOtworz('f')">zmień auto</button><button class="sec" style="padding:2px 9px" onclick="FAUTO=null;fAutoDraw();if(FL.length)fSzukaj()">✕ bez auta</button>`}
 function widok(v){$('#mainO').style.display=v==='o'?'':'none';$('#mainT').style.display=v==='t'?'':'none';$('#mainF').style.display=v==='f'?'':'none';$('#segO').classList.toggle('on',v==='o');$('#segT').classList.toggle('on',v==='t');$('#segF').classList.toggle('on',v==='f');if(v==='f'){$('#fq').focus()}try{localStorage.setItem('oferty_widok',v)}catch(e){}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
 async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
  const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};
