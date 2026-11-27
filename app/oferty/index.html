@@ -325,6 +325,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <label class="usl">„Pasuje” do ± mm<input id="c_auto_et_ok" type="number" min="0" max="50"></label>
 <label class="usl">„Sprawdź” do ± mm (dalej: nie pasuje)<input id="c_auto_et_ostrz" type="number" min="0" max="80"></label>
 <div id="wsBox" style="grid-column:1/3"></div>
+<div id="fotoBox" style="grid-column:1/3"></div>
 <div class="csek" style="grid-column:1/3">Wyszukiwanie</div>
 <label>Felgi DEMO (z demontażu)<select id="c_felgi_demo"><option value="pokaz">pokazuj</option><option value="ukryj">ukrywaj (chyba że wpiszesz „demo”)</option></select></label>
 <label>Kafelków na stronę<input id="c_felgi_na_stronie" type="number" min="4" max="200"></label>
@@ -606,6 +607,14 @@ function progiHtml(arr,nazwa){const rys=nazwa==='PROGI'?'drawProgi':'drawFProgi'
 function drawProgi(){const k=document.querySelector('input[name=ntryb]:checked')?.value||'procent';$('#lblMarza').style.display=k==='procent'?'':'none';$('#progiBox').innerHTML=k==='kwota'?progiHtml(PROGI,'PROGI'):'';cenyBlok()}
 function drawFProgi(){const k=document.querySelector('input[name=ftryb]:checked')?.value||'procent';$('#lblMarzaF').style.display=k==='procent'?'':'none';$('#fprogiBox').innerHTML=k==='kwota'?progiHtml(FPROGI,'FPROGI'):'';cenyBlok()}
 function cTab(b){document.querySelectorAll('.ctabs button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.cpane').forEach(p=>p.classList.toggle('on',p.dataset.t===b.dataset.t));try{localStorage.setItem('oferty_cfg_tab',b.dataset.t)}catch(e){}}
+async function fotoStan(){const b=$('#fotoBox');if(!b)return;if(!CFG.admin){b.innerHTML='';return}
+ try{const r=await api('/api/felgi_foto_stan',{});const n=x=>(+x||0).toLocaleString('pl-PL');
+  let t=`Zdjęcia felg w bazie: <b>${n(r.w_bazie)}</b> felg ze zdjęciem · sprawdzonych ${n(r.sprawdzone)}`;
+  if(r.trwa)t+=` · <b>pobieram w tle: ${n(r.zrobione)} z ${n(r.wszystkie)}</b>`;else if(r.login)t+=' · <b style="color:#b00012">zaloguj się do xPartner (Felgi → okienko xPartner), wtedy dokończę</b>';
+  else if(r.blad||r.blad_bazy)t+=' · <span style="color:#b00012">błąd: '+esc(r.blad||r.blad_bazy)+'</span>';else if(r.start&&r.wszystkie)t+=` · ostatnio pobrane: ${n(r.zapisane)} nowych`;
+  b.innerHTML='<div class="csek">Zdjęcia felg (dla pracowników – bez logowania do xPartner)</div><span class="muted" style="font-size:13px">'+t+
+   '<br>Nowe felgi pobierają się same, gdy administrator otwiera Oferty; felgi bez zdjęcia w xPartner – ponownie co tydzień.</span>';
+  if(r.trwa&&dlg.open)setTimeout(fotoStan,5000)}catch(e){b.innerHTML=''}}
 async function wsRaport(lim){const b=$('#wsBox');if(!CFG.admin){b.innerHTML='';return}b.innerHTML='<div class="csek">Dobór po aucie – zużycie zapytań API (wheel-size)</div><span class="muted">wczytuję…</span>';
  try{const r=await api(lim?'/api/ws_limit':'/api/ws_raport',lim?{limit:lim}:{dni:7});const p=Math.min(100,Math.round(100*(r.dzis||0)/Math.max(1,r.limit||1)));
   const kol=p>=100?'#b00012':p>=80?'#d97706':'#16a34a',mx=Math.max(1,...(r.dni||[]).map(d=>d.n));
@@ -624,7 +633,7 @@ function openCfg(){for(const k of CNUM)$('#c_'+k).value=CFG[k]??'';for(const k o
  PROGI=JSON.parse(JSON.stringify(CFG.progi||[]));FPROGI=JSON.parse(JSON.stringify(CFG.felgi_progi||[]));
  document.querySelectorAll('input[name=ntryb]').forEach(r=>r.checked=r.value===(CFG.narzut_tryb||'procent'));document.querySelectorAll('input[name=ftryb]').forEach(r=>r.checked=r.value===(CFG.felgi_tryb||'procent'));
  drawProgi();drawFProgi();drawOddz();msg('#cMsg','');let t='op';try{t=localStorage.getItem('oferty_cfg_tab')||'op'}catch(e){}
- cTab(document.querySelector(`.ctabs button[data-t="${t}"]`)||document.querySelector('.ctabs button[data-t="op"]'));cenyBlok();dlg.showModal();wsRaport()}
+ cTab(document.querySelector(`.ctabs button[data-t="${t}"]`)||document.querySelector('.ctabs button[data-t="op"]'));cenyBlok();dlg.showModal();wsRaport();fotoStan()}
 function cenyBlok(){const o=CFG.ceny_oddzial,ed=CFG.ceny_edycja;$('#cenyInfo').textContent=o?(ed?'– wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':'– ustala administrator dla oddziału '+o):'';
  document.querySelectorAll('#cenyBox input,#cenyBox button,#fcenyBox input,#fcenyBox button,#c_marza_proc,#c_wym input,.usl input,.usl select').forEach(e=>e.disabled=!ed);
  document.querySelectorAll('.uslInfo').forEach(e=>e.textContent=o?(ed?' – wspólne dla oddziału '+o+' (zmieniasz dla wszystkich)':' – ustala administrator'):'')}
@@ -754,18 +763,21 @@ async function kZamow(){const b=$('#kZam');if(b.disabled||KSENT)return;b.disable
 
 // ---------------------------------------------------------------- CZUJNIKI TPMS (2026-11-17): wyszukiwanie + wspólny koszyk, bez ofert
 let TL=[],TQ={ilosc:4},TROD={};
-let FL=[],FQ={ilosc:4},FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_TRWA=false,FZDJ_PON=false;
-try{FZDJ=JSON.parse(localStorage.getItem('felgi_zdjecia2')||'{}')||{};localStorage.removeItem('felgi_zdjecia')}catch(e){FZDJ={}}   // felgi_zdjecia2: puste wyniki nie są zapamiętywane na stałe
+let FL=[],FQ={ilosc:4},FOP=null,FCZ=null,FPOK=200,FZDJ={},FZDJ_W=new Set(),FZDJ_TRWA=false,FZDJ_PON=false;
+try{localStorage.removeItem('felgi_zdjecia2');localStorage.removeItem('felgi_zdjecia')}catch(e){}   // od 1.2.29 zdjęcia z bazy (w pamięci okna)
 async function fZdjecia(wymus){if(FZDJ_TRWA){FZDJ_PON=true;return}FZDJ_TRWA=true;const zrob=new Set();
  try{while(true){FZDJ_PON=false;const L=fFiltr().slice(0,FPOK).map(f=>f.id).filter(id=>!zrob.has(id)&&(wymus||!(id in FZDJ))).slice(0,30);   // po 30 – wszystkie widoczne felgi, kolejno
   if(!L.length){if(FZDJ_PON)continue;break}L.forEach(id=>zrob.add(id));
-  const r=await api('/api/felgi_zdjecia',{ids:L});if(r.login){msg('#fMsg','Zdjęcia felg: zaloguj się do xPartner w okienku, które się otworzyło (tylko raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);return}
-  if(r.login_karta)msg('#fMsg','Części zdjęć xPartner pokazuje tylko po zalogowaniu na stronie xPartner – zaloguj się w okienku, które się otworzyło (raz), potem kliknij „🖼 Pobierz zdjęcia”.',1);
-  if(r.diag_karta||r.blad_karta)console.log('karta',r.diag_karta,r.blad_karta);
-  for(const id of L)FZDJ[id]=(r.zdjecia||{})[id]||[];try{const kl=Object.keys(FZDJ);if(kl.length>4000)for(const k of kl.slice(0,kl.length-4000))delete FZDJ[k];localStorage.setItem('felgi_zdjecia2',JSON.stringify(Object.fromEntries(Object.entries(FZDJ).filter(([,v])=>v&&v.length))))}catch(e){}
-  fRender(true);if(FWS.length){fWybDraw();if(FR){fSumDraw(FR)}}}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
+  const r=await api('/api/felgi_zdjecia',{ids:L});
+  if(r.login)msg('#fMsg','Zdjęcia felg (administrator): zaloguj się do xPartner w okienku, które się otworzyło – nowe zdjęcia trafią do bazy dla wszystkich.',1);
+  else if(r.login_karta)msg('#fMsg','Części zdjęć xPartner pokazuje tylko po zalogowaniu na stronie xPartner – zaloguj się w okienku, które się otworzyło (raz).',1);
+  const w=new Set((r.wkrotce||[]).map(Number));
+  for(const id of L){const z=(r.zdjecia||{})[id];if(z&&z.length)FZDJ[id]=z;else if(w.has(+id)){delete FZDJ[id];FZDJ_W.add(+id)}else FZDJ[id]=[];if(!w.has(+id))FZDJ_W.delete(+id)}
+  const kl=Object.keys(FZDJ);if(kl.length>400){const zost=new Set([...FWS.map(f=>String(f.id)),...L.map(String)]);for(const k of kl.slice(0,kl.length-400))if(!zost.has(k))delete FZDJ[k]}
+  fRender(true);if(FWS.length){fWybDraw();if(FR){fSumDraw(FR)}}if(r.login)break}}catch(e){msg('#fMsg',e.message,1)}finally{FZDJ_TRWA=false}}
 const fFoto=f=>(FZDJ[f.id]||[])[0]||f.foto||'';
 const FPH='<div class="ph">⚙️</div>';
+const fPh=f=>FZDJ_W.has(+f.id)?'<div class="ph" style="flex-direction:column;gap:4px">⚙️<small style="font-size:11px">zdjęcie wkrótce</small></div>':FPH;
 async function fSzukaj(){const b=$('#fB');b.disabled=true;if(!FWS.length){fNowa();fWybrane()}msg('#fMsg','Szukam…');try{const r=await api('/api/felgi',{q:$('#fq').value,auto:FAUTO});if(r.auto)FAUTO=aZSerwera(r.auto);fAutoDraw();if(FWS.length)fOfAutoDraw();
  if(r.ostrzezenie)setTimeout(()=>{const m=$('#fMsg');m.insertAdjacentHTML('beforeend','<div class="msg e" style="margin-top:6px">'+esc(r.ostrzezenie)+'</div>')},0);FL=r.lista||[];FQ=r.q||{ilosc:4};$('#fWzor').textContent=r.wzor||('cena oferty = zakup netto + marża '+r.marza+'% + VAT');
  FPOK=fNaStr();$('#ff_stan').value=+CFG.felgi_min_stan||'';msg('#fMsg',(r.zrodlo||'')+(FL.length?'':' – nic nie znalazłem; zmień polecenie (np. sam rozstaw „5x112” albo „R17”).'),!FL.length);fOpcje();fRender();$('#fFilt').style.display=FL.length?'':'none';$('#fCard').style.display=FL.length?'':'none'}
@@ -781,12 +793,12 @@ function fFiltr(){const g=k=>$('#ff_'+k).value,t=g('t').trim().toUpperCase(),ms=
  return FL.filter(f=>(!g('pcd')||f.pcd===g('pcd'))&&(!g('sred')||f.sred===g('sred'))&&(!g('szer')||f.szer===g('szer'))&&(!g('et')||f.et===g('et'))&&(!g('otwor')||f.otwor===g('otwor'))&&(!g('rodzaj')||f.rodzaj===g('rodzaj'))&&(!g('prod')||f.producent===g('prod'))&&f.stan>=ms&&!(ud&&f.demo)&&!(FAUTO&&ATYLKO&&f.ocena==='nie')&&(!t||(f.nazwa+' '+f.id+' '+f.kod+' '+f.model).toUpperCase().includes(t)))}
 function fKafel(f){const il=FQ.ilosc||4,ch=[f.rodzaj,f.szer&&f.sred?f.szer+'x'+f.sred+'"':'',f.pcd,f.et?'ET'+f.et:'',f.otwor?'⌀'+f.otwor:'',f.demo?'DEMO':''].filter(Boolean);
  const nw=FWS.findIndex(x=>x.id===f.id);
- return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${+f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:FPH}
+ return `<div class="fw${nw>=0?' on':''}${f.stan<il?' malo':''}" onclick="fWybierz(${+f.id})"><span class="bw">${nw>=0?(nw+1)+' wybr.':'wybierz'}</span>${fFoto(f)?`<img class="ph" src="${esc(fFoto(f))}" alt="" loading="lazy" onerror="this.outerHTML=FPH">`:fPh(f)}
  <div class="nm">${esc(f.nazwa)}</div><div class="ch">${ch.map(x=>`<span>${esc(x)}</span>`).join('')}</div>
  <div class="rw"><span>Stan <span class="st">${f.stan>=50?'50+':f.stan}</span>${f.stan<il?` <span class="warn">⚠ tylko ${f.stan}</span>`:''}</span><span class="ce">${zl(f.cena)}</span></div>
  <div class="rw"><span class="muted buy">zakup ${zl(f.brutto_zak)} brutto</span><span class="muted">oferta / szt.</span></div><div class="muted" style="font-size:11px;margin-top:3px">Indeks ${+f.id}${f.kod?' · kod '+esc(f.kod):''}</div>${f.ocena&&FAUTO?`<span class="foc ${esc(f.ocena)}">${{ok:'✔ ',zm:'✔ ',uw:'⚠ ',nie:'✖ '}[f.ocena]||''}${esc(f.ocena_txt||'')}</span>`:''}</div>`}
 function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).length:0,nn=FAUTO&&ATYLKO?FL.filter(f=>f.ocena==='nie').length:0;$('#fIle').textContent=L.length+' z '+FL.length+(nn?' · ukryto '+nn+' niepasujących do auta':'')+(nd?' · ukryto '+nd+' felg DEMO (wpisz „demo” w poleceniu albo zmień w Ustawieniach → Felgi)':'');$('#fRes').innerHTML=L.slice(0,FPOK).map(fKafel).join('');
- $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Pobierz zdjęcia</button>`;if(!bez)fZdjecia()}
+ $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Odśwież zdjęcia</button>`;if(!bez)fZdjecia()}
 /* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
    ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
 let FZAP=false,FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;

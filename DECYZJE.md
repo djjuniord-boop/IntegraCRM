@@ -87,6 +87,12 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
   dwóch wygrywa, administrator bez limitu), **„Kopiuj uprawnienia z konta”**. Ceny zakupu widzi każdy (przełącznik „ukryj
   ceny zakupu” zostaje – na pokazanie ekranu klientowi). Historia: jak dotąd – swoje, z filtrem na innych użytkowników.
 
+## ZDJĘCIA FELG Z BAZY (2026-11-27)
+- Pracownicy **nie logują się do xPartner** dla zdjęć felg – zdjęcia biorą z bazy (schowek `felgi-foto` + tabela `xp_felgi_foto`).
+- Zdjęcia do bazy pobiera **tylko administrator** (zalogowany w xPartner w programie): zmniejszone JPEG (dłuższy bok 640 px, najwyżej 3 na felgę).
+- **Automatycznie**: przy każdym wejściu administratora w Oferty – w tle nowe felgi; felgi bez zdjęcia w xPartner sprawdzane ponownie co tydzień.
+- Felga jeszcze niesprawdzona → u pracownika rysunek z napisem „zdjęcie wkrótce”. Pierwsze wydanie: najpierw beta.
+
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
 - Dostawa tylko na adres oddziału konta.

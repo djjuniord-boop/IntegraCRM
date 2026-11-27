@@ -1103,3 +1103,46 @@ def test_uprawnienia_ceny_dobor_rabat_osoby():
         for k in ("katalog", "ceny", "dobor", "rabat_osoby"):
             S.KONTO.pop(k, None)
         S.KONTO["admin"] = False
+
+
+def test_zdjecia_felg_z_bazy():
+    """2026-11-27: zdjęcia felg w bazie – pracownik bierze je z bazy (bez xPartner), administrator zapisuje JPEG,
+    felgi bez zdjęcia sprawdzane ponownie po tygodniu; do PDF trafiają tylko zdjęcia JPEG z bazy albo adresy xPartner."""
+    import base64
+    import datetime as dt
+    from oferty import zdjecia as Z
+    jpg = b"\xff\xd8\xff\xe0" + b"x" * 200
+    d = Z.data_z_jpeg(jpg)
+    assert Z.jpeg_z_data(d) == jpg and Z.jpeg_z_data("data:image/png;base64," + base64.b64encode(jpg).decode()) is None
+    assert Z.jpeg_z_data("data:image/jpeg;base64," + base64.b64encode(b"<svg>" * 50).decode()) is None   # nie JPEG
+    assert Z.jpeg_z_data("javascript:alert(1)") is None
+    teraz = dt.datetime(2026, 11, 27, tzinfo=dt.timezone.utc)
+    wiersze = [{"id": 1, "pliki": 2, "sprawdzono": "2026-11-01T00:00:00+00:00"},
+               {"id": 2, "pliki": 0, "sprawdzono": "2026-11-26T00:00:00+00:00"},
+               {"id": 3, "pliki": 0, "sprawdzono": "2026-11-10T00:00:00+00:00"}]
+    assert Z.do_pobrania([1, 2, 3, 4], wiersze, teraz) == [4, 3]   # nowa, potem bez zdjęcia sprzed tygodnia
+    pliki, rows, pobrane = {}, {}, []
+    def pobierz(n):
+        pobrane.append(n)
+        return pliki.get(n)
+    B = Z.ZdjeciaBaza(lambda ids: [dict(id=i, pliki=rows[i]) for i in ids if i in rows], pobierz,
+                      lambda n, b: pliki.__setitem__(n, b), lambda i, p: rows.__setitem__(i, p))
+    zap = B.zapisz(7, [d, d, d, d, "data:image/jpeg;base64,AAAA"])
+    assert len(zap) == 3 and rows[7] == 3 and sorted(pliki) == ["7_1.jpg", "7_2.jpg", "7_3.jpg"]
+    assert B.zapisz(8, []) == [] and rows[8] == 0   # sprawdzona, bez zdjęcia
+    B2 = Z.ZdjeciaBaza(B.wiersze, pobierz)
+    out, brak = B2.z_bazy([7, 8, 9])
+    assert out[7] == [d, d, d] and out[8] == [] and brak == [9]
+    n = len(pobrane)
+    assert B2.z_bazy([7])[0][7] == [d, d, d] and len(pobrane) == n   # drugi raz z pamięci
+    S = __import__("oferty.silnik", fromlist=["x"])
+    assert S.foto_ok(d) and S.foto_ok("https://xpartner.net.pl/descriptionFiles/images/1/abc.jpg")
+    assert not S.foto_ok('data:image/jpeg;base64,AAAA"><script>') and not S.foto_ok("https://zly.pl/a.jpg")
+    _setup()
+    felgi = [{"id": 2, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "FELGA ALU 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8}]
+    S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    try:
+        st, r = S.handle("/api/felgi_pdf", {"felgi": [2], "ilosc": 4, "fotos": {"2": ["javascript:x", d]}})
+        assert st == 200 and d in r["html"] and "javascript:x" not in r["html"]   # zdjęcie z bazy wbudowane w PDF
+    finally:
+        S.KONTO.pop("katalog", None)

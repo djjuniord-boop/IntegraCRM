@@ -47,6 +47,49 @@ def _db(method, path, body=None, prefer="return=representation"):
     return cloud._http(method, path, body, _token(), prefer)
 
 
+# ---------- zdjęcia felg w bazie (schowek „felgi-foto” + tabela xp_felgi_foto) ----------
+FOTO_BUCKET = "felgi-foto"
+
+
+def _storage(method, nazwa, dane=None, timeout=30):
+    import cloud
+    url = cloud.URL + ("/storage/v1/object/authenticated/" if method == "GET" else "/storage/v1/object/") + FOTO_BUCKET + "/" + urllib.parse.quote(nazwa)
+    h = {"apikey": cloud.ANON_KEY, "Authorization": "Bearer " + _token()}
+    if dane is not None:
+        h.update({"Content-Type": "image/jpeg", "x-upsert": "true"})
+    req = urllib.request.Request(url, data=dane, method=method, headers=h)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return r.read()
+    except urllib.error.HTTPError as e:
+        if method == "GET" and e.code in (400, 404):
+            return None
+        raise RuntimeError("schowek zdjęć: HTTP %d %s" % (e.code, e.read()[:120].decode("utf-8", "replace")))
+
+
+def _foto_wiersze(ids):
+    ids = [int(i) for i in ids][:200]
+    if not ids:
+        return []
+    return _db("GET", "/rest/v1/xp_felgi_foto?select=id,pliki,sprawdzono&id=in.(%s)" % ",".join(map(str, ids))) or []
+
+
+def _foto_wszystkie():
+    out = []
+    for od in range(0, 50000, 1000):
+        rows = _db("GET", "/rest/v1/xp_felgi_foto?select=id,pliki,sprawdzono&order=id&limit=1000&offset=%d" % od) or []
+        out += rows
+        if len(rows) < 1000:
+            break
+    return out
+
+
+def _foto_zapisz_wiersz(i, pliki):
+    _db("POST", "/rest/v1/xp_felgi_foto?on_conflict=id",
+        {"id": int(i), "pliki": int(pliki), "sprawdzono": datetime.datetime.now(datetime.timezone.utc).isoformat()},
+        prefer="resolution=merge-duplicates,return=minimal")
+
+
 class Historia:
     """Historia ofert w bazie (tabela oferty): użytkownik – swoje, administrator – wszystkie (RLS)."""
     admin = False
@@ -503,6 +546,12 @@ await Promise.all([w(),w(),w()]);return JSON.stringify({zdjecia:out,login:login}
 OBRAZY_JS = """window.__img=null;(async()=>{const out={};for(const u of %s){try{const b=await (await fetch(u,{credentials:'include'})).blob();
 out[u]=await new Promise(r=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=()=>r('');f.readAsDataURL(b)})}catch(e){}}
 return JSON.stringify(out)})().then(x=>{window.__img=x},e=>{window.__img='{}'});1"""
+# Zdjęcia felg do bazy: pobrane w oknie xpartner.net.pl (ta sama domena – bez blokad), zmniejszone do JPEG (dłuższy bok 640 px).
+MALE_JS = """window.__male=null;(async()=>{const out={};for(const u of %s){try{const b=await (await fetch(u,{credentials:'include'})).blob();
+const im=await createImageBitmap(b);const k=Math.min(1,640/Math.max(im.width,im.height));const c=document.createElement('canvas');
+c.width=Math.max(1,Math.round(im.width*k));c.height=Math.max(1,Math.round(im.height*k));const x=c.getContext('2d');x.fillStyle='#fff';x.fillRect(0,0,c.width,c.height);
+x.drawImage(im,0,0,c.width,c.height);out[u]=c.toDataURL('image/jpeg',0.8)}catch(e){}}
+return JSON.stringify(out)})().then(x=>{window.__male=x},e=>{window.__male='{}'});1"""
 # pywebview 5.4 nie czeka na Promise w evaluate_js – skrypt zapisuje wynik w window.__zdj, program go odpytuje
 
 
@@ -512,12 +561,120 @@ class Api:
         self._kw = None
         self._kw_gotowe = threading.Event()
         self._kw_lock = threading.Lock()
+        self._xp_lock = threading.Lock()   # jedno pobieranie zdjęć z xPartner naraz (wspólne ukryte okna)
+        self._foto = None
+        self._tlo_stan = {"trwa": False, "zrobione": 0, "wszystkie": 0, "zapisane": 0, "login": False, "blad": "", "start": False}
         self._kw2 = None
         self._kw2_gotowe = threading.Event()
 
+    def foto(self):
+        if self._foto is None:
+            from oferty import zdjecia
+            self._foto = zdjecia.ZdjeciaBaza(_foto_wiersze, lambda n: _storage("GET", n), lambda n, b: _storage("POST", n, b),
+                                             _foto_zapisz_wiersz)
+        return self._foto
+
     def _zdjecia(self, ids):
-        """{id: [adresy zdjęć]} dla felg. Pierwszy raz otwiera ukryte okno konfiguratora xPartner; gdy xPartner
-        prosi o zalogowanie – pokazuje to okno (użytkownik loguje się sam, ciasteczko zostaje w profilu programu)."""
+        """Zdjęcia felg dla Panelu: {zdjecia: {id: [data:image/jpeg…]}, wkrotce: [id]} – z bazy (bez logowania do xPartner).
+        Administrator: felgi jeszcze niesprawdzone pobiera z xPartner i zapisuje w bazie (decyzja właściciela 2026-11-27)."""
+        from oferty import silnik
+        ids = [int(x) for x in ids if str(x).isdigit()][:80]
+        out, brak = self.foto().z_bazy(ids)
+        wynik = {"zdjecia": {str(k): v for k, v in out.items()}, "wkrotce": brak}
+        if brak and silnik.KONTO.get("admin"):
+            d = self._zdjecia_do_bazy(brak, pokaz=True)
+            wynik["zdjecia"].update(d.get("zdjecia") or {})
+            wynik["wkrotce"] = [i for i in brak if str(i) not in wynik["zdjecia"]]
+            for k in ("login", "login_karta"):
+                if d.get(k):
+                    wynik[k] = True
+        return wynik
+
+    def _zdjecia_do_bazy(self, ids, pokaz=False):
+        """Administrator: adresy zdjęć z xPartner -> zmniejszone JPEG -> baza. {zdjecia: {id: [data:]}, login?}."""
+        with self._xp_lock:
+            d = self._zdjecia_xp(ids, pokaz)
+            if d.get("zdjecia") is None:
+                return {"zdjecia": {}, "login": True}
+            adresy = {str(i): list(dict.fromkeys(d["zdjecia"].get(str(i)) or []))[:3] for i in ids}
+            mapa = self._male(sorted({u for v in adresy.values() for u in v}))
+        out = {}
+        for i in ids:
+            us = adresy[str(i)]
+            obrazy = [mapa[u] for u in us if u in mapa]
+            if us and not obrazy:
+                continue   # są adresy, ale nie udało się pobrać – spróbujemy później
+            if not us and d.get("login_karta"):
+                continue   # karta produktu wymaga logowania – nie wiadomo, czy zdjęcia są
+            out[str(i)] = self.foto().zapisz(i, obrazy)
+        return {"zdjecia": out, "login_karta": bool(d.get("login_karta"))}
+
+    def _male(self, urls):
+        """Adresy zdjęć xPartner -> {adres: data:image/jpeg} (ukryte okno na xpartner.net.pl, po 12 naraz)."""
+        import webview
+        if not urls:
+            return {}
+        with self._kw_lock:
+            if self._kw2 is None:
+                self._kw2_gotowe.clear()
+                self._kw2 = webview.create_window("xPartner – zdjęcia felg (karta produktu)", url=XPARTNER_LISTA, hidden=True, width=1000, height=760)
+                self._kw2.events.loaded += lambda: self._kw2_gotowe.set()
+                self._kw2.events.closed += lambda: setattr(self, "_kw2", None)
+        self._kw2_gotowe.wait(25)
+        out = {}
+        for od in range(0, len(urls), 12):
+            w = self._kw2
+            if w is None:
+                break
+            w.evaluate_js(MALE_JS % json.dumps(urls[od:od + 12]))
+            wynik = None
+            for _ in range(160):
+                time.sleep(0.25)
+                wynik = w.evaluate_js("window.__male")
+                if wynik:
+                    break
+            try:
+                m = json.loads(wynik) if isinstance(wynik, str) else {}
+            except ValueError:
+                m = {}
+            out.update({u: v for u, v in m.items() if isinstance(v, str) and v.startswith("data:image/jpeg;base64,")})
+        return out
+
+    def tlo_start(self):
+        """Administrator: po wejściu w Oferty – w tle uzupełnia zdjęcia nowych felg (i co tydzień tych bez zdjęcia)."""
+        if self._tlo_stan["start"]:
+            return
+        self._tlo_stan["start"] = True
+        threading.Thread(target=self._tlo, daemon=True).start()
+
+    def _tlo(self):
+        from oferty import silnik, zdjecia
+        st = self._tlo_stan
+        try:
+            time.sleep(15)   # najpierw niech Panel się wczyta
+            kat = silnik.KONTO.get("katalog")
+            felgi = kat.felgi() if kat else None
+            if not felgi:
+                return
+            lista = zdjecia.do_pobrania([f["id"] for f in felgi], _foto_wszystkie())
+            st.update(trwa=True, wszystkie=len(lista), zrobione=0)
+            for od in range(0, len(lista), 10):
+                d = self._zdjecia_do_bazy(lista[od:od + 10], pokaz=False)
+                if d.get("login"):
+                    st["login"] = True
+                    break
+                st["zrobione"] = min(len(lista), od + 10)
+                st["zapisane"] += sum(1 for v in d["zdjecia"].values() if v)
+                time.sleep(0.5)
+        except Exception as e:
+            st["blad"] = str(e)[:200]
+            gui_log("zdjęcia felg w tle: %s" % e)
+        finally:
+            st["trwa"] = False
+
+    def _zdjecia_xp(self, ids, pokaz=True):
+        """{id: [adresy zdjęć]} z xPartner. Pierwszy raz otwiera ukryte okno konfiguratora xPartner; gdy xPartner
+        prosi o zalogowanie – pokazuje to okno (pokaz=True; użytkownik loguje się sam, ciasteczko zostaje w profilu programu)."""
         import webview
         ids = [int(x) for x in ids if str(x).isdigit()][:80]
         if not ids:
@@ -550,7 +707,7 @@ class Api:
                 brak = [i for i in ids if not d["zdjecia"].get(str(i))]
                 if brak:   # konfigurator nie ma zdjęć części felg – są na karcie produktu w xPartner
                     try:
-                        d["zdjecia"].update(self._zdjecia_karta(brak))
+                        d["zdjecia"].update(self._zdjecia_karta(brak, pokaz))
                         d["diag_karta"] = getattr(self, "_karta_diag", "")
                         if getattr(self, "_karta_login", False):
                             d["login_karta"] = True
@@ -558,10 +715,11 @@ class Api:
                         d["blad_karta"] = str(e)[:200]
                 return d
             self._kw_gotowe.clear()
-        try:
-            self._kw.show()
-        except Exception:
-            pass
+        if pokaz:
+            try:
+                self._kw.show()
+            except Exception:
+                pass
         return {"login": True}
 
     def _wbuduj_zdjecia(self, html):
@@ -596,7 +754,7 @@ class Api:
                 html = html.replace(u, d)
         return html
 
-    def _zdjecia_karta(self, ids):
+    def _zdjecia_karta(self, ids, pokaz=True):
         """Zdjęcia z karty produktu xPartner (ta sama sesja co konfigurator) – drugie ukryte okno na xpartner.net.pl."""
         import webview
         with self._kw_lock:
@@ -631,10 +789,11 @@ class Api:
                                                                    sum(len(v or []) for v in (d.get("zdjecia") or {}).values()))
         if d.get("login"):   # w xPartner (strona) trzeba się zalogować – pokaż okno, użytkownik loguje się sam
             self._karta_login = True
-            try:
-                w.show()
-            except Exception:
-                pass
+            if pokaz:
+                try:
+                    w.show()
+                except Exception:
+                    pass
             return {}
         self._karta_login = False
         return {k: v for k, v in (d.get("zdjecia") or {}).items() if v}
@@ -674,11 +833,23 @@ class Api:
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
         if path == "/api/felgi_zdjecia" and not silnik.modul("felgi"):
             return {"code": 403, "body": {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}}
-        if path == "/api/felgi_zdjecia":   # zdjęcia felg z konfiguratora xPartner (decyzja właściciela 2026-11-26)
+        if silnik.KONTO.get("admin") and silnik.modul("felgi"):
+            self.tlo_start()   # zdjęcia nowych felg do bazy – w tle, u administratora
+        if path == "/api/felgi_zdjecia":   # zdjęcia felg z bazy; administrator dopisuje brakujące z xPartner (2026-11-27)
             try:
                 return {"code": 200, "body": self._zdjecia((body or {}).get("ids") or [])}
             except Exception as e:
-                return {"code": 502, "body": {"error": f"Nie udało się pobrać zdjęć z xPartner: {e}"}}
+                return {"code": 502, "body": {"error": f"Nie udało się pobrać zdjęć felg: {e}"}}
+        if path == "/api/felgi_foto_stan":
+            if not silnik.KONTO.get("admin"):
+                return {"code": 403, "body": {"error": "Tylko administrator."}}
+            st = dict(self._tlo_stan)
+            try:
+                w = _foto_wszystkie()
+                st.update(w_bazie=sum(1 for x in w if int(x.get("pliki") or 0)), sprawdzone=len(w))
+            except Exception as e:
+                st["blad_bazy"] = str(e)[:200]
+            return {"code": 200, "body": st}
         if path == "/api/whatsapp":   # PDF do schowka + otwarcie WhatsApp (decyzja właściciela 2026-11-18)
             try:
                 return {"code": 200, "body": whatsapp_pdf((body or {}).get("plik") or "")}

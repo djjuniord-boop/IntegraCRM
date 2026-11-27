@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.28"
+VERSION = "1.2.29"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.29",
+        "date": "2026-11-27",
+        "changes": ["Felgi: zdjęcia z bazy – pracownicy nie muszą logować się do xPartner (bez okienka logowania)",
+                    "Felgi: nowe zdjęcia pobiera w tle administrator przy wejściu w Oferty; felga jeszcze bez zdjęcia ma napis „zdjęcie wkrótce”",
+                    "Ustawienia → Felgi (administrator): ile felg ma zdjęcie w bazie i postęp pobierania",
+                    "Zdjęcia felg w PDF ofert także u pracowników (wbudowane z bazy)"],
+    },
     {
         "version": "1.2.28",
         "date": "2026-11-27",

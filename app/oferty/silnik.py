@@ -1494,7 +1494,7 @@ def felgi_licz(cfg, body):
     for i, f in enumerate(felgi):
         auto = cena_po_rabacie(f["cena"], rf)
         fe = dict(f, cena=over.get(str(f["id"]), auto))
-        zd = [u for u in (fotos.get(str(f["id"])) or []) if isinstance(u, str) and FOTO_XP.match(u)][:4]
+        zd = [u for u in (fotos.get(str(f["id"])) or []) if foto_ok(u)][:4]
         if zd:
             fe["foto"] = zd[0]
         ef.append({"id": f["id"], "k": "felga", "nr": i + 1, "nazwa": FG.nazwa_poz(f), "zakup": f.get("brutto_zak") or 0,
@@ -1721,6 +1721,12 @@ def felgi_route(cfg, route, body):
 
 
 FOTO_XP = re.compile(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", re.I)
+# zdjęcie felgi z bazy (zmniejszony JPEG, 2026-11-27) – wbudowane w stronę i PDF, bez logowania do xPartner
+FOTO_DATA = re.compile(r"^data:image/jpeg;base64,[A-Za-z0-9+/]{100,600000}={0,2}$")
+
+
+def foto_ok(u):
+    return isinstance(u, str) and bool(FOTO_XP.match(u) or FOTO_DATA.match(u))
 PDF_FELGI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi.html")
 
 
@@ -1773,8 +1779,8 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
     import datetime
     teraz = datetime.datetime.now()
     oid = teraz.strftime("%Y%m%d_%H%M%S")
-    fotki = [u for u in (fotos if fotos is not None else (body.get("fotos") or [])) if isinstance(u, str) and FOTO_XP.match(u)]
-    glowne = f.get("foto") if FOTO_XP.match(f.get("foto") or "") else (fotki[0] if fotki else "")
+    fotki = [u for u in (fotos if fotos is not None else (body.get("fotos") or [])) if foto_ok(u)]
+    glowne = f.get("foto") if foto_ok(f.get("foto")) else (fotki[0] if fotki else "")
     netto = round(razem / (1 + vat / 100), 2)
     rodz = {"aluminiowa": "FELGA ALUMINIOWA", "stalowa": "FELGA STALOWA"}.get(f.get("rodzaj"), "FELGA")
     komplet = len(poz) > 1
