@@ -1493,7 +1493,7 @@ def felgi_licz(cfg, body):
     props, wymiany, ef = [], {}, []
     for i, f in enumerate(felgi):
         auto = cena_po_rabacie(f["cena"], rf)
-        fe = dict(f, cena=over.get(str(f["id"]), auto))
+        fe = dict(f, cena=over.get(str(f["id"]), auto), przed=f["cena"])
         zd = [u for u in (fotos.get(str(f["id"])) or []) if foto_ok(u)][:4]
         if zd:
             fe["foto"] = zd[0]
@@ -1507,6 +1507,14 @@ def felgi_licz(cfg, body):
             wymiany[kw] = {"klucz": kw, "opis": "Montaż / wymiana R%s (%s)" % (sr, TYPY.get(typ, typ)), "cennik": c0,
                            "auto": cena_po_rabacie(c0, rw), "cena": c_w, "recznie": kw in over_w}
         poz, razem = FG.oferta(cfg, fe, il, op, il_op, cz, il_tp, montaz, typ, depozyt, c_cz, c_w)
+        przed = {"felga": f["cena"], "opona": sell_price(cfg, float(op["netto"])) if op else 0,
+                 "czujnik": cena_czujnika(cfg, float(cz["netto"])) if cz else 0, "montaz": c0}
+        proc = {"felga": None if str(f["id"]) in over else rf, "opona": None if op and str(op.get("id")) in over else ro,
+                "czujnik": None, "montaz": None if kw in over_w else rw}
+        for x in poz:   # cena przed rabatem / ręczną obniżką – do PDF (kolumna „Rabat”, 2026-11-27)
+            x["przed"] = max(float(x["c"]), float(przed.get(x["k"]) or 0))
+            if x["przed"] > x["c"] and proc.get(x["k"]):
+                x["rab_proc"] = float(proc[x["k"]])   # rabat wpisany w ofercie (bez skutków zaokrąglenia ceny)
         blad = ostrz = ""
         if op and sr_op and sr and sr != sr_op:
             t = 'Felga %d ma %s", opony są R%s – nie pasują. Usuń tę felgę albo zmień opony.' % (i + 1, sr, sr_op)
@@ -1758,20 +1766,41 @@ def felgi_porownanie_html(cfg, body, w, oddzial):
     wsp, kol = [], []
     for x in w["props"][0]["pozycje"]:
         if x["k"] != "felga":
-            wsp.append({"t": "%s – %d %s" % (x["nazwa"], x["q"], "kpl." if x["k"] == "przech" else "szt.")})
+            wsp.append({"t": "%s – %d %s" % (bez_demo(x["nazwa"]) if x["k"] == "opona" else x["nazwa"], x["q"], "kpl." if x["k"] == "przech" else "szt.")})
     for p in w["props"]:
         f = p["felga"]
         kol.append({"nr": p["nr"], "tytul": f["nazwa"], "foto": f.get("foto") or "", "producent": f.get("producent") or "",
                     "model": f.get("model") or "", "rozmiar": ('%s x %s"' % (f["szer"], f["sred"])) if f.get("szer") and f.get("sred") else (f.get("sred") or ""),
                     "pcd": f.get("pcd") or "", "et": f.get("et") or "", "otwor": f.get("otwor") or "", "xp_id": str(f["id"]), "kod": f.get("kod") or "",
-                    "linie": [{"t": ("Felgi %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "felga" else ("Opony %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "opona"
+                    "linie": [{"t": (("Felgi %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "felga" else ("Opony %d × %s" % (x["q"], pl(x["c"]))) if x["k"] == "opona"
                                else x["nazwa"].replace("Montaż / wymiana kół", "Montaż").replace("Obsługa czujnika ciśnienia TPMS przy montażu", "Obsługa TPMS")
-                               .replace("Czujnik ciśnienia TPMS CZUJNIK", "Czujniki").replace("Czujnik ciśnienia TPMS", "Czujniki TPMS"), "w": pl(x["w"])} for x in p["pozycje"]],
+                               .replace("Czujnik ciśnienia TPMS CZUJNIK", "Czujniki").replace("Czujnik ciśnienia TPMS", "Czujniki TPMS"))
+                               + ((" (rabat %s)" % _proc_txt(x["przed"], x["c"], x.get("rab_proc"))) if _proc_txt(x.get("przed") or x["c"], x["c"]) else ""),
+                               "w": pl(x["w"])} for x in p["pozycje"]],
                     "cena_szt": pl(f["cena"]), "brutto": pl(p["razem"]), "netto": pl(round(p["razem"] / (1 + vat / 100), 2))})
     ctx = dict(_ctx_oddzial(cfg, body, oddzial), kolumny=kol, wsp_txt=" · ".join(x["t"] for x in wsp), ile=len(kol), komplet=bool(w["opona"]),
                tytul_h="Koła kompletne" if w["opona"] else "Felgi", vat_proc=("%g" % vat).replace(".", ","))
     with open(PDF_FELGI_POR, encoding="utf-8") as fh:
         return wypelnij(fh.read(), ctx)
+
+
+def bez_demo(n):
+    """Nazwa opony na PDF dla klienta – bez słowa „DEMO” (decyzja właściciela 2026-11-27)."""
+    return re.sub(r"\s{2,}", " ", re.sub(r"(?i)\s*\bDEMO\b", "", n or "")).strip()
+
+
+def _proc_txt(przed, po, proc=None):
+    if przed <= po:
+        return ""
+    return ("%g" % (proc if proc else round((1 - po / przed) * 100, 1))).replace(".", ",") + "%"
+
+
+def _poz_pdf_felgi(x):
+    """Pozycja kalkulacji w PDF felg: bez opisu technicznego i bez indeksów xPartner (decyzja właściciela 2026-11-27)."""
+    przed = float(x.get("przed") or x["c"])
+    nazwa = bez_demo(x["nazwa"]) if x.get("k") == "opona" else x["nazwa"]
+    return {"nazwa": nazwa, "ilosc": "%d %s" % (x["q"], "kpl." if x["nazwa"].startswith("Przechowalnia") else "szt."),
+            "cena": pl(przed), "cena_po": pl(x["c"]), "rab": _proc_txt(przed, x["c"], x.get("rab_proc")), "wartosc": pl(x["w"])}
 
 
 def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
@@ -1797,11 +1826,13 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
         "pcd": f.get("pcd") or "", "et": f.get("et") or "", "otwor": f.get("otwor") or "", "xp_id": str(f["id"]), "kod": f.get("kod") or "",
         "foto": glowne, "lista": [{"u": u} for u in fotki if u != glowne][:3],
         "cena_szt": pl(f["cena"]), "cena_szt_netto": pl(round(f["cena"] / (1 + vat / 100), 2)), "komplet": komplet,
-        "pozycje": [{"nazwa": x["nazwa"], "opis": x.get("opis") or "",
-                     "ind": " · ".join(t for t in (("Indeks xPartner: %s" % x["id"]) if x.get("id") else "", ("Kod producenta: %s" % x["kod"]) if x.get("kod") else "") if t),
-                     "ilosc": "%d %s" % (x["q"], "kpl." if x["nazwa"].startswith("Przechowalnia") else "szt."), "cena": pl(x["c"]), "wartosc": pl(x["w"])} for x in poz],
+        "pozycje": [_poz_pdf_felgi(x) for x in poz],
         "netto": pl(netto), "vat": pl(round(razem - netto, 2)), "vat_proc": ("%g" % vat).replace(".", ","), "brutto": pl(razem),
     }
+    osz = round(sum((float(x.get("przed") or x["c"]) - x["c"]) * x["q"] for x in poz), 2)
+    ctx.update(rabaty=osz >= 0.01, oszczednosc=pl(osz))
+    if f.get("przed") and f["przed"] > f["cena"]:
+        ctx.update(cena_szt_przed=pl(f["przed"]), rabat_szt=_proc_txt(f["przed"], f["cena"], poz[0].get("rab_proc")))
     with open(PDF_FELGI, encoding="utf-8") as fh:
         return wypelnij(fh.read(), ctx)
 

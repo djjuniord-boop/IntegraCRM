@@ -807,9 +807,9 @@ function fRender(bez){const L=fFiltr(),nd=fDemoUkryj()?FL.filter(f=>f.demo).leng
  $('#fWiecej').innerHTML=(L.length>FPOK?`<button class="sec" style="margin-top:10px" onclick="FPOK+=fNaStr();fRender()">Pokaż kolejne (${L.length-FPOK})</button> `:'')+`<button class="sec" style="margin-top:10px" onclick="fZdjecia(true)">🖼 Odśwież zdjęcia</button>`;if(!bez)fZdjecia()}
 /* Oferta felg (2026-11-26): do 3 felg = 3 propozycje obok siebie; opony, czujniki, montaż, TPMS, przechowalnia wspólne;
    ceny i ilości do zmiany jak w ofercie opon; każda propozycja – własny PDF + PDF „porównanie”; zapis w Historii ofert („felgi”). */
-let FZAP=false,FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
+let FPDF_OID=null,FPDF_SIG='',FNOWA_INFO='',FZAP=false,FWS=[],FCENY={},FCENYW={},FRAB={f:'',o:'',m:''},FIL=4,FILO=null,FTP=0,FMON=false,FTYP='osobowy',FDEP='',FOID=null,FOWNER='',FPDF='',FR=null,FLT=null,FUWZM=false;
 const fMax=()=>Math.max(1,Math.min(3,+CFG.felgi_max||3));
-function fNowa(){FZAP=false;FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||+CFG.kola_na_auto||4;FILO=null;FTP=0;FMON=!!CFG.felgi_montaz_dom;FTYP=CFG.felgi_typ_dom||'osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
+function fNowa(){FZAP=false;FPDF_OID=null;FNOWA_INFO='';FOP=null;FCZ=null;FCENY={};FCENYW={};FRAB={f:'',o:'',m:''};FIL=FQ.ilosc||+CFG.kola_na_auto||4;FILO=null;FTP=0;FMON=!!CFG.felgi_montaz_dom;FTYP=CFG.felgi_typ_dom||'osobowy';FDEP='';FOID=newOid();FOWNER='';FPDF='';FR=null;
  $('#fuw').value='';$('#fuwInfo').textContent='';$('#fuwMsg').textContent='';FUWZM=false;$('#fo_kl').value=''}
 function fWybierz(id){const i=FWS.findIndex(x=>x.id===id);if(i>=0)FWS.splice(i,1);else{if(FWS.length>=fMax()){msg('#fMsg','W jednej ofercie najwyżej '+fMax()+' felgi – usuń jedną (✕ w ofercie albo klik w kafelek), żeby dodać inną.',1);return}
   const f=FL.find(x=>x.id===id);if(!f)return;if(!FOID)fNowa();FWS.push(f)}
@@ -839,7 +839,12 @@ function fUst(k,v){const n=x=>Math.max(0,Math.min(40,parseInt(x)||0));if(k==='il
  else if(k[0]==='r')FRAB[k.slice(1)]=String(v).replace(',','.').trim();FPDF='';fLiczD()}
 function fSetC(id,v){v=String(v).replace(',','.').trim();if(v===''||+v<=0||isNaN(+v))delete FCENY[id];else FCENY[id]=Math.ceil(+v);FPDF='';fLiczD()}
 function fSetW(k,v){v=String(v).replace(',','.').trim();if(v===''||+v<0||isNaN(+v))delete FCENYW[k];else FCENYW[k]=Math.ceil(+v);FPDF='';fLiczD()}
-async function fLicz(){if(!FWS.length)return;FPDF='';$('#fwaInfo').textContent='';try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',(r.uwagi||[]).join('\n'),!!(r.uwagi||[]).length)}
+// PDF już zrobiony, a oferta potem zmieniona (inna opona, felga, ilość, ceny) – to nowa oferta, poprzednia zostaje w Historii (2026-11-27)
+const fSig=()=>{const b=fCialo();for(const k of ['oid','owner','zapisz','klient','oddzial','fotos'])delete b[k];return JSON.stringify(b)};
+function fPoPdf(){FPDF_OID=FOID;FPDF_SIG=fSig();FNOWA_INFO=''}
+async function fLicz(){if(!FWS.length)return;FPDF='';$('#fwaInfo').textContent='';
+ if(FPDF_OID&&FPDF_OID===FOID&&fSig()!==FPDF_SIG){FOID=newOid();FOWNER='';FZAP=false;FPDF_OID=null;FNOWA_INFO='Oferta zmieniona po zrobieniu PDF – zapisze się jako NOWA oferta, poprzednia zostaje w Historii ofert.'}
+ try{const r=await api('/api/felgi_oferta',fCialo());FR=r;fEditDraw(r);fSumDraw(r);fUlDraw(r);fKzDraw(r);fUwPo();msg('#foMsg',[FNOWA_INFO,...(r.uwagi||[])].filter(Boolean).join('\n'),!!(r.uwagi||[]).length)}
  catch(e){msg('#foMsg',e.message,1)}}
 function fOfAutoDraw(){const a=FAUTO;$('#fOfAuto').innerHTML=a?`<div class="fauto" style="margin:0 0 10px">🚗 Dobrane do: <b>${esc(a.nazwa)}</b>
  <label style="font-size:13px"><input type="checkbox" style="width:auto" ${FAUTOPDF?'checked':''} onchange="FAUTOPDF=this.checked;FPDF='';fLiczD()"> pokaż auto na PDF</label>
@@ -872,11 +877,11 @@ function fKzDraw(r){const b=$('#fKz');if(!CFG.zamawianie){b.style.display='none'
  b.innerHTML='<b>🛒 Zamów w xPartner:</b>'+FWS.map((f,i)=>bt(f.id,f.nazwa,FIL,(i+1)+' · ')).join('')+(FOP&&ilo?bt(FOP.id,FOP.nazwa,ilo):'')+(FCZ&&FTP?bt(FCZ.id,FCZ.nazwa,FTP):'')+
  '<span class="muted" style="font-size:12px;flex-basis:100%">Kliknij to, co wybrał klient (jedną felgę i opony) – trafi do koszyka z ilością z oferty, ceny i stany sprawdzę na żywo.</span>'}
 async function fPdf(b,nr){b.disabled=true;msg('#foMsg','Tworzę PDF…');FZAP=true;try{const por=nr<0;const nz=por?'porownanie '+FWS.length+' felg':(nr+1)+' '+FWS[nr].nazwa;
- await fPelne();const r=await api('/api/felgi_pdf',Object.assign(fCialo(1),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+' '+nz}));if(r.pdf)FPDF=r.plik;$('#fwaInfo').textContent=r.pdf?'WhatsApp wyśle: '+r.plik.split(/[\\/]/).pop():'';
+ await fPelne();const r=await api('/api/felgi_pdf',Object.assign(fCialo(1),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+' '+nz}));if(r.pdf)FPDF=r.plik;fPoPdf();$('#fwaInfo').textContent=r.pdf?'WhatsApp wyśle: '+r.plik.split(/[\\/]/).pop():'';
  msg('#foMsg',(r.pdf===false?'Edge nie utworzył PDF – otwieram stronę, wybierz „Drukuj → Zapisz jako PDF”: ':'Zapisano PDF: ')+r.plik,r.pdf===false)}catch(e){msg('#foMsg',e.message,1)}finally{b.disabled=false}}
 async function fWa(b){b.disabled=true;FZAP=true;try{if(!FPDF){if(!FR||!FR.propozycje.length)throw new Error('Najpierw wybierz felgę.');const P=FR.propozycje,por=P.length>1&&!P.some(p=>p.blad),nr=P.findIndex(p=>!p.blad);
   if(!por&&nr<0)throw new Error('Opony nie pasują do felg – popraw ofertę.');msg('#foMsg','Tworzę PDF…');
-  await fPelne();const j=await api('/api/felgi_pdf',Object.assign(fCialo(1),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+(por?' porownanie':' '+(nr+1)),bez_otwierania:1}));if(!j.pdf)throw new Error('Nie udało się utworzyć PDF (brak Edge) – utwórz PDF przyciskiem wyżej.');FPDF=j.plik}
+  await fPelne();const j=await api('/api/felgi_pdf',Object.assign(fCialo(1),por?{porownanie:1}:{nr},{nazwa:'Oferta felgi '+FOID+(por?' porownanie':' '+(nr+1)),bez_otwierania:1}));if(!j.pdf)throw new Error('Nie udało się utworzyć PDF (brak Edge) – utwórz PDF przyciskiem wyżej.');FPDF=j.plik;fPoPdf()}
  const r=await api('/api/whatsapp',{plik:FPDF});const nz=FPDF.split(/[\\/]/).pop();const gdzie=r.whatsapp==='web'?'WhatsApp Web w przeglądarce':'WhatsApp';
  msg('#foMsg',r.schowek?`📱 PDF „${nz}” jest w schowku. Otworzyłem ${gdzie} – wybierz klienta i naciśnij Ctrl+V, potem Enter.`:`Otworzyłem ${gdzie} – przeciągnij plik „${nz}” z folderu ofert do czatu.`);
  if(FOID)try{await api('/api/status',{oid:FOID,status:'wyslana',owner:FOWNER})}catch(e){}}catch(e){msg('#foMsg',e.message,1)}b.disabled=false}
@@ -884,7 +889,7 @@ async function fZapiszUw(){if(!FOID||!FWS.length)return;const m=$('#fuwMsg');m.t
 function fUwPo(){if(FUWZM&&$('#fuw').value.trim())fZapiszUw()}
 async function fZHist(r,hh){widok('f');const czysc=x=>x&&+x.id>0?{id:+x.id,nazwa:String(x.nazwa||''),kod:String(x.kod||''),netto:+x.netto||0,rozmiar:String(x.rozmiar||'')}:null;
  FWS=(r.felgi_dane||[]).filter(f=>f&&+f.id>0).slice(0,fMax()).map(f=>({...f,id:+f.id,stan:+f.stan||0,cena:+f.cena||0,brutto_zak:+f.brutto_zak||0,nazwa:String(f.nazwa||''),kod:String(f.kod||''),sred:String(f.sred||''),foto:''}));FOP=czysc(r.opona);FCZ=czysc(r.czujnik);FZAP=true;FIL=+r.ilosc||4;FILO=r.opona&&r.il_op!=null?+r.il_op:null;FTP=+r.il_tp||0;FMON=!!r.montaz;
- FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FAUTO=r.auto&&typeof r.auto==='object'?r.auto:null;FAUTOPDF=r.auto_pdf!==false;fAutoDraw();FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
+ FTYP=r.typ||'osobowy';FDEP=r.depozyt||'';FAUTO=r.auto&&typeof r.auto==='object'?r.auto:null;FAUTOPDF=r.auto_pdf!==false;fAutoDraw();FCENY=r.ceny||{};FCENYW=r.ceny_wym||{};FRAB=Object.assign({f:'',o:'',m:''},r.rabat||{});FOID=hh.oid||newOid();FPDF_OID=null;FNOWA_INFO='';FOWNER=hh.owner||'';FPDF='';if(r.oddzial)OODD=r.oddzial;
  $('#fo_kl').value=r.klient||'';$('#fuw').value=hh.uwagi||'';FUWZM=false;$('#fuwMsg').textContent='';$('#fuwInfo').textContent=hh.uwagi_at?'· ostatnia zmiana: '+new Date(hh.uwagi_at).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
  if(FL.length)fRender(true);fWybrane();$('#fOf').style.display='';fWybDraw();await fLicz();if(!$('#foMsg').textContent)msg('#foMsg','Oferta wczytana z historii ('+(r.data||'')+') – ceny felg z aktualnej kopii xPartner, opon i czujników prosto z xPartner.');$('#fOf').scrollIntoView({behavior:'smooth'})}
 /* Dobór po aucie (2026-11-27): wheel-size przez funkcję serwera. Kontekst: 'f' – felgi (rozstaw, średnica, ocena felg),

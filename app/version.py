@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.31"
+VERSION = "1.2.32"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.32",
+        "date": "2026-11-27",
+        "changes": ["PDF oferty na felgi: w kalkulacji bez opisu technicznego felgi i bez indeksów / kodów xPartner",
+                    "PDF oferty na felgi: rabaty widoczne – kolumna „Rabat”, cena przed i po rabacie, „W tym oszczędzasz”; w porównaniu felg „(rabat …%)”",
+                    "PDF oferty na felgi: opona bez słowa „DEMO” w nazwie",
+                    "Oferta na felgi zmieniona po zrobieniu PDF (np. inna opona) zapisuje się jako NOWA oferta – poprzednia zostaje w Historii ofert"],
+    },
     {
         "version": "1.2.31",
         "date": "2026-11-27",
