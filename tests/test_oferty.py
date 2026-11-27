@@ -865,8 +865,23 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
         assert not p["blad"] and 'Felga 1 ma 17"' in p["ostrz"]
         S.get_product = lambda cfg, pid: {"id": 9, "nazwa": "OPONA 225/40 R18 92W", "netto": 150.0}
         st, r = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op})
-        S.get_product = stary_gp
         assert st == 200   # „tylko ostrzeżenie” – PDF powstaje
+        # 2026-11-27: PDF bez opisu technicznego i indeksów xPartner w kalkulacji, opona bez „DEMO”, rabaty widoczne
+        S.get_product = lambda cfg, pid: {"id": 9, "nazwa": "OPONA 225/40 R18 92W DEMO DOT2026", "netto": 150.0, "kod": "579769"}
+        S.CZESCI_XP.clear()
+        kal = lambda h: h[h.index("<h2>Kalkulacja</h2>"):]
+        h = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op})[1]["html"]
+        assert "Indeks xPartner:" not in kal(h) and "579769" not in kal(h) and " · otwór" not in kal(h) and "DEMO" not in kal(h)
+        assert "OPONA 225/40 R18 92W DOT2026" in kal(h) and "Rabat" not in kal(h) and "oszczędzasz" not in h   # bez rabatu – jak dotąd
+        h = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op, "rabat": {"f": 5, "o": 10}})[1]["html"]
+        assert "<th class=\"c\">Rabat</th>" in kal(h) and "5%" in kal(h) and "10%" in kal(h) and "W tym oszczędzasz dzięki rabatowi" in h
+        assert "rabatu</span>" in h   # przekreślona cena felgi przy cenie za sztukę
+        S.KONTO["ceny_oddz"] = {"Latex Wrocław": dict(stare["Latex Wrocław"], felgi_max=3, felgi_srednica="ostrzez")}
+        h = S.handle("/api/felgi_pdf", {"felgi": [1, 2], "ilosc": 4, "opona": op, "rabat": {"o": 10}, "porownanie": 1})[1]["html"]
+        assert "(rabat 10%)" in h and "DEMO" not in h
+        S.KONTO["ceny_oddz"] = {"Latex Wrocław": dict(stare["Latex Wrocław"], rabat_max_felgi=5, felgi_max=1, felgi_srednica="ostrzez")}
+        S.get_product = stary_gp
+        S.CZESCI_XP.clear()
         # teksty PDF oddziału (puste = domyślne, {data} i {vat}, zabezpieczone znaki)
         odd = dict(ODDZ["Latex Wrocław"], warunki="Ważna do {data}, VAT {vat} <b>", cta_t="Umów się", por_t="Wybierz numer")
         S.KONTO["oddzialy_dane"] = {"Latex Wrocław": odd}

@@ -478,6 +478,14 @@ def test_zdjecia_felg_z_bazy_w_oknie():
             pg.evaluate("fPelne()")
             pg.wait_for_timeout(300)
             assert pg.evaluate("fCialo(1).fotos[1].length") == 2   # do PDF pełne zdjęcia z bazy
+            # 2026-11-27: zmiana oferty po zrobieniu PDF = nowa oferta (nowy numer), poprzednia zostaje w Historii
+            o1 = pg.evaluate("fPoPdf();FOID")
+            pg.evaluate("fLicz()")
+            pg.wait_for_timeout(200)
+            assert pg.evaluate("FOID") == o1   # bez zmian – ta sama oferta
+            pg.evaluate("FIL=2;fLicz()")
+            pg.wait_for_timeout(200)
+            assert pg.evaluate("FOID") != o1 and not pg.evaluate("FZAP") and "NOWA oferta" in pg.evaluate("FNOWA_INFO")
             pg.evaluate("openCfg()")
             pg.wait_for_timeout(500)
             t = pg.inner_text("#fotoBox")
