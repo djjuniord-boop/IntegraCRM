@@ -117,7 +117,7 @@ class DzisMixin:
             "kontrola": ("Kontrola CRM", "Sprawdź dzisiejsze zlecenia", "main"),
             "wyniki": ("Wyniki marży", "Szczegóły wyników", "wyniki"),
             "marza": ("Marża – aktualizacja", "Aktualizuj marżę", "marza"),
-            "oferty": ("Oferty opon", "Otwórz oferty", "oferty"),
+            "oferty": ("Oferty", "Otwórz oferty", "oferty"),
             "serwis": ("Serwis QR", "Otwórz historię serwisową", "serwis"),
         }
         klucze = [k for k in kafle_konta(can) if opisy[k][2] in self.pages]

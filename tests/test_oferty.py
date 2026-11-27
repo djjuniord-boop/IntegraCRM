@@ -894,3 +894,188 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
     finally:
         S.KONTO.pop("katalog", None)
         S.KONTO.update(admin=False, oddzialy_konta=[], ceny_oddz={}, ustawienia={})
+
+
+WS_GOLF = {"data": [{"slug": "abc123", "name": "1.5 eTSI", "trim": "1.5 eTSI", "start_year": 2019, "end_year": 2024,
+                     "make": {"slug": "volkswagen", "name": "Volkswagen"}, "model": {"slug": "golf", "name": "Golf"},
+                     "generation": {"slug": "mk8", "name": "Mk8 (CD1)", "start": 2019, "end": 2024},
+                     "engine": {"fuel": "Petrol", "capacity": "1.5", "power": {"kW": 110, "PS": 150, "hp": 148}},
+                     "technical": {"wheel_fasteners": {"type": "Lug bolts", "thread_size": "M14 x 1.5"}, "wheel_tightening_torque": "140 Nm",
+                                   "bolt_pattern": "5x112", "centre_bore": "57.1", "pcd": 112, "stud_holes": 5},
+                     "wheels": [
+                         {"is_stock": True, "showing_fp_only": True, "front": {"rim": "7.5Jx17 ET51", "rim_diameter": 17.0, "rim_width": 7.5, "rim_offset": 51.0,
+                                                                               "tire_full": "225/45ZR17 91W", "tire": "225/45ZR17", "load_index": 91, "speed_index": "W",
+                                                                               "tire_pressure": {"bar": 2.4, "psi": 35, "kPa": 240}}, "rear": {}},
+                         {"is_stock": True, "showing_fp_only": True, "front": {"rim": "7Jx16 ET48", "rim_diameter": 16.0, "rim_width": 7.0, "rim_offset": 48.0,
+                                                                               "tire": "205/55R16", "load_index": 91, "speed_index": "V"}, "rear": {}},
+                         {"is_stock": False, "is_recommended_for_winter": True, "showing_fp_only": True,
+                          "front": {"rim": "7.5Jx18 ET51", "rim_diameter": 18.0, "rim_width": 7.5, "rim_offset": 51.0, "tire": "225/40ZR18", "load_index": 92,
+                                    "speed_index": "Y"}, "rear": {}}]}]}
+
+
+def test_dobor_po_aucie_wheel_size():
+    """2026-11-27: dobór po aucie – odpowiedzi wheel-size → dane auta, ocena felg (ET ±5 pasuje, ±15 sprawdź), trasa /api/auto
+    z pamięcią (mniej zapytań), felgi z oceną, „Dobrane do” na PDF tylko z przełącznikiem."""
+    from oferty import auto as AU
+    _setup()
+    a = AU.auto(WS_GOLF, "abc123")
+    assert a["pcd"] == "5x112" and a["cb"] == 57.1 and a["gwint"] == "M14 x 1.5" and a["mocowanie"] == "śruby" and a["moment"] == "140 Nm"
+    assert "Volkswagen Golf Mk8" in a["nazwa"] and "110 kW (150 KM)" in a["nazwa"]
+    assert [k["oe"] for k in a["kola"]] == [True, True, False] and a["kola"][0]["przod"]["sred"] == 16.0   # fabryczne najpierw, rosnąco
+    assert a["kola"][1]["przod"]["cisn"] == 2.4 and a["kola"][2]["zima"]
+    assert AU.rozmiar_opony("225/45ZR17") == "225/45 R17" and AU.rozmiar_opony("215/65R16C") == "215/65 R16C"
+    assert AU.wersje({"data": [WS_GOLF["data"][0]]})[0]["name"].startswith("1.5 eTSI 110 kW (150 KM)")
+    assert AU.lista({"data": [{"slug": 2021, "name": 2021}, {"slug": None}]}) == [{"slug": "2021", "name": "2021"}]
+    f = lambda **k: dict({"pcd": "5x112", "otwor": "57.1", "sred": "17", "szer": "7.5", "et": "51"}, **k)
+    assert AU.ocena(f(), a)[0] == "ok"
+    assert AU.ocena(f(otwor="66.5"), a) == ("zm", "pasuje (jak 7.5Jx17 ET51) · pierścień 66.5→57.1")
+    assert AU.ocena(f(et="47"), a)[0] == "zm" and AU.ocena(f(et="45"), a)[0] == "uw" and AU.ocena(f(et="40"), a)[0] == "uw" and AU.ocena(f(et="30"), a)[0] == "nie"
+    assert AU.ocena(f(pcd="5x108"), a)[0] == "nie" and AU.ocena(f(otwor="54.1"), a)[0] == "nie"
+    assert AU.ocena(f(sred="20"), a)[0] == "uw" and AU.ocena(f(et=""), a)[0] == "uw"
+    assert AU.ocena(f(et="40"), a, et_ok=12)[0] == "zm"   # zakres z Ustawień
+    # trasa /api/auto z pamięcią
+    wolane = []
+    def ws(m, par):
+        wolane.append(m)
+        return {"makes": {"data": [{"slug": "volkswagen", "name": "Volkswagen"}]}, "by_model": WS_GOLF}.get(m, {"data": []})
+    S.KONTO["ws"] = ws
+    S.AUTO_PAMIEC.clear()
+    try:
+        st, r = S.handle("/api/auto", {"m": "makes"})
+        assert st == 200 and r["lista"][0]["slug"] == "volkswagen"
+        S.handle("/api/auto", {"m": "makes"})
+        assert wolane == ["makes"]   # drugi raz z pamięci
+        st, r = S.handle("/api/auto", {"m": "by_model", "make": "volkswagen", "model": "golf", "modification": "abc123"})
+        assert st == 200 and r["auto"]["kola_opony"] == ["205/55 R16", "225/45 R17", "225/40 R18"]
+        st, r = S.handle("/api/auto", {"m": "by_model", "make": "volkswagen", "model": "golf", "modification": "abc&x=1"})
+        assert st != 200   # parametry tylko z dozwolonych znaków
+        st, r = S.handle("/api/auto", {"m": "usun"})
+        assert st != 200
+        # felgi z oceną (pasujące najpierw, niezaufane dane auta nie wywracają wyszukiwania)
+        felgi = [{"id": 1, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X108", "ET": "45", "Otwór centralny": "63,4"}, "nazwa": "FELGA ALU 7X17 5X108 ET45/63.4", "netto": 300.0, "ilosc": 8},
+                 {"id": 2, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "51", "Otwór centralny": "57,1"}, "nazwa": "FELGA ALU 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8}]
+        S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+        st, r = S.handle("/api/felgi", {"q": "R17", "auto": a})
+        assert st == 200 and [(x["id"], x["ocena"]) for x in r["lista"]] == [(2, "ok"), (1, "nie")]
+        st, r = S.handle("/api/felgi", {"q": "R17", "auto": {"kola": [{"przod": None}], "pcd": 5}})
+        assert st == 200 and len(r["lista"]) == 2
+        S.FELGI_OSTATNIE.clear()
+        h = S.handle("/api/felgi_pdf", {"felgi": [2], "ilosc": 4, "auto": {"nazwa": "VW Golf <8>"}, "auto_pdf": 1})[1]["html"]
+        assert "Dobrane do" in h and "VW Golf &lt;8&gt;" in h
+        h = S.handle("/api/felgi_pdf", {"felgi": [2], "ilosc": 4, "auto": {"nazwa": "VW Golf 8"}})[1]["html"]
+        assert "Dobrane do" not in h   # przełącznik wyłączony
+    finally:
+        S.KONTO.pop("ws", None)
+        S.KONTO.pop("katalog", None)
+
+
+def test_szybkie_polecenie_felg_z_autem():
+    """2026-11-27: „audi a4 b9 2021 alu” / „vw golf mk8” w szybkim poleceniu felg = rozmiary auta z wheel-size, ocena felg,
+    bez filtrowania po nazwie marki (felgi zamienne nie mają „AUDI” w nazwie); bez roku i generacji – jak dotąd."""
+    from oferty import auto as AU
+    _setup()
+    wolane = []
+    def ws(m, par):
+        wolane.append((m, dict(par)))
+        if m == "makes":
+            return {"data": [{"slug": "audi", "name": "Audi"}, {"slug": "volkswagen", "name": "Volkswagen"}, {"slug": "mercedes-benz", "name": "Mercedes-Benz"}]}
+        if m == "models":
+            return {"data": [{"slug": "a4", "name": "A4"}, {"slug": "a4-allroad", "name": "A4 Allroad"}, {"slug": "golf", "name": "Golf"}]}
+        if m == "generations":
+            return {"data": [{"slug": "mk8", "name": "Mk8 (CD1)"}, {"slug": "b9", "name": "B9 (8W)"}]}
+        if m == "by_model":
+            return WS_GOLF
+        return {"data": []}
+    felgi = [{"id": 1, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "51", "Otwór centralny": "57,1"}, "nazwa": "DIEWE 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8},
+             {"id": 2, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "30", "Otwór centralny": "66,5"}, "nazwa": "AUDI OEM 8X17 5X112 ET30/66.5", "netto": 900.0, "ilosc": 8},
+             {"id": 3, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X100", "ET": "38"}, "nazwa": "FELGA 7X17 5X100 ET38", "netto": 300.0, "ilosc": 8}]
+    S.KONTO.update(ws=ws, katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    S.AUTO_PAMIEC.clear()
+    try:
+        assert AU.znajdz_marke("vw golf 2020", [{"slug": "volkswagen", "name": "Volkswagen"}]) == ("volkswagen", 0)
+        st, r = S.handle("/api/felgi", {"q": "audi a4 b9 2021 alu"})
+        assert st == 200 and r["auto"] and r["auto"]["pcd"] == "5x112" and "Audi A4" in r["auto"]["nazwa"]
+        assert ("by_model", {"make": "audi", "model": "a4", "year": "2021"}) in wolane
+        assert [x["id"] for x in r["lista"]] == [1, 2] and r["lista"][0]["ocena"] == "ok"   # 5x100 odrzucona, zamienna bez „AUDI” jest
+        st, r = S.handle("/api/felgi", {"q": "vw golf mk8"})
+        assert st == 200 and r["auto"] and ("by_model", {"make": "volkswagen", "model": "golf", "generation": "mk8"}) in wolane
+        n = len(wolane)
+        st, r = S.handle("/api/felgi", {"q": "audi 17"})   # sama marka – jak dotąd (po nazwie), bez wheel-size
+        assert st == 200 and r["auto"] is None and [x["id"] for x in r["lista"]] == [2]
+        st, r = S.handle("/api/felgi", {"q": "5x112 R17"})
+        assert st == 200 and r["auto"] is None and len(wolane) == n   # zwykłe polecenie nie pyta API
+    finally:
+        S.KONTO.pop("ws", None)
+        S.KONTO.pop("katalog", None)
+
+
+def test_licznik_zapytan_wheel_size():
+    """2026-11-27: licznik zapytań doboru po aucie – ostrzeżenie przy 80%, raport i limit tylko dla administratora."""
+    _setup()
+    S.AUTO_PAMIEC.clear()
+    S.KONTO.update(ws=lambda m, par: {"data": [{"slug": "audi", "name": "Audi"}], "_licznik": {"suma": 250, "limit": 300}},
+                   ws_raport=lambda dni: {"dzis": 250, "limit": 300, "osoby": [], "dni": []}, admin=False)
+    ustaw = []
+    S.KONTO["ws_limit"] = ustaw.append
+    try:
+        st, r = S.handle("/api/auto", {"m": "makes"})
+        assert st == 200 and "250 z 300" in r["ostrzezenie"]
+        S.KONTO["ws_licznik"] = {"suma": 10, "limit": 300}
+        assert S.licznik_ws() == ""
+        st, r = S.handle("/api/ws_raport", {})
+        assert st != 200 and "administrator" in r["error"]   # pracownik nie widzi raportu
+        S.KONTO["admin"] = True
+        st, r = S.handle("/api/ws_raport", {"dni": 7})
+        assert st == 200 and r["limit"] == 300
+        st, r = S.handle("/api/ws_limit", {"limit": "abc"})
+        assert st != 200 and not ustaw
+        st, r = S.handle("/api/ws_limit", {"limit": 5000})
+        assert st == 200 and ustaw == [5000]
+    finally:
+        for k in ("ws", "ws_raport", "ws_limit", "ws_licznik"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False
+
+
+def test_moduly_felgi_tpms():
+    """2026-11-27: części okna ofert włączane osobno w UŻYTKOWNICY – „felgi” (+ dobór po aucie) i „tpms”."""
+    _setup()
+    S.KONTO.update(admin=False, felgi=False, tpms=False)
+    try:
+        assert S.handle("/api/felgi", {"q": "R17"})[0] == 403 and S.handle("/api/felgi_pdf", {"felgi": [1]})[0] == 403
+        assert S.handle("/api/tpms", {"q": "kia"})[0] == 403
+        S.KONTO["admin"] = True
+        assert S.modul("felgi") and S.modul("tpms")   # administrator – wszystko
+        S.KONTO.update(admin=False, felgi=True)
+        assert S.modul("felgi") and not S.modul("tpms")
+    finally:
+        for k in ("felgi", "tpms"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False
+    assert S.modul("felgi")   # bez danych o koncie (stare okno, testy) – jak dotąd
+
+
+def test_uprawnienia_ceny_dobor_rabat_osoby():
+    """2026-11-27: „Oferty – własne ceny i rabaty” (bez niego tylko ceny wyliczone), „dobór po aucie” osobno,
+    najwyższy rabat osoby (niższy z dwóch wygrywa, administrator bez limitu)."""
+    _setup()
+    felgi = [{"id": 2, "attrs": {"Typ": "ALUMINIOWA"}, "nazwa": "FELGA ALU 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8}]
+    S.KONTO.update(katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T",
+                   admin=False, ceny=False, dobor=False)
+    S.FELGI_OSTATNIE.clear()
+    try:
+        st, r = S.handle("/api/felgi_oferta", {"felgi": [2], "ilosc": 4, "ceny": {"2": "100"}, "rabat": {"f": "20"}})
+        auto = S.cena_felgi(S.load_cfg(), 400.0)
+        assert st == 200 and r["propozycje"][0]["pozycje"][0]["c"] == auto   # bez uprawnienia: cena i rabat z okna pominięte
+        assert S.handle("/api/auto", {"m": "makes"})[0] == 403
+        assert S.auto_z_tekstu("audi a4 2021") == (None, "audi a4 2021")
+        S.KONTO.update(ceny=True, rabat_osoby=5)
+        st, r = S.handle("/api/felgi_oferta", {"felgi": [2], "ilosc": 4, "rabat": {"f": "20"}})
+        assert r["propozycje"][0]["pozycje"][0]["c"] == S.cena_po_rabacie(auto, 5)   # rabat obcięty do limitu osoby
+        assert S.load_cfg()["rabat_max_opony"] == 5
+        S.KONTO["admin"] = True
+        assert S.load_cfg()["rabat_max_opony"] == 90   # administrator bez limitu osoby
+    finally:
+        for k in ("katalog", "ceny", "dobor", "rabat_osoby"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False

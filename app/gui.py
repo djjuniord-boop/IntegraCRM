@@ -82,7 +82,7 @@ HELP_MODULES = [
         ("Po aktualizacji", "Kalkulatory, podgląd na Dysku Google i e-maile do zaznaczonych odbiorców aktualizują się "
                             "same; wyniki trafiają też do zakładki WYNIKI."),
     ]),
-    ("oferty", "OFERTY OPON", [
+    ("oferty", "OFERTY", [
         ("Szybkie polecenie", "Wpisz np. „2055516 zimowe premium 4 szt” albo „2156017c” (dostawcze) i kliknij "
                               "„Zrób ofertę”. Opony z mniejszym stanem niż potrzeba są na końcu listy z dopiskiem "
                               "„⚠ tylko N szt.”. Można też wpisać niepełny rozmiar („20555”, „R20”) albo samą markę "
@@ -91,6 +91,12 @@ HELP_MODULES = [
         ("Czujniki TPMS", "Przełącznik „📡 Czujniki TPMS” w nagłówku Ofert: szybkie polecenie (np. „kia sportage 4 szt”, numer OE "
                           "ze starego czujnika, „uniwersalny srebrny”), filtry i dodawanie do koszyka. Koszyk jest wspólny z oponami – "
                           "opony i czujniki zamówisz jednym zamówieniem. Bez tworzenia ofert."),
+        ("Felgi", "Przełącznik „⚙️ Felgi”: szybkie polecenie (np. „5x112 R18 alu”, „audi a4 b9 2021”), kafelki ze zdjęciami "
+                  "z xPartner. Kliknij do 3 felg – każda to osobna propozycja; do kompletu dodasz opony, czujniki TPMS, montaż "
+                  "i przechowalnię. PDF każdej propozycji albo „Porównanie” wszystkich na jednej stronie."),
+        ("Dobierz po aucie", "Przycisk „🚗 Dobierz po aucie” (felgi i opony): marka, model, rok, wersja → rozstaw śrub, otwór, "
+                             "moment dokręcenia, ciśnienie i rozmiary fabryczne. „Szukaj felg” ocenia każdą felgę "
+                             "(pasuje / z pierścieniem / sprawdź ET / nie pasuje), „Szukaj opon” wpisuje rozmiar do oferty."),
         ("Oferta i PDF", "Zaznacz opony i kliknij „Generuj ofertę” – ceny i stany odświeżą się na żywo. PDF dla klienta "
                          "z danymi Twojego oddziału; rabat wpisujesz w „Warunkach tej oferty”. W „📝 Uwagi do oferty” "
                          "zapisz informacje tylko dla nas (nie trafiają do PDF)."),
@@ -374,7 +380,7 @@ class App(DzisMixin, KontrolaMixin, DepozytMixin, HistoriaMixin, MarzaMixin, Wyn
         if can("serwis") and not SERWIS_WYGASZONY:
             tab_list.append(("serwis", "SERWIS QR  β"))
         if can("oferty"):
-            tab_list.append(("oferty", "OFERTY OPON"))
+            tab_list.append(("oferty", "OFERTY"))
         if can("depozyt"):
             tab_list.append(("depozyt", "DEPOZYT"))
         if self.session and self.session.is_admin:
@@ -388,7 +394,7 @@ class App(DzisMixin, KontrolaMixin, DepozytMixin, HistoriaMixin, MarzaMixin, Wyn
             b.bind("<Button-1>", lambda e, k=key: self.show_tab(k))
             self.tab_btns[key] = b
             nazwa = label.replace("β", "").strip()
-            self.tab_names[key] = nazwa if nazwa in ("SERWIS QR", "OFERTY OPON") else nazwa.capitalize()
+            self.tab_names[key] = nazwa if nazwa == "SERWIS QR" else nazwa.capitalize()
             self.pages[key] = tk.Frame(holder, bg=BG, padx=22, pady=10)
         # bez modułu – elementy używane przez inne funkcje okna budowane poza ekranem
         self._build_main(self.pages["main"] if "main" in self.pages else tk.Frame(self))
@@ -417,7 +423,7 @@ class App(DzisMixin, KontrolaMixin, DepozytMixin, HistoriaMixin, MarzaMixin, Wyn
             try:
                 self._build_oferty(self.pages["oferty"])
             except Exception as e:   # beta nie może zablokować reszty programu
-                tk.Label(self.pages["oferty"], text=f"Nie udało się wczytać zakładki OFERTY OPON: {e}",
+                tk.Label(self.pages["oferty"], text=f"Nie udało się wczytać zakładki OFERTY: {e}",
                          bg=BG, fg=RED, font=self.fonts.body).pack(anchor="w")
         if "depozyt" in self.pages:
             try:

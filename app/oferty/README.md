@@ -128,3 +128,9 @@ Ceny: `sell_price` (opony, `zaokr_opony`), `cena_felgi` (felgi: `felgi_tryb` pro
 Teksty PDF oddziału (`app_config.oddzialy`: `warunki`, `cta_t`, `cta_p`, `por_t`, `por_p`) – `silnik.teksty_pdf` podmienia je
 po wypełnieniu wzoru, więc wzory (i ich kopia w telefonie `mobile/www/pdf_wzor.js`) zostają bez zmian.
 Koszyk: `koszyk_max_szt` (bezpiecznik ilości); podział zamówienia po 50 szt. to wymóg xPartner – stała `CZESC_SZT`.
+
+## Dobór po aucie (od 1.2.22)
+`auto.py` (bez sieci): odpowiedzi wheel-size → listy, dane auta (`auto()`), ocena felgi (`ocena()`, zakresy `auto_et_ok` /
+`auto_et_ostrz`). `silnik.auto_route` (`/api/auto`: makes → models → years → modifications → by_model, pamięć 12 h
+`AUTO_PAMIEC`); `/api/felgi` z `auto` dokłada `ocena` do felg. Zapytania idą przez `okno.posrednik_ws` do funkcji Supabase
+`supabase/functions/wheel-size` (klucz w sekrecie `WHEELSIZE_API_KEY`, dostęp: zalogowany z modułem oferty).

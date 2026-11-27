@@ -15,7 +15,7 @@ class OfertyMixin:
         page.configure(padx=0, pady=0)
         bar = tk.Frame(page, bg=SURFACE, padx=16, pady=6, highlightthickness=1, highlightbackground=LINE)
         bar.pack(fill="x")
-        tk.Label(bar, text="Oferty opon (xPartner)", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
+        tk.Label(bar, text="Oferty (xPartner)", bg=SURFACE, fg=BLACK, font=f.label).pack(side="left")
         self.of_banner = tk.Label(bar, text="", bg=SURFACE, fg=MUTED, font=f.small, anchor="w")
         self.of_banner.pack(side="left", padx=(8, 0), fill="x", expand=True)
         FlatButton(bar, "Uruchom ponownie", self.oferty_restart, "ghost", f.small, 10, 3).pack(side="right")

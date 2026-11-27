@@ -146,6 +146,43 @@ def posrednik_xpartner(m, params, body=None, timeout=30, dziennik=None):
         raise xp.BrakOdpowiedzi("Brak połączenia z serwerem (%s)" % e.__class__.__name__)
 
 
+def posrednik_ws(m, params, timeout=25):
+    """Dobór po aucie: zapytanie do wheel-size.com przez funkcję serwera „wheel-size” (klucz API dokłada serwer)."""
+    import cloud
+    from oferty import silnik
+    req = urllib.request.Request(cloud.URL + "/functions/v1/wheel-size", data=json.dumps({"m": m, "params": params}).encode("utf-8"),
+                                 method="POST", headers={"Content-Type": "application/json", "apikey": cloud.ANON_KEY,
+                                                         "Authorization": "Bearer " + _token(), "User-Agent": "PanelLatexSerwis-Oferty"})
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            msg = json.loads(e.read().decode("utf-8")).get("error") or ""
+        except Exception:
+            msg = ""
+        if e.code == 404:
+            msg = "Dobór po aucie nie jest jeszcze uruchomiony na serwerze – zgłoś administratorowi."
+        elif e.code == 401 and not msg:
+            msg = "Sesja wygasła – zamknij okno ofert i otwórz je ponownie."
+        elif e.code == 502 and "429" in msg:
+            msg = "Wyczerpany dzienny limit zapytań doboru po aucie (darmowy plan) – spróbuj jutro."
+        raise silnik.ApiError(msg or "Dobór po aucie: błąd serwera (%d)" % e.code)
+    except Exception as e:
+        raise silnik.ApiError("Brak połączenia z serwerem doboru po aucie (%s)" % e.__class__.__name__)
+
+
+def ws_raport(dni=7):
+    """Zużycie doboru po aucie (wheel-size) – tylko administrator (funkcja bazy ws_licznik_raport)."""
+    return _db("POST", "/rest/v1/rpc/ws_licznik_raport", {"p_dni": int(dni)})
+
+
+def ws_limit(limit):
+    """Dzienny limit zapytań wheel-size (app_config 'wheel_size') – zapis tylko administrator (RLS)."""
+    _db("POST", "/rest/v1/app_config?on_conflict=key", {"key": "wheel_size", "value": {"limit": int(limit)}},
+        prefer="resolution=merge-duplicates,return=minimal")
+
+
 def wczytaj_konto():
     """Login API i ustawienia zalogowanego użytkownika -> silnik.KONTO."""
     from oferty import silnik
@@ -156,7 +193,7 @@ def wczytaj_konto():
     from oferty import xp
     xp.POSREDNIK = posrednik_xpartner
     silnik.KONTO.update(login=r.get("xp_login") or "", password="",
-                        ustawienia=r.get("ustawienia") or {},
+                        ustawienia=r.get("ustawienia") or {}, ws=posrednik_ws, ws_raport=ws_raport, ws_limit=ws_limit,
                         zapisz=lambda dane: _db("POST", "/rest/v1/rpc/oferty_zapisz_ustawienia", {"p": dane}))
     from oferty import zamowienia as _zam   # „kto zamówił” – z Dziennika zmian, tylko oddział (funkcja w bazie)
     _zam.KTO = lambda nry: _db("POST", "/rest/v1/rpc/zamowienia_kto", {"p_nry": list(nry)})
@@ -325,6 +362,9 @@ def wczytaj_oddzialy(admin=False):
     silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
                         zamowienia="zamowienia" in (me.get("modules") or []),
                         zamawianie="zamawianie" in (me.get("modules") or []),
+                        felgi="felgi" in (me.get("modules") or []), tpms="tpms" in (me.get("modules") or []),
+                        ceny="ceny" in (me.get("modules") or []), dobor="dobor" in (me.get("modules") or []),
+                        rabat_osoby=me.get("rabat_max"),
                         oddzialy_konta=list(me.get("branches") or []), ceny_oddz=ceny, zapisz_ceny=zapisz_ceny)   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
 
 
@@ -632,6 +672,8 @@ class Api:
             if not (body or {}).get("bez_otwierania"):
                 _open_path(plik)
             return {"code": 200, "body": {"plik": plik, "pdf": plik.endswith(".pdf"), "oddzial": res.get("oddzial")}}
+        if path == "/api/felgi_zdjecia" and not silnik.modul("felgi"):
+            return {"code": 403, "body": {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}}
         if path == "/api/felgi_zdjecia":   # zdjęcia felg z konfiguratora xPartner (decyzja właściciela 2026-11-26)
             try:
                 return {"code": 200, "body": self._zdjecia((body or {}).get("ids") or [])}

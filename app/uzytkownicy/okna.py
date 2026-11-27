@@ -5,6 +5,8 @@ from tkinter import messagebox, ttk
 import cloud
 from ui import BG, FlatButton, INK, MUTED, RED, SURFACE, set_icon
 
+ZALEZNE_OD_OFERT = ("felgi", "tpms", "ceny", "dobor", "zamowienia", "zamawianie")   # bez „Oferty – opony” nie mają sensu
+
 
 # ---------- zakładka UŻYTKOWNICY (tylko administrator) ----------
 class UserDialog(tk.Toplevel):
@@ -37,20 +39,52 @@ class UserDialog(tk.Toplevel):
             tk.Label(self, text="Zostaw puste, żeby nie zmieniać hasła.", bg=SURFACE, fg=MUTED,
                      font=f.small).pack(anchor="w", pady=(0, 6))
 
+        self._cb = {}
+
         def group(title, items, kolumny=3):
             tk.Label(self, text=title, bg=SURFACE, fg=INK, font=f.label).pack(anchor="w", pady=(6, 0))
             row = tk.Frame(self, bg=SURFACE)
             row.pack(anchor="w")
             for i, (text, var) in enumerate(items):   # siatka – okno mieści się na ekranie 1280 px
-                tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE,
-                               font=f.body).grid(row=i // kolumny, column=i % kolumny, sticky="w", padx=(0, 12))
-        group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES])
+                cb = tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE, font=f.body)
+                cb.grid(row=i // kolumny, column=i % kolumny, sticky="w", padx=(0, 12))
+                self._cb[id(var)] = cb
+        oferty = ("oferty",) + ZALEZNE_OD_OFERT
+        group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES if k not in oferty])
+        group("Oferty i xPartner (pozostałe – tylko razem z „Oferty – opony”)",
+              [(dict(cloud.MODULES)[k], self.v_mod[k]) for k in oferty])
+        rr = tk.Frame(self, bg=SURFACE)
+        rr.pack(anchor="w", pady=(4, 0))
+        self.v_rabat = tk.StringVar(value="" if u.get("rabat_max") is None else ("%g" % float(u["rabat_max"])))
+        tk.Label(rr, text="Najwyższy rabat w ofertach (%):", bg=SURFACE, fg=INK, font=f.body).pack(side="left")
+        tk.Entry(rr, textvariable=self.v_rabat, width=6, font=f.body, relief="solid", bd=1).pack(side="left", padx=6, ipady=2)
+        tk.Label(rr, text="puste = jak w Ustawieniach ofert (niższy z dwóch wygrywa)", bg=SURFACE, fg=MUTED,
+                 font=f.small).pack(side="left")
+        # Oferty – felgi / czujniki TPMS / zamówienia działają tylko razem z „Oferty – opony” (wspólne okno ofert, konto xPartner)
+        def zalezne(*_):
+            stan = "normal" if self.v_mod["oferty"].get() else "disabled"
+            for k in ZALEZNE_OD_OFERT:
+                if stan == "disabled":
+                    self.v_mod[k].set(False)
+                self._cb[id(self.v_mod[k])].config(state=stan)
+        self.v_mod["oferty"].trace_add("write", zalezne)
+        zalezne()
         group("Oddziały", [(b, self.v_br[b]) for b in cloud.BRANCHES])
+        inni = [x for x in (getattr(app, "_users", None) or []) if x.get("email") != u.get("email")]
+        if inni:   # szybkie zakładanie konta: moduły, oddziały i rabat jak u kogoś innego
+            kr = tk.Frame(self, bg=SURFACE)
+            kr.pack(anchor="w", pady=(6, 0))
+            tk.Label(kr, text="Kopiuj uprawnienia z konta:", bg=SURFACE, fg=INK, font=f.body).pack(side="left")
+            self._inni = {"%s (%s)" % (x.get("name") or x["email"], x["email"]): x for x in inni}
+            self.v_kopia = tk.StringVar()
+            cb = ttk.Combobox(kr, textvariable=self.v_kopia, values=list(self._inni), state="readonly", width=38, font=f.body)
+            cb.pack(side="left", padx=6)
+            cb.bind("<<ComboboxSelected>>", lambda e: self._kopiuj())
         group("Konto", [("Administrator (dostęp do wszystkiego)", self.v_admin), ("Aktywne", self.v_active)])
 
         # OFERTY OPON: konto API xPartner tej osoby (każdy ma swoje; hasło nie jest pokazywane)
         self.v_xp_login, self.v_xp_pass = tk.StringVar(), tk.StringVar()
-        tk.Label(self, text="xPartner – konto API (moduł Oferty opon)", bg=SURFACE, fg=INK,
+        tk.Label(self, text="xPartner – konto API (moduł Oferty)", bg=SURFACE, fg=INK,
                  font=f.label).pack(anchor="w", pady=(10, 0))
         xr = tk.Frame(self, bg=SURFACE)
         xr.pack(anchor="w", pady=(2, 0))
@@ -59,7 +93,7 @@ class UserDialog(tk.Toplevel):
         tk.Entry(xr, textvariable=self.v_xp_login, width=20, font=f.body, relief="solid", bd=1).grid(row=1, column=0, ipady=3)
         tk.Entry(xr, textvariable=self.v_xp_pass, show="•", width=20, font=f.body, relief="solid", bd=1).grid(
             row=1, column=1, ipady=3, padx=(10, 0))
-        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty opon).", bg=SURFACE, fg=MUTED, font=f.small)
+        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty).", bg=SURFACE, fg=MUTED, font=f.small)
         self.xp_info.pack(anchor="w")
         self._xp_old_login = ""
         if u:
@@ -81,7 +115,7 @@ class UserDialog(tk.Toplevel):
                     self._xp_old_login = r.get("xp_login") or ""
                     self.v_xp_login.set(self._xp_old_login)
                     self.xp_info.config(text="Hasło zapisane – puste pole = bez zmiany." if jest
-                                        else "Brak hasła – wpisz, żeby moduł Oferty opon działał.")
+                                        else "Brak hasła – wpisz, żeby moduł Oferty działał.")
                 app.after(0, show)
             threading.Thread(target=load_xp, daemon=True).start()
 
@@ -97,6 +131,18 @@ class UserDialog(tk.Toplevel):
             FlatButton(bar, "Wyloguj z programu teraz", self.logout, "ghost", f.body, 14, 8).pack(side="left", padx=8)
         self.grab_set()
 
+    def _kopiuj(self):
+        x = self._inni.get(self.v_kopia.get())
+        if not x:
+            return
+        for k, v in self.v_mod.items():
+            v.set(k in (x.get("modules") or []))
+        for b, v in self.v_br.items():
+            v.set(b in (x.get("branches") or []))
+        self.v_rabat.set("" if x.get("rabat_max") is None else ("%g" % float(x["rabat_max"])))
+        self.msg.config(text="Skopiowano moduły, oddziały i rabat – sprawdź i kliknij „Zapisz”. Rola, hasło i konto xPartner bez zmian.",
+                        fg=MUTED)
+
     def _run(self, fn, done_text):
         self.btn.set_enabled(False, "Zapisuję…")
 
@@ -110,6 +156,7 @@ class UserDialog(tk.Toplevel):
         threading.Thread(target=work, daemon=True).start()
 
     def save(self):
+        self.msg.config(fg=RED)
         email = self.v_email.get().strip().lower()
         pw = self.v_pass.get()
         role = "admin" if self.v_admin.get() else "user"
@@ -124,6 +171,15 @@ class UserDialog(tk.Toplevel):
         if role != "admin" and (not mods or not brs):
             self.msg.config(text="Zaznacz co najmniej jeden moduł i jeden oddział.")
             return
+        rab_txt = self.v_rabat.get().strip().replace(",", ".")
+        try:
+            rabat = None if rab_txt == "" else float(rab_txt)
+        except ValueError:
+            rabat = -1
+        if rabat is not None and not 0 <= rabat <= 100:
+            self.msg.config(text="Najwyższy rabat: liczba od 0 do 100 albo puste pole.", fg=RED)
+            return
+        rab_zm = (rabat if rabat is None else round(rabat, 2)) != (None if self.user.get("rabat_max") is None else round(float(self.user["rabat_max"]), 2))
         s, name, active = self.app.session, self.v_name.get().strip(), self.v_active.get()
         xp_login, xp_pass = self.v_xp_login.get().strip(), self.v_xp_pass.get()
         xp_change = xp_pass != "" or xp_login != self._xp_old_login
@@ -140,6 +196,8 @@ class UserDialog(tk.Toplevel):
                     s.admin_fn(action="set_password", email=email, password=pw)
             if xp_change:
                 s.rpc("oferty_admin_set_konto", p_email=email, p_login=xp_login, p_haslo=xp_pass)
+            if rab_zm:
+                s.set_rabat_max(email, rabat)
         self._run(fn, f"Zapisano: {email}" + (" – przekaż użytkownikowi hasło." if pw else ""))
 
     def logout(self):

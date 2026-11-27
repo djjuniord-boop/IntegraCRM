@@ -60,6 +60,7 @@ DEFAULT_CFG = {
     "felgi_max": 3, "felgi_srednica": "blokuj",   # opony o innej średnicy niż felga: „blokuj” PDF albo „ostrzez”
     "felgi_montaz_dom": False, "felgi_typ_dom": "osobowy",
     "felgi_demo": "pokaz", "felgi_na_stronie": 20, "felgi_min_stan": 0,
+    "auto_et_ok": 5, "auto_et_ostrz": 15,   # dobór po aucie: ET ± mm od fabrycznego = pasuje / ostrzeżenie (2026-11-27)
 }
 
 # zakresy ustawień – pilnowane przy wczytaniu (zły zapis w bazie nie może zepsuć cen)
@@ -76,6 +77,8 @@ def _normuj_cfg(c):
     lic("rabat_max_opony", 0, 100, 90); lic("rabat_max_wym", 0, 100, 100); lic("rabat_max_felgi", 0, 100, 90)
     lic("wynikow_na_strone", 5, 200, 20); lic("felgi_na_stronie", 4, 200, 20); lic("felgi_min_stan", 0, 1000, 0)
     lic("koszyk_max_szt", 1, 1000, 200); lic("felgi_max", 1, 3, 3)
+    lic("auto_et_ok", 0, 50, 5); lic("auto_et_ostrz", 0, 80, 15)
+    c["auto_et_ostrz"] = max(c["auto_et_ostrz"], c["auto_et_ok"])
     lic("marza_felgi", 0, 500, 13); lic("marza_czujniki", 0, 500, 13)
     c["felgi_tryb"] = c.get("felgi_tryb") if c.get("felgi_tryb") in ("procent", "kwota") else "procent"
     c["felgi_srednica"] = c.get("felgi_srednica") if c.get("felgi_srednica") in ("blokuj", "ostrzez") else "blokuj"
@@ -110,6 +113,13 @@ def load_cfg():
     if o:   # marża wspólna oddziału – nadpisuje ustawienia osobiste
         cfg.update({k: v for k, v in ((KONTO.get("ceny_oddz") or {}).get(o) or {}).items() if k in CENY_WSPOLNE})
     _normuj_cfg(cfg)
+    r_os = KONTO.get("rabat_osoby")   # najwyższy rabat tej osoby (UŻYTKOWNICY) – niższy z dwóch wygrywa; administrator bez limitu
+    if r_os not in (None, "") and not KONTO.get("admin"):
+        try:
+            for k in ("rabat_max_opony", "rabat_max_felgi", "rabat_max_wym"):
+                cfg[k] = min(cfg[k], max(0.0, float(r_os)))
+        except (TypeError, ValueError):
+            pass
     cfg["login"], cfg["password"] = KONTO.get("login") or "", KONTO.get("password") or ""
     return cfg
 
@@ -119,7 +129,7 @@ CENY_USLUG = ("wymiana_kolo", "wymiana_suv", "wymiana_dost", "tpms_cena",
 # marża i ceny usług wspólne dla oddziału – zmienia tylko administrator (usługi: decyzja właściciela 2026-11-24)
 CENY_WSPOLNE = ("narzut_tryb", "marza_proc", "progi", "marza_felgi") + CENY_USLUG + (
     "zaokr_opony", "rabat_max_opony", "rabat_max_wym", "koszyk_max_szt", "felgi_tryb", "felgi_progi", "marza_czujniki",
-    "rabat_max_felgi", "zaokr_felgi", "felgi_max", "felgi_srednica")   # ustawienia w zakładkach – też wspólne (2026-11-26)
+    "rabat_max_felgi", "zaokr_felgi", "felgi_max", "felgi_srednica", "auto_et_ok", "auto_et_ostrz")   # ustawienia w zakładkach – też wspólne (2026-11-26)
 ODDZ_CEN = ("Latex Wrocław",)   # oddziały ze wspólną marżą i cenami usług ustalaną przez administratora (decyzja właściciela 2026-11-12)
 
 
@@ -1523,13 +1533,125 @@ def felgi_zapisz_hist(body, w):
     rab = body.get("rabat") if isinstance(body.get("rabat"), dict) else {}
     rec = dict(felgi=[p["felga"]["id"] for p in w["props"]], ilosc=w["il"], opona=czysc(op), il_op=w["il_op"], czujnik=czysc(w["czujnik"]),
                il_tp=w["il_tp"], montaz=w["montaz"], typ=w["typ"], depozyt=w["depozyt"] if w["depozyt"] in ("opony", "kola") else "",
-               ceny=num(body.get("ceny")), ceny_wym=num(body.get("ceny_wym")),
+               ceny=num(body.get("ceny")), ceny_wym=num(body.get("ceny_wym")), auto_pdf=bool(body.get("auto_pdf")),
+               auto=body.get("auto") if isinstance(body.get("auto"), dict) and len(json.dumps(body.get("auto"))) < 20000 else None,
                rabat={k: str(rab.get(k) or "")[:6] for k in ("f", "o", "m")}, typ_oferty="felgi", oid=oid, data=datetime.datetime.now().strftime("%d.%m.%Y %H:%M"),
                klient=body.get("klient") or "", oddzial=body.get("oddzial") or "", pojazdy=[], warianty=warianty,
                felgi_dane=[{k: p["felga"].get(k) for k in ("id", "nazwa", "szer", "sred", "pcd", "et", "otwor", "rodzaj", "producent",
                                                              "model", "kod", "stan", "brutto_zak", "cena", "demo")} for p in w["props"]])
     hay = ("felgi " + rec["klient"] + " " + " ".join(m_ for x in warianty for m_ in x["modele"])).lower()
     HIST.save(oid, rec["klient"], rec, hay, owner=str(body.get("owner") or "").lower())
+
+
+AUTO_PAMIEC = {}   # (metoda, parametry) -> (czas, wynik) – mniej zapytań do wheel-size (darmowy plan: 300 dziennie)
+AUTO_BLAD = [0.0, ""]   # ostatni błąd serwera doboru (czas, treść) – przez 5 min bez ponawiania
+
+
+def _ws(m, par):
+    """Zapytanie wheel-size z pamięcią 12 h (darmowy plan: 300 zapytań dziennie)."""
+    ws = KONTO.get("ws")
+    if not ws:
+        raise ApiError("Dobór po aucie nie jest jeszcze dostępny – zaloguj się ponownie.")
+    klucz = json.dumps(["surowe", m, par], sort_keys=True)
+    t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
+    if wynik is None or time.time() - t > 12 * 3600:
+        if time.time() - AUTO_BLAD[0] < 300:   # serwer niedawno nie odpowiedział / limit – nie czekamy przy każdym szukaniu
+            raise ApiError(AUTO_BLAD[1])
+        try:
+            wynik = ws(m, par)
+        except ApiError as e:
+            AUTO_BLAD[:] = [time.time(), str(e)]
+            raise
+        if len(AUTO_PAMIEC) > 500:
+            AUTO_PAMIEC.clear()
+        if isinstance(wynik, dict) and isinstance(wynik.get("_licznik"), dict):
+            KONTO["ws_licznik"] = wynik["_licznik"]   # ile zapytań dziś zużyto (cała firma) – ostrzeżenie przy 80%
+        AUTO_PAMIEC[klucz] = (time.time(), wynik)
+    return wynik
+
+
+def licznik_ws():
+    """Ostrzeżenie dla pracownika, gdy dzienny limit doboru po aucie jest prawie wyczerpany (80%)."""
+    lic = KONTO.get("ws_licznik") or {}
+    try:
+        suma, limit = int(lic.get("suma") or 0), int(lic.get("limit") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if limit and suma >= 0.8 * limit:
+        return "Zostało mało zapytań doboru po aucie na dziś (%d z %d) – dobieraj po aucie tylko w razie potrzeby." % (suma, limit)
+    return ""
+
+
+def auto_z_tekstu(txt):
+    """Szybkie polecenie felg z autem („audi a4 b9 2021 alu”, „vw golf 2019”): (auto, reszta polecenia) albo (None, txt).
+    Potrzebna marka + model + rok albo generacja – wtedy wszystkie rozmiary kół auta z wheel-size."""
+    from oferty import auto as AU
+    if not KONTO.get("ws") or not modul("dobor") or not re.search(r"[a-ząćęłńóśźż]{2}", (txt or "").lower()):
+        return None, txt
+    from oferty import tpms as TP
+    if not TP.marki_z_nazwy(txt) and not re.search(r"\b(mercedes|merc|alfa|skoda|land|range)\b", (txt or "").lower()):
+        return None, txt   # bez marki auta w poleceniu – żadnych zapytań do wheel-size
+    try:
+        marki = AU.lista(_ws("makes", {}))
+        mk, i = AU.znajdz_marke(txt, marki)
+        if not mk:
+            return None, txt
+        md, sl_md = AU.znajdz_model(txt, i, AU.lista(_ws("models", {"make": mk})))
+        if not md:
+            return None, txt
+        sl = AU.slowa(txt)
+        r = AU.rok(txt)
+        reszta = sl[:i] + sl[i + 1 + len(sl_md):]
+        gen = ""
+        if not r:
+            gens = AU.lista(_ws("generations", {"make": mk, "model": md}))
+            for w in reszta:
+                kw = AU._k(w)
+                g = next((x for x in gens if kw == AU._k(x["slug"]) or kw in [AU._k(t) for t in re.split(r"[\s()/,\-]+", x["name"])]), None) \
+                    if len(kw) >= 2 else None
+                if g:
+                    gen = g["slug"]
+                    reszta = [x for x in reszta if x != w]
+                    break
+            if not gen:
+                return None, txt
+        else:
+            reszta = [x for x in reszta if x != r]
+        par = {"make": mk, "model": md, "year": r} if r else {"make": mk, "model": md, "generation": gen}
+        nazwa = " ".join([next((x["name"] for x in marki if x["slug"] == mk), mk), " ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in sl_md)])
+        a = AU.auto_wiele(_ws("by_model", par), nazwa + (" (%s)" % r if r else ""))
+        return a, " ".join(reszta)
+    except ApiError:
+        return None, txt
+
+
+def auto_route(cfg, body):
+    """Dobór po aucie: marki → modele → lata → wersje → rozmiary (wheel-size przez funkcję serwera)."""
+    from oferty import auto as AU
+    m = body.get("m")
+    pola = {"makes": (), "models": ("make",), "years": ("make", "model"), "modifications": ("make", "model", "year"),
+            "by_model": ("make", "model", "modification")}
+    if m not in pola:
+        raise ApiError("Nieznana operacja doboru po aucie.")
+    par = {}
+    for k in pola[m]:
+        v = str(body.get(k) or "").strip()
+        if not re.match(r"^[A-Za-z0-9_.\-]{1,60}$", v):
+            raise ApiError("Wybierz najpierw markę, model, rok i wersję.")
+        par[k] = v
+    klucz = json.dumps([m, par], sort_keys=True)
+    t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
+    if wynik is None or time.time() - t > 12 * 3600:
+        dane = _ws(m, par)
+        if m == "by_model":
+            wynik = AU.auto(dane, par["modification"])
+            if not wynik:
+                raise ApiError("Brak danych o kołach dla tej wersji auta.")
+            wynik["kola_opony"] = [AU.rozmiar_opony(k["przod"]["opona"]) for k in wynik["kola"]]
+        else:
+            wynik = AU.wersje(dane) if m == "modifications" else AU.lista(dane)
+        AUTO_PAMIEC[klucz] = (time.time(), wynik)
+    return 200, dict({"lista": wynik} if m != "by_model" else {"auto": wynik}, ostrzezenie=licznik_ws())
 
 
 def felgi_route(cfg, route, body):
@@ -1541,14 +1663,29 @@ def felgi_route(cfg, route, body):
         items = kat.felgi() if kat and hasattr(kat, "felgi") else None
         if items is None:
             raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
-        lista, q = FG.szukaj(items, body.get("q") or "", m, vat, lambda n: cena_felgi(cfg, n))
+        a_txt, tekst = auto_z_tekstu(body.get("q") or "")   # „audi a4 b9 2021 alu” = felgi dobrane do auta
+        if a_txt and a_txt.get("pcd"):
+            tekst = (tekst + " " + a_txt["pcd"]).strip()
+        lista, q = FG.szukaj(items, tekst, m, vat, lambda n: cena_felgi(cfg, n))
+        a = a_txt or (body.get("auto") if isinstance(body.get("auto"), dict) else None)
+        if a:   # dobór po aucie: ocena każdej felgi (pasujące najpierw)
+            from oferty import auto as AU
+            lista = [dict(f) for f in lista]
+            for f in lista:
+                try:
+                    f["ocena"], f["ocena_txt"] = AU.ocena(f, a, cfg["auto_et_ok"], cfg["auto_et_ostrz"])
+                except (KeyError, TypeError, AttributeError, ValueError):   # dane auta z okna / Historii – niezaufane
+                    f["ocena"], f["ocena_txt"] = "", ""
+            kol = {"ok": 0, "zm": 1, "uw": 2, "nie": 3}
+            lista.sort(key=lambda f: kol.get(f["ocena"], 2))
         FELGI_OSTATNIE.clear(); FELGI_OSTATNIE.update({f["id"]: f for f in lista})
         info = KONTO.get("katalog_info")
         wzor = ("cena oferty = zakup brutto + " + ", ".join(("powyżej" if p.get("do") in (None, "") else "do %g zł" % float(p["do"])) + ": %g zł" % float(p.get("kwota") or 0)
                                                           for p in cfg["felgi_progi"])) if cfg["felgi_tryb"] == "kwota" else "cena oferty = zakup netto + marża %g%% + VAT" % m
         if cfg.get("zaokr_felgi", 1) != 1:
             wzor += ", w górę do %d zł" % cfg["zaokr_felgi"]
-        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else ""}
+        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else "", "auto": a_txt,
+                     "ostrzezenie": licznik_ws() if a_txt else ""}
     try:
         w = felgi_licz(cfg, body)
     except (ValueError, TypeError, AttributeError):
@@ -1592,10 +1729,16 @@ def _ctx_oddzial(cfg, body, oddzial):
             "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
             "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
             "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
-            "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or ""}
+            "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or "", "auto": auto_pdf(body)}
 
 
 PDF_FELGI_POR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi_porownanie.html")
+
+
+def auto_pdf(body):
+    """„Dobrane do: …” na PDF felg – tylko gdy włączony przełącznik przy ofercie (decyzja właściciela 2026-11-27)."""
+    a = body.get("auto") if isinstance(body.get("auto"), dict) else {}
+    return str(a.get("nazwa") or "").strip()[:160] if body.get("auto_pdf") else ""
 
 
 def felgi_porownanie_html(cfg, body, w, oddzial):
@@ -1637,7 +1780,7 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
         "o_nazwa": oddzial.get("nazwa", ""), "o_adres": oddzial.get("adres", ""), "o_tel": oddzial.get("tel", ""),
         "o_www": oddzial.get("www", ""), "o_email": oddzial.get("email", ""),
         "o_kom": [{"t": t.strip()} for t in re.split(r"[,;]", oddzial.get("kom", "") or "") if t.strip()],
-        "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or "",
+        "klient": (body.get("klient") or "").strip(), "kto": KONTO.get("kto") or "", "auto": auto_pdf(body),
         "tag": rodz + (" · " + (f.get("przeznaczenie") or "").upper() if f.get("przeznaczenie") else "") + (" · DEMO" if f.get("demo") else "") + (" · KOMPLET" if komplet else ""),
         "tytul": f["nazwa"], "producent": f.get("producent") or "", "model": f.get("model") or "",
         "rozmiar": ('%s x %s"' % (f["szer"], f["sred"])) if f.get("szer") and f.get("sred") else (f.get("sred") or ""),
@@ -1672,6 +1815,12 @@ def opis_pol(items):
     return ("\nZdjęcie opony: %s · EAN: %s · etykieta UE: %s\nPola produktu: %s\nCechy: %s" % (
         "TAK" if p.get("foto") else "brak", "TAK" if p.get("ean") else "brak", ", ".join(et) or "brak",
         ", ".join(p.get("pola") or []), ", ".join(sorted(p["attrs"]))))
+
+def modul(nazwa):
+    """Części okna ofert włączane osobno w UŻYTKOWNICY (2026-11-27): „felgi” (+ dobór po aucie), „tpms”.
+    Bez danych o koncie (testy, stare wersje okna) – dostępne jak dotąd."""
+    return bool(KONTO.get("admin") or KONTO.get(nazwa, True))
+
 
 def moze_zamawiac():
     return bool(KONTO.get("admin") or KONTO.get("zamawianie"))
@@ -1737,6 +1886,9 @@ def handle(path, body=None, open_path=None):
     route = u.path
     cfg = load_cfg()
     ucz_marki(cfg)
+    if body and route in ("/api/offer", "/api/pdf", "/api/felgi_oferta", "/api/felgi_pdf") and not modul("ceny"):
+        # bez uprawnienia „Oferty – własne ceny i rabaty”: tylko ceny wyliczone (2026-11-27)
+        body = dict(body, ceny={}, ceny_wym={}, rabat={} if route.startswith("/api/felgi") else 0, rabat_wym=0, marza=None)
     try:
         if route.startswith("/api/koszyk/"):
             return koszyk_route(route, body or {}, cfg)
@@ -1749,6 +1901,7 @@ def handle(path, body=None, open_path=None):
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 c["zamawianie"] = moze_zamawiac()
+                c["mod_felgi"], c["mod_tpms"], c["mod_ceny"], c["mod_dobor"] = modul("felgi"), modul("tpms"), modul("ceny"), modul("dobor")
                 c["ceny_oddzial"] = oddzial_cen() or ""
                 c["ceny_edycja"] = bool(not c["ceny_oddzial"] or KONTO.get("admin"))
                 return 200, c
@@ -1820,6 +1973,10 @@ def handle(path, body=None, open_path=None):
                 return 500, {"error": "Nie udało się zapisać uwag – jeśli to pierwszy raz, administrator musi wkleić plik SQL "
                                       "(supabase/oferty_uwagi_2026-11-16.sql)."}
             return 200, {"ok": True}
+        if route == "/api/tpms" and not modul("tpms"):
+            return 403, {"error": "Brak dostępu do czujników TPMS – poproś administratora (UŻYTKOWNICY → Oferty – czujniki TPMS)."}
+        if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf") and not modul("felgi"):
+            return 403, {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}
         if route == "/api/tpms":   # zakładka „Czujniki TPMS”: samo wyszukiwanie w kopii pliku + wspólny koszyk (2026-11-17)
             from oferty import tpms as TP
             kat = KONTO.get("katalog")
@@ -1835,6 +1992,22 @@ def handle(path, body=None, open_path=None):
                          "zrodlo": (info() if info else "").replace("w ofercie – na żywo", "w koszyku – na żywo")}
         if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf"):
             return felgi_route(cfg, route, body)
+        if route == "/api/auto":
+            if not modul("dobor"):
+                return 403, {"error": "Brak dostępu do doboru po aucie – poproś administratora (UŻYTKOWNICY → Oferty – dobór po aucie)."}
+            return auto_route(cfg, body)
+        if route in ("/api/ws_raport", "/api/ws_limit"):
+            if not KONTO.get("admin"):
+                raise ApiError("Tylko administrator.")
+            if route == "/api/ws_limit":
+                try:
+                    lim = int(body.get("limit"))
+                except (TypeError, ValueError):
+                    raise ApiError("Podaj limit jako liczbę zapytań dziennie.")
+                if not 1 <= lim <= 1000000:
+                    raise ApiError("Limit musi być od 1 do 1 000 000.")
+                KONTO["ws_limit"](lim)
+            return 200, KONTO["ws_raport"](int(body.get("dni") or 7)) or {}
         if route == "/api/quick":
             q = parse_quick(body.get("text", ""))
             if not q["pojazdy"]:

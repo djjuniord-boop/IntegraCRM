@@ -24,7 +24,7 @@ h1{font-size:15pt;margin:6px 0 2px;color:#141414}.sub{color:#666;font-size:9pt;m
 .foot{position:absolute;left:13mm;right:13mm;bottom:8mm;border-top:1px solid #ddd;padding-top:4px;display:flex;justify-content:space-between;font-size:7.5pt;color:#888}
 </style></head><body><div class="page">
 <div class="band"><img src="{{{logo}}}" alt="Latex"><div class="firma"><b>{{o_nazwa}}</b><br>{{o_adres}}<br>tel. {{o_tel}}<br>{{o_www}}</div></div>
-<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
+<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}{{#auto}}<div><small>Dobrane do</small><b>{{auto}}</b></div>{{/auto}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
 <h1>{{tytul_h}} – {{ile}} propozycje do wyboru</h1>
 <div class="sub">Wybierz jedną propozycję{{#komplet}} – pozostałe elementy kompletu są takie same{{/komplet}}. Ceny brutto z VAT {{vat_proc}}%.</div>
 {{#wsp_txt}}<div class="wsp"><b>W każdej propozycji, oprócz felg:</b> {{wsp_txt}}</div>{{/wsp_txt}}
