@@ -1722,11 +1722,11 @@ def felgi_route(cfg, route, body):
 
 FOTO_XP = re.compile(r"^https://xpartner\.net\.pl/descriptionFiles/images/\d+/[0-9A-Za-z]+\.(jpe?g|png|webp)$", re.I)
 # zdjęcie felgi z bazy (zmniejszony JPEG, 2026-11-27) – wbudowane w stronę i PDF, bez logowania do xPartner
-FOTO_DATA = re.compile(r"^data:image/jpeg;base64,[A-Za-z0-9+/]{100,600000}={0,2}$")
+FOTO_DATA = re.compile(r"data:image/jpeg;base64,[A-Za-z0-9+/]{100,600000}={0,2}")
 
 
 def foto_ok(u):
-    return isinstance(u, str) and bool(FOTO_XP.match(u) or FOTO_DATA.match(u))
+    return isinstance(u, str) and bool(FOTO_XP.fullmatch(u) or FOTO_DATA.fullmatch(u))
 PDF_FELGI = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_felgi.html")
 
 

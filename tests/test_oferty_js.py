@@ -432,6 +432,9 @@ def test_dobor_po_aucie_w_oknie():
     assert not bledy, bledy
 
 
+JPG8 = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDi6KKK+ZP3E//Z"   # prawdziwy JPEG 8x8
+
+
 def test_zdjecia_felg_z_bazy_w_oknie():
     """2026-11-27: zdjęcia felg z bazy (data:image/jpeg), „zdjęcie wkrótce” dla niesprawdzonych, bez okna logowania;
     administrator widzi stan zdjęć w Ustawieniach → Felgi."""
@@ -440,11 +443,12 @@ def test_zdjecia_felg_z_bazy_w_oknie():
     except Exception:
         print("  (pominięty – brak Playwright)")
         return
-    jpg = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAAIAAgDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwDi6KKK+ZP3E//Z"   # prawdziwy JPEG 8x8
+    jpg = JPG8
     f = lambda i: {"id": i, "nazwa": "FELGA %d" % i, "sred": "17", "szer": "7", "pcd": "5x112", "et": "45", "otwor": "57.1", "stan": 8,
                    "cena": 500, "brutto_zak": 400, "kod": "", "producent": "X", "model": "", "foto": "", "marki": []}
     odp = {"/api/cfg": {"oddzialy": ["Latex Wrocław"], "felgi_max": 3, "admin": True},
-           "/api/felgi_zdjecia": {"zdjecia": {"1": [jpg]}, "wkrotce": [2]},
+           "/api/felgi_zdjecia_pelne": {"zdjecia": {"1": [jpg, jpg]}},
+           "/api/felgi_zdjecia": {"zdjecia": {"1": jpg, "3": ""}, "wkrotce": [2]},
            "/api/felgi_foto_stan": {"w_bazie": 1200, "sprawdzone": 1500, "trwa": True, "zrobione": 40, "wszystkie": 300, "start": True},
            "/api/felgi": {"lista": [f(1), f(2), f(3)], "q": {"ilosc": 4}, "zrodlo": ""}}
     mock = ("window.alert=window.confirm=window.prompt=()=>true;const ODP=%s;window.pywebview={api:{call:async(p,b)=>"
@@ -467,11 +471,53 @@ def test_zdjecia_felg_z_bazy_w_oknie():
             assert pg.evaluate("document.querySelectorAll('#fRes img.ph').length") == 1
             assert pg.evaluate("document.querySelector('#fRes img.ph').src").startswith("data:image/jpeg")
             assert "zdjęcie wkrótce" in pg.inner_text("#fRes") and pg.inner_text("#fRes").count("zdjęcie wkrótce") == 1
-            assert "zaloguj" not in pg.inner_text("#fMsg").lower()
+            assert "zaloguj" not in pg.inner_text("#fMsg").lower() and "brak zdjęcia w xPartner" in pg.inner_text("#fRes")
+            assert pg.evaluate("Object.keys(fCialo().fotos).length") == 0   # przeliczenie oferty bez zdjęć
+            pg.evaluate("fWybierz(1)")
+            pg.wait_for_timeout(300)
+            pg.evaluate("fPelne()")
+            pg.wait_for_timeout(300)
+            assert pg.evaluate("fCialo(1).fotos[1].length") == 2   # do PDF pełne zdjęcia z bazy
             pg.evaluate("openCfg()")
             pg.wait_for_timeout(500)
             t = pg.inner_text("#fotoBox")
             assert "1200" in t.replace("\xa0", "").replace(" ", "") and "40" in t and "300" in t
+            b.close()
+    finally:
+        p.unlink()
+    assert not bledy, bledy
+
+
+def test_zdjecia_felg_po_kilku_wyszukiwaniach():
+    """Recenzja 1.2.29: po kilku wyszukiwaniach (setki felg) zdjęcia widocznych felg nie znikają z pamięci okna."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print("  (pominięty – brak Playwright)")
+        return
+    jpg = JPG8
+    mock = ("window.alert=window.confirm=window.prompt=()=>true;const J='%s';const f=i=>({id:i,nazwa:'FELGA '+i,sred:'17',szer:'7',pcd:'5x112',et:'45',otwor:'57.1',stan:8,cena:500,brutto_zak:400,kod:'',producent:'X',model:'',foto:'',marki:[]});"
+            "window.pywebview={api:{call:async(p,b)=>{if(p.startsWith('/api/cfg'))return{code:200,body:{oddzialy:['Latex Wrocław'],felgi_max:3,felgi_na_stronie:200}};"
+            "if(p.startsWith('/api/felgi_zdjecia'))return{code:200,body:{zdjecia:Object.fromEntries(b.ids.map(i=>[i,J])),wkrotce:[]}};"
+            "if(p.startsWith('/api/felgi')){const [a,n]=b.q.split(' ').map(Number);return{code:200,body:{lista:Array.from({length:n},(_,k)=>f(a+k)),q:{ilosc:4},zrodlo:''}}}"
+            "return{code:200,body:{}}}}};" % jpg)
+    html = (ROOT / "app/oferty/index.html").read_text(encoding="utf-8").replace("<head>", "<head><script>" + mock + "</script>", 1)
+    p = ROOT / "app/oferty/_test_js5.html"
+    p.write_text(html, encoding="utf-8")
+    bledy = []
+    try:
+        with sync_playwright() as pw:
+            b = pw.chromium.launch(args=["--no-sandbox"])
+            pg = b.new_page()
+            pg.on("pageerror", lambda e: bledy.append(str(e)))
+            pg.goto(p.as_uri())
+            pg.wait_for_timeout(400)
+            pg.evaluate("widok('f');FPOK=200")
+            for q, n in (("100000 200", 200), ("200000 200", 200), ("10 60", 60), ("5000 200", 200), ("300000 200", 200), ("10 60", 60)):
+                pg.fill("#fq", q)
+                pg.evaluate("fSzukaj()")
+                pg.wait_for_function("!FZDJ_TRWA&&FL.length===%d&&document.querySelectorAll('#fRes .fw').length>0&&document.querySelectorAll('#fRes img.ph').length===document.querySelectorAll('#fRes .fw').length" % n, timeout=20000)
+            assert pg.evaluate("FZDJ.size") <= 600
             b.close()
     finally:
         p.unlink()
@@ -488,5 +534,6 @@ if __name__ == "__main__":
     test_historia_felg_bez_xss_i_whatsapp_bez_starego_pdf()
     test_dobor_po_aucie_w_oknie()
     test_zdjecia_felg_z_bazy_w_oknie()
+    test_zdjecia_felg_po_kilku_wyszukiwaniach()
     print("Okna Ofert bez błędów JS")
 

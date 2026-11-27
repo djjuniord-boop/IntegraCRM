@@ -89,8 +89,9 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 
 ## ZDJĘCIA FELG Z BAZY (2026-11-27)
 - Pracownicy **nie logują się do xPartner** dla zdjęć felg – zdjęcia biorą z bazy (schowek `felgi-foto` + tabela `xp_felgi_foto`).
-- Zdjęcia do bazy pobiera **tylko administrator** (zalogowany w xPartner w programie): zmniejszone JPEG (dłuższy bok 640 px, najwyżej 3 na felgę).
-- **Automatycznie**: przy każdym wejściu administratora w Oferty – w tle nowe felgi; felgi bez zdjęcia w xPartner sprawdzane ponownie co tydzień.
+- Zdjęcia do bazy pobiera **tylko administrator** (zalogowany w xPartner w programie): miniatura do kafelków (280 px) + najwyżej 2 zdjęcia do PDF (640 px).
+- Darmowy plan Supabase (limit ruchu 5 GB/mies., schowek 1 GB): Panel dostaje tylko miniatury, pełne zdjęcia tylko dla wybranych felg przy PDF; miniatury zapamiętane na dysku komputera (`data/felgi_miniatury`).
+- **Automatycznie**: gdy administrator otwiera Felgi – w tle nowe felgi (do 400 na uruchomienie, xPartner blokuje automaty); felgi bez zdjęcia w xPartner sprawdzane ponownie co tydzień. „Brak zdjęcia” zapisywany tylko, gdy xPartner wprost go nie ma (błąd = próba później).
 - Felga jeszcze niesprawdzona → u pracownika rysunek z napisem „zdjęcie wkrótce”. Pierwsze wydanie: najpierw beta.
 
 ## Koszyk i ZAMÓWIENIA xPartner
