@@ -621,7 +621,11 @@ class Api:
                 continue   # są adresy, ale nie udało się pobrać – spróbujemy później
             if not us and str(i) not in puste:
                 continue   # nie wiadomo, czy zdjęcia są (błąd, brak odpowiedzi, logowanie) – spróbujemy później
-            out[str(i)] = self.foto().zapisz(i, [o["d"] for o in obrazy], obrazy[0]["m"] if obrazy else None)
+            m = self.foto().zapisz(i, [o["d"] for o in obrazy], obrazy[0]["m"] if obrazy else None)
+            if m is None:
+                bledy += 1
+                continue
+            out[str(i)] = m
         return {"zdjecia": out, "login_karta": bool(d.get("login_karta")), "bledy": bledy}
 
     def _male(self, urls):
@@ -688,7 +692,8 @@ class Api:
                 st["zapisane"] += sum(1 for v in d["zdjecia"].values() if v)
                 zle = zle + 1 if (not d["zdjecia"] and d.get("bledy")) or d.get("login_karta") else 0
                 if zle >= 3:
-                    st["blad"] = "xPartner nie oddaje zdjęć (3 partie z rzędu) – spróbuję przy następnym wejściu"
+                    st["blad"] = ("zaloguj się na stronie xPartner (okienko przy Felgach) – część zdjęć jest tylko po zalogowaniu"
+                                  if d.get("login_karta") else "xPartner nie oddaje zdjęć (3 partie z rzędu) – spróbuję przy następnym wejściu")
                     break
                 time.sleep(3)
         except Exception as e:

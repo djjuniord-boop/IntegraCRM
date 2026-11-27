@@ -178,10 +178,12 @@ class ZdjeciaBaza:
 
     def zapisz(self, i, obrazy, miniatura=None):
         """Administrator: zmniejszone zdjęcia felgi (data:image/jpeg) i miniatura -> schowek + wiersz.
-        Zwraca miniaturę (data:) albo "" (felga bez zdjęcia)."""
+        Zwraca miniaturę (data:), "" (felga bez zdjęcia) albo None (obrazy odrzucone – nic nie zapisano)."""
         i = int(i)
         dobre = [b for b in (jpeg_z_data(u) for u in obrazy or []) if b][:MAX_ZDJEC]
         mini = jpeg_z_data(miniatura) or (dobre[0] if dobre else None)
+        if obrazy and not dobre:
+            return None   # obrazy odrzucone (nie JPEG / za duże) – to błąd, nie „brak zdjęcia”; próba później
         if dobre and mini:
             self.wyslij("%d_m.jpg" % i, mini)
             for n, b in enumerate(dobre, 1):

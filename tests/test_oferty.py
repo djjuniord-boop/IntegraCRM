@@ -1136,6 +1136,7 @@ def test_zdjecia_felg_z_bazy():
     assert B.zapisz(7, [d, d, d, "data:image/jpeg;base64,AAAA"], mini) == mini
     assert rows[7][0] == 2 and sorted(pliki) == ["7_1.jpg", "7_2.jpg", "7_m.jpg"]   # najwyżej 2 zdjęcia + miniatura
     assert B.zapisz(8, []) == "" and rows[8][0] == 0   # sprawdzona, bez zdjęcia
+    assert B.zapisz(9, ["data:image/jpeg;base64,AAAA"]) is None and 9 not in rows   # odrzucony obraz – nic nie zapisane
     with tempfile.TemporaryDirectory() as tmp:
         B2 = Z.ZdjeciaBaza(wiersze_f, pobierz, dysk=tmp)
         out, brak = B2.miniatury([7, 8, 9])
