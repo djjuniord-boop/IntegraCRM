@@ -1,0 +1,53 @@
+// IntegraCRM – pośrednik API wheel-size.com (dobór felg i opon po aucie). Klucz API nie trafia do komputerów:
+// funkcja czyta go z sekretu WHEELSIZE_API_KEY. Dostęp: zalogowany użytkownik z modułem „oferty” (sprawdza baza).
+// Wejście: POST {m: "makes"|"models"|..., params: {...}}. Wyjście: JSON z wheel-size albo {error}.
+// Dozwolone tylko metody odczytu z listy i parametry z listy; region domyślnie eudm (Europa).
+import { createClient } from "npm:@supabase/supabase-js@2.45.4";
+
+const URL = Deno.env.get("SUPABASE_URL")!;
+const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const KEY = Deno.env.get("WHEELSIZE_API_KEY") ?? "";
+const API = "https://api.wheel-size.com/v2/";
+const json = (b: unknown, s = 200) =>
+  new Response(JSON.stringify(b), { status: s, headers: { "Content-Type": "application/json; charset=utf-8" } });
+
+const METODY: Record<string, string> = {
+  regions: "regions/", makes: "makes/", models: "models/", years: "years/", generations: "generations/",
+  modifications: "modifications/", by_model: "search/by_model/", upsteps: "upsteps/",
+  by_rim: "by_rim/search/", by_tire: "by_tire/search/",
+};
+const PARAMY = new Set(["make", "model", "year", "generation", "modification", "region", "lang", "ordering", "limit", "offset",
+  "bolt_pattern", "rim_diameter", "rim_width", "rim_offset", "rim_offset_min", "rim_offset_max", "cb", "cb_min", "cb_max",
+  "section_width", "aspect_ratio", "steps", "steps_min", "steps_max", "brands", "fuel", "trim"]);
+Deno.serve(async (req) => {
+  if (req.method !== "POST") return json({ error: "Tylko POST" }, 405);
+  if (!KEY) return json({ error: "Brak klucza wheel-size w ustawieniach serwera." }, 500);
+  const asUser = createClient(URL, ANON, { global: { headers: { Authorization: req.headers.get("Authorization") ?? "" } } });
+  const { data: who } = await asUser.rpc("me");
+  if (!(who as { email?: string } | null)?.email) return json({ error: "Brak dostępu – zaloguj się w programie" }, 401);
+  const { data: ok } = await asUser.rpc("has_module", { m: "oferty" });
+  if (ok !== true) return json({ error: "Brak dostępu do ofert – poproś administratora." }, 403);
+  let b: Record<string, unknown>;
+  try { b = await req.json(); } catch { return json({ error: "Nieprawidłowe dane" }, 400); }
+  const m = String(b.m ?? "");
+  if (!Object.hasOwn(METODY, m)) return json({ error: "Niedozwolona operacja" }, 400);
+  const q = new URLSearchParams();
+  const params = (b.params && typeof b.params === "object") ? b.params as Record<string, unknown> : {};
+  for (const [k, v] of Object.entries(params)) {
+    if (!PARAMY.has(k)) return json({ error: "Nieprawidłowy parametr " + k.slice(0, 30) }, 400);
+    if (v === null || v === undefined || v === "") continue;
+    q.set(k, String(v).slice(0, 80));
+  }
+  if (!["regions", "upsteps"].includes(m) && !q.has("region") && !q.has("modification")) q.set("region", "eudm");
+  q.set("user_key", KEY);
+  const ctl = new AbortController();
+  const stop = setTimeout(() => ctl.abort(), 20_000);
+  try {
+    const odp = await fetch(API + METODY[m] + "?" + q, { headers: { "Accept": "application/json", "User-Agent": "PanelLatexSerwis" }, signal: ctl.signal });
+    const txt = await odp.text();
+    if (!odp.ok) return json({ error: "wheel-size odpowiedział " + odp.status, szczegoly: txt.replaceAll(KEY, "***").slice(0, 300) }, 502);
+    return new Response(txt, { status: 200, headers: { "Content-Type": "application/json; charset=utf-8" } });
+  } catch (e) {
+    return json({ error: "Brak połączenia z wheel-size (" + (e as Error).name + ")" }, 502);
+  } finally { clearTimeout(stop); }
+});
