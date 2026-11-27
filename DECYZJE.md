@@ -77,6 +77,12 @@ wiersz z datą (w tym samym commicie co zmiana). Szczegóły techniczne – w RE
 - Licznik zapytań w bazie (`ws_licznik`, cała firma, doba UTC); administrator widzi zużycie i ustawia limit w Ustawieniach →
   Felgi; 80% = ostrzeżenie dla pracownika, 100% = blokada do następnego dnia. (2026-11-27)
 
+## UPRAWNIENIA OFERT (2026-11-27)
+- Moduł „Oferty” dzieli się na: **„oferty”** (opony – podstawa, konto xPartner, dobór po aucie w oponach), **„felgi”** (felgi +
+  dobór po aucie) i **„tpms”** (czujniki TPMS). Felgi, TPMS, zamówienia i zamawianie – tylko razem z „Oferty – opony”.
+  Kto miał „oferty”, dostał oba nowe (bez zmiany tego, co widzi). Nazwa zakładki: **„Oferty”** (nie „Oferty opon”).
+- Ukrycie felg / TPMS w programie to porządek – dane felg i czujników w kopii pliku xPartner czyta każdy z modułem „oferty”.
+
 ## Koszyk i ZAMÓWIENIA xPartner
 - Dokument: faktura, płatność: przelew – stałe; cen do xPartner nie wysyłamy. (2026-11-09)
 - Dostawa tylko na adres oddziału konta.

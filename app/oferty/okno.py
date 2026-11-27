@@ -362,6 +362,7 @@ def wczytaj_oddzialy(admin=False):
     silnik.KONTO.update(oddzialy=moje, oddzialy_dane=dane, kto=me.get("name") or me.get("email") or "", admin=admin,
                         zamowienia="zamowienia" in (me.get("modules") or []),
                         zamawianie="zamawianie" in (me.get("modules") or []),
+                        felgi="felgi" in (me.get("modules") or []), tpms="tpms" in (me.get("modules") or []),
                         oddzialy_konta=list(me.get("branches") or []), ceny_oddz=ceny, zapisz_ceny=zapisz_ceny)   # koszyk: adres wg oddziałów zaznaczonych przy koncie (także admin)
 
 

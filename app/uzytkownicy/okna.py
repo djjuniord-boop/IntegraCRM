@@ -5,6 +5,8 @@ from tkinter import messagebox, ttk
 import cloud
 from ui import BG, FlatButton, INK, MUTED, RED, SURFACE, set_icon
 
+ZALEZNE_OD_OFERT = ("felgi", "tpms", "zamowienia", "zamawianie")   # bez „Oferty – opony” nie mają sensu
+
 
 # ---------- zakładka UŻYTKOWNICY (tylko administrator) ----------
 class UserDialog(tk.Toplevel):
@@ -37,20 +39,35 @@ class UserDialog(tk.Toplevel):
             tk.Label(self, text="Zostaw puste, żeby nie zmieniać hasła.", bg=SURFACE, fg=MUTED,
                      font=f.small).pack(anchor="w", pady=(0, 6))
 
+        self._cb = {}
+
         def group(title, items, kolumny=3):
             tk.Label(self, text=title, bg=SURFACE, fg=INK, font=f.label).pack(anchor="w", pady=(6, 0))
             row = tk.Frame(self, bg=SURFACE)
             row.pack(anchor="w")
             for i, (text, var) in enumerate(items):   # siatka – okno mieści się na ekranie 1280 px
-                tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE,
-                               font=f.body).grid(row=i // kolumny, column=i % kolumny, sticky="w", padx=(0, 12))
-        group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES])
+                cb = tk.Checkbutton(row, text=text, variable=var, bg=SURFACE, activebackground=SURFACE, font=f.body)
+                cb.grid(row=i // kolumny, column=i % kolumny, sticky="w", padx=(0, 12))
+                self._cb[id(var)] = cb
+        oferty = ("oferty",) + ZALEZNE_OD_OFERT
+        group("Moduły", [(n, self.v_mod[k]) for k, n in cloud.MODULES if k not in oferty])
+        group("Oferty i xPartner (felgi, TPMS i zamówienia – tylko razem z „Oferty – opony”)",
+              [(dict(cloud.MODULES)[k], self.v_mod[k]) for k in oferty])
+        # Oferty – felgi / czujniki TPMS / zamówienia działają tylko razem z „Oferty – opony” (wspólne okno ofert, konto xPartner)
+        def zalezne(*_):
+            stan = "normal" if self.v_mod["oferty"].get() else "disabled"
+            for k in ZALEZNE_OD_OFERT:
+                if stan == "disabled":
+                    self.v_mod[k].set(False)
+                self._cb[id(self.v_mod[k])].config(state=stan)
+        self.v_mod["oferty"].trace_add("write", zalezne)
+        zalezne()
         group("Oddziały", [(b, self.v_br[b]) for b in cloud.BRANCHES])
         group("Konto", [("Administrator (dostęp do wszystkiego)", self.v_admin), ("Aktywne", self.v_active)])
 
         # OFERTY OPON: konto API xPartner tej osoby (każdy ma swoje; hasło nie jest pokazywane)
         self.v_xp_login, self.v_xp_pass = tk.StringVar(), tk.StringVar()
-        tk.Label(self, text="xPartner – konto API (moduł Oferty opon)", bg=SURFACE, fg=INK,
+        tk.Label(self, text="xPartner – konto API (moduł Oferty)", bg=SURFACE, fg=INK,
                  font=f.label).pack(anchor="w", pady=(10, 0))
         xr = tk.Frame(self, bg=SURFACE)
         xr.pack(anchor="w", pady=(2, 0))
@@ -59,7 +76,7 @@ class UserDialog(tk.Toplevel):
         tk.Entry(xr, textvariable=self.v_xp_login, width=20, font=f.body, relief="solid", bd=1).grid(row=1, column=0, ipady=3)
         tk.Entry(xr, textvariable=self.v_xp_pass, show="•", width=20, font=f.body, relief="solid", bd=1).grid(
             row=1, column=1, ipady=3, padx=(10, 0))
-        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty opon).", bg=SURFACE, fg=MUTED, font=f.small)
+        self.xp_info = tk.Label(self, text="Puste hasło = bez zmiany." if u else "Wpisz login i hasło API xPartner (moduł Oferty).", bg=SURFACE, fg=MUTED, font=f.small)
         self.xp_info.pack(anchor="w")
         self._xp_old_login = ""
         if u:
@@ -81,7 +98,7 @@ class UserDialog(tk.Toplevel):
                     self._xp_old_login = r.get("xp_login") or ""
                     self.v_xp_login.set(self._xp_old_login)
                     self.xp_info.config(text="Hasło zapisane – puste pole = bez zmiany." if jest
-                                        else "Brak hasła – wpisz, żeby moduł Oferty opon działał.")
+                                        else "Brak hasła – wpisz, żeby moduł Oferty działał.")
                 app.after(0, show)
             threading.Thread(target=load_xp, daemon=True).start()
 

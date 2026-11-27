@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.24"
+VERSION = "1.2.25"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,13 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.25",
+        "date": "2026-11-27",
+        "changes": ["Uprawnienia: Oferty włączane osobno – opony, felgi (z doborem po aucie) i czujniki TPMS; nowa grupa „Oferty i xPartner” w oknie konta",
+                    "Zakładka „Oferty opon” nazywa się teraz „Oferty” (opony, felgi, czujniki TPMS)",
+                    "Pomoc: opis felg i doboru po aucie"],
+    },
     {
         "version": "1.2.24",
         "date": "2026-11-27",

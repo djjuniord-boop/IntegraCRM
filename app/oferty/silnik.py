@@ -1797,6 +1797,12 @@ def opis_pol(items):
         "TAK" if p.get("foto") else "brak", "TAK" if p.get("ean") else "brak", ", ".join(et) or "brak",
         ", ".join(p.get("pola") or []), ", ".join(sorted(p["attrs"]))))
 
+def modul(nazwa):
+    """Części okna ofert włączane osobno w UŻYTKOWNICY (2026-11-27): „felgi” (+ dobór po aucie), „tpms”.
+    Bez danych o koncie (testy, stare wersje okna) – dostępne jak dotąd."""
+    return bool(KONTO.get("admin") or KONTO.get(nazwa, True))
+
+
 def moze_zamawiac():
     return bool(KONTO.get("admin") or KONTO.get("zamawianie"))
 
@@ -1873,6 +1879,7 @@ def handle(path, body=None, open_path=None):
                 c["oddzialy"], c["oddzialy_dane"], c["admin"] = KONTO.get("oddzialy") or [], KONTO.get("oddzialy_dane") or {}, bool(KONTO.get("admin"))
                 c["zamowienia"] = bool(KONTO.get("admin") or KONTO.get("zamowienia"))
                 c["zamawianie"] = moze_zamawiac()
+                c["mod_felgi"], c["mod_tpms"] = modul("felgi"), modul("tpms")
                 c["ceny_oddzial"] = oddzial_cen() or ""
                 c["ceny_edycja"] = bool(not c["ceny_oddzial"] or KONTO.get("admin"))
                 return 200, c
@@ -1944,6 +1951,10 @@ def handle(path, body=None, open_path=None):
                 return 500, {"error": "Nie udało się zapisać uwag – jeśli to pierwszy raz, administrator musi wkleić plik SQL "
                                       "(supabase/oferty_uwagi_2026-11-16.sql)."}
             return 200, {"ok": True}
+        if route == "/api/tpms" and not modul("tpms"):
+            return 403, {"error": "Brak dostępu do czujników TPMS – poproś administratora (UŻYTKOWNICY → Oferty – czujniki TPMS)."}
+        if route in ("/api/felgi", "/api/felgi_oferta", "/api/felgi_pdf", "/api/felgi_zdjecia") and not modul("felgi"):
+            return 403, {"error": "Brak dostępu do felg – poproś administratora (UŻYTKOWNICY → Oferty – felgi)."}
         if route == "/api/tpms":   # zakładka „Czujniki TPMS”: samo wyszukiwanie w kopii pliku + wspólny koszyk (2026-11-17)
             from oferty import tpms as TP
             kat = KONTO.get("katalog")

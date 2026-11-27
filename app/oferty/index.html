@@ -116,7 +116,7 @@ tr.k48 td{background:#fffbeb}
 .szuk td{background:#dbeafe!important;font-weight:600}
 .ban48{background:#fef3c7;border:1px solid #fcd34d;color:#78350f;border-radius:10px;padding:8px 12px;font-size:13px;margin-bottom:10px}
 </style></head><body><button id="kFab" onclick="openKosz()" style="display:none"></button><div id="kToast"></div>
-<header><div><h1>Oferty opon</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button><button id="segF" onclick="widok('f')">⚙️ Felgi</button></div><span class="sp"></span>
+<header><div><h1>Oferty</h1><span class="v">xPartner</span></div><div class="seg"><button id="segO" class="on" onclick="widok('o')">🛞 Opony</button><button id="segT" onclick="widok('t')">📡 Czujniki TPMS</button><button id="segF" onclick="widok('f')">⚙️ Felgi</button></div><span class="sp"></span>
 <button onclick="openCfg()">⚙ Ustawienia</button><button onclick="clearAll()" title="Czyści zapytanie, pojazdy, kryteria i ofertę">🧹 Nowa oferta</button><button onclick="openHist()">🕘 Historia ofert <span id="hBadge" class="hb" style="display:none"></span></button><button id="bZam" onclick="openZam()" style="display:none">📦 Zamówienia</button><button id="bKosz" onclick="openKosz()" style="display:none">🛒 Koszyk <span id="kBadge" class="hb" style="display:none"></span></button><button onclick="api('/api/open')">📁 Oferty</button></header><div class="topbar"></div>
 <main id="mainO">
 <div class="card"><h2><span class="n">⚡</span>Szybkie polecenie</h2>
@@ -204,7 +204,7 @@ function autoSzukaj(){if(typeof RES!=='undefined'&&RES&&$('#resCard').style.disp
 <div class="tf" style="margin-bottom:10px"><label>Klient<input id="fo_kl" placeholder="nazwa / telefon" onchange="fLiczD()"></label></div><div id="fOfAuto"></div>
 <div class="fdod">
 <div><b>🛞 Opony do kompletu</b> <span class="muted">wspólne dla wszystkich felg</span><div id="fo_opW" class="fsel"></div><button class="sec" onclick="fWybierzOpony()">🔎 Wybierz / zmień opony</button></div>
-<div><b>📡 Czujniki TPMS</b> <span class="muted">część z xPartner</span><div id="fo_czW" class="fsel"></div><button class="sec" onclick="fWybierzCzujniki()">🔎 Wybierz czujniki</button></div>
+<div class="tylkoTpms"><b>📡 Czujniki TPMS</b> <span class="muted">część z xPartner</span><div id="fo_czW" class="fsel"></div><button class="sec" onclick="fWybierzCzujniki()">🔎 Wybierz czujniki</button></div>
 </div>
 <div id="fEdit" class="edit" style="margin-top:12px"></div><div id="fBlad"></div><div id="fSum"></div>
 <div id="fUl" style="margin:10px 0"></div><div id="fKz" class="kz" style="display:none"></div>
@@ -279,7 +279,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <div class="row" style="margin-top:12px;justify-content:flex-end"><button class="sec" onclick="adlg.close()">Zamknij</button></div></dialog>
 <dialog id="dlg"><h2>Ustawienia</h2>
 <p style="font-size:12px;color:#6b7785;margin-top:0" id="c_info">Ustawienia zapisują się na Twoim koncie (w bazie). Login API xPartner wpisuje administrator w zakładce UŻYTKOWNICY.</p>
-<div class="ctabs"><button type="button" class="sec" data-t="og" onclick="cTab(this)">Ogólne</button><button type="button" class="sec" data-t="op" onclick="cTab(this)">Oferty opon</button><button type="button" class="sec" data-t="fe" onclick="cTab(this)">Felgi</button><button type="button" class="sec" data-t="ko" onclick="cTab(this)">Koszyk i zamówienia</button><button type="button" class="sec" data-t="pdf" onclick="cTab(this)">PDF i oddziały</button></div>
+<div class="ctabs"><button type="button" class="sec" data-t="og" onclick="cTab(this)">Ogólne</button><button type="button" class="sec" data-t="op" onclick="cTab(this)">Opony</button><button type="button" class="sec" data-t="fe" onclick="cTab(this)">Felgi</button><button type="button" class="sec" data-t="ko" onclick="cTab(this)">Koszyk i zamówienia</button><button type="button" class="sec" data-t="pdf" onclick="cTab(this)">PDF i oddziały</button></div>
 <div class="cpane grid2" data-t="og">
 <label>VAT %<input id="c_vat_proc" type="number"></label><label>Kół na auto (domyślna ilość)<input id="c_kola_na_auto" type="number" min="1" max="40"></label>
 <label>Ważność oferty (dni)<input id="c_waznosc_dni" type="number" min="1" max="90"></label>
@@ -328,7 +328,7 @@ th.s{cursor:pointer;user-select:none;white-space:nowrap}th.s:hover{color:#111}th
 <label>Felgi DEMO (z demontażu)<select id="c_felgi_demo"><option value="pokaz">pokazuj</option><option value="ukryj">ukrywaj (chyba że wpiszesz „demo”)</option></select></label>
 <label>Kafelków na stronę<input id="c_felgi_na_stronie" type="number" min="4" max="200"></label>
 <label>Min. stan (domyślnie w filtrze)<input id="c_felgi_min_stan" type="number" min="0"></label>
-<div class="cinfo" style="grid-column:1/3">Montaż, obsługa TPMS i przechowalnia w ofercie felg – z cennika w zakładce <b>Oferty opon</b>.</div>
+<div class="cinfo" style="grid-column:1/3">Montaż, obsługa TPMS i przechowalnia w ofercie felg – z cennika w zakładce <b>Opony</b>.</div>
 </div>
 <div class="cpane grid2" data-t="ko">
 <label>Dostawa z magazynu Bydgoszcz<input id="c_bydgoszcz_dostawa" maxlength="30" placeholder="ok. 48 h"></label>
@@ -590,7 +590,9 @@ function oddzDane(){const o={};document.querySelectorAll('.oddz').forEach(i=>{(o
  for(const k of Object.keys(o))if(!Object.values(o[k]).some(Boolean))delete o[k];return o}
 let ODDZ_ZAP='';   // stan pól oddziałów po wczytaniu – dolne „Zapisz” zapisuje je tylko, gdy coś zmieniono
 async function saveOddz(){try{await api('/api/oddzialy',{oddzialy:oddzDane()});await loadCfg();drawOddz();msg('#cMsg','Zapisano dane oddziałów.')}catch(e){msg('#cMsg',e.message,1)}}
-async function loadCfg(){CFG=await api('/api/cfg');PER=Math.max(5,+CFG.wynikow_na_strone||20);$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
+async function loadCfg(){CFG=await api('/api/cfg');PER=Math.max(5,+CFG.wynikow_na_strone||20);
+ $('#segF').style.display=CFG.mod_felgi===false?'none':'';$('#segT').style.display=CFG.mod_tpms===false?'none':'';
+ document.querySelectorAll('.tylkoTpms').forEach(e=>e.style.display=CFG.mod_tpms===false?'none':'');$('#bZam').style.display=CFG.zamowienia?'':'none';$('#bKosz').style.display=CFG.zamawianie?'':'none';kBadge();try{$('#wzor').textContent=CFG.narzut_tryb==='kwota'?'cena oferty = zakup brutto + '+(CFG.progi||[]).map(p=>(p.do==null?'powyżej':'do '+p.do+' zł')+': '+p.kwota+' zł').join(', '):'cena oferty = zakup netto + marża '+CFG.marza_proc+'% + VAT'}catch(e){}$('#minstan').value=CFG.min_stan;if(!CFG.login)msg('#qMsg','Twoje konto nie ma jeszcze loginu API xPartner – poproś administratora o wpisanie go (UŻYTKOWNICY → konto → xPartner).',1)}
 setTimeout(badgeStart,1500);
 let WT={},WCUR='wymiana_kolo';
 function readW(){WT[WCUR]=Object.fromEntries([...document.querySelectorAll('#c_wym input')].filter(i=>i.value!=='').map(i=>[i.dataset.d,+i.value]))}

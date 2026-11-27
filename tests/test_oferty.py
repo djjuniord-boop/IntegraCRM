@@ -1035,3 +1035,21 @@ def test_licznik_zapytan_wheel_size():
         for k in ("ws", "ws_raport", "ws_limit", "ws_licznik"):
             S.KONTO.pop(k, None)
         S.KONTO["admin"] = False
+
+
+def test_moduly_felgi_tpms():
+    """2026-11-27: części okna ofert włączane osobno w UŻYTKOWNICY – „felgi” (+ dobór po aucie) i „tpms”."""
+    _setup()
+    S.KONTO.update(admin=False, felgi=False, tpms=False)
+    try:
+        assert S.handle("/api/felgi", {"q": "R17"})[0] == 403 and S.handle("/api/felgi_pdf", {"felgi": [1]})[0] == 403
+        assert S.handle("/api/tpms", {"q": "kia"})[0] == 403
+        S.KONTO["admin"] = True
+        assert S.modul("felgi") and S.modul("tpms")   # administrator – wszystko
+        S.KONTO.update(admin=False, felgi=True)
+        assert S.modul("felgi") and not S.modul("tpms")
+    finally:
+        for k in ("felgi", "tpms"):
+            S.KONTO.pop(k, None)
+        S.KONTO["admin"] = False
+    assert S.modul("felgi")   # bez danych o koncie (stare okno, testy) – jak dotąd
