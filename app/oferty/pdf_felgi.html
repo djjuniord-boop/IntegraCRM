@@ -3,13 +3,13 @@
 <style>
 @page{size:A4;margin:0}*{box-sizing:border-box}
 body{margin:0;font:10pt/1.4 "Segoe UI",Roboto,Arial,sans-serif;color:#222;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-.page{width:210mm;height:296mm;padding:14mm 15mm 12mm;position:relative;overflow:hidden}
+.page{width:210mm;height:296mm;padding:14mm 15mm 9mm;position:relative;overflow:hidden;display:flex;flex-direction:column}
 .r{text-align:right;white-space:nowrap}.c{text-align:center;white-space:nowrap}
 .band{margin:-14mm -15mm 0;padding:8mm 15mm 5mm;background:#fff;color:#141414;display:flex;justify-content:space-between;align-items:center;border-bottom:4px solid #E30613}
 .lg img{height:40px;display:block}
 .firma{text-align:right;font-size:8.3pt;color:#555;line-height:1.45}.firma b{color:#141414;font-size:10pt}
 .meta{display:flex;gap:8px;margin:10px 0}.meta div{flex:1;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:9pt}.meta small{display:block;color:#888;font-size:7.5pt}
-.tag{display:inline-block;background:#E30613;color:#fff;font-size:8pt;font-weight:800;padding:2px 9px;border-radius:9px;letter-spacing:.05em}
+.tag{align-self:flex-start;display:inline-block;background:#E30613;color:#fff;font-size:8pt;font-weight:800;padding:2px 9px;border-radius:9px;letter-spacing:.05em}
 h1{font-size:17pt;line-height:1.15;margin:4px 0 10px;color:#141414}
 .top{display:flex;gap:6mm;align-items:flex-start}.top .k1{width:60mm;flex:none}.top .k2{flex:1;min-width:0}.top .k3{width:60mm;flex:none}
 .foto{width:100%;border-radius:6px;display:block}
@@ -33,7 +33,9 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 .cta{margin-top:14px;display:flex;justify-content:space-between;align-items:center;border:1px solid #ddd;color:#141414;border-radius:10px;padding:12px 18px;border-left:6px solid #E30613}
 .tels{text-align:right}.kom{font-size:13pt;font-weight:700;white-space:nowrap;color:#141414;line-height:1.3}
 .cta span{color:#666;font-size:9pt}.cta b{font-size:12pt}.cta .tel{font-size:20pt;font-weight:800;white-space:nowrap;color:#E30613}
-.foot{position:absolute;left:15mm;right:15mm;bottom:9mm;border-top:1px solid #ddd;padding-top:5px;display:flex;justify-content:space-between;font-size:8pt;color:#888}
+.foot{margin-top:auto;border-top:1px solid #ddd;padding-top:5px;display:flex;justify-content:space-between;font-size:8pt;color:#888}.cta{margin-bottom:8px}
+/* długa kalkulacja (dużo pozycji, rabaty, auto) – mniejsze zdjęcie i ciaśniej, żeby dół oferty nie nachodził na stopkę (2026-11-27) */
+.dlugi .fbig{height:58mm}.dlugi .top .k1{width:66mm}.dlugi .par div{padding:2px 0}.dlugi .par span{font-size:7pt}.dlugi .par b{font-size:9pt}.dlugi .meta .au{flex:2.2}.dlugi .fmini img{width:15mm;height:15mm}.dlugi h1{font-size:15pt;margin:3px 0 7px}.dlugi .meta{margin:7px 0}.dlugi h2{margin:9px 0 4px}.dlugi .kal{font-size:9pt}.dlugi .kal td{padding:4px 6px}.dlugi .kal th{padding:4px 6px}.dlugi .kal tr.sum td{padding:6px}.dlugi .war{margin-top:6px}.dlugi .cta{margin-top:8px;padding:9px 16px}.dlugi .cta .tel{font-size:17pt}
 .top{gap:5mm}.top .k1{width:88mm}.top .k2{flex:1}.top .k3{width:52mm}
 .fbig{width:100%;height:88mm;object-fit:contain;background:#f6f6f6;border-radius:8px;display:block}
 .fmini{display:flex;gap:2mm;margin-top:2mm}.fmini img{width:20mm;height:20mm;object-fit:contain;background:#f6f6f6;border-radius:5px;border:1px solid #e6e6e6}
@@ -41,10 +43,10 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 .kal td small{display:block;color:#888;font-size:7.5pt}
 .kal .rb{color:#E30613;font-weight:700}.kal tr.osz td{border:none;padding:3px 6px;color:#E30613;font-size:9pt}
 .pr .przed{font-size:9.5pt;color:#777}.pr .przed s{color:#999}.pr .przed span{color:#E30613;font-weight:700;margin-left:4px}
-</style></head><body><div class="page">
+</style></head><body><div class="page{{#dlugi}} dlugi{{/dlugi}}">
 <div class="band"><div class="lg"><img src="{{{logo}}}" alt="Latex"></div>
 <div class="firma"><b>{{o_nazwa}}</b><br>{{o_adres}}<br>tel. {{o_tel}}<br>{{o_www}}{{#o_www}}{{#o_email}} · {{/o_email}}{{/o_www}}{{o_email}}</div></div>
-<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}{{#auto}}<div><small>Dobrane do</small><b>{{auto}}</b></div>{{/auto}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
+<div class="meta"><div><small>Oferta nr</small><b>{{nr}}</b> · {{data}}</div>{{#klient}}<div><small>Dla</small><b>{{klient}}</b></div>{{/klient}}{{#auto}}<div class="au"><small>Dobrane do</small><b>{{auto}}</b></div>{{/auto}}<div><small>Ważna do</small><b>{{wazna}}</b></div></div>
 <span class="tag">{{tag}}</span><h1>{{tytul}}</h1>
 <div class="top">
 <div class="k1">{{#foto}}<img class="fbig" src="{{foto}}" alt=""><div class="fmini">{{#lista}}<img src="{{u}}" alt="">{{/lista}}</div>{{/foto}}{{^foto}}<div class="fbrak">brak zdjęcia w xPartner</div>{{/foto}}</div>
@@ -64,4 +66,8 @@ h2{font-size:11pt;margin:14px 0 6px;color:#141414;border-left:4px solid #E30613;
 <div class="war">Oferta ważna do {{wazna}} lub do wyczerpania zapasów. Ceny zawierają VAT {{vat_proc}}%. Termin montażu do uzgodnienia telefonicznie.</div>
 <div class="cta"><div><b>Zarezerwuj termin montażu</b><br><span>Zadzwoń – dobierzemy dogodną godzinę</span></div><div class="tels"><div class="tel">☎ {{o_tel}}</div>{{#o_kom}}<div class="kom">📱 {{t}}</div>{{/o_kom}}</div></div>
 <div class="foot"><span>Przygotował{{#kto}}: {{kto}}{{/kto}} · {{o_nazwa}}</span><span>Oferta ważna do {{wazna}}</span></div>
-</div></body></html>
+</div>
+<script>/* zapas: gdy treść i tak się nie mieści (bardzo długie nazwy), cała strona zmniejsza się proporcjonalnie – dół oferty nigdy nie wchodzi na stopkę */
+(function(){var p=document.querySelector('.page');if(!p||p.scrollHeight<=p.clientHeight+1)return;var z=Math.max(.75,p.clientHeight/p.scrollHeight);
+p.style.zoom=z;p.style.width=(210/z)+'mm';p.style.height=(296/z)+'mm'})();</script>
+</body></html>

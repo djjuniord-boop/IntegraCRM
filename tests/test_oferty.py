@@ -876,6 +876,9 @@ def test_ustawienia_w_zakladkach_ceny_bez_zmian_i_nowe_opcje():
         h = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op, "rabat": {"f": 5, "o": 10}})[1]["html"]
         assert "<th class=\"c\">Rabat</th>" in kal(h) and "5%" in kal(h) and "10%" in kal(h) and "W tym oszczędzasz dzięki rabatowi" in h
         assert "rabatu</span>" in h   # przekreślona cena felgi przy cenie za sztukę
+        assert 'class="page"' in h and "p.style.zoom" in h   # 2 pozycje – zwykły układ; zapas: zmniejszenie strony, gdy się nie mieści
+        h = S.handle("/api/felgi_pdf", {"felgi": [1], "ilosc": 4, "opona": op, "rabat": {"o": 10}, "il_tp": 4, "montaz": 1, "klient": "Jan"})[1]["html"]
+        assert 'class="page dlugi"' in h   # długa kalkulacja – ciaśniejszy układ, stopka nie nachodzi na treść
         S.KONTO["ceny_oddz"] = {"Latex Wrocław": dict(stare["Latex Wrocław"], felgi_max=3, felgi_srednica="ostrzez")}
         h = S.handle("/api/felgi_pdf", {"felgi": [1, 2], "ilosc": 4, "opona": op, "rabat": {"o": 10}, "porownanie": 1})[1]["html"]
         assert "(rabat 10%)" in h and "DEMO" not in h

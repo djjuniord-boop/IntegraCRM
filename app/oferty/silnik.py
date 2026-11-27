@@ -1830,7 +1830,7 @@ def felgi_pdf_html(cfg, body, f, poz, razem, oddzial, vat, fotos=None):
         "netto": pl(netto), "vat": pl(round(razem - netto, 2)), "vat_proc": ("%g" % vat).replace(".", ","), "brutto": pl(razem),
     }
     osz = round(sum((float(x.get("przed") or x["c"]) - x["c"]) * x["q"] for x in poz), 2)
-    ctx.update(rabaty=osz >= 0.01, oszczednosc=pl(osz))
+    ctx.update(rabaty=osz >= 0.01, oszczednosc=pl(osz), dlugi=len(poz) + (osz >= 0.01) + bool(ctx["auto"]) + bool(ctx["klient"]) >= 5)
     if f.get("przed") and f["przed"] > f["cena"]:
         ctx.update(cena_szt_przed=pl(f["przed"]), rabat_szt=_proc_txt(f["przed"], f["cena"], poz[0].get("rab_proc")))
     with open(PDF_FELGI, encoding="utf-8") as fh:
