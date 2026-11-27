@@ -265,7 +265,10 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         if traf:
             najlepsze = traf[0][1]
             traf = [t for t in traf if t[1] == najlepsze][:3]
-        if traf and traf[0][2] and traf[0][1] < szukaj.LITEROWKA - 10:   # słabe podobieństwo – tylko podpowiedź, bez lokalizacji
+        # Do listy (lokalizacja) tylko numer zgodny: dokładnie albo różniący się wyłącznie znakami mylonymi przy
+        # przepisywaniu (O/0, I/1, B/8…). Inna litera/cyfra, brakująca albo dodatkowa (DW6JT408 ≠ DW6JT48) to zwykle
+        # INNE auto – tylko podpowiedź „podobny numer”, bez lokalizacji (decyzja właściciela 2026-11-27).
+        if traf and traf[0][2] and traf[0][1] < 80:
             podobne = ", ".join(t[0].get("nr", "") for t in traf)
             traf = []
         else:
@@ -275,7 +278,8 @@ def przygotuj(raport: dict, spis: list, dzis=None) -> list:
         opona = _opona_wzorcowa(p["opony"])
         uwagi = []
         if not spis_poz:
-            uwagi.append((BRAK_OPON if not p["opony"] else "BRAK W SPISIE") + (f" (podobne: {podobne})" if podobne else ""))
+            uwagi.append((BRAK_OPON if not p["opony"] else "BRAK W SPISIE")
+                         + (f" (w spisie podobny numer: {podobne} – sprawdź, czy to nie to samo auto)" if podobne else ""))
         elif przybl:
             uwagi.append("≈ możliwa literówka – sprawdź numer")
         letnie = p.get("rodzaj") == "letnia"

@@ -134,6 +134,35 @@ def statystyki(rows: list) -> dict:
             "dzis": sum(1 for p in rows if dzis(p))}
 
 
+def przewijanie(box, tree):
+    """Tabela z paskami przewijania w pionie i w poziomie (szerokie kolumny, np. Uwagi, nie są ucięte)."""
+    sy = ttk.Scrollbar(box, orient="vertical", command=tree.yview)
+    sx = ttk.Scrollbar(box, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=sy.set, xscrollcommand=sx.set)
+    tree.grid(row=0, column=0, sticky="nsew")
+    sy.grid(row=0, column=1, sticky="ns")
+    sx.grid(row=1, column=0, sticky="ew")
+    box.grid_rowconfigure(0, weight=1)
+    box.grid_columnconfigure(0, weight=1)
+
+
+ZWINIETA = 28   # szerokość zwiniętej kolumny
+
+
+def zwijane_kolumny(tree, kolumny, pomin=()):
+    """Klik w nagłówek kolumny zwija ją do wąskiego paska (▸), drugi klik – przywraca. Więcej miejsca na resztę."""
+    def przelacz(k, tytul, szer):
+        if int(tree.column(k, "width")) > ZWINIETA:
+            tree.column(k, width=ZWINIETA, minwidth=ZWINIETA, stretch=False)
+            tree.heading(k, text="▸")
+        else:
+            tree.column(k, width=szer, stretch=False)
+            tree.heading(k, text=tytul)
+    for k, tytul, szer in kolumny:
+        if k not in pomin:
+            tree.heading(k, text=tytul, command=lambda k=k, t=tytul, s=szer: przelacz(k, t, s))
+
+
 class DepozytMixin:
     """Zakładka DEPOZYT. Część klasy okna programu (App)."""
 
@@ -215,12 +244,10 @@ class DepozytMixin:
         self.dep_tree = ttk.Treeview(box, columns=[k for k, _, _ in kol], show="headings", style="Dep.Treeview")
         for k, t, w in kol:
             self.dep_tree.heading(k, text=t)
-            self.dep_tree.column(k, width=w, anchor="center" if k == "ok" else "w", stretch=k in ("uwagi", "kom"))
+            self.dep_tree.column(k, width=w, anchor="center" if k == "ok" else "w", stretch=False)
         self.dep_tree.tag_configure("przyw", background=KOLOR_PRZYW)
-        sb = ttk.Scrollbar(box, orient="vertical", command=self.dep_tree.yview)
-        self.dep_tree.configure(yscrollcommand=sb.set)
-        self.dep_tree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
+        przewijanie(box, self.dep_tree)
+        zwijane_kolumny(self.dep_tree, kol, pomin=("ok", "nr"))
         self.dep_tree.bind("<Double-1>", lambda e: self._dep_klik_podwojny(e))
         self.dep_tree.bind("<space>", lambda e: self._dep_przelacz_zaznaczone())
         self.dep_tree.bind("<Button-3>", self._dep_menu)
@@ -727,25 +754,23 @@ class PrzygotowanieOkno(tk.Toplevel):
             tk.Checkbutton(przyc, text="tylko auta z oponami w depozycie", variable=self.tylko_depozyt, bg=BG,
                            font=f.body, command=self._render).pack(side="right", padx=8)
         tk.Label(self, text="Zaznacz wiersze (Ctrl/Shift + klik) i użyj przycisków. „Przygotowane” zapisuje w spisie, "
-                            "kto i kiedy przygotował opony.", bg=BG, fg=MUTED, font=f.small).pack(anchor="w", padx=14)
+                            "kto i kiedy przygotował opony. Klik w nagłówek kolumny – zwija ją (▸) albo przywraca.", bg=BG, fg=MUTED, font=f.small).pack(anchor="w", padx=14)
         box = tk.Frame(self, bg=SURFACE)
         box.pack(fill="both", expand=True, padx=14, pady=(6, 14))
         kol = [("dzien", "Termin" if self.terminy else "Dzień", 95), ("lok", "Lokalizacja", 110), ("nr", "Nr rej.", 95),
                ("szt", "Ilość (spis)", 95), ("sezon", "Sezon (spis)", 105),
                ("opis", "Auto / opony w spisie" if self.terminy else "Opony (Integra)", 240),
-               ("szcz", "Uwagi ze spisu" if self.terminy else "Rozmiar · rodzaj · felga · bieżnik", 170), ("klient", "Klient", 150), ("uwagi", "Uwagi", 300)]
+               ("szcz", "Uwagi ze spisu" if self.terminy else "Rozmiar · rodzaj · felga · bieżnik", 170), ("klient", "Klient", 150), ("uwagi", "Uwagi", 520)]
         self.tree = ttk.Treeview(box, columns=[k for k, _, _ in kol], show="headings", style="Dep.Treeview")
         for k, t, w in kol:
             self.tree.heading(k, text=t)
-            self.tree.column(k, width=w, anchor="w", stretch=k in ("uwagi", "opis"))
+            self.tree.column(k, width=w, anchor="w", stretch=False)
         self.tree.tag_configure("brak", background="#FDE3E3")
         self.tree.tag_configure("uwaga", background="#FFF4E0")
         self.tree.tag_configure("gotowe", background=KOLOR_PRZYG)
         self.tree.tag_configure("nie", foreground=MUTED)
-        sb = ttk.Scrollbar(box, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=sb.set)
-        self.tree.pack(side="left", fill="both", expand=True)
-        sb.pack(side="right", fill="y")
+        przewijanie(box, self.tree)
+        zwijane_kolumny(self.tree, kol, pomin=("nr",))
         self._render()
 
     def _widoczne(self) -> list:
