@@ -967,3 +967,43 @@ def test_dobor_po_aucie_wheel_size():
     finally:
         S.KONTO.pop("ws", None)
         S.KONTO.pop("katalog", None)
+
+
+def test_szybkie_polecenie_felg_z_autem():
+    """2026-11-27: „audi a4 b9 2021 alu” / „vw golf mk8” w szybkim poleceniu felg = rozmiary auta z wheel-size, ocena felg,
+    bez filtrowania po nazwie marki (felgi zamienne nie mają „AUDI” w nazwie); bez roku i generacji – jak dotąd."""
+    from oferty import auto as AU
+    _setup()
+    wolane = []
+    def ws(m, par):
+        wolane.append((m, dict(par)))
+        if m == "makes":
+            return {"data": [{"slug": "audi", "name": "Audi"}, {"slug": "volkswagen", "name": "Volkswagen"}, {"slug": "mercedes-benz", "name": "Mercedes-Benz"}]}
+        if m == "models":
+            return {"data": [{"slug": "a4", "name": "A4"}, {"slug": "a4-allroad", "name": "A4 Allroad"}, {"slug": "golf", "name": "Golf"}]}
+        if m == "generations":
+            return {"data": [{"slug": "mk8", "name": "Mk8 (CD1)"}, {"slug": "b9", "name": "B9 (8W)"}]}
+        if m == "by_model":
+            return WS_GOLF
+        return {"data": []}
+    felgi = [{"id": 1, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "51", "Otwór centralny": "57,1"}, "nazwa": "DIEWE 7.5X17 5X112 ET51/57.1", "netto": 400.0, "ilosc": 8},
+             {"id": 2, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X112", "ET": "30", "Otwór centralny": "66,5"}, "nazwa": "AUDI OEM 8X17 5X112 ET30/66.5", "netto": 900.0, "ilosc": 8},
+             {"id": 3, "attrs": {"Typ": "ALUMINIOWA", "Rozstaw śrub": "5X100", "ET": "38"}, "nazwa": "FELGA 7X17 5X100 ET38", "netto": 300.0, "ilosc": 8}]
+    S.KONTO.update(ws=ws, katalog=type("K", (), {"felgi": lambda self: [dict(x) for x in felgi]})(), oddzialy=["Latex Wrocław"], oddzialy_dane=ODDZ, kto="T")
+    S.AUTO_PAMIEC.clear()
+    try:
+        assert AU.znajdz_marke("vw golf 2020", [{"slug": "volkswagen", "name": "Volkswagen"}]) == ("volkswagen", 0)
+        st, r = S.handle("/api/felgi", {"q": "audi a4 b9 2021 alu"})
+        assert st == 200 and r["auto"] and r["auto"]["pcd"] == "5x112" and "Audi A4" in r["auto"]["nazwa"]
+        assert ("by_model", {"make": "audi", "model": "a4", "year": "2021"}) in wolane
+        assert [x["id"] for x in r["lista"]] == [1, 2] and r["lista"][0]["ocena"] == "ok"   # 5x100 odrzucona, zamienna bez „AUDI” jest
+        st, r = S.handle("/api/felgi", {"q": "vw golf mk8"})
+        assert st == 200 and r["auto"] and ("by_model", {"make": "volkswagen", "model": "golf", "generation": "mk8"}) in wolane
+        n = len(wolane)
+        st, r = S.handle("/api/felgi", {"q": "audi 17"})   # sama marka – jak dotąd (po nazwie), bez wheel-size
+        assert st == 200 and r["auto"] is None and [x["id"] for x in r["lista"]] == [2]
+        st, r = S.handle("/api/felgi", {"q": "5x112 R17"})
+        assert st == 200 and r["auto"] is None and len(wolane) == n   # zwykłe polecenie nie pyta API
+    finally:
+        S.KONTO.pop("ws", None)
+        S.KONTO.pop("katalog", None)

@@ -1539,6 +1539,59 @@ def felgi_zapisz_hist(body, w):
 AUTO_PAMIEC = {}   # (metoda, parametry) -> (czas, wynik) – mniej zapytań do wheel-size (darmowy plan: 300 dziennie)
 
 
+def _ws(m, par):
+    """Zapytanie wheel-size z pamięcią 12 h (darmowy plan: 300 zapytań dziennie)."""
+    ws = KONTO.get("ws")
+    if not ws:
+        raise ApiError("Dobór po aucie nie jest jeszcze dostępny – zaloguj się ponownie.")
+    klucz = json.dumps(["surowe", m, par], sort_keys=True)
+    t, wynik = AUTO_PAMIEC.get(klucz, (0, None))
+    if wynik is None or time.time() - t > 12 * 3600:
+        wynik = ws(m, par)
+        AUTO_PAMIEC[klucz] = (time.time(), wynik)
+    return wynik
+
+
+def auto_z_tekstu(txt):
+    """Szybkie polecenie felg z autem („audi a4 b9 2021 alu”, „vw golf 2019”): (auto, reszta polecenia) albo (None, txt).
+    Potrzebna marka + model + rok albo generacja – wtedy wszystkie rozmiary kół auta z wheel-size."""
+    from oferty import auto as AU
+    if not KONTO.get("ws") or not re.search(r"[a-ząćęłńóśźż]{2}", (txt or "").lower()):
+        return None, txt
+    try:
+        marki = AU.lista(_ws("makes", {}))
+        mk, i = AU.znajdz_marke(txt, marki)
+        if not mk:
+            return None, txt
+        md, sl_md = AU.znajdz_model(txt, i, AU.lista(_ws("models", {"make": mk})))
+        if not md:
+            return None, txt
+        sl = AU.slowa(txt)
+        r = AU.rok(txt)
+        reszta = sl[:i] + sl[i + 1 + len(sl_md):]
+        gen = ""
+        if not r:
+            gens = AU.lista(_ws("generations", {"make": mk, "model": md}))
+            for w in reszta:
+                kw = AU._k(w)
+                g = next((x for x in gens if kw == AU._k(x["slug"]) or kw in [AU._k(t) for t in re.split(r"[\s()/,\-]+", x["name"])]), None) \
+                    if len(kw) >= 2 else None
+                if g:
+                    gen = g["slug"]
+                    reszta = [x for x in reszta if x != w]
+                    break
+            if not gen:
+                return None, txt
+        else:
+            reszta = [x for x in reszta if x != r]
+        par = {"make": mk, "model": md, "year": r} if r else {"make": mk, "model": md, "generation": gen}
+        nazwa = " ".join([next((x["name"] for x in marki if x["slug"] == mk), mk), " ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in sl_md)])
+        a = AU.auto_wiele(_ws("by_model", par), nazwa + (" (%s)" % r if r else ""))
+        return a, " ".join(reszta)
+    except ApiError:
+        return None, txt
+
+
 def auto_route(cfg, body):
     """Dobór po aucie: marki → modele → lata → wersje → rozmiary (wheel-size przez funkcję serwera)."""
     from oferty import auto as AU
@@ -1580,8 +1633,11 @@ def felgi_route(cfg, route, body):
         items = kat.felgi() if kat and hasattr(kat, "felgi") else None
         if items is None:
             raise ApiError("Kopia oferty xPartner jest teraz niedostępna – spróbuj za chwilę.")
-        lista, q = FG.szukaj(items, body.get("q") or "", m, vat, lambda n: cena_felgi(cfg, n))
-        a = body.get("auto") if isinstance(body.get("auto"), dict) else None
+        a_txt, tekst = auto_z_tekstu(body.get("q") or "")   # „audi a4 b9 2021 alu” = felgi dobrane do auta
+        if a_txt and a_txt.get("pcd"):
+            tekst = (tekst + " " + a_txt["pcd"]).strip()
+        lista, q = FG.szukaj(items, tekst, m, vat, lambda n: cena_felgi(cfg, n))
+        a = a_txt or (body.get("auto") if isinstance(body.get("auto"), dict) else None)
         if a:   # dobór po aucie: ocena każdej felgi (pasujące najpierw)
             from oferty import auto as AU
             lista = [dict(f) for f in lista]
@@ -1598,7 +1654,7 @@ def felgi_route(cfg, route, body):
                                                           for p in cfg["felgi_progi"])) if cfg["felgi_tryb"] == "kwota" else "cena oferty = zakup netto + marża %g%% + VAT" % m
         if cfg.get("zaokr_felgi", 1) != 1:
             wzor += ", w górę do %d zł" % cfg["zaokr_felgi"]
-        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else ""}
+        return 200, {"lista": lista, "q": q, "marza": m, "wzor": wzor, "zrodlo": info() if info else "", "auto": a_txt}
     try:
         w = felgi_licz(cfg, body)
     except (ValueError, TypeError, AttributeError):

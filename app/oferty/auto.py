@@ -146,3 +146,73 @@ def ocena(f, a, et_ok=5, et_ostrz=15):
     if not szer_ok and d <= et_ostrz:
         return "uw", "szerokość %g\" inna niż %s, sprawdź" % (szer, best["felga"]) + pierscien
     return "nie", "ET %g – za daleko od %s" % (et, best["felga"] or "fabrycznego")
+
+
+# ---------- auto z szybkiego polecenia felg („audi a4 b9 2021 alu”) ----------
+ALIASY = {"vw": "volkswagen", "mercedes": "mercedes-benz", "mb": "mercedes-benz", "merc": "mercedes-benz", "citroen": "citroen",
+          "skoda": "skoda", "alfa": "alfa-romeo", "land": "land-rover", "range": "land-rover", "mini": "mini"}
+
+
+def _k(t):
+    return re.sub(r"[^a-z0-9]", "", (t or "").lower().replace("ë", "e").replace("š", "s").replace("ö", "o"))
+
+
+def slowa(txt):
+    return [w for w in re.split(r"[\s,;/]+", (txt or "").lower()) if w]
+
+
+def znajdz_marke(txt, marki):
+    """Słowo z polecenia -> slug marki z listy wheel-size (z aliasami: vw, mercedes, alfa…)."""
+    by = {_k(m["slug"]): m["slug"] for m in marki}
+    by.update({_k(m["name"]): m["slug"] for m in marki})
+    for i, w in enumerate(slowa(txt)):
+        for kand in (ALIASY.get(w, w),):
+            if _k(kand) in by and len(_k(kand)) >= 2:
+                return by[_k(kand)], i
+    return "", -1
+
+
+def znajdz_model(txt, start, modele):
+    """Słowa po marce -> slug modelu (najdłuższe dopasowanie: „a4 allroad”, „3 series”, „golf”)."""
+    sl = slowa(txt)[start + 1:start + 4]
+    by = {}
+    for m in modele:
+        for k in (_k(m["slug"]), _k(m["name"])):
+            by.setdefault(k, m["slug"])
+    for n in (3, 2, 1):
+        if len(sl) >= n and _k("".join(sl[:n])) in by:
+            return by[_k("".join(sl[:n]))], sl[:n]
+    return "", []
+
+
+def rok(txt):
+    m = re.search(r"(?:^|\s)((?:19[89]|20[0-4])\d)(?=\s|$)", txt or "")
+    return m.group(1) if m else ""
+
+
+def auto_wiele(dane, nazwa="", generacja=""):
+    """search/by_model bez wersji silnika (marka, model, rok albo generacja): wspólne dane i wszystkie rozmiary kół."""
+    rek = [x for x in (dane or {}).get("data") or [] if isinstance(x, dict)]
+    if generacja:
+        rek = [x for x in rek if _k(generacja) in _k((x.get("generation") or {}).get("name"))] or rek
+    if not rek:
+        return None
+    wszystkie = [auto({"data": [x]}) for x in rek]
+    wszystkie = [a for a in wszystkie if a]
+    if not wszystkie:
+        return None
+    a = dict(wszystkie[0])
+    widziane, kola = set(), []
+    for b in wszystkie:
+        for k in b["kola"]:
+            klucz = (k["przod"]["felga"], k["przod"]["opona"], (k["tyl"] or {}).get("felga"))
+            if klucz not in widziane:
+                widziane.add(klucz)
+                kola.append(k)
+    kola.sort(key=lambda k: (not k["oe"], k["przod"]["sred"] or 0, k["przod"]["szer"] or 0))
+    g = (rek[0].get("generation") or {}).get("name") or ""
+    a.update(kola=kola[:60], nazwa=(nazwa + (" " + g if g and _k(g) not in _k(nazwa) else "")).strip(),
+             wersji=len(wszystkie), pcd=wszystkie[0]["pcd"], cb=wszystkie[0]["cb"])
+    if len({b["pcd"] for b in wszystkie}) > 1:   # różne rozstawy w roczniku (rzadko) – bez rozstawu, ocena zawęzi
+        a["pcd"] = ""
+    return a

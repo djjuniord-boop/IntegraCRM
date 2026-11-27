@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.22"
+VERSION = "1.2.23"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,15 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.23",
+        "date": "2026-11-27",
+        "changes": ["Felgi: szybkie polecenie z autem – np. „audi a4 b9 2021 alu” albo „vw golf mk8” dobiera felgi do auta (rozmiary z wheel-size, ocena dopasowania)",
+                    "Felgi: przycisk „Wyczyść wszystko” jak w oponach",
+                    "Felgi: usunięcie felgi z oferty nie kasuje wybranych opon i czujników (znikają dopiero po „usuń”, wyczyszczeniu albo nowym wyszukiwaniu)",
+                    "Felgi: pole „Ilość czujników” przy wybranym czujniku TPMS (i ilość opon przy oponach)",
+                    "Oferty: okno zawsze otwiera się na oponach"],
+    },
     {
         "version": "1.2.22",
         "date": "2026-11-27",
