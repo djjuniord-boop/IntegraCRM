@@ -825,7 +825,7 @@ async function fLicz(){if(!FWS.length)return;FPDF='';$('#fwaInfo').textContent='
  catch(e){msg('#foMsg',e.message,1)}}
 function fOfAutoDraw(){const a=FAUTO;$('#fOfAuto').innerHTML=a?`<div class="fauto" style="margin:0 0 10px">🚗 Dobrane do: <b>${esc(a.nazwa)}</b>
  <label style="font-size:13px"><input type="checkbox" style="width:auto" ${FAUTOPDF?'checked':''} onchange="FAUTOPDF=this.checked;FPDF='';fLiczD()"> pokaż auto na PDF</label>
- <span class="muted" style="flex-basis:100%">Dla mechanika: ${esc([a.gwint,a.moment,a.wybrane&&a.wybrane.cisn?'ciśnienie '+String(a.wybrane.cisn).replace('.',',')+' bar':''].filter(Boolean).join(' · ')||'brak danych')}</span></div>`:''}
+ <span class="muted" style="flex-basis:100%">Dla mechanika: ${esc(aMechanik(a))}</span></div>`:''}
 function fEditDraw(r){fOfAutoDraw();const sel=(v,o)=>o.map(([k,t])=>`<option value="${k}" ${v===k?'selected':''}>${t}</option>`).join('');
  const top=`<div class="t">Warunki tej oferty</div><div class="r" style="border-top:none"><label class="cenaEd">Rabat na felgi % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_felgi??90}" placeholder="0" value="${esc(FRAB.f||'')}" onchange="fUst('rf',this.value)"></label>${FOP?`<label class="cenaEd">Rabat na opony % <input type="number" step="0.5" min="0" max="${CFG.rabat_max_opony??90}" placeholder="0" value="${esc(FRAB.o||'')}" onchange="fUst('ro',this.value)"></label>`:''}<label class="cenaEd">Rabat na montaż % <input type="number" step="1" min="0" max="${CFG.rabat_max_wym??100}" placeholder="0" value="${esc(FRAB.m||'')}" onchange="fUst('rm',this.value)"></label></div>
  <div class="t" style="margin-top:8px">Ceny w ofercie (brutto/szt.) – wpisz własną, aby nadpisać; puste = wyliczona</div><div class="cenaInfo">Ceny i rabaty ustala program – zmiana cen wymaga uprawnienia „Oferty – własne ceny i rabaty” (administrator).</div>`+
@@ -912,7 +912,12 @@ function aZSerwera(a){return {nazwa:a.nazwa,pcd:a.pcd,cb:a.cb,gwint:[a.mocowanie
 function fAutoDraw(){const b=$('#fAuto');if(!FAUTO){b.style.display='none';b.innerHTML='';return}b.style.display='';
  b.innerHTML=`🚗 <b>${esc(FAUTO.nazwa)}</b><span class="muted">${esc(FAUTO.pcd||'')}${FAUTO.cb?' · otwór '+esc(String(FAUTO.cb)):''}${FAUTO.wybrane&&FAUTO.wybrane.felga?' · fabrycznie '+esc(FAUTO.wybrane.felga):''}${FAUTO.z_polecenia?' · rozmiary z '+(+FAUTO.wersji||'wszystkich')+' wersji silnikowych – dokładniej: „zmień auto”':''}</span>
  <label style="font-size:13px"><input type="checkbox" style="width:auto" ${ATYLKO?'checked':''} onchange="ATYLKO=this.checked;fRender(true)"> tylko pasujące</label>
- <button class="sec" style="padding:2px 9px" onclick="aOtworz('f')">zmień auto</button><button class="sec" style="padding:2px 9px" onclick="FAUTO=null;fAutoDraw();if(FL.length)fSzukaj()">✕ bez auta</button>`}
+ <button class="sec" style="padding:2px 9px" onclick="aOtworz('f')">zmień auto</button><button class="sec" style="padding:2px 9px" onclick="FAUTO=null;fAutoDraw();if(FL.length)fSzukaj()">✕ bez auta</button>
+ <span class="muted" style="flex-basis:100%">Dla mechanika: ${esc(aMechanik(FAUTO))}</span>`}
+function aMechanik(a){const c=x=>String(x).replace('.',','),w=a.wybrane&&a.wybrane.cisn;let cis='';
+ if(w)cis='ciśnienie '+c(w)+' bar';else{const l=[...new Set((a.kola||[]).map(k=>+k.przod.cisn).filter(x=>x>0))].sort((x,y)=>x-y);
+  if(l.length)cis='ciśnienie '+(l.length>1?c(l[0])+'–'+c(l[l.length-1]):c(l[0]))+' bar'+(l.length>1?' (zależnie od rozmiaru)':'')}
+ return [a.gwint,a.moment,cis].filter(Boolean).join(' · ')||'brak danych o mocowaniu i ciśnieniu'}
 function widok(v){$('#mainO').style.display=v==='o'?'':'none';$('#mainT').style.display=v==='t'?'':'none';$('#mainF').style.display=v==='f'?'':'none';$('#segO').classList.toggle('on',v==='o');$('#segT').classList.toggle('on',v==='t');$('#segF').classList.toggle('on',v==='f');if(v==='f'){$('#fq').focus()}if(v==='t'){$('#tq').focus();if(!TL.length)tSzukaj()}}
 async function tSzukaj(){const b=$('#tB');b.disabled=true;msg('#tMsg','Szukam…');try{const r=await api('/api/tpms',{q:$('#tq').value});TL=r.lista;TQ=r.q;TROD=r.rodzaje||{};
  const opt=(id,arr,pusty)=>{$(id).innerHTML=`<option value="">${pusty}</option>`+arr.map(x=>`<option>${esc(x)}</option>`).join('')};
