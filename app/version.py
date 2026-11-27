@@ -1,6 +1,6 @@
 """Wersja programu i lista zmian (wyświetlana w zakładce Pomoc)."""
 
-VERSION = "1.2.30"
+VERSION = "1.2.31"
 RELEASED = "2026-11-27"
 
 # Domyślne źródło aktualizacji (adres do version.json albo folder). Można je nadpisać
@@ -11,6 +11,14 @@ DEFAULT_UPDATE_SOURCE = "https://github.com/djjuniord-boop/IntegraCRM/releases/l
 STATS_URL = "https://script.google.com/macros/s/AKfycby7Du6o7t6jtA9jDKrAXQsONfz33y1Aga1V4OGrHlBYmrcFo5WV184ttB66bPJOtgqy/exec"
 
 CHANGELOG = [
+    {
+        "version": "1.2.31",
+        "date": "2026-11-27",
+        "changes": [
+            "DEPOZYT: lista z raportu nie podstawia już innego numeru – numer różniący się literą/cyfrą (np. DW6JT408 i DW6JT48) to „brak opon w depozycie” z podpowiedzią „w spisie podobny numer…”; łączy tylko numery zgodne albo z pomylonymi O/0, I/1, B/8",
+            "DEPOZYT: przewijanie w poziomie w spisie i na liście z raportu; klik w nagłówek kolumny zwija ją (▸) i zostawia więcej miejsca, drugi klik – przywraca",
+        ],
+    },
     {
         "version": "1.2.30",
         "date": "2026-11-27",

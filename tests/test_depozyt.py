@@ -88,7 +88,7 @@ POZ = [
      "rozmiar": "215/65R17", "producent": "Nokian", "rodzaj": "zimowa", "bieznik": 7},
     {"nr": "DX20002", "klient": "Jan Testowy", "przyj": "8.04.2026", "wyd": "26.11.2026", "model": "Winter 2",
      "rozmiar": "225 45 18", "producent": "Pirelli", "rodzaj": "zimowa", "bieznik": 4},
-    {"nr": "DX9M93A", "klient": "Anna Testowa", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Icept",
+    {"nr": "DXBL367", "klient": "Anna Testowa", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Icept",
      "rozmiar": "205/55r16", "producent": "Continental", "rodzaj": "zimowa", "bieznik": 6},
     {"nr": "PO99999", "klient": "Brak W Spisie", "przyj": "3.04.2026", "wyd": "26.11.2026", "model": "Alpin 6",
      "rozmiar": "205/55R16", "producent": "Michelin", "rodzaj": "zimowa", "bieznik": 6, "ilosc": 2},
@@ -116,13 +116,13 @@ def test_raport_integry_i_lista_dla_magazyniera():
     assert raport.tryb(r, datetime.date(2026, 11, 27)) == "kontrola"
     w = raport.przygotuj(r, SPIS, dzis)
     po_nr = {x["raport"]["nr_rej"]: x for x in w}
-    assert [x["lok"] for x in w][:3] == ["K5.1", "K12.3", "M2.1"]          # trasa po regałach, brak na końcu
+    assert [x["lok"] for x in w][:3] == ["K1.2", "K12.3", "M2.1"]          # trasa po regałach, brak na końcu
     assert w[-1]["raport"]["nr_rej"] == "PO99999" and "BRAK W SPISIE" in w[-1]["uwagi"]
     assert po_nr["DX10001"]["uwagi"] == [] and "ODPOWIEDZIALNO" not in po_nr["DX10001"]["opis"]
     assert "Snowproof 2" in po_nr["DX10001"]["opis"]
     u = po_nr["DX20002"]["uwagi"]
     assert "w spisie już odhaczone" in u and any("bieżnik 4 mm" in x for x in u)
-    u = po_nr["DX9M93A"]["uwagi"]
+    u = po_nr["DXBL367"]["uwagi"]
     assert any("literówka" in x for x in u) and any("inna marka" in x for x in u)
     assert po_nr["DX30003"]["lok"] == "KPOK, K40.1" and "LETNIE do wydania" in po_nr["DX30003"]["uwagi"]
     assert "kilka lokalizacji" in po_nr["DX30003"]["uwagi"]
@@ -255,3 +255,20 @@ def test_lista_dla_telefonu_bez_klientow():
     d = dane.lista_do_bazy(rap, w)
     assert d["wiersze"][0]["ids"] == [3] and d["wiersze"][0]["lok"] == "M2.1" and d["wiersze"][0]["godzina"] == "8:00"
     assert "Jan Testowy" not in str(d)
+
+
+
+def test_raport_nie_podstawia_innego_numeru():
+    """DW6JT408 z grafiku to nie DW6JT48 ze spisu (dodatkowa cyfra) – bez lokalizacji, tylko podpowiedź.
+    Mylone znaki (B/8, O/0) dalej łączą się ze spisem."""
+    from depozyt import raport
+    spis = [{"id": 1, "nr": "DX6JT48", "lok": "K7.1", "marka": "MICHELIN"},
+            {"id": 2, "nr": "DX0A123", "lok": "M1.1", "marka": "NOKIAN"}]
+    rap = {"od": "2026-11-28", "do": "2026-11-28", "zrodlo": "terminy", "pozycje": [
+        {"nr_rej": n, "data_wydania": "28.11.2026", "godzina": "9:00", "opony": [], "rodzaj": "", "bieznik_min": None}
+        for n in ("DX6JT408", "DXOA123", "DX6JT4B")]}
+    w = {x["raport"]["nr_rej"]: x for x in raport.przygotuj(rap, spis, datetime.date(2026, 11, 27))}
+    assert w["DX6JT408"]["spis"] == [] and w["DX6JT408"]["lok"] == ""
+    assert "DX6JT48" in w["DX6JT408"]["uwagi"][0] and "podobny numer" in w["DX6JT408"]["uwagi"][0]
+    assert w["DXOA123"]["lok"] == "M1.1"                      # O zamiast 0 – to samo auto
+    assert w["DX6JT4B"]["lok"] == "K7.1"                      # B zamiast 8 – to samo auto
