@@ -1607,8 +1607,7 @@ def auto_z_tekstu(txt):
             gens = AU.lista(_ws("generations", {"make": mk, "model": md}))
             for w in reszta:
                 kw = AU._k(w)
-                g = next((x for x in gens if kw == AU._k(x["slug"]) or kw in [AU._k(t) for t in re.split(r"[\s()/,\-]+", x["name"])]), None) \
-                    if len(kw) >= 2 else None
+                g = next((x for x in gens if kw == AU._k(x["slug"]) or AU.pasuje_gen(w, x["name"])), None) if kw else None
                 if g:
                     gen = g["slug"]
                     reszta = [x for x in reszta if x != w]
@@ -1619,7 +1618,12 @@ def auto_z_tekstu(txt):
             reszta = [x for x in reszta if x != r]
         par = {"make": mk, "model": md, "year": r} if r else {"make": mk, "model": md, "generation": gen}
         nazwa = " ".join([next((x["name"] for x in marki if x["slug"] == mk), mk), " ".join(w.upper() if len(w) <= 3 else w.capitalize() for w in sl_md)])
-        a = AU.auto_wiele(_ws("by_model", par), nazwa + (" (%s)" % r if r else ""))
+        dane = _ws("by_model", par)
+        a = AU.auto_wiele(dane, nazwa + (" (%s)" % r if r else ""), wskazowki=reszta if r else ())
+        if a and r:   # słowo, które wybrało generację („7” w „golf 7 2013”), nie trafia do szukania felg
+            uzyte = [w for w in reszta if any(AU.pasuje_gen(w, (x.get("generation") or {}).get("name"))
+                                              for x in (dane or {}).get("data") or [] if isinstance(x, dict))]
+            reszta = [w for w in reszta if w not in uzyte[:1]]
         return a, " ".join(reszta)
     except ApiError:
         return None, txt

@@ -190,11 +190,34 @@ def rok(txt):
     return m.group(1) if m else ""
 
 
-def auto_wiele(dane, nazwa="", generacja=""):
-    """search/by_model bez wersji silnika (marka, model, rok albo generacja): wspólne dane i wszystkie rozmiary kół."""
+RZYMSKIE = {"1": "i", "2": "ii", "3": "iii", "4": "iv", "5": "v", "6": "vi", "7": "vii", "8": "viii", "9": "ix", "10": "x"}
+
+
+def pasuje_gen(slowo, nazwa):
+    """Czy słowo z polecenia wskazuje generację: „7” → „Mk7 (5G)” / „VII”, „b9” → „B9”, „mk7”, „5g”, „f30”."""
+    w = _k(slowo)
+    if not w or not nazwa:
+        return False
+    tokeny = [_k(t) for t in re.split(r"[\s()/,\-\[\]]+", str(nazwa)) if _k(t)]
+    kand = {w}
+    if w.isdigit():
+        kand |= {"mk" + w, RZYMSKIE.get(w, w)}
+    elif w.startswith("mk") and w[2:].isdigit():
+        kand |= {w[2:], RZYMSKIE.get(w[2:], w)}
+    return any(t in kand for t in tokeny)
+
+
+def auto_wiele(dane, nazwa="", generacja="", wskazowki=()):
+    """search/by_model bez wersji silnika (marka, model, rok albo generacja): wspólne dane i wszystkie rozmiary kół.
+    wskazowki – słowa z polecenia („7” w „golf 7 2013”): gdy rok obejmuje dwie generacje, zostaje ta wskazana."""
     rek = [x for x in (dane or {}).get("data") or [] if isinstance(x, dict)]
     if generacja:
         rek = [x for x in rek if _k(generacja) in _k((x.get("generation") or {}).get("name"))] or rek
+    for w in wskazowki or ():
+        tylko = [x for x in rek if pasuje_gen(w, (x.get("generation") or {}).get("name"))]
+        if tylko:
+            rek = tylko
+            break
     if not rek:
         return None
     wszystkie = [auto({"data": [x]}) for x in rek]
@@ -210,7 +233,12 @@ def auto_wiele(dane, nazwa="", generacja=""):
                 widziane.add(klucz)
                 kola.append(k)
     kola.sort(key=lambda k: (not k["oe"], k["przod"]["sred"] or 0, k["przod"]["szer"] or 0))
-    g = (rek[0].get("generation") or {}).get("name") or ""
+    gens = []
+    for x in rek:
+        n = (x.get("generation") or {}).get("name") or ""
+        if n and n not in gens:
+            gens.append(n)
+    g = " / ".join(gens[:3])   # rok na przełomie generacji (Golf 2013: Mk6 i Mk7) – widać obie
     a.update(kola=kola[:60], nazwa=(nazwa + (" " + g if g and _k(g) not in _k(nazwa) else "")).strip(),
              wersji=len(wszystkie), pcd=wszystkie[0]["pcd"], cb=wszystkie[0]["cb"])
     if len({b["pcd"] for b in wszystkie}) > 1:   # różne rozstawy w roczniku (rzadko) – bez rozstawu, ocena zawęzi
