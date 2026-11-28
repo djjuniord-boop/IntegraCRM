@@ -470,7 +470,7 @@ def enrich(cfg, p):
     p["model_oferta"] = p["model"] + (" – DEMO (opona z demontażu)" if p["demo"] else "")
     return p
 
-HOMOL = [("MO", r"\bMOE?\b|\bMO1\b|\bMO-S\b", "Mercedes (MO)"), ("AO", r"\bAOE?\b|\bRO[12]\b|\bA8A\b", "Audi (AO/RO)"), ("*", r"\*|\bBMW\b", "BMW (*)"),
+HOMOL = [("MO", r"\bMOE?\b|\bMO1\b|\bMO-S\b", "Mercedes (MO)"), ("AO", r"\bAOE?\b|\bRO[12]\b|\bA8A\b", "Audi (AO/RO)"), ("*", r"(?<![A-Z])\*|\*(?![A-Z])|\bBMW\b", "BMW (*)"),
          ("N", r"\bN[A-G]?[0-9]\b", "Porsche (N0–N9)"), ("VOL", r"\bVOL\b", "Volvo (VOL)"), ("T0", r"\bT[0O][0-9]?\b", "Tesla (T0)"),
          ("J", r"\bJLR\b|\bJ\b", "Jaguar (J)"), ("LR", r"\bLR\b", "Land Rover (LR)"), ("VW", r"\bVW\b", "VW"), ("FR", r"\b(FR|MFS|FP|RG)\b", "rant ochronny felgi")]
 
@@ -500,9 +500,16 @@ def homol_cecha(p):
     return kod.strip(), klucze
 
 
+# Gwiazdka w nazwie to BMW tylko jako osobny znak („XL *”, „*MO”, „I*”) – nie w nazwie bieżnika („WINTER I*CEPT”, „EURO*FROST”),
+# i nie w oponach motocyklowych, przemysłowych, ciężarowych i rolniczych („TL*”, „3*”, „L-3 *” = nośność) – 2026-11-28.
+BEZ_GWIAZDKI_BMW = re.compile(r"MOTO|PRZEMYS|CIĘŻAR|CIEZAR|ROLNIC|OTR", re.I)
+
+
 def homol_of(p):
     src = SIZE_RE.sub(" ", p["nazwa"].upper())
     wynik = [k for k, rx, _ in HOMOL if re.search(rx, src)]
+    if "*" in wynik and BEZ_GWIAZDKI_BMW.search(str(p["attrs"].get("Typ") or "")):
+        wynik.remove("*")
     for k in homol_cecha(p)[1]:
         if k not in wynik:
             wynik.append(k)
