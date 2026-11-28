@@ -69,6 +69,12 @@ assert py["plik_search"][0] == "z pliku" and "tyres/381909/labels" in (py["plik_
 # 1.1.19–1.1.25: homologacja z cechy, szybkie polecenie po kodzie, wspólne ceny usług (Wrocław), run flat w PDF
 HOM = [{"Homologacja": "NC0_PORSCHE"}, {"Homologacja": "MOBMW_MERCEDES/BMW/MINI"}, {"Homologacja": "XX_LAND ROVER/FERRARI"}, {"Homologacja": "MO"}, {}]
 py["homol"] = [[S.homol_cecha({"attrs": a}), S.homol_of({"nazwa": "205/55 R16 91V NA0 TEST", "attrs": a})] for a in HOM]
+# 2026-11-28: gwiazdka BMW tylko jako osobny znak i nie w oponach moto/przemysłowych
+GW = [("HANKOOK Z245/35 R19 WINTER I*CEPT EVO3 W330 93W XL", {}), ("HANKOOK HL Z195/45 R19 WINTER I*CEPT EVO3 W330 91H XL * DOT2026", {}),
+      ("BRIDGESTONE L245/40 R20 TURANZA 6 99Y XL *MO RG", {}), ("CONTINENTAL L225/55 R17 ECOCONTACT 6 101Y XL I* FR", {}),
+      ("GOOD-YEAR L225/40 R19 EAGLE F1 93Y XL*", {}), ("GISLAVED Z255/55 R18 EURO*FROST 6 109V XL", {}),
+      ("MITAS 100/80-17 MC-32 52R TL* FRONT", {"Typ": "MOTOCYKLOWA"}), ("MITAS 100/80-17 TL*", {"Typ": "MOTOCYKLOWA", "Homologacja": "X_BMW"})]
+py["gwiazdka"] = [S.homol_of({"nazwa": n, "attrs": a}) for n, a in GW]
 S.KONTO["katalog"].produkt = lambda k: [copy.deepcopy(PLIK)] if k in (str(PLIK["id"]), PLIK.get("ean") or "-") else []
 py["kod"] = [S.handle("/api/quick", {"text": t})[1] for t in (str(PLIK["id"]), "ABC123456789", "xyz")]
 CENY_ODDZ = {"Latex Wrocław": {"marza_proc": 33, "tpms_cena": 99, "wymiana_kolo": {"16": 70}}}
@@ -82,7 +88,7 @@ for adm, odd in ((False, ["Latex Wrocław"]), (True, ["Latex Wrocław"]), (False
     S.handle("/api/cfg", {"marza_proc": 40, "tpms_cena": 120, "vat_proc": 23})
     py["cfg"].append([c["marza_proc"], c["tpms_cena"], c["wymiana_kolo"].get("16"), c["ceny_oddzial"], c["ceny_edycja"], zap])
 S.KONTO.update(admin=False, oddzialy_konta=[], ceny_oddz={}, ustawienia={})
-inp_cfg = {"CENY_ODDZ": CENY_ODDZ, "HOM": HOM}
+inp_cfg = {"CENY_ODDZ": CENY_ODDZ, "HOM": HOM, "GW": GW}
 import importlib.util as _iu
 _spec = _iu.spec_from_file_location("zw", ROOT / "mobile/zrob_wzor.py"); _zw = _iu.module_from_spec(_spec); _spec.loader.exec_module(_zw)
 if (ROOT / "mobile/www/pdf_wzor.js").read_text(encoding="utf-8") != _zw.tresc():

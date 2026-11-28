@@ -39,6 +39,7 @@ S.HIST = { save: async () => {}, list: async () => [], get_id: async () => null 
   await S.handle("/api/offer", { oid: "20261106_090000", pojazdy: [{ rozmiar: "205/55 R16", ilosc: 4, nowe: true, wymiana: true }], wybor: { "205/55 R16": { x: [inp.PLIK.id] } } });
   out.plik_pdf = [(await S.handle("/api/pdf", { id: inp.PLIK.id, logo: "logo.png" }))[1].html];
   out.homol = inp.HOM.map((a) => [S.homol_cecha({ attrs: a }), S.enrich(cfg, { nazwa: "205/55 R16 91V NA0 TEST", attrs: a, netto: 1 }).homol]);
+  out.gwiazdka = inp.GW.map(([n, a]) => S.enrich(cfg, { nazwa: n, attrs: a, netto: 1 }).homol);
   S.KONTO.katalog_produkt = async (k) => (k === String(inp.PLIK.id) || k === (inp.PLIK.ean || "-") ? [JSON.parse(JSON.stringify(inp.PLIK))] : []);
   out.kod = []; for (const t of [String(inp.PLIK.id), "ABC123456789", "xyz"]) out.kod.push((await S.handle("/api/quick", { text: t }))[1]);
   out.cfg = [];

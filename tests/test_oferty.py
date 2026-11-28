@@ -128,6 +128,18 @@ def test_homologacja_z_cechy_xpartner():
     assert S.homol_cecha(p("X", "MOBMW_MERCEDES/BMW/MINI"))[1] == ["MO", "*"]
     assert S.homol_cecha(p("X", "MGT_MASERATI"))[1] == ["Maserati"]
     assert S.homol_of(p("OPONA 205/55 R16 91V")) == []
+    # 2026-11-28: „I*CEPT” (Hankook) to nazwa bieżnika, nie homologacja BMW; gwiazdka osobno – tak
+    assert S.homol_of(p("HANKOOK Z245/35 R19 WINTER I*CEPT EVO3 W330 93W XL")) == []
+    assert S.homol_of(p("HANKOOK Z275/40 R19 WINTER I*CEPT EVO 4 W340 105V XL RG DOT2026")) == ["FR"]
+    assert S.homol_of(p("GISLAVED Z255/55 R18 EURO*FROST 6 109V XL DOT2023")) == []
+    assert S.homol_of(p("HANKOOK HL Z195/45 R19 WINTER I*CEPT EVO3 W330 91H XL * DOT2026")) == ["*"]
+    for n in ("PIRELLI L255/40 R19 P ZERO 100Y XL *", "BRIDGESTONE L245/40 R20 TURANZA 6 99Y XL *MO RG", "CONTINENTAL L225/55 R17 ECOCONTACT 6 101Y XL I* FR",
+              "GOOD-YEAR L225/40 R19 EAGLE F1 SUPERSPORT 93Y XL*", "PIRELLI L315/30 R22 P-ZERO SC 107Y XL (II*) RG", "MICHELIN Z255/50 R21 PILOT ALPIN 5 SUV 109H* XL RG"):
+        assert "*" in S.homol_of(p(n)), n
+    moto = {"nazwa": "MITAS 100/80-17 MC-32 52R M+S TL* FRONT", "attrs": {"Typ": "MOTOCYKLOWA"}}
+    otr = {"nazwa": "BRIDGESTONE 23.5 R25 V-STEEL J-TRACTION 195A2 L-3 * TL", "attrs": {"Typ": "PRZEMYSŁOWA OTR"}}
+    assert "*" not in S.homol_of(moto) and "*" not in S.homol_of(otr)   # gwiazdka = nośność, nie BMW
+    assert "*" in S.homol_of({"nazwa": "MITAS 100/80-17 TL*", "attrs": {"Typ": "MOTOCYKLOWA", "Homologacja": "X_BMW"}})   # cecha xPartner wygrywa
 
 
 def test_wyszukiwanie_pomija_cene_zero():

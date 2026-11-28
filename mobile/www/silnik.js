@@ -234,7 +234,7 @@
   }
   S.sell_price = sell_price; S.doplata_progowa = doplata_progowa;
 
-  const HOMOL = [["MO", /\bMOE?\b|\bMO1\b|\bMO-S\b/], ["AO", /\bAOE?\b|\bRO[12]\b|\bA8A\b/], ["*", /\*|\bBMW\b/], ["N", /\bN[A-G]?[0-9]\b/],
+  const HOMOL = [["MO", /\bMOE?\b|\bMO1\b|\bMO-S\b/], ["AO", /\bAOE?\b|\bRO[12]\b|\bA8A\b/], ["*", /(?<![A-Z])\*|\*(?![A-Z])|\bBMW\b/], ["N", /\bN[A-G]?[0-9]\b/],
     ["VOL", /\bVOL\b/], ["T0", /\bT[0O][0-9]?\b/], ["J", /\bJLR\b|\bJ\b/], ["LR", /\bLR\b/], ["VW", /\bVW\b/], ["FR", /\b(FR|MFS|FP|RG)\b/]];
   S.HOMOL_NAZWY = { MO: "Mercedes (MO)", AO: "Audi (AO/RO)", "*": "BMW (*)", N: "Porsche (N0–N9)", VOL: "Volvo (VOL)", T0: "Tesla (T0)", J: "Jaguar (J)", LR: "Land Rover (LR)", VW: "VW", FR: "rant ochronny felgi" };
   function is_demo(p) {
@@ -255,6 +255,8 @@
   function homol_of(p) {
     const src = p.nazwa.toUpperCase().replace(new RegExp(SIZE_RE.source, "gi"), " ");
     const wynik = HOMOL.filter(([, rx]) => rx.test(src)).map(([k]) => k);
+    // gwiazdka BMW tylko jako osobny znak i nie w oponach moto/przemysłowych/ciężarowych/rolniczych (jak homol_of w silnik.py, 2026-11-28)
+    if (wynik.includes("*") && /MOTO|PRZEMYS|CIĘŻAR|CIEZAR|ROLNIC|OTR/i.test(String(p.attrs.Typ || ""))) wynik.splice(wynik.indexOf("*"), 1);
     for (const k of homol_cecha(p)[1]) if (!wynik.includes(k)) wynik.push(k);
     return wynik;
   }
